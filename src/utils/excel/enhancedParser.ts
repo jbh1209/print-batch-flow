@@ -350,111 +350,18 @@ export const parseAndPrepareProductionReadyJobs = async (
       logger
     );
 
-    // Convert simplified result to match EnhancedJobCreationResult format with comprehensive null safety
-    if (!simplifiedResult || !simplifiedResult.jobs || !Array.isArray(simplifiedResult.jobs)) {
-      throw new Error('Invalid simplified result structure - missing jobs array');
+    // Import the unified types and converter
+    const { UnifiedTypeConverter } = await import('./v2/UnifiedImportTypes');
+    
+    // Convert v2 result to unified format with bulletproof null safety
+    if (!simplifiedResult || typeof simplifiedResult !== 'object') {
+      throw new Error('Invalid simplified result - null or undefined result');
     }
 
-    const successfulJobs = simplifiedResult.jobs.filter(job => job && job.success) || [];
-    const failedJobs = simplifiedResult.jobs.filter(job => job && !job.success) || [];
-    
-    // Create proper row mappings from stage instances with null safety
-    const rowMappings: { [woNo: string]: RowMappingResult[] } = {};
-    
-    try {
-      for (const job of simplifiedResult.jobs) {
-        if (!job || !job.jobData || !job.jobData.wo_no) {
-          logger.addDebugInfo(`Warning: Invalid job data encountered during conversion`);
-          continue;
-        }
-        
-        if (job.success && Array.isArray(job.stageInstances)) {
-          rowMappings[job.jobData.wo_no] = job.stageInstances
-            .filter(instance => instance && typeof instance === 'object')
-            .map((instance, index) => ({
-              excelRowIndex: 0, // Simplified doesn't track exact rows
-              excelData: [],
-              groupName: (instance.partType && String(instance.partType)) || 'Main',
-              description: (instance.description && String(instance.description)) || 'Processing Stage',
-              qty: Number(instance.quantity) || 0,
-              woQty: Number(instance.quantity) || 0,
-              mappedStageId: instance.stageId || null,
-              mappedStageName: (instance.stageName && String(instance.stageName)) || 'Unknown Stage',
-              mappedStageSpecId: instance.stageSpecId || null,
-              mappedStageSpecName: (instance.stageSpecName && String(instance.stageSpecName)) || null,
-              confidence: 100, // Simplified uses direct mapping
-              category: (instance.category && ['printing', 'finishing', 'prepress', 'delivery'].includes(instance.category)) 
-                ? instance.category as any 
-                : 'printing',
-              manualOverride: false,
-              isUnmapped: false,
-              instanceId: `${job.jobData.wo_no}-${index}`,
-              paperSpecification: (instance.paperSpec && String(instance.paperSpec)) || null,
-              partType: (instance.partType && String(instance.partType)) || null
-            }));
-        }
-      }
-    } catch (rowMappingError) {
-      logger.addDebugInfo(`Error creating row mappings: ${rowMappingError}`);
-      // Continue with empty row mappings rather than failing completely
-    }
-
-    // Create category assignments with null safety
-    const categoryAssignments: { [woNo: string]: any } = {};
-    
-    try {
-      for (const job of successfulJobs) {
-        if (!job || !job.jobData || !job.jobData.wo_no) continue;
-        
-        const mappedStages = Array.isArray(job.stageInstances) 
-          ? job.stageInstances
-              .filter(instance => instance && typeof instance === 'object')
-              .map(instance => ({
-                stageName: (instance.stageName && String(instance.stageName)) || 'Unknown Stage',
-                stageId: instance.stageId || '',
-                confidence: 100
-              }))
-          : [];
-
-        categoryAssignments[job.jobData.wo_no] = {
-          categoryId: (job.jobData.category && String(job.jobData.category)) || 'general',
-          categoryName: (job.jobData.category && String(job.jobData.category)) || 'General Production',
-          confidence: 100,
-          isManual: false,
-          mappedStages,
-          requiresCustomWorkflow: false
-        };
-      }
-    } catch (categoryError) {
-      logger.addDebugInfo(`Error creating category assignments: ${categoryError}`);
-      // Continue with empty category assignments rather than failing completely
-    }
-
-    // Log conversion results for debugging
-    logger.addDebugInfo(`Converted ${successfulJobs.length} successful jobs, ${failedJobs.length} failed jobs`);
-    logger.addDebugInfo(`Created ${Object.keys(rowMappings).length} row mapping groups`);
-    logger.addDebugInfo(`Created ${Object.keys(categoryAssignments).length} category assignments`);
-
-    return {
-      success: simplifiedResult.stats.failed === 0,
-      createdJobs: successfulJobs.map(job => job.jobData || {}),
-      failedJobs: failedJobs.map(job => ({
-        job: job.jobData || {},
-        error: (Array.isArray(job.errors) ? job.errors.join('; ') : String(job.errors)) || 'Unknown error'
-      })),
-      categoryAssignments,
-      rowMappings,
-      userId: userId,
-      generateQRCodes,
-      stats: {
-        total: Number(simplifiedResult.stats.total) || 0,
-        successful: Number(simplifiedResult.stats.successful) || 0,
-        failed: Number(simplifiedResult.stats.failed) || 0,
-        newCategories: 0,
-        workflowsInitialized: Number(simplifiedResult.stats.successful) || 0
-      }
-    };
+    const unifiedResult = UnifiedTypeConverter.fromV2Result(simplifiedResult);
+    return UnifiedTypeConverter.toEnhancedJobCreationResult(unifiedResult);
   }
+
   
   // Step 2: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);

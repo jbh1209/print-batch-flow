@@ -1,6 +1,7 @@
 import { ExcelImportDebugger } from "../debugger";
 import { GroupSpecifications } from "../types";
 import { MappingRepository } from "./MappingRepository";
+import { SafeObjectUtils, ExcelErrorHandler } from "./SafeObjectUtils";
 
 export interface DetectedOperation {
   groupName: string;
@@ -113,7 +114,7 @@ export class SimpleStageDetector {
     const operations: DetectedOperation[] = [];
 
     try {
-      for (const [groupName, spec] of Object.entries(specs)) {
+      for (const [groupName, spec] of SafeObjectUtils.safeEntries(specs)) {
         if (!spec || typeof spec !== 'object') {
           this.logger.addDebugInfo(`⚠️ Skipping invalid spec for "${groupName}"`);
           continue;
@@ -121,9 +122,9 @@ export class SimpleStageDetector {
 
         this.logger.addDebugInfo(`Processing ${category}: "${groupName}"`);
         
-        const description = String(spec.description || groupName);
-        const qty = Number(spec.qty) || 0;
-        const woQty = Number(spec.wo_qty) || qty;
+        const description = SafeObjectUtils.safeString(spec.description) || SafeObjectUtils.safeString(groupName);
+        const qty = SafeObjectUtils.safeNumber(spec.qty);
+        const woQty = SafeObjectUtils.safeNumber(spec.wo_qty) || qty;
 
         // Find matching Excel row for accurate row indexing with null safety
         const excelRowIndex = this.findMatchingExcelRow(groupName, excelRows, headers);

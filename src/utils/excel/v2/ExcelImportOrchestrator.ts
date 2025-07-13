@@ -5,6 +5,7 @@ import { StageInstanceBuilder } from "./StageInstanceBuilder";
 import { PaperSpecHandler } from "./PaperSpecHandler";
 import { MappingRepository } from "./MappingRepository";
 import { supabase } from "@/integrations/supabase/client";
+import { SafeObjectUtils, ExcelErrorHandler } from "./SafeObjectUtils";
 
 export interface SimplifiedJobResult {
   woNo: string;
@@ -85,30 +86,30 @@ export class ExcelImportOrchestrator {
       const validInstances = this.stageBuilder.getValidInstances(stageInstances) || [];
       const invalidInstances = this.stageBuilder.getInvalidInstances(stageInstances) || [];
 
-      // Log results with null safety
-      try {
+      // Log results with bulletproof null safety
+      ExcelErrorHandler.withErrorBoundary(() => {
         const instancesByCategory = this.stageBuilder.getInstancesByCategory(validInstances) || {};
         this.logger.addDebugInfo(`Stage instances created:`);
         
-        if (instancesByCategory && typeof instancesByCategory === 'object') {
-          for (const [category, instances] of Object.entries(instancesByCategory)) {
-            if (Array.isArray(instances)) {
-              this.logger.addDebugInfo(`  ${category}: ${instances.length} stages`);
-              for (const instance of instances) {
-                if (instance && typeof instance === 'object') {
-                  this.logger.addDebugInfo(`    - ${instance.stageName || 'Unknown'}${instance.partType ? ` (${instance.partType})` : ''}`);
-                }
-              }
+        for (const [category, instances] of SafeObjectUtils.safeEntries(instancesByCategory)) {
+          const safeInstances = SafeObjectUtils.safeArray(instances);
+          this.logger.addDebugInfo(`  ${category}: ${safeInstances.length} stages`);
+          
+          for (const instance of safeInstances) {
+            if (instance && typeof instance === 'object') {
+              const stageName = SafeObjectUtils.safeString(instance.stageName) || 'Unknown';
+              const partType = instance.partType ? ` (${SafeObjectUtils.safeString(instance.partType)})` : '';
+              this.logger.addDebugInfo(`    - ${stageName}${partType}`);
             }
           }
         }
-      } catch (categoryError) {
-        this.logger.addDebugInfo(`Error processing categories: ${categoryError}`);
-      }
+      }, undefined, 'Logging stage instances');
 
-      const errors = invalidInstances.map(instance => 
-        `${instance.stageName}: ${instance.errorReason || 'Unknown error'}`
-      );
+      const errors = SafeObjectUtils.safeArray(invalidInstances).map(instance => {
+        const stageName = SafeObjectUtils.safeString(instance?.stageName) || 'Unknown Stage';
+        const errorReason = SafeObjectUtils.safeString(instance?.errorReason) || 'Unknown error';
+        return `${stageName}: ${errorReason}`;
+      });
 
       return {
         woNo: jobData.wo_no,
@@ -163,9 +164,14 @@ export class ExcelImportOrchestrator {
       let prepressStages = 0;
 
       for (const result of successful) {
-        totalStages += result.stageInstances.length;
-        for (const instance of result.stageInstances) {
-          switch (instance.category) {
+        const safeStageInstances = SafeObjectUtils.safeArray(result.stageInstances);
+        totalStages += safeStageInstances.length;
+        
+        for (const instance of safeStageInstances) {
+          if (!instance || typeof instance !== 'object') continue;
+          
+          const category = SafeObjectUtils.safeString(instance.category);
+          switch (category) {
             case 'printing':
               printingStages++;
               break;
@@ -232,8 +238,8 @@ export class ExcelImportOrchestrator {
     let failed = 0;
     const errors: string[] = [];
 
-    for (const jobResult of result.jobs) {
-      if (!jobResult.success) {
+    for (const jobResult of SafeObjectUtils.safeArray(result.jobs)) {
+      if (!jobResult || typeof jobResult !== 'object' || !jobResult.success) {
         failed++;
         continue;
       }
@@ -253,20 +259,23 @@ export class ExcelImportOrchestrator {
           throw jobError;
         }
 
-        // Insert stage instances
-        const stageInstancesToInsert = jobResult.stageInstances.map((instance, index) => ({
-          job_id: insertedJob.id,
-          job_table_name: 'production_jobs',
-          production_stage_id: instance.stageId,
-          stage_specification_id: instance.stageSpecId || null,
-          stage_order: index + 1,
-          status: index === 0 ? 'active' : 'pending',
-          quantity: instance.quantity,
-          part_name: instance.partName || null,
-          part_type: instance.partType || null,
-          started_at: index === 0 ? new Date().toISOString() : null,
-          started_by: index === 0 ? userId : null
-        }));
+        // Insert stage instances with comprehensive null safety
+        const safeStageInstances = SafeObjectUtils.safeArray(jobResult.stageInstances);
+        const stageInstancesToInsert = safeStageInstances
+          .filter(instance => instance && typeof instance === 'object')
+          .map((instance, index) => ({
+            job_id: insertedJob.id,
+            job_table_name: 'production_jobs',
+            production_stage_id: SafeObjectUtils.safeString(instance.stageId),
+            stage_specification_id: instance.stageSpecId ? SafeObjectUtils.safeString(instance.stageSpecId) : null,
+            stage_order: index + 1,
+            status: index === 0 ? 'active' : 'pending',
+            quantity: SafeObjectUtils.safeNumber(instance.quantity),
+            part_name: instance.partName ? SafeObjectUtils.safeString(instance.partName) : null,
+            part_type: instance.partType ? SafeObjectUtils.safeString(instance.partType) : null,
+            started_at: index === 0 ? new Date().toISOString() : null,
+            started_by: index === 0 ? userId : null
+          }));
 
         const { error: stagesError } = await supabase
           .from('job_stage_instances')
@@ -276,12 +285,13 @@ export class ExcelImportOrchestrator {
           throw stagesError;
         }
 
-        this.logger.addDebugInfo(`✅ Saved job ${jobResult.woNo} with ${jobResult.stageInstances.length} stages`);
+        this.logger.addDebugInfo(`✅ Saved job ${SafeObjectUtils.safeString(jobResult.woNo)} with ${SafeObjectUtils.safeArray(jobResult.stageInstances).length} stages`);
         successful++;
 
       } catch (error) {
-        this.logger.addDebugInfo(`❌ Failed to save job ${jobResult.woNo}: ${error}`);
-        errors.push(`Failed to save ${jobResult.woNo}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const safeWoNo = SafeObjectUtils.safeString(jobResult.woNo) || 'Unknown Job';
+        this.logger.addDebugInfo(`❌ Failed to save job ${safeWoNo}: ${error}`);
+        errors.push(`Failed to save ${safeWoNo}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         failed++;
       }
     }

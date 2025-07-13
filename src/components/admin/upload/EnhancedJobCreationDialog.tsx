@@ -13,6 +13,7 @@ import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapp
 import type { RowMappingResult } from "@/utils/excel/types";
 import { RowMappingTable } from "./RowMappingTable";
 import { supabase } from "@/integrations/supabase/client";
+import { SafeObjectUtils, ExcelErrorHandler } from "@/utils/excel/v2/SafeObjectUtils";
 
 interface EnhancedJobCreationDialogProps {
   open: boolean;
@@ -46,15 +47,45 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   const [availableCategories, setAvailableCategories] = useState<AvailableCategory[]>([]);
   const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
 
-  // Safely access result properties
-  const safeResult = result || {
+  // Ultra-safe result access with comprehensive null checking
+  const safeResult = ExcelErrorHandler.withErrorBoundary(() => {
+    if (!result || typeof result !== 'object') {
+      return {
+        success: false,
+        createdJobs: [],
+        failedJobs: [],
+        categoryAssignments: {},
+        rowMappings: {},
+        stats: { total: 0, successful: 0, failed: 0, newCategories: 0, workflowsInitialized: 0 }
+      };
+    }
+
+    return {
+      success: Boolean(result.success),
+      createdJobs: SafeObjectUtils.safeArray(result.createdJobs),
+      failedJobs: SafeObjectUtils.safeArray(result.failedJobs),
+      categoryAssignments: (result.categoryAssignments && typeof result.categoryAssignments === 'object') 
+        ? result.categoryAssignments 
+        : {},
+      rowMappings: (result.rowMappings && typeof result.rowMappings === 'object') 
+        ? result.rowMappings 
+        : {},
+      stats: {
+        total: SafeObjectUtils.safeNumber(result.stats?.total),
+        successful: SafeObjectUtils.safeNumber(result.stats?.successful),
+        failed: SafeObjectUtils.safeNumber(result.stats?.failed),
+        newCategories: SafeObjectUtils.safeNumber(result.stats?.newCategories),
+        workflowsInitialized: SafeObjectUtils.safeNumber(result.stats?.workflowsInitialized)
+      }
+    };
+  }, {
     success: false,
     createdJobs: [],
     failedJobs: [],
     categoryAssignments: {},
     rowMappings: {},
     stats: { total: 0, successful: 0, failed: 0, newCategories: 0, workflowsInitialized: 0 }
-  };
+  }, 'Creating safe result object');
 
   useEffect(() => {
     loadAvailableStages();
@@ -62,17 +93,22 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   }, []);
 
   useEffect(() => {
-    if (result?.rowMappings) {
-      // Initialize updatedRowMappings with current result data from the correct location
-      const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
-      Object.entries(safeResult.rowMappings).forEach(([woNo, mappings]) => {
-        if (mappings && mappings.length > 0) {
-          initialMappings[woNo] = [...mappings];
+    ExcelErrorHandler.withErrorBoundary(() => {
+      if (result?.rowMappings) {
+        // Initialize updatedRowMappings with bulletproof null safety
+        const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
+        
+        for (const [woNo, mappings] of SafeObjectUtils.safeEntries(safeResult.rowMappings)) {
+          const safeMappings = SafeObjectUtils.safeArray(mappings);
+          if (safeMappings.length > 0) {
+            initialMappings[woNo] = [...safeMappings];
+          }
         }
-      });
-      setUpdatedRowMappings(initialMappings);
-      console.log('Initialized row mappings:', initialMappings);
-    }
+        
+        setUpdatedRowMappings(initialMappings);
+        console.log('Initialized row mappings:', initialMappings);
+      }
+    }, undefined, 'Initializing row mappings');
   }, [result]);
 
   const loadAvailableStages = async () => {
@@ -196,17 +232,19 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   };
 
   const getTotalUnmappedRows = () => {
-    try {
+    return ExcelErrorHandler.withErrorBoundary(() => {
       if (!updatedRowMappings || typeof updatedRowMappings !== 'object') return 0;
       
-      return Object.values(updatedRowMappings).reduce((total, mappings) => {
-        if (!Array.isArray(mappings)) return total;
-        return total + mappings.filter(m => m && typeof m === 'object' && m.isUnmapped).length;
-      }, 0);
-    } catch (error) {
-      console.error('Error calculating unmapped rows:', error);
-      return 0;
-    }
+      let total = 0;
+      for (const mappings of Object.values(updatedRowMappings)) {
+        const safeMappings = SafeObjectUtils.safeArray(mappings);
+        total += safeMappings.filter(m => 
+          m && typeof m === 'object' && Boolean(m.isUnmapped)
+        ).length;
+      }
+      
+      return total;
+    }, 0, 'Calculating total unmapped rows');
   };
 
   if (!result && !isProcessing) return null;
@@ -343,20 +381,28 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
               </TabsList>
 
               <TabsContent value="mapping" className="flex-1 overflow-y-auto space-y-4">
-                {safeResult.rowMappings && Object.entries(safeResult.rowMappings).map(([woNo, mappings]) => {
-                  const currentMappings = updatedRowMappings[woNo] || mappings || [];
+                {safeResult.rowMappings && SafeObjectUtils.safeEntries(safeResult.rowMappings).map(([woNo, mappings]) => {
+                  const currentMappings = SafeObjectUtils.safeArray(
+                    updatedRowMappings[woNo] || mappings
+                  );
                   
                   return (
                     <Card key={woNo}>
                       <CardHeader>
                         <CardTitle className="text-base flex items-center justify-between">
-                          <span>Work Order: {woNo}</span>
+                          <span>Work Order: {SafeObjectUtils.safeString(woNo)}</span>
                           <div className="flex items-center gap-2">
-                            {currentMappings.filter(m => m.isUnmapped).length > 0 && (
-                              <Badge variant="destructive" className="text-xs">
-                                {currentMappings.filter(m => m.isUnmapped).length} unmapped
-                              </Badge>
-                            )}
+                            {ExcelErrorHandler.withErrorBoundary(() => {
+                              const unmappedCount = currentMappings.filter(m => 
+                                m && typeof m === 'object' && Boolean(m.isUnmapped)
+                              ).length;
+                              
+                              return unmappedCount > 0 && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {unmappedCount} unmapped
+                                </Badge>
+                              );
+                            }, null, 'Counting unmapped rows')}
                             <Badge variant="outline" className="text-xs">
                               {currentMappings.length} rows
                             </Badge>
@@ -400,42 +446,54 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                           </TableRow>
                         </TableHeader>
                       <TableBody>
-                        {Object.entries(safeResult.categoryAssignments).map(([woNo, assignment]) => (
-                          <TableRow key={woNo}>
-                            <TableCell className="font-medium">{woNo}</TableCell>
-                             <TableCell>
-                               <Badge variant="outline" className="text-blue-600 border-blue-600">
-                                 Custom Workflow
-                               </Badge>
-                             </TableCell>
-                            <TableCell>
-                              <Badge className={getConfidenceColor(assignment.confidence)}>
-                                {getConfidenceLabel(assignment.confidence)} ({assignment.confidence.toFixed(0)}%)
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {assignment.mappedStages.map((stage, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {stage.stageName}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {assignment.requiresCustomWorkflow ? (
-                                <Badge variant="outline" className="text-orange-600 border-orange-600">
-                                  Custom
+                        {SafeObjectUtils.safeEntries(safeResult.categoryAssignments).map(([woNo, assignment]) => {
+                          if (!assignment || typeof assignment !== 'object') return null;
+                          
+                          return (
+                            <TableRow key={woNo}>
+                              <TableCell className="font-medium">{SafeObjectUtils.safeString(woNo)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                  Custom Workflow
                                 </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-green-600 border-green-600">
-                                  Standard
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
+                              </TableCell>
+                              <TableCell>
+                                {ExcelErrorHandler.withErrorBoundary(() => {
+                                  const confidence = SafeObjectUtils.safeNumber(assignment.confidence, 0);
+                                  return (
+                                    <Badge className={getConfidenceColor(confidence)}>
+                                      {getConfidenceLabel(confidence)} ({confidence.toFixed(0)}%)
+                                    </Badge>
+                                  );
+                                }, <Badge>Unknown</Badge>, 'Rendering confidence badge')}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {SafeObjectUtils.safeArray(assignment.mappedStages).map((stage, idx) => {
+                                    if (!stage || typeof stage !== 'object') return null;
+                                    return (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {SafeObjectUtils.safeString(stage.stageName) || 'Unknown Stage'}
+                                      </Badge>
+                                    );
+                                  })}
+                                </div>
+                              </TableCell>
+                               <TableCell>
+                                 {assignment.requiresCustomWorkflow ? (
+                                   <Badge variant="outline" className="text-orange-600 border-orange-600">
+                                     Custom
+                                   </Badge>
+                                 ) : (
+                                   <Badge variant="outline" className="text-green-600 border-green-600">
+                                     Standard
+                                   </Badge>
+                                 )}
+                               </TableCell>
+                             </TableRow>
+                           );
+                         })}
+                       </TableBody>
                     </Table>
                     </div>
                   </CardContent>

@@ -2,6 +2,7 @@ import { ExcelImportDebugger } from "../debugger";
 import { DetectedOperation } from "./SimpleStageDetector";
 import { MappingRepository } from "./MappingRepository";
 import { PaperSpecHandler } from "./PaperSpecHandler";
+import { SafeObjectUtils, ExcelErrorHandler, ExcelDataValidator } from "./SafeObjectUtils";
 
 export interface StageInstance {
   stageId: string;
