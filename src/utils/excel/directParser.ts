@@ -31,12 +31,76 @@ export const parseAndCreateJobsDirectly = async (
   // Parse Excel with existing logic that handles cover/text and paper mapping
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, []);
   
-  // Step 2: Use existing enhanced mapper to prepare the data (preserves all working logic)
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
-  await jobCreator.initialize();
+  // Step 2: Create rowMappings directly from the job specifications (preserves user-approved mappings)
+  const enhancedJobAssignments = jobs.map(job => {
+    const rowMappings: any[] = [];
+    
+    // Extract mappings from job specifications
+    if (job.printing_specifications) {
+      Object.entries(job.printing_specifications).forEach(([key, spec]: [string, any]) => {
+        if (spec.mappedStageId) {
+          rowMappings.push({
+            excelRowIndex: job._originalRowIndex || 0,
+            excelData: job._originalExcelRow || [],
+            groupName: key,
+            description: spec.description || '',
+            qty: spec.qty || job.qty,
+            woQty: spec.wo_qty || job.qty,
+            mappedStageId: spec.mappedStageId,
+            mappedStageName: spec.mappedStageName || '',
+            mappedStageSpecId: spec.mappedStageSpecId || null,
+            mappedStageSpecName: spec.mappedStageSpecName || null,
+            confidence: 100,
+            category: 'printing' as const,
+            isUnmapped: false
+          });
+        }
+      });
+    }
+    
+    // Add other specification types (finishing, prepress, etc.)
+    ['finishing_specifications', 'prepress_specifications', 'delivery_specifications'].forEach(specType => {
+      const specs = (job as any)[specType];
+      if (specs) {
+        Object.entries(specs).forEach(([key, spec]: [string, any]) => {
+          if (spec.mappedStageId) {
+            rowMappings.push({
+              excelRowIndex: job._originalRowIndex || 0,
+              excelData: job._originalExcelRow || [],
+              groupName: key,
+              description: spec.description || '',
+              qty: spec.qty || job.qty,
+              woQty: spec.wo_qty || job.qty,
+              mappedStageId: spec.mappedStageId,
+              mappedStageName: spec.mappedStageName || '',
+              mappedStageSpecId: spec.mappedStageSpecId || null,
+              mappedStageSpecName: spec.mappedStageSpecName || null,
+              confidence: 100,
+              category: specType.replace('_specifications', '') as any,
+              isUnmapped: false
+            });
+          }
+        });
+      }
+    });
+    
+    logger.addDebugInfo(`Created ${rowMappings.length} mappings from job ${job.wo_no} specifications`);
+    
+    return {
+      originalJob: job,
+      rowMappings
+    };
+  });
   
-  // Prepare jobs with mappings but don't save to database yet
-  const preparedResult = await jobCreator.prepareEnhancedJobsWithExcelData(jobs, headers, dataRows);
+  const preparedResult = {
+    enhancedJobAssignments,
+    generateQRCodes,
+    stats: {
+      total: jobs.length,
+      successful: 0,
+      failed: 0
+    }
+  };
   
   // Step 3: Use our simplified creator to directly save jobs
   const directCreator = new DirectJobCreator(logger, userId, generateQRCodes);
