@@ -28,16 +28,26 @@ export const parseAndCreateJobsDirectly = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  // Parse Excel with existing logic that handles cover/text and paper mapping
+  // Parse Excel with existing logic but DEBUG what we actually get
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, []);
+  
+  logger.addDebugInfo(`DEBUGGING: Raw jobs from parseExcelFileWithMapping: ${jobs.length}`);
+  jobs.forEach((job, index) => {
+    logger.addDebugInfo(`Job ${index}: ${job.wo_no}`);
+    logger.addDebugInfo(`- printing_specifications: ${JSON.stringify(Object.keys(job.printing_specifications || {}))}`);
+    logger.addDebugInfo(`- finishing_specifications: ${JSON.stringify(Object.keys(job.finishing_specifications || {}))}`);
+    logger.addDebugInfo(`- prepress_specifications: ${JSON.stringify(Object.keys(job.prepress_specifications || {}))}`);
+    logger.addDebugInfo(`- delivery_specifications: ${JSON.stringify(Object.keys(job.delivery_specifications || {}))}`);
+  });
   
   // Step 2: Create rowMappings directly from the job specifications (preserves user-approved mappings)
   const enhancedJobAssignments = jobs.map(job => {
     const rowMappings: any[] = [];
     
-    // Extract mappings from job specifications
+    // Extract mappings from job specifications - these should contain the user's mappedStageId values
     if (job.printing_specifications) {
       Object.entries(job.printing_specifications).forEach(([key, spec]: [string, any]) => {
+        logger.addDebugInfo(`Checking printing spec ${key}: mappedStageId=${spec.mappedStageId}`);
         if (spec.mappedStageId) {
           rowMappings.push({
             excelRowIndex: job._originalRowIndex || 0,
@@ -58,11 +68,12 @@ export const parseAndCreateJobsDirectly = async (
       });
     }
     
-    // Add other specification types (finishing, prepress, etc.)
+    // Add other specification types
     ['finishing_specifications', 'prepress_specifications', 'delivery_specifications'].forEach(specType => {
       const specs = (job as any)[specType];
       if (specs) {
         Object.entries(specs).forEach(([key, spec]: [string, any]) => {
+          logger.addDebugInfo(`Checking ${specType} spec ${key}: mappedStageId=${spec.mappedStageId}`);
           if (spec.mappedStageId) {
             rowMappings.push({
               excelRowIndex: job._originalRowIndex || 0,
@@ -84,7 +95,7 @@ export const parseAndCreateJobsDirectly = async (
       }
     });
     
-    logger.addDebugInfo(`Created ${rowMappings.length} mappings from job ${job.wo_no} specifications`);
+    logger.addDebugInfo(`DEBUGGING: Created ${rowMappings.length} mappings from job ${job.wo_no} specifications`);
     
     return {
       originalJob: job,
