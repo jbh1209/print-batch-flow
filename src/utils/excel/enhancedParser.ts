@@ -88,7 +88,8 @@ export const parseMatrixExcelFileWithMapping = async (
     jobs,
     paperColumnIndex,
     deliveryColumnIndex,
-    matrixData.rows
+    matrixData.rows,
+    mapping // Pass the user-approved stage mappings from MatrixColumnMapping
   );
   
   const stats: ImportStats = {

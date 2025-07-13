@@ -77,6 +77,18 @@ export class EnhancedMappingProcessor {
     rawExcelData?: any[][],
     userMapping?: any // Accept user-approved column mappings
   ): Promise<EnhancedMappingResult> {
+    // Debug user mappings at the start
+    this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Processing ${jobs.length} jobs with user mappings`);
+    this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: User mapping object: ${JSON.stringify(userMapping, null, 2)}`);
+    
+    // Extract and count user-approved stage mappings
+    const userStageMappings = this.extractUserStageMappings(userMapping);
+    this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Found ${Object.keys(userStageMappings).length} user-approved stage mappings:`);
+    Object.entries(userStageMappings).forEach(([stageId, columnIndex]) => {
+      const stageName = this.getStageNameById(stageId);
+      this.logger.addDebugInfo(`  - Stage ${stageName} (${stageId}) -> Column ${columnIndex}`);
+    });
+    
     this.logger.addDebugInfo(`Starting enhanced mapping for ${jobs.length} jobs`);
 
     const result: EnhancedMappingResult = {
@@ -147,8 +159,13 @@ export class EnhancedMappingProcessor {
 
     // If user has provided explicit stage mappings, preserve those and skip text-based detection
     if (userMapping && this.hasUserStageMapping(userMapping)) {
-      this.logger.addDebugInfo(`Job ${job.wo_no} - User has provided explicit stage mappings, preserving those instead of text-pattern detection`);
+      this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Applying user stage mappings for job ${job.wo_no}`);
+      this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Job ${job.wo_no} - Excel row data: ${JSON.stringify(excelRow?.slice(0, 10))}...`);
       await this.applyUserStageMapping(job, userMapping, excelRow);
+      
+      // Debug what was stored after applying user mappings
+      const specsWithUserMappings = this.countSpecificationsWithUserMappings(job);
+      this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Job ${job.wo_no} now has ${specsWithUserMappings} specifications with user mappings`);
       return;
     }
 
@@ -478,6 +495,54 @@ export class EnhancedMappingProcessor {
     this.logger.addDebugInfo(`Job ${job.wo_no} - Applied ${stageMappingsApplied.length} user stage mappings:
       ${JSON.stringify(stageMappingsApplied, null, 2)}
       - Final printing_specifications: ${JSON.stringify(job.printing_specifications, null, 2)}`);
+  }
+
+  /**
+   * Extract user-approved stage mappings from mapping object
+   */
+  private extractUserStageMappings(userMapping?: any): Record<string, number> {
+    if (!userMapping) return {};
+    
+    const stageMappings: Record<string, number> = {};
+    
+    Object.entries(userMapping).forEach(([key, value]) => {
+      if (key.startsWith('stage_') && typeof value === 'number' && value !== -1) {
+        const stageId = key.replace('stage_', '');
+        stageMappings[stageId] = value;
+      }
+    });
+    
+    return stageMappings;
+  }
+
+  /**
+   * Count specifications with user mappings in a job
+   */
+  private countSpecificationsWithUserMappings(job: ParsedJob): number {
+    let count = 0;
+    
+    // Check printing specifications
+    if (job.printing_specifications) {
+      Object.values(job.printing_specifications).forEach((spec: any) => {
+        if (spec?.mappedStageId) count++;
+      });
+    }
+    
+    // Check finishing specifications
+    if (job.finishing_specifications) {
+      Object.values(job.finishing_specifications).forEach((spec: any) => {
+        if (spec?.mappedStageId) count++;
+      });
+    }
+    
+    // Check prepress specifications
+    if (job.prepress_specifications) {
+      Object.values(job.prepress_specifications).forEach((spec: any) => {
+        if (spec?.mappedStageId) count++;
+      });
+    }
+    
+    return count;
   }
 
   /**
