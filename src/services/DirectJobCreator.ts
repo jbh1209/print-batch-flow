@@ -198,27 +198,66 @@ export class DirectJobCreator {
     // Pre-process mappings to detect multiple printing stages and apply cover/text logic
     const processedMappings = this.preprocessMappingsForUniqueStages(validMappings);
     
-    // Get unique ORIGINAL stage IDs for database lookup
-    const originalStageIds = [...new Set(processedMappings.map(m => m.originalStageId || m.mappedStageId))];
+    // Split mappings into those with IDs and those with only names
+    const mappingsWithIds = processedMappings.filter(m => m.originalStageId || m.mappedStageId);
+    const mappingsWithNamesOnly = processedMappings.filter(m => !m.originalStageId && !m.mappedStageId && m.mappedStageName);
     
-    // Fetch stage orders from database
-    const { data: stageData, error: stageError } = await supabase
-      .from('production_stages')
-      .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
-      .in('id', originalStageIds);
+    let allStageData = [];
+    
+    // First: Process mappings with stage IDs
+    if (mappingsWithIds.length > 0) {
+      const stageIds = [...new Set(mappingsWithIds.map(m => m.originalStageId || m.mappedStageId))];
+      
+      const { data: stageDataById, error: stageError } = await supabase
+        .from('production_stages')
+        .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
+        .in('id', stageIds);
 
-    if (stageError) {
-      throw new Error(`Failed to fetch stage data: ${stageError.message}`);
+      if (stageError) {
+        throw new Error(`Failed to fetch stage data by ID: ${stageError.message}`);
+      }
+      
+      if (stageDataById) {
+        allStageData.push(...stageDataById);
+        this.logger.addDebugInfo(`Found ${stageDataById.length} stages by ID lookup`);
+      }
+    }
+    
+    // Second: Process mappings with only stage names
+    if (mappingsWithNamesOnly.length > 0) {
+      const stageNames = [...new Set(mappingsWithNamesOnly.map(m => m.mappedStageName))];
+      
+      const { data: stageDataByName, error: nameError } = await supabase
+        .from('production_stages')
+        .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
+        .in('name', stageNames);
+
+      if (nameError) {
+        this.logger.addDebugInfo(`Warning: Failed to fetch stage data by name: ${nameError.message}`);
+      } else if (stageDataByName) {
+        allStageData.push(...stageDataByName);
+        this.logger.addDebugInfo(`Found ${stageDataByName.length} stages by name lookup`);
+        
+        // Update mappings to include the found stage IDs
+        for (const mapping of mappingsWithNamesOnly) {
+          const foundStage = stageDataByName.find(stage => stage.name === mapping.mappedStageName);
+          if (foundStage) {
+            mapping.mappedStageId = foundStage.id;
+          }
+        }
+      }
     }
 
-    if (!stageData || stageData.length === 0) {
-      this.logger.addDebugInfo(`No production stages found for mapped stage IDs in job ${job.wo_no}`);
+    if (allStageData.length === 0) {
+      this.logger.addDebugInfo(`No production stages found for any mappings in job ${job.wo_no}`);
       return;
     }
+    
+    this.logger.addDebugInfo(`Total stages found: ${allStageData.length} for ${processedMappings.length} mappings`);
 
     // Create stage order mapping and data mapping
-    const stageOrderMap = new Map(stageData.map(stage => [stage.id, stage.order_index]));
-    const stageDataMap = new Map(stageData.map(stage => [stage.id, stage]));
+    const stageOrderMap = new Map(allStageData.map(stage => [stage.id, stage.order_index]));
+    const stageDataMap = new Map(allStageData.map(stage => [stage.id, stage]));
     
     // Create stages manually instead of using RPC to support multiple instances of same stage
     await this.createCustomStageInstances(job, processedMappings, stageOrderMap);
