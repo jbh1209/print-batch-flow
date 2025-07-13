@@ -648,78 +648,45 @@ export class EnhancedJobCreator {
         throw new Error(`Failed to load production stages: ${stagesError?.message}`);
       }
 
-      // Separate printing and paper mappings for quantity-based pairing
-      const printingMappings = rowMappings.filter(mapping => 
-        !mapping.isUnmapped && mapping.mappedStageId && mapping.category === 'printing'
-      );
-      const paperMappings = rowMappings.filter(mapping => 
-        !mapping.isUnmapped && mapping.category === 'paper'
-      );
+      // CRITICAL DEBUG: Log ALL row mappings before filtering
+      this.logger.addDebugInfo(`=== STAGE CREATION DEBUG ===`);
+      this.logger.addDebugInfo(`Total row mappings received: ${rowMappings.length}`);
       
-      this.logger.addDebugInfo(`DEBUG: Total row mappings: ${rowMappings.length}`);
-      this.logger.addDebugInfo(`DEBUG: Mapped row categories: ${JSON.stringify(rowMappings.map(m => ({ category: m.category, stageName: m.mappedStageName, isUnmapped: m.isUnmapped })))}`);
-      this.logger.addDebugInfo(`DEBUG: Printing mappings stage IDs: ${JSON.stringify(printingMappings.map(m => ({ stageId: m.mappedStageId, stageName: m.mappedStageName })))}`);
-      
-      // Include ALL valid mapped stages, not just printing
+      rowMappings.forEach((mapping, index) => {
+        this.logger.addDebugInfo(`Mapping ${index}: ${mapping.mappedStageName || 'UNMAPPED'} (${mapping.category}) - Stage ID: ${mapping.mappedStageId} - Confidence: ${mapping.confidence} - isUnmapped: ${mapping.isUnmapped}`);
+      });
+
+      // Filter all valid mappings (not just printing)
       const allValidMappings = rowMappings.filter(mapping => 
         !mapping.isUnmapped && mapping.mappedStageId
       );
       
-      this.logger.addDebugInfo(`DEBUG: All valid mappings: ${allValidMappings.length} (including ${printingMappings.length} printing)`);
+      this.logger.addDebugInfo(`Valid mappings after filtering: ${allValidMappings.length}`);
       allValidMappings.forEach(mapping => {
-        this.logger.addDebugInfo(`  - ${mapping.mappedStageName} (${mapping.category}) - Stage ID: ${mapping.mappedStageId}`);
+        this.logger.addDebugInfo(`  ✓ ${mapping.mappedStageName} (${mapping.category}) - Stage ID: ${mapping.mappedStageId} - Part: ${mapping.partType || 'none'}`);
       });
-      
-      this.logger.addDebugInfo(`Found ${printingMappings.length} printing mappings and ${paperMappings.length} paper mappings`);
 
-      // Sort both printing and paper mappings by quantity (ascending)
-      const sortedPrintingMappings = printingMappings.sort((a, b) => (a.qty || 0) - (b.qty || 0));
-      const sortedPaperMappings = paperMappings.sort((a, b) => (a.qty || 0) - (b.qty || 0));
+      // Separate by category for logging only
+      const printingMappings = allValidMappings.filter(m => m.category === 'printing');
+      const paperMappings = allValidMappings.filter(m => m.category === 'paper');
       
-      this.logger.addDebugInfo(`Sorted printing quantities: ${sortedPrintingMappings.map(m => m.qty).join(', ')}`);
-      this.logger.addDebugInfo(`Sorted paper quantities: ${sortedPaperMappings.map(m => m.qty).join(', ')}`);
+      this.logger.addDebugInfo(`Breakdown: ${printingMappings.length} printing, ${paperMappings.length} paper mappings`);
 
-      // Create paper-to-printing allocation map
-      const paperToStageMap = new Map<string, string>();
-      if (sortedPrintingMappings.length > 0 && sortedPaperMappings.length > 0) {
-        // Pair smallest with smallest, largest with largest
-        for (let i = 0; i < Math.min(sortedPrintingMappings.length, sortedPaperMappings.length); i++) {
-          const printingMapping = sortedPrintingMappings[i];
-          const paperMapping = sortedPaperMappings[i];
-          
-          // Look up paper specification from excel import mappings
-          const paperSpec = await this.lookupPaperSpecification(paperMapping.description);
-          
-          paperToStageMap.set(printingMapping.mappedStageId!, paperSpec || paperMapping.description);
-          
-          this.logger.addDebugInfo(`Paired printing (qty: ${printingMapping.qty}) with paper "${paperMapping.description}" -> spec: "${paperSpec}"`);
-        }
-      }
-
-      // Group mappings by stage to detect multi-instance scenarios
-      const stageGroups = new Map<string, Array<{mapping: any, paperType?: string}>>();
+      // SIMPLIFIED APPROACH: Convert valid mappings directly to stage instances
+      // Remove complex paper-to-stage pairing since mappings already contain paper specifications
       
-      // Use allValidMappings instead of re-filtering
+      // Group mappings by stage to handle multi-instance scenarios
+      const stageGroups = new Map<string, Array<{mapping: any}>>();
+      
       allValidMappings.forEach((mapping) => {
           const stageId = mapping.mappedStageId!;
           if (!stageGroups.has(stageId)) {
             stageGroups.set(stageId, []);
           }
           
-          // Get paper type from allocation map for printing stages, or use paperSpecification
-          let paperType = '';
-          if (mapping.category === 'printing') {
-            paperType = paperToStageMap.get(stageId) || mapping.paperSpecification || '';
-          } else {
-            paperType = mapping.paperSpecification || '';
-          }
+          this.logger.addDebugInfo(`  Adding to stage group ${stageId}: ${mapping.mappedStageName} (${mapping.category}) - Part: ${mapping.partType || 'none'} - Paper: ${mapping.paperSpecification || 'none'}`);
           
-          this.logger.addDebugInfo(`  Adding to stage group ${stageId}: ${mapping.mappedStageName} with paper: "${paperType}"`);
-          
-          stageGroups.get(stageId)!.push({ 
-            mapping, 
-            paperType: paperType || ''
-          });
+          stageGroups.get(stageId)!.push({ mapping });
         });
 
       this.logger.addDebugInfo(`Grouped mappings into ${stageGroups.size} unique stages`);
@@ -748,14 +715,12 @@ export class EnhancedJobCreator {
         // Since row mappings are now pre-split in enhancedStageMapper, 
         // each mapping already represents a separate instance
         stageMappings.forEach((stageMapping, instanceIndex) => {
-          const { mapping, paperType } = stageMapping;
+          const { mapping } = stageMapping;
           
           // Create meaningful part names from pre-split mapping data
           let partName = '';
           if (mapping.paperSpecification) {
             partName = `${productionStage.name} - ${mapping.paperSpecification}`;
-          } else if (paperType) {
-            partName = `${productionStage.name} - ${paperType}`;
           } else if (stageMappings.length > 1) {
             partName = `${productionStage.name} - Run ${instanceIndex + 1}`;
           } else {
@@ -772,7 +737,7 @@ export class EnhancedJobCreator {
             partName,
             quantity,
             mapping,
-            paperType: mapping.paperSpecification || paperType
+            paperType: mapping.paperSpecification
           });
 
           this.logger.addDebugInfo(`Created stage instance: ${partName} with quantity ${quantity}`);
