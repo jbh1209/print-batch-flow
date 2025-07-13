@@ -353,55 +353,65 @@ export const ExcelUpload = () => {
     setIsCreatingJobs(true);
     
     try {
-      // Convert to enhanced format for existing upload infrastructure
-      const enhancedFormat = UnifiedTypeConverter.toEnhancedJobCreationResult(v2Result);
+      debugLogger.addDebugInfo("🚀 Starting V2 job creation with proper stage instances");
       
-      const jobsToUpload = enhancedFormat.createdJobs.map(job => ({
-        ...job.jobData,
-        user_id: user.id,
-        qr_code_data: generateQRCodes ? generateQRCodeData({
-          wo_no: job.woNo,
-          job_id: `temp-${job.woNo}`,
-          customer: job.jobData.customer,
-          due_date: job.jobData.due_date
-        }) : undefined,
-        qr_code_url: undefined // Will be set after QR generation
-      }));
-
-      // Generate QR codes if enabled
-      for (const job of jobsToUpload) {
-        if (generateQRCodes && job.qr_code_data) {
-          try {
-            job.qr_code_url = await generateQRCodeImage(job.qr_code_data);
-          } catch (qrError) {
-            debugLogger.addDebugInfo(`Failed to generate QR code for ${job.wo_no}: ${qrError}`);
+      // Import and use the proper V2 save process
+      const { ExcelImportOrchestrator } = await import("@/utils/excel/v2/ExcelImportOrchestrator");
+      const orchestrator = new ExcelImportOrchestrator(debugLogger);
+      
+      // First handle QR code generation for the V2 result
+      if (generateQRCodes) {
+        debugLogger.addDebugInfo("📱 Generating QR codes for V2 jobs");
+        
+        for (const jobResult of v2Result.jobs) {
+          if (jobResult.success && jobResult.jobData) {
+            try {
+              const qrData = generateQRCodeData({
+                wo_no: jobResult.woNo,
+                job_id: `temp-${jobResult.woNo}`,
+                customer: jobResult.jobData.customer,
+                due_date: jobResult.jobData.due_date
+              });
+              
+              const qrUrl = await generateQRCodeImage(qrData);
+              
+              // Update the job data with QR code info
+              jobResult.jobData.qr_code_data = qrData;
+              jobResult.jobData.qr_code_url = qrUrl;
+            } catch (qrError) {
+              debugLogger.addDebugInfo(`Failed to generate QR code for ${jobResult.woNo}: ${qrError}`);
+            }
           }
         }
       }
-
-      console.log("💾 Starting database upload for", jobsToUpload.length, "V2 jobs");
       
-      const { data, error } = await supabase
-        .from('production_jobs')
-        .upsert(jobsToUpload, { 
-          onConflict: 'wo_no,user_id',
-          ignoreDuplicates: true 
-        })
-        .select();
-
-      if (error) {
-        throw new Error(`Database error: ${error.message}`);
+      // Use the proper V2 save process which creates both jobs AND stage instances
+      const saveResult = await orchestrator.saveToDatabase(v2Result, user.id);
+      
+      debugLogger.addDebugInfo(`✅ V2 Save Complete: ${saveResult.successful} successful, ${saveResult.failed} failed`);
+      
+      if (saveResult.errors.length > 0) {
+        debugLogger.addDebugInfo(`❌ Save errors: ${saveResult.errors.join('; ')}`);
       }
-
-      const successCount = data?.length || 0;
-      const duplicatesSkipped = jobsToUpload.length - successCount;
       
-      let message = `Successfully created ${successCount} production jobs!`;
-      if (duplicatesSkipped > 0) {
-        message += ` (${duplicatesSkipped} duplicates skipped)`;
+      // Update QR codes with actual job IDs if needed
+      if (generateQRCodes && saveResult.successful > 0) {
+        debugLogger.addDebugInfo("🔄 Updating QR codes with actual job IDs");
+        
+        // The orchestrator already handles QR code updates during save
+        // No additional processing needed here
+      }
+      
+      let message = `Successfully created ${saveResult.successful} complete work orders with production stages!`;
+      if (saveResult.failed > 0) {
+        message += ` (${saveResult.failed} failed)`;
       }
       
       toast.success(message);
+      
+      if (saveResult.errors.length > 0) {
+        console.warn("V2 Save errors:", saveResult.errors);
+      }
       
       setShowV2Dialog(false);
       setV2Result(null);
@@ -409,6 +419,7 @@ export const ExcelUpload = () => {
       
     } catch (error) {
       console.error("Error creating V2 jobs:", error);
+      debugLogger.addDebugInfo(`❌ V2 job creation failed: ${error}`);
       toast.error("Failed to create V2 jobs: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsCreatingJobs(false);

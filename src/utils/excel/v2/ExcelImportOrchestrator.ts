@@ -247,10 +247,10 @@ export class ExcelImportOrchestrator {
   }
 
   /**
-   * Save jobs and stage instances to database
+   * Save jobs and stage instances to database (supports both simplified and unified results)
    */
   async saveToDatabase(
-    result: SimplifiedImportResult,
+    result: SimplifiedImportResult | any,
     userId: string
   ): Promise<{ successful: number; failed: number; errors: string[] }> {
     this.logger.addDebugInfo(`\n💾 SAVING TO DATABASE - ${result.jobs.length} jobs`);
@@ -260,19 +260,42 @@ export class ExcelImportOrchestrator {
     const errors: string[] = [];
 
     for (const jobResult of SafeObjectUtils.safeArray(result.jobs)) {
-      if (!jobResult || typeof jobResult !== 'object' || !jobResult.success) {
+      if (!jobResult || typeof jobResult !== 'object') {
+        failed++;
+        continue;
+      }
+      
+      // Handle both SimplifiedJobResult and UnifiedJobResult formats with type safety
+      const isUnifiedJob = 'woNo' in jobResult;
+      const success = isUnifiedJob ? (jobResult as any).success : (jobResult as any).success;
+      const jobData = isUnifiedJob ? (jobResult as any).jobData : (jobResult as any).jobData;
+      const woNo = isUnifiedJob ? (jobResult as any).woNo : (jobData?.wo_no || 'Unknown Job');
+      
+      if (!success) {
         failed++;
         continue;
       }
 
       try {
-        // Insert production job
+        // Insert production job with QR code generation
+        const jobToInsert = {
+          ...jobData,
+          user_id: userId
+        };
+        
+        // Generate QR code data if it exists but no URL yet
+        if (jobToInsert.qr_code_data && !jobToInsert.qr_code_url) {
+          try {
+            const { generateQRCodeImage } = await import("@/utils/qrCodeGenerator");
+            jobToInsert.qr_code_url = await generateQRCodeImage(jobToInsert.qr_code_data);
+          } catch (qrError) {
+            this.logger.addDebugInfo(`QR code generation failed for ${woNo}: ${qrError}`);
+          }
+        }
+        
         const { data: insertedJob, error: jobError } = await supabase
           .from('production_jobs')
-          .insert({
-            ...jobResult.jobData,
-            user_id: userId
-          })
+          .insert(jobToInsert)
           .select()
           .single();
 
@@ -281,10 +304,11 @@ export class ExcelImportOrchestrator {
         }
 
         // Insert stage instances with comprehensive null safety
-        const safeStageInstances = SafeObjectUtils.safeArray(jobResult.stageInstances);
+        const stageInstances = (jobResult as any).stageInstances || [];
+        const safeStageInstances = SafeObjectUtils.safeArray(stageInstances);
         const stageInstancesToInsert = safeStageInstances
           .filter(instance => instance && typeof instance === 'object')
-          .map((instance, index) => ({
+          .map((instance: any, index) => ({
             job_id: insertedJob.id,
             job_table_name: 'production_jobs',
             production_stage_id: SafeObjectUtils.safeString(instance.stageId),
@@ -306,13 +330,12 @@ export class ExcelImportOrchestrator {
           throw stagesError;
         }
 
-        this.logger.addDebugInfo(`✅ Saved job ${SafeObjectUtils.safeString(jobResult.woNo)} with ${SafeObjectUtils.safeArray(jobResult.stageInstances).length} stages`);
+        this.logger.addDebugInfo(`✅ Saved job ${SafeObjectUtils.safeString(woNo)} with ${safeStageInstances.length} stages`);
         successful++;
 
       } catch (error) {
-        const safeWoNo = SafeObjectUtils.safeString(jobResult.woNo) || 'Unknown Job';
-        this.logger.addDebugInfo(`❌ Failed to save job ${safeWoNo}: ${error}`);
-        errors.push(`Failed to save ${safeWoNo}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        this.logger.addDebugInfo(`❌ Failed to save job ${woNo}: ${error}`);
+        errors.push(`Failed to save ${woNo}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         failed++;
       }
     }
