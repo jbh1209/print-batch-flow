@@ -176,88 +176,46 @@ export class DirectJobCreator {
       return;
     }
 
-    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${rowMappings.length} row mappings`);
+    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${rowMappings.length} row mappings - TRUSTING Excel parser`);
     
-    // Debug each mapping before filtering
-    rowMappings.forEach((mapping, idx) => {
-      this.logger.addDebugInfo(`Mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, StageId: ${mapping.mappedStageId}`);
-    });
+    // TRUST the Excel parser - it has already done all validation and mapping
+    // Only use mappings that have mappedStageId (Excel parser's verified results)
+    const validMappings = rowMappings.filter(mapping => mapping.mappedStageId);
 
-    // Trust user-approved mappings - only filter out null stage mappings
-    const validMappings = rowMappings.filter(mapping => 
-      mapping.mappedStageId || mapping.mappedStageName
-    );
-
-    this.logger.addDebugInfo(`Found ${validMappings.length} valid mappings out of ${rowMappings.length} total mappings`);
+    this.logger.addDebugInfo(`Excel parser provided ${validMappings.length} validated mappings with stage IDs`);
 
     if (validMappings.length === 0) {
-      this.logger.addDebugInfo(`No valid stage mappings found for job ${job.wo_no}`);
+      this.logger.addDebugInfo(`No mappings with mappedStageId found - Excel parser should have provided these`);
       return;
     }
 
-    // Pre-process mappings to detect multiple printing stages and apply cover/text logic
+    // Pre-process mappings for cover/text logic only
     const processedMappings = this.preprocessMappingsForUniqueStages(validMappings);
     
-    // Split mappings into those with IDs and those with only names
-    const mappingsWithIds = processedMappings.filter(m => m.originalStageId || m.mappedStageId);
-    const mappingsWithNamesOnly = processedMappings.filter(m => !m.originalStageId && !m.mappedStageId && m.mappedStageName);
+    // Get unique stage IDs - Excel parser has already validated these exist
+    const stageIds = [...new Set(processedMappings.map(m => m.mappedStageId))];
     
-    let allStageData = [];
+    this.logger.addDebugInfo(`Using ${stageIds.length} unique stage IDs from Excel parser: ${stageIds.join(', ')}`);
     
-    // First: Process mappings with stage IDs
-    if (mappingsWithIds.length > 0) {
-      const stageIds = [...new Set(mappingsWithIds.map(m => m.originalStageId || m.mappedStageId))];
-      
-      const { data: stageDataById, error: stageError } = await supabase
-        .from('production_stages')
-        .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
-        .in('id', stageIds);
+    // Single lookup for stage metadata only (we trust the IDs are valid)
+    const { data: stageData, error: stageError } = await supabase
+      .from('production_stages')
+      .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
+      .in('id', stageIds);
 
-      if (stageError) {
-        throw new Error(`Failed to fetch stage data by ID: ${stageError.message}`);
-      }
-      
-      if (stageDataById) {
-        allStageData.push(...stageDataById);
-        this.logger.addDebugInfo(`Found ${stageDataById.length} stages by ID lookup`);
-      }
-    }
-    
-    // Second: Process mappings with only stage names
-    if (mappingsWithNamesOnly.length > 0) {
-      const stageNames = [...new Set(mappingsWithNamesOnly.map(m => m.mappedStageName))];
-      
-      const { data: stageDataByName, error: nameError } = await supabase
-        .from('production_stages')
-        .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
-        .in('name', stageNames);
-
-      if (nameError) {
-        this.logger.addDebugInfo(`Warning: Failed to fetch stage data by name: ${nameError.message}`);
-      } else if (stageDataByName) {
-        allStageData.push(...stageDataByName);
-        this.logger.addDebugInfo(`Found ${stageDataByName.length} stages by name lookup`);
-        
-        // Update mappings to include the found stage IDs
-        for (const mapping of mappingsWithNamesOnly) {
-          const foundStage = stageDataByName.find(stage => stage.name === mapping.mappedStageName);
-          if (foundStage) {
-            mapping.mappedStageId = foundStage.id;
-          }
-        }
-      }
+    if (stageError) {
+      throw new Error(`Failed to fetch stage metadata: ${stageError.message}`);
     }
 
-    if (allStageData.length === 0) {
-      this.logger.addDebugInfo(`No production stages found for any mappings in job ${job.wo_no}`);
-      return;
+    if (!stageData || stageData.length !== stageIds.length) {
+      this.logger.addDebugInfo(`Warning: Expected ${stageIds.length} stages, found ${stageData?.length || 0}`);
     }
     
-    this.logger.addDebugInfo(`Total stages found: ${allStageData.length} for ${processedMappings.length} mappings`);
+    this.logger.addDebugInfo(`Retrieved metadata for ${stageData?.length || 0} stages`);
 
-    // Create stage order mapping and data mapping
-    const stageOrderMap = new Map(allStageData.map(stage => [stage.id, stage.order_index]));
-    const stageDataMap = new Map(allStageData.map(stage => [stage.id, stage]));
+    // Create lookup maps
+    const stageOrderMap = new Map(stageData?.map(stage => [stage.id, stage.order_index]) || []);
+    const stageDataMap = new Map(stageData?.map(stage => [stage.id, stage]) || []);
     
     // Create stages manually instead of using RPC to support multiple instances of same stage
     await this.createCustomStageInstances(job, processedMappings, stageOrderMap);
