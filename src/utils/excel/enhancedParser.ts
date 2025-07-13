@@ -9,6 +9,7 @@ import { EnhancedMappingProcessor } from './enhancedMappingProcessor';
 import { EnhancedJobCreator } from './enhancedJobCreator';
 import type { ExcelPreviewData, ColumnMapping } from '@/components/tracker/ColumnMappingDialog';
 import type { MatrixColumnMapping } from '@/components/tracker/MatrixMappingDialog';
+import { processJobsWithSimplifiedArchitecture } from './v2/simplifiedParser';
 
 export const parseExcelFileForPreview = async (file: File): Promise<ExcelPreviewData> => {
   const data = await file.arrayBuffer();
@@ -320,7 +321,8 @@ export const parseAndPrepareProductionReadyJobs = async (
   logger: ExcelImportDebugger,
   userId: string,
   generateQRCodes: boolean = true,
-  availableSpecs: any[] = []
+  availableSpecs: any[] = [],
+  useSimplifiedArchitecture: boolean = false
 ): Promise<any> => {
   logger.addDebugInfo(`Starting Phase 4 enhanced job preparation for file: ${file.name}`);
   
@@ -335,6 +337,48 @@ export const parseAndPrepareProductionReadyJobs = async (
   const dataRows = jsonData.slice(1) as any[][];
   
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
+
+  // Check if we should use the simplified architecture
+  if (useSimplifiedArchitecture) {
+    logger.addDebugInfo("🚀 USING SIMPLIFIED ARCHITECTURE V2.0");
+    
+    const simplifiedResult = await processJobsWithSimplifiedArchitecture(
+      jobs,
+      dataRows,
+      headers,
+      logger
+    );
+
+    // Convert simplified result to match expected format
+    return {
+      productionJobs: simplifiedResult.jobs.map(job => job.jobData),
+      jobStageInstances: simplifiedResult.jobs.flatMap(job => 
+        job.stageInstances.map((instance, index) => ({
+          job_id: job.jobData.wo_no, // temporary ID
+          job_table_name: 'production_jobs',
+          production_stage_id: instance.stageId,
+          stage_specification_id: instance.stageSpecId || null,
+          stage_order: index + 1,
+          status: index === 0 ? 'active' : 'pending',
+          quantity: instance.quantity,
+          part_name: instance.partName || null,
+          part_type: instance.partType || null
+        }))
+      ),
+      rowMappings: [], // Not needed in simplified version
+      stats: {
+        total: simplifiedResult.stats.total,
+        successful: simplifiedResult.stats.successful,
+        failed: simplifiedResult.stats.failed,
+        printingStages: simplifiedResult.stats.printingStages,
+        finishingStages: simplifiedResult.stats.finishingStages,
+        prepressStages: simplifiedResult.stats.prepressStages,
+        unmappedRows: simplifiedResult.stats.failed
+      },
+      errors: simplifiedResult.errors,
+      debugInfo: logger.getDebugInfo()
+    };
+  }
   
   // Step 2: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
@@ -395,12 +439,55 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   logger: ExcelImportDebugger,
   userId: string,
   generateQRCodes: boolean = true,
-  availableSpecs: any[] = []
+  availableSpecs: any[] = [],
+  useSimplifiedArchitecture: boolean = false
 ): Promise<any> => {
   logger.addDebugInfo(`Starting Phase 4 enhanced matrix job preparation for file: ${file.name}`);
   
   // Step 1: Parse matrix Excel with enhanced mapping
   const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
+
+  // Check if we should use the simplified architecture
+  if (useSimplifiedArchitecture) {
+    logger.addDebugInfo("🚀 USING SIMPLIFIED ARCHITECTURE V2.0 (Matrix)");
+    
+    const simplifiedResult = await processJobsWithSimplifiedArchitecture(
+      jobs,
+      matrixData.rows,
+      matrixData.headers,
+      logger
+    );
+
+    // Convert simplified result to match expected format
+    return {
+      productionJobs: simplifiedResult.jobs.map(job => job.jobData),
+      jobStageInstances: simplifiedResult.jobs.flatMap(job => 
+        job.stageInstances.map((instance, index) => ({
+          job_id: job.jobData.wo_no, // temporary ID
+          job_table_name: 'production_jobs',
+          production_stage_id: instance.stageId,
+          stage_specification_id: instance.stageSpecId || null,
+          stage_order: index + 1,
+          status: index === 0 ? 'active' : 'pending',
+          quantity: instance.quantity,
+          part_name: instance.partName || null,
+          part_type: instance.partType || null
+        }))
+      ),
+      rowMappings: [], // Not needed in simplified version
+      stats: {
+        total: simplifiedResult.stats.total,
+        successful: simplifiedResult.stats.successful,
+        failed: simplifiedResult.stats.failed,
+        printingStages: simplifiedResult.stats.printingStages,
+        finishingStages: simplifiedResult.stats.finishingStages,
+        prepressStages: simplifiedResult.stats.prepressStages,
+        unmappedRows: simplifiedResult.stats.failed
+      },
+      errors: simplifiedResult.errors,
+      debugInfo: logger.getDebugInfo()
+    };
+  }
   
   // Step 2: Create enhanced job creator with matrix data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
@@ -460,6 +547,49 @@ export const finalizeProductionReadyJobs = async (
   currentUserId: string
 ): Promise<any> => {
   logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs for user ${currentUserId}`);
+  
+  // Check if this was processed with simplified architecture
+  if (preparedResult.stats.printingStages !== undefined) {
+    logger.addDebugInfo("🔄 Using simplified architecture for finalization");
+    
+    // Import the simplified save function
+    const { saveSimplifiedResultsToDatabase } = await import('./v2/simplifiedParser');
+    
+    // Convert to simplified format
+    const simplifiedResult = {
+      jobs: preparedResult.productionJobs.map((job: any, index: number) => ({
+        woNo: job.wo_no,
+        jobData: job,
+        stageInstances: preparedResult.jobStageInstances
+          .filter((instance: any) => instance.job_id === job.wo_no)
+          .map((instance: any) => ({
+            stageId: instance.production_stage_id,
+            stageName: instance.stage_name || 'Unknown Stage',
+            stageSpecId: instance.stage_specification_id,
+            category: instance.category || 'unknown',
+            quantity: instance.quantity || 0,
+            partName: instance.part_name,
+            partType: instance.part_type
+          })),
+        errors: [],
+        success: true
+      })),
+      stats: preparedResult.stats,
+      errors: preparedResult.errors || [],
+      debugInfo: logger.getDebugInfo()
+    };
+    
+    const saveResult = await saveSimplifiedResultsToDatabase(simplifiedResult, currentUserId, logger);
+    
+    return {
+      stats: {
+        total: simplifiedResult.stats.total,
+        successful: saveResult.successful,
+        failed: saveResult.failed
+      },
+      errors: saveResult.errors
+    };
+  }
   
   // Use the EnhancedJobCreator's finalize method with current authenticated user ID
   const jobCreator = new EnhancedJobCreator(logger, currentUserId, preparedResult.generateQRCodes);

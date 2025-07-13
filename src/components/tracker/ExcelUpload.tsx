@@ -46,6 +46,7 @@ export const ExcelUpload = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState("");
   const [generateQRCodes, setGenerateQRCodes] = useState(true);
+  const [useSimplifiedArchitecture, setUseSimplifiedArchitecture] = useState(true);
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [debugLogger] = useState(() => new ExcelImportDebugger());
@@ -128,7 +129,9 @@ export const ExcelUpload = () => {
         mapping, 
         debugLogger,
         user.id,
-        generateQRCodes
+        generateQRCodes,
+        [],
+        useSimplifiedArchitecture
       );
       
       setEnhancedResult(result);
@@ -159,7 +162,9 @@ export const ExcelUpload = () => {
         mapping, 
         debugLogger,
         user.id,
-        generateQRCodes
+        generateQRCodes,
+        [],
+        useSimplifiedArchitecture
       );
       
       setEnhancedResult(result);
@@ -391,16 +396,30 @@ export const ExcelUpload = () => {
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="generate-qr"
-                checked={generateQRCodes}
-                onCheckedChange={setGenerateQRCodes}
-              />
-              <Label htmlFor="generate-qr" className="flex items-center gap-2">
-                <QrCode className="h-4 w-4" />
-                Generate QR codes for each job
-              </Label>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="generate-qr"
+                  checked={generateQRCodes}
+                  onCheckedChange={setGenerateQRCodes}
+                />
+                <Label htmlFor="generate-qr" className="flex items-center gap-2">
+                  <QrCode className="h-4 w-4" />
+                  Generate QR codes for each job
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="use-simplified"
+                  checked={useSimplifiedArchitecture}
+                  onCheckedChange={setUseSimplifiedArchitecture}
+                />
+                <Label htmlFor="use-simplified" className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Use simplified architecture v2.0 (recommended)
+                </Label>
+              </div>
             </div>
 
             {uploadError && (
