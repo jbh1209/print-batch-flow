@@ -81,7 +81,7 @@ export const ExcelUpload = () => {
       setResult(processingResult);
       
       if (processingResult.success) {
-        const userStageCount = Object.keys(mapping).filter(k => k.startsWith('user_stage_')).length;
+        const userStageCount = Object.keys(mapping).filter(k => k.startsWith('stage_')).length;
         toast.success(
           `Success! ${processingResult.stats.successful}/${processingResult.stats.total} jobs created with ${userStageCount} user-approved stages each!`
         );
