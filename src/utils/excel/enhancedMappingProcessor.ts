@@ -462,33 +462,30 @@ export class EnhancedMappingProcessor {
           ? String(excelRow[columnIndex as number]).trim() 
           : '';
         
-        // Only create stage if there's actual data in that column
-        if (columnValue && columnValue !== '') {
-          // Create a specification entry with the user-mapped stage ID
-          const workflowKey = `user_stage_${stageId}`;
-          
-          // Store in printing_specifications for now (we could categorize later)
-          job.printing_specifications[workflowKey] = {
-            description: `User Mapped Production Stage`,
-            specifications: columnValue,
-            qty: job.qty || 1,
-            mappedStageId: stageId, // Critical value #1 for preservation
-            mappedStageName: stageName, // Critical value #2 for preservation - THIS WAS MISSING!
-            originalColumnIndex: columnIndex,
-            confidence: 100 // High confidence since user explicitly mapped it
-          };
-          
-          stageMappingsApplied.push({
-            stageId,
-            stageName,
-            columnIndex,
-            value: columnValue
-          });
-          
-          this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user stage mapping: Stage ${stageId} (${stageName}) -> Column ${columnIndex} = "${columnValue}"`);
-        } else {
-          this.logger.addDebugInfo(`Job ${job.wo_no} - Skipped empty stage mapping: Stage ${stageId} (${stageName}) -> Column ${columnIndex} (no data)`);
-        }
+        // FIXED: Create ALL user-approved stages regardless of Excel data presence
+        // If user approved this stage, honor their decision even if Excel column is empty
+        const workflowKey = `user_stage_${stageId}`;
+        
+        // Store in printing_specifications for now (we could categorize later)
+        job.printing_specifications[workflowKey] = {
+          description: `User Mapped Production Stage`,
+          specifications: columnValue || `[User Approved Stage - No Excel Data]`,
+          qty: job.qty || 1,
+          mappedStageId: stageId, // Critical value #1 for preservation
+          mappedStageName: stageName, // Critical value #2 for preservation
+          originalColumnIndex: columnIndex,
+          confidence: 100 // High confidence since user explicitly mapped it
+        };
+        
+        stageMappingsApplied.push({
+          stageId,
+          stageName,
+          columnIndex,
+          value: columnValue || '[No Excel Data]'
+        });
+        
+        this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user stage mapping: Stage ${stageId} (${stageName}) -> Column ${columnIndex} = "${columnValue || '[No Excel Data]'}"`);
+      
       }
     });
 
