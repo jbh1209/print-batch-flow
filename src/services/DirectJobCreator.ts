@@ -280,11 +280,13 @@ export class DirectJobCreator {
           this.logger.addDebugInfo(`Prepared stage: ${stageName} (${partType}) with qty: ${mapping.qty}`);
         });
       } else {
-        // Single stage or non-printing stage - keep as is
-        processedMappings.push({
-          ...stageGroup[0],
-          originalStageId: stageGroup[0].mappedStageId,
-          stageInstanceIndex: 0
+        // Non-printing stage - keep all mappings to preserve all stage instances
+        stageGroup.forEach((mapping, index) => {
+          processedMappings.push({
+            ...mapping,
+            originalStageId: mapping.mappedStageId,
+            stageInstanceIndex: index
+          });
         });
       }
     }
