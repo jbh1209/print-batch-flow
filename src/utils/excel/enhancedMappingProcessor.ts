@@ -104,12 +104,12 @@ export class EnhancedMappingProcessor {
 
   /**
    * Populate workflow specifications from Excel row data or job fields
-   * This is critical for stage mapping to work!
+   * PRESERVES user-approved mappedStageId values from column mapping dialog
    */
   private async populateWorkflowSpecifications(job: ParsedJob, excelRow: any[] | null): Promise<void> {
     this.logger.addDebugInfo(`Populating workflow specifications for job ${job.wo_no}`);
 
-    // Initialize specification objects if they don't exist
+    // Initialize specification objects if they don't exist, but preserve existing ones
     if (!job.printing_specifications) {
       job.printing_specifications = {};
     }
@@ -119,6 +119,26 @@ export class EnhancedMappingProcessor {
     if (!job.prepress_specifications) {
       job.prepress_specifications = {};
     }
+
+    // Preserve existing mappedStageId values from user-approved mappings
+    const preserveExistingMappings = (specObj: any) => {
+      const existingMappings: Record<string, string> = {};
+      Object.entries(specObj).forEach(([key, spec]: [string, any]) => {
+        if (spec && typeof spec === 'object' && spec.mappedStageId) {
+          existingMappings[key] = spec.mappedStageId;
+        }
+      });
+      return existingMappings;
+    };
+
+    const existingPrintingMappings = preserveExistingMappings(job.printing_specifications);
+    const existingFinishingMappings = preserveExistingMappings(job.finishing_specifications);
+    const existingPrepressMappings = preserveExistingMappings(job.prepress_specifications);
+
+    this.logger.addDebugInfo(`Job ${job.wo_no} - Preserving existing mappings:
+      - Printing: ${Object.keys(existingPrintingMappings).length} mappings
+      - Finishing: ${Object.keys(existingFinishingMappings).length} mappings  
+      - Prepress: ${Object.keys(existingPrepressMappings).length} mappings`);
 
     // Extract printing specifications from job data
     if (job.specifications) {
@@ -131,7 +151,9 @@ export class EnhancedMappingProcessor {
                       specs.includes('4/0') ? '4/0 Color Process' : '1/0 Color Process',
           specifications: specs.includes('4/4') ? '4/4' : 
                          specs.includes('4/0') ? '4/0' : '1/0',
-          qty: job.qty || 1
+          qty: job.qty || 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingPrintingMappings.color_process && { mappedStageId: existingPrintingMappings.color_process })
         };
       }
       
@@ -141,7 +163,9 @@ export class EnhancedMappingProcessor {
                       specs.includes('litho') ? 'Lithographic Printing' : 'Offset Printing',
           specifications: specs.includes('digital') ? 'Digital' :
                          specs.includes('litho') ? 'Litho' : 'Offset',
-          qty: job.qty || 1
+          qty: job.qty || 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingPrintingMappings.print_method && { mappedStageId: existingPrintingMappings.print_method })
         };
       }
     }
@@ -157,7 +181,9 @@ export class EnhancedMappingProcessor {
                       specs.includes('matt') ? 'Matt Lamination' : 'Standard Lamination',
           specifications: specs.includes('gloss') ? 'Gloss' :
                          specs.includes('matt') ? 'Matt' : 'Standard',
-          qty: job.qty || 1
+          qty: job.qty || 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingFinishingMappings.lamination && { mappedStageId: existingFinishingMappings.lamination })
         };
       }
       
@@ -165,7 +191,9 @@ export class EnhancedMappingProcessor {
         job.finishing_specifications.cutting = {
           description: 'Cutting/Trimming Required',
           specifications: 'Cut to Size',
-          qty: job.qty || 1
+          qty: job.qty || 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingFinishingMappings.cutting && { mappedStageId: existingFinishingMappings.cutting })
         };
       }
       
@@ -173,7 +201,9 @@ export class EnhancedMappingProcessor {
         job.finishing_specifications.folding = {
           description: 'Folding/Creasing Required',
           specifications: 'Fold',
-          qty: job.qty || 1
+          qty: job.qty || 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingFinishingMappings.folding && { mappedStageId: existingFinishingMappings.folding })
         };
       }
     }
@@ -186,7 +216,9 @@ export class EnhancedMappingProcessor {
         job.prepress_specifications.proofing = {
           description: 'Proofing Required',
           specifications: 'Proof for Approval',
-          qty: 1
+          qty: 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingPrepressMappings.proofing && { mappedStageId: existingPrepressMappings.proofing })
         };
       }
       
@@ -194,12 +226,15 @@ export class EnhancedMappingProcessor {
         job.prepress_specifications.artwork = {
           description: 'Artwork/Design Required',
           specifications: 'Artwork Setup',
-          qty: 1
+          qty: 1,
+          // PRESERVE user-approved mappedStageId if it exists
+          ...(existingPrepressMappings.artwork && { mappedStageId: existingPrepressMappings.artwork })
         };
       }
     }
 
-    this.logger.addDebugInfo(`Job ${job.wo_no} specifications populated:
+    // Log final specifications with mappedStageId preservation status
+    this.logger.addDebugInfo(`Job ${job.wo_no} specifications populated with preserved mappings:
       - Printing: ${JSON.stringify(job.printing_specifications)}
       - Finishing: ${JSON.stringify(job.finishing_specifications)}
       - Prepress: ${JSON.stringify(job.prepress_specifications)}`);
