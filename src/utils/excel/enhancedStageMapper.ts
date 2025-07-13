@@ -315,9 +315,9 @@ export class EnhancedStageMapper {
           const paperMapping = paperMappings[paperIdx];
           
           // Determine if this is cover or text based on quantity comparison
-          const isText = paperIdx === 0; // Smallest quantity = text
-          const isCover = paperIdx === paperMappings.length - 1; // Largest quantity = cover
-          const partType = isText ? 'Text' : isCover ? 'Cover' : `Part ${paperIdx + 1}`;
+          const isCover = paperIdx === 0; // Smallest quantity = Cover (corrected)
+          const isText = paperIdx === paperMappings.length - 1; // Largest quantity = Text (corrected)
+          const partType = isCover ? 'Cover' : isText ? 'Text' : `Part ${paperIdx + 1}`;
           
           const stageMapping = this.findIntelligentStageMatchWithSpec(
             printingOp.groupName, 

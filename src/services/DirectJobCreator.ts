@@ -186,14 +186,17 @@ export class DirectJobCreator {
       return;
     }
 
-    // Get unique stage IDs and fetch their order from production_stages
-    const uniqueStageIds = [...new Set(validMappings.map(m => m.mappedStageId))];
+    // Pre-process mappings to detect multiple printing stages and apply cover/text logic
+    const processedMappings = this.preprocessMappingsForUniqueStages(validMappings);
+    
+    // Get unique ORIGINAL stage IDs for database lookup
+    const originalStageIds = [...new Set(processedMappings.map(m => m.originalStageId || m.mappedStageId))];
     
     // Fetch stage orders from database
     const { data: stageData, error: stageError } = await supabase
       .from('production_stages')
       .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
-      .in('id', uniqueStageIds);
+      .in('id', originalStageIds);
 
     if (stageError) {
       throw new Error(`Failed to fetch stage data: ${stageError.message}`);
@@ -204,51 +207,167 @@ export class DirectJobCreator {
       return;
     }
 
-    // Create stage order mapping and sort by database order_index
+    // Create stage order mapping and data mapping
     const stageOrderMap = new Map(stageData.map(stage => [stage.id, stage.order_index]));
     const stageDataMap = new Map(stageData.map(stage => [stage.id, stage]));
     
-    // Sort stages by their database order_index
-    const sortedStageIds = uniqueStageIds.sort((a, b) => 
-      (stageOrderMap.get(a) || 0) - (stageOrderMap.get(b) || 0)
-    );
-    
-    // Create sequential stage orders for the custom workflow
-    const stageOrders = sortedStageIds.map((_, index) => index + 1);
+    // Create stages manually instead of using RPC to support multiple instances of same stage
+    await this.createCustomStageInstances(job, processedMappings, stageOrderMap);
 
-    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${sortedStageIds.length} stages: ${sortedStageIds.map(id => stageDataMap.get(id)?.name || id).join(', ')}`);
-
-    // Use existing RPC to initialize custom workflow
-    const { error } = await supabase.rpc('initialize_custom_job_stages', {
-      p_job_id: job.id,
-      p_job_table_name: 'production_jobs',
-      p_stage_ids: sortedStageIds,
-      p_stage_orders: stageOrders
-    });
-
-    if (error) {
-      throw new Error(`Failed to initialize workflow: ${error.message}`);
-    }
+    // Set all stages to pending (override any default behavior)
+    await supabase
+      .from('job_stage_instances')
+      .update({ 
+        status: 'pending',
+        started_at: null,
+        started_by: null
+      })
+      .eq('job_id', job.id)
+      .eq('job_table_name', 'production_jobs');
 
     // Add job print specifications and timing calculations for each stage
-    await this.addStageSpecifications(job, validMappings, stageDataMap);
+    await this.addStageSpecifications(job, processedMappings, stageDataMap);
+  }
+
+  /**
+   * Pre-process row mappings to apply corrected cover/text detection logic
+   * and prepare for multiple printing stage instances
+   */
+  private preprocessMappingsForUniqueStages(mappings: any[]): any[] {
+    // Group mappings by stage name to detect multiple printing stages
+    const stageGroups = new Map<string, any[]>();
+    
+    for (const mapping of mappings) {
+      const stageName = mapping.mappedStageName || 'unknown';
+      if (!stageGroups.has(stageName)) {
+        stageGroups.set(stageName, []);
+      }
+      stageGroups.get(stageName)!.push(mapping);
+    }
+
+    const processedMappings: any[] = [];
+
+    for (const [stageName, stageGroup] of stageGroups.entries()) {
+      if (stageGroup.length > 1 && stageName.toLowerCase().includes('printing')) {
+        // Multiple printing stages - apply cover/text logic
+        this.logger.addDebugInfo(`Found ${stageGroup.length} instances of ${stageName}, applying cover/text logic`);
+        
+        // Sort by quantity: smallest = cover, largest = text (corrected logic)
+        const sortedByQty = [...stageGroup].sort((a, b) => (a.qty || 0) - (b.qty || 0));
+        
+        sortedByQty.forEach((mapping, index) => {
+          const isCover = index === 0; // Smallest quantity = Cover
+          const isText = index === sortedByQty.length - 1; // Largest quantity = Text
+          const partType = isCover ? 'Cover' : isText ? 'Text' : `Part ${index + 1}`;
+          
+          processedMappings.push({
+            ...mapping,
+            mappedStageName: `${stageName} (${partType})`,
+            partType: partType,
+            originalStageId: mapping.mappedStageId, // Keep reference to original
+            stageInstanceIndex: index // For creating multiple instances
+          });
+          
+          this.logger.addDebugInfo(`Prepared stage: ${stageName} (${partType}) with qty: ${mapping.qty}`);
+        });
+      } else {
+        // Single stage or non-printing stage - keep as is
+        processedMappings.push({
+          ...stageGroup[0],
+          originalStageId: stageGroup[0].mappedStageId,
+          stageInstanceIndex: 0
+        });
+      }
+    }
+
+    return processedMappings;
+  }
+
+  /**
+   * Create stage instances manually to support multiple instances of the same stage
+   */
+  private async createCustomStageInstances(job: any, mappings: any[], stageOrderMap: Map<string, number>): Promise<void> {
+    // Sort mappings by stage order and instance index
+    const sortedMappings = mappings.sort((a, b) => {
+      const aOrder = stageOrderMap.get(a.originalStageId || a.mappedStageId) || 0;
+      const bOrder = stageOrderMap.get(b.originalStageId || b.mappedStageId) || 0;
+      
+      if (aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+      
+      // If same stage, sort by instance index
+      return (a.stageInstanceIndex || 0) - (b.stageInstanceIndex || 0);
+    });
+
+    this.logger.addDebugInfo(`Creating ${sortedMappings.length} stage instances for job ${job.wo_no}`);
+
+    for (let i = 0; i < sortedMappings.length; i++) {
+      const mapping = sortedMappings[i];
+      const stageId = mapping.originalStageId || mapping.mappedStageId;
+      
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .insert({
+          job_id: job.id,
+          job_table_name: 'production_jobs',
+          category_id: null, // Custom workflow
+          production_stage_id: stageId,
+          stage_order: i + 1, // Sequential order
+          status: 'pending',
+          quantity: mapping.qty || null,
+          part_type: mapping.partType || null,
+          part_name: mapping.partType || null
+        });
+
+      if (error) {
+        throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
+      }
+
+      this.logger.addDebugInfo(`Created stage instance: ${mapping.mappedStageName} (order: ${i + 1})`);
+    }
   }
 
   private async addStageSpecifications(job: any, rowMappings: any[], stageDataMap: Map<string, any>): Promise<void> {
     for (const mapping of rowMappings) {
       if (!mapping.mappedStageId) continue;
 
-      const stageData = stageDataMap.get(mapping.mappedStageId);
+      // Use original stage ID for looking up stage data
+      const lookupStageId = mapping.originalStageId || mapping.mappedStageId;
+      const stageData = stageDataMap.get(lookupStageId);
       
       // Add paper specifications if available
       if (mapping.paperSpecification && typeof mapping.paperSpecification === 'string') {
-        // Look up paper specification by name
-        const { data: paperSpec } = await supabase
+        // Look up paper specification by name or try to find simplified mapping
+        let paperSpec = null;
+        
+        // First try exact match
+        const { data: exactMatch } = await supabase
           .from('print_specifications')
           .select('id')
           .eq('category', 'paper')
           .ilike('name', mapping.paperSpecification)
           .single();
+
+        if (exactMatch) {
+          paperSpec = exactMatch;
+        } else {
+          // Try to find using simplified mapping (e.g., "Gloss 250gsm" from "HI-Q Titan (Gloss), 250gsm")
+          const simplifiedSpec = this.simplifyPaperSpecification(mapping.paperSpecification);
+          if (simplifiedSpec !== mapping.paperSpecification) {
+            const { data: simplifiedMatch } = await supabase
+              .from('print_specifications')
+              .select('id')
+              .eq('category', 'paper')
+              .ilike('name', `%${simplifiedSpec}%`)
+              .single();
+            
+            if (simplifiedMatch) {
+              paperSpec = simplifiedMatch;
+              this.logger.addDebugInfo(`Found paper spec using simplified mapping: "${mapping.paperSpecification}" -> "${simplifiedSpec}"`);
+            }
+          }
+        }
 
         if (paperSpec) {
           const { error: specError } = await supabase
@@ -262,7 +381,11 @@ export class DirectJobCreator {
 
           if (specError) {
             this.logger.addDebugInfo(`Warning: Failed to add paper spec for ${job.wo_no}: ${specError.message}`);
+          } else {
+            this.logger.addDebugInfo(`Added paper specification: ${mapping.paperSpecification} for ${mapping.partType || 'unknown part'}`);
           }
+        } else {
+          this.logger.addDebugInfo(`Warning: Could not find paper specification for: ${mapping.paperSpecification}`);
         }
       }
 
@@ -284,18 +407,26 @@ export class DirectJobCreator {
       // Update stage instance with quantity, timing, and part type information
       const updateData: any = {
         quantity: mapping.qty || null,
-        part_type: mapping.partType || null, // Preserve cover/text detection
+        part_type: mapping.partType || null,
       };
 
       if (estimatedDuration) {
         updateData.estimated_duration_minutes = estimatedDuration;
       }
 
-      const { error } = await supabase
+      // Update stage instance - find by stage ID and part type for multi-instance stages
+      let updateQuery = supabase
         .from('job_stage_instances')
         .update(updateData)
         .eq('job_id', job.id)
-        .eq('production_stage_id', mapping.mappedStageId);
+        .eq('production_stage_id', lookupStageId);
+
+      // If this is a multi-instance stage (has part_type), match by part_type as well
+      if (mapping.partType) {
+        updateQuery = updateQuery.eq('part_type', mapping.partType);
+      }
+
+      const { error } = await updateQuery;
 
       if (error) {
         this.logger.addDebugInfo(`Warning: Failed to update stage specifications for ${job.wo_no}, stage ${mapping.mappedStageName}: ${error.message}`);
@@ -303,5 +434,25 @@ export class DirectJobCreator {
         this.logger.addDebugInfo(`Updated stage ${mapping.mappedStageName} with qty: ${mapping.qty}, part: ${mapping.partType}, duration: ${estimatedDuration}min`);
       }
     }
+  }
+
+  /**
+   * Simplify paper specification name for better matching
+   * e.g., "HI-Q Titan (Gloss), 250gsm, White, 640x915" -> "Gloss 250gsm"
+   */
+  private simplifyPaperSpecification(fullSpec: string): string {
+    // Extract finish type (Gloss, Matt, Satin, etc.)
+    const finishMatch = fullSpec.match(/\((.*?)\)/);
+    const finish = finishMatch?.[1] || '';
+    
+    // Extract weight (250gsm, 300gsm, etc.)
+    const weightMatch = fullSpec.match(/(\d+gsm)/i);
+    const weight = weightMatch?.[1] || '';
+    
+    if (finish && weight) {
+      return `${finish} ${weight}`;
+    }
+    
+    return fullSpec; // Return original if we can't simplify
   }
 }
