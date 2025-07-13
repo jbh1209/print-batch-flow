@@ -188,8 +188,8 @@ export class ExcelJobProcessor {
 
     // Extract all user-approved stage mappings
     Object.keys(mapping).forEach(key => {
-      if (key.startsWith('user_stage_')) {
-        const stageId = key.replace('user_stage_', '');
+      if (key.startsWith('stage_')) {
+        const stageId = key.replace('stage_', '');
         const columnIndex = (mapping as any)[key];
         
         if (columnIndex !== -1 && columnIndex !== undefined) {
@@ -200,7 +200,7 @@ export class ExcelJobProcessor {
           const columnValue = excelRow[columnIndex] || '';
           
           // CRITICAL: Create ALL user-approved stages regardless of Excel data
-          const specificationKey = `user_stage_${stageId}`;
+          const specificationKey = `stage_${stageId}`;
           
           if (!job.printing_specifications) {
             job.printing_specifications = {};
@@ -222,7 +222,7 @@ export class ExcelJobProcessor {
     });
 
     // Log final specifications
-    const userStageCount = Object.keys(job.printing_specifications || {}).filter(k => k.startsWith('user_stage_')).length;
+    const userStageCount = Object.keys(job.printing_specifications || {}).filter(k => k.startsWith('stage_')).length;
     this.logger.addDebugInfo(`Job ${job.wo_no} has ${userStageCount} user-approved stage mappings`);
   }
 
@@ -332,8 +332,8 @@ export class ExcelJobProcessor {
     const userStageOrders: number[] = [];
 
     Object.keys(mapping).forEach(key => {
-      if (key.startsWith('user_stage_')) {
-        const stageId = key.replace('user_stage_', '');
+      if (key.startsWith('stage_')) {
+        const stageId = key.replace('stage_', '');
         const columnIndex = (mapping as any)[key];
         
         if (columnIndex !== -1 && columnIndex !== undefined) {
