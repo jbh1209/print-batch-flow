@@ -176,32 +176,53 @@ export class DirectJobCreator {
       return;
     }
 
-    // Extract stage IDs and orders from row mappings, preserving cover/text logic
-    const stageIds: string[] = [];
-    const stageOrders: number[] = [];
-    
-    // Sort by stage order to maintain correct sequence
-    const sortedMappings = [...rowMappings].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
-    
-    for (const mapping of sortedMappings) {
-      if (mapping.stageId) {
-        stageIds.push(mapping.stageId);
-        stageOrders.push(mapping.stageOrder || stageIds.length);
-      }
-    }
+    // Filter valid mappings with stage IDs
+    const validMappings = rowMappings.filter(mapping => 
+      !mapping.isUnmapped && mapping.mappedStageId
+    );
 
-    if (stageIds.length === 0) {
-      this.logger.addDebugInfo(`No valid stages found in mappings for job ${job.wo_no}`);
+    if (validMappings.length === 0) {
+      this.logger.addDebugInfo(`No valid stage mappings found for job ${job.wo_no}`);
       return;
     }
 
-    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${stageIds.length} stages`);
+    // Get unique stage IDs and fetch their order from production_stages
+    const uniqueStageIds = [...new Set(validMappings.map(m => m.mappedStageId))];
+    
+    // Fetch stage orders from database
+    const { data: stageData, error: stageError } = await supabase
+      .from('production_stages')
+      .select('id, name, order_index, running_speed_per_hour, make_ready_time_minutes, speed_unit')
+      .in('id', uniqueStageIds);
+
+    if (stageError) {
+      throw new Error(`Failed to fetch stage data: ${stageError.message}`);
+    }
+
+    if (!stageData || stageData.length === 0) {
+      this.logger.addDebugInfo(`No production stages found for mapped stage IDs in job ${job.wo_no}`);
+      return;
+    }
+
+    // Create stage order mapping and sort by database order_index
+    const stageOrderMap = new Map(stageData.map(stage => [stage.id, stage.order_index]));
+    const stageDataMap = new Map(stageData.map(stage => [stage.id, stage]));
+    
+    // Sort stages by their database order_index
+    const sortedStageIds = uniqueStageIds.sort((a, b) => 
+      (stageOrderMap.get(a) || 0) - (stageOrderMap.get(b) || 0)
+    );
+    
+    // Create sequential stage orders for the custom workflow
+    const stageOrders = sortedStageIds.map((_, index) => index + 1);
+
+    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${sortedStageIds.length} stages: ${sortedStageIds.map(id => stageDataMap.get(id)?.name || id).join(', ')}`);
 
     // Use existing RPC to initialize custom workflow
     const { error } = await supabase.rpc('initialize_custom_job_stages', {
       p_job_id: job.id,
       p_job_table_name: 'production_jobs',
-      p_stage_ids: stageIds,
+      p_stage_ids: sortedStageIds,
       p_stage_orders: stageOrders
     });
 
@@ -210,41 +231,76 @@ export class DirectJobCreator {
     }
 
     // Add job print specifications and timing calculations for each stage
-    await this.addStageSpecifications(job, rowMappings);
+    await this.addStageSpecifications(job, validMappings, stageDataMap);
   }
 
-  private async addStageSpecifications(job: any, rowMappings: any[]): Promise<void> {
+  private async addStageSpecifications(job: any, rowMappings: any[], stageDataMap: Map<string, any>): Promise<void> {
     for (const mapping of rowMappings) {
-      if (!mapping.stageId) continue;
+      if (!mapping.mappedStageId) continue;
 
+      const stageData = stageDataMap.get(mapping.mappedStageId);
+      
       // Add paper specifications if available
-      if (mapping.paperSpecification) {
-        await supabase
-          .from('job_print_specifications')
-          .insert({
-            job_id: job.id,
-            job_table_name: 'production_jobs',
-            specification_id: mapping.paperSpecification.id,
-            specification_category: 'paper',
-            printer_id: mapping.printerId || null
-          });
+      if (mapping.paperSpecification && typeof mapping.paperSpecification === 'string') {
+        // Look up paper specification by name
+        const { data: paperSpec } = await supabase
+          .from('print_specifications')
+          .select('id')
+          .eq('category', 'paper')
+          .ilike('name', mapping.paperSpecification)
+          .single();
+
+        if (paperSpec) {
+          const { error: specError } = await supabase
+            .from('job_print_specifications')
+            .insert({
+              job_id: job.id,
+              job_table_name: 'production_jobs',
+              specification_id: paperSpec.id,
+              specification_category: 'paper'
+            });
+
+          if (specError) {
+            this.logger.addDebugInfo(`Warning: Failed to add paper spec for ${job.wo_no}: ${specError.message}`);
+          }
+        }
       }
 
-      // Update stage instance with quantity and timing information
-      if (mapping.quantity) {
-        const { error } = await supabase
-          .from('job_stage_instances')
-          .update({
-            quantity: mapping.quantity,
-            part_type: mapping.partType || null, // Preserve cover/text detection
-            estimated_duration_minutes: mapping.estimatedDuration || null
-          })
-          .eq('job_id', job.id)
-          .eq('production_stage_id', mapping.stageId);
+      // Calculate timing using stage data and quantity
+      let estimatedDuration = null;
+      if (mapping.qty && stageData) {
+        const { data: calculatedDuration, error: durationError } = await supabase.rpc('calculate_stage_duration', {
+          p_quantity: mapping.qty,
+          p_running_speed_per_hour: stageData.running_speed_per_hour || 100,
+          p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
+          p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
+        });
 
-        if (error) {
-          this.logger.addDebugInfo(`Warning: Failed to update stage timing for ${job.wo_no}: ${error.message}`);
+        if (!durationError && calculatedDuration) {
+          estimatedDuration = calculatedDuration;
         }
+      }
+
+      // Update stage instance with quantity, timing, and part type information
+      const updateData: any = {
+        quantity: mapping.qty || null,
+        part_type: mapping.partType || null, // Preserve cover/text detection
+      };
+
+      if (estimatedDuration) {
+        updateData.estimated_duration_minutes = estimatedDuration;
+      }
+
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update(updateData)
+        .eq('job_id', job.id)
+        .eq('production_stage_id', mapping.mappedStageId);
+
+      if (error) {
+        this.logger.addDebugInfo(`Warning: Failed to update stage specifications for ${job.wo_no}, stage ${mapping.mappedStageName}: ${error.message}`);
+      } else {
+        this.logger.addDebugInfo(`Updated stage ${mapping.mappedStageName} with qty: ${mapping.qty}, part: ${mapping.partType}, duration: ${estimatedDuration}min`);
       }
     }
   }
