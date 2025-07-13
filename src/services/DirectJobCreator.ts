@@ -325,7 +325,7 @@ export class DirectJobCreator {
           stage_order: i + 1, // Sequential order
           status: 'pending',
           quantity: mapping.qty || null,
-          part_type: mapping.partType || null,
+          part_type: mapping.partType?.toLowerCase() || null,
           part_name: mapping.partType || null
         });
 

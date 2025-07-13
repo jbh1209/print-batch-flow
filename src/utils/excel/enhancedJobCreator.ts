@@ -786,7 +786,7 @@ export class EnhancedJobCreator {
             stage_order: index + 1, // Use sequential order based on system ordering
             status: 'pending',
             part_name: instance.partName || null,
-            part_type: instance.mapping.partType || null, // Store cover/text flag
+            part_type: instance.mapping.partType?.toLowerCase() || null, // Store cover/text flag
             stage_specification_id: instance.mapping.mappedStageSpecId || null,
             quantity: instance.quantity || 0, // Ensure quantity is always set
             estimated_duration_minutes: timingResult.estimatedDuration,
