@@ -41,7 +41,8 @@ export class EnhancedMappingProcessor {
     jobs: ParsedJob[],
     paperColumnIndex: number = -1,
     deliveryColumnIndex: number = -1,
-    rawExcelData?: any[][]
+    rawExcelData?: any[][],
+    userMapping?: any // Accept user-approved column mappings
   ): Promise<EnhancedMappingResult> {
     this.logger.addDebugInfo(`Starting enhanced mapping for ${jobs.length} jobs`);
 
@@ -89,7 +90,8 @@ export class EnhancedMappingProcessor {
 
       // CRITICAL FIX: Populate printing, finishing, and prepress specifications
       // This is what was missing! These need to be populated for the stage mapping to work
-      await this.populateWorkflowSpecifications(job, rawExcelData ? rawExcelData[i] : null);
+      // BUT preserve user-approved stage mappings from column mapping dialog
+      await this.populateWorkflowSpecifications(job, rawExcelData ? rawExcelData[i] : null, userMapping);
     }
 
     // Calculate average confidence
@@ -106,8 +108,15 @@ export class EnhancedMappingProcessor {
    * Populate workflow specifications from Excel row data or job fields
    * PRESERVES user-approved mappedStageId values from column mapping dialog
    */
-  private async populateWorkflowSpecifications(job: ParsedJob, excelRow: any[] | null): Promise<void> {
+  private async populateWorkflowSpecifications(job: ParsedJob, excelRow: any[] | null, userMapping?: any): Promise<void> {
     this.logger.addDebugInfo(`Populating workflow specifications for job ${job.wo_no}`);
+
+    // If user has provided explicit stage mappings, preserve those and skip text-based detection
+    if (userMapping && this.hasUserStageMapping(userMapping)) {
+      this.logger.addDebugInfo(`Job ${job.wo_no} - User has provided explicit stage mappings, preserving those instead of text-pattern detection`);
+      await this.applyUserStageMapping(job, userMapping);
+      return;
+    }
 
     // Initialize specification objects if they don't exist, but preserve existing ones
     if (!job.printing_specifications) {
@@ -351,6 +360,83 @@ export class EnhancedMappingProcessor {
     });
 
     result.stats.deliverySpecsMapped++;
+  }
+
+  /**
+   * Check if user has provided explicit stage mappings in their column mapping
+   */
+  private hasUserStageMapping(userMapping: any): boolean {
+    if (!userMapping) return false;
+    
+    // Check if there are any stage mappings in the user's column mapping
+    const stageProperties = [
+      'prepress1', 'prepress2', 'prepress3',
+      'printing1', 'printing2', 'printing3', 
+      'finishing1', 'finishing2', 'finishing3',
+      'delivery1', 'delivery2', 'delivery3'
+    ];
+    
+    return stageProperties.some(prop => 
+      userMapping[prop] !== undefined && 
+      userMapping[prop] !== -1 && 
+      userMapping[prop] !== null
+    );
+  }
+
+  /**
+   * Apply user-approved stage mappings to job specifications
+   */
+  private async applyUserStageMapping(job: ParsedJob, userMapping: any): Promise<void> {
+    this.logger.addDebugInfo(`Applying user stage mappings for job ${job.wo_no}`);
+    
+    // Initialize specification objects
+    if (!job.printing_specifications) job.printing_specifications = {};
+    if (!job.finishing_specifications) job.finishing_specifications = {};
+    if (!job.prepress_specifications) job.prepress_specifications = {};
+    if (!job.delivery_specifications) job.delivery_specifications = {};
+
+    // Apply user-approved stage mappings with their mappedStageId values
+    const stageMapping = [
+      { prop: 'prepress1', category: 'prepress_specifications', key: 'stage1' },
+      { prop: 'prepress2', category: 'prepress_specifications', key: 'stage2' },
+      { prop: 'prepress3', category: 'prepress_specifications', key: 'stage3' },
+      { prop: 'printing1', category: 'printing_specifications', key: 'stage1' },
+      { prop: 'printing2', category: 'printing_specifications', key: 'stage2' },
+      { prop: 'printing3', category: 'printing_specifications', key: 'stage3' },
+      { prop: 'finishing1', category: 'finishing_specifications', key: 'stage1' },
+      { prop: 'finishing2', category: 'finishing_specifications', key: 'stage2' },
+      { prop: 'finishing3', category: 'finishing_specifications', key: 'stage3' },
+      { prop: 'delivery1', category: 'delivery_specifications', key: 'stage1' },
+      { prop: 'delivery2', category: 'delivery_specifications', key: 'stage2' },
+      { prop: 'delivery3', category: 'delivery_specifications', key: 'stage3' }
+    ];
+
+    for (const mapping of stageMapping) {
+      const columnIndex = userMapping[mapping.prop];
+      if (columnIndex !== undefined && columnIndex !== -1 && columnIndex !== null) {
+        // Extract the mappedStageId from the user mapping
+        const mappedStageId = userMapping[`${mapping.prop}StageId`] || userMapping[`${mapping.prop}_mappedStageId`];
+        
+        if (mappedStageId) {
+          // Create specification with user-approved mappedStageId
+          const specCategory = job[mapping.category as keyof ParsedJob] as any;
+          specCategory[mapping.key] = {
+            description: `User Mapped Stage - ${mapping.prop}`,
+            specifications: `Column ${columnIndex}`,
+            qty: job.qty || 1,
+            mappedStageId: mappedStageId // PRESERVE the user-approved stage mapping
+          };
+          
+          this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user mapping: ${mapping.prop} -> Stage ID: ${mappedStageId}`);
+        }
+      }
+    }
+
+    this.logger.addDebugInfo(`Job ${job.wo_no} - User stage mappings applied:
+      - Prepress: ${JSON.stringify(job.prepress_specifications)}
+      - Printing: ${JSON.stringify(job.printing_specifications)}
+      - Finishing: ${JSON.stringify(job.finishing_specifications)}
+      - Delivery: ${JSON.stringify(job.delivery_specifications)}`);
   }
 
   /**

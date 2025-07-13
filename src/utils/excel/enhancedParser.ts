@@ -294,12 +294,13 @@ export const parseExcelFileWithMapping = async (
   // Apply enhanced mapping for paper and delivery specifications
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
   
-  // Process with enhanced mapping
+  // Process with enhanced mapping, passing user-approved stage mappings
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
     mapped,
     mapping.paperType || -1,
     mapping.delivery || -1,
-    dataRows
+    dataRows,
+    mapping // Pass the entire mapping object to preserve user-approved stage mappings
   );
 
   // Update stats with enhanced mapping results
