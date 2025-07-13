@@ -28,6 +28,7 @@ import {
   parseMatrixAndPrepareProductionReadyJobs,
   finalizeProductionReadyJobs
 } from "@/utils/excel/enhancedParser";
+import { finalizeJobsDirectly } from "@/utils/excel/directParser";
 import type { MatrixExcelData } from "@/utils/excel/types";
 import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
@@ -319,8 +320,8 @@ export const ExcelUpload = () => {
     try {
       setIsCreatingJobs(true);
       
-      // STEP 2: Now actually create the jobs in the database - pass current authenticated user ID
-      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger, user.id);
+      // STEP 2: Use simplified direct approach - preserves all existing logic but removes complexity
+      const finalResult = await finalizeJobsDirectly(enhancedResult, debugLogger, user.id);
       
       toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
       
