@@ -77,17 +77,22 @@ export class EnhancedStageMapper {
     finishingSpecs: GroupSpecifications | null,
     prepressSpecs: GroupSpecifications | null,
     excelRows: any[][],
-    headers: string[]
+    headers: string[],
+    paperSpecs?: GroupSpecifications | null
   ): RowMappingResult[] {
     this.logger.addDebugInfo(`Creating intelligent row mappings with ${excelRows.length} Excel rows and ${headers.length} headers`);
     
     const rowMappings: RowMappingResult[] = [];
     let rowIndex = 0;
 
-    // Process printing specifications
+    // Process paper specifications first to map them for later use
+    const paperMappings = paperSpecs ? this.processPaperSpecs(paperSpecs) : [];
+    this.logger.addDebugInfo(`Processed ${paperMappings.length} paper specifications`);
+
+    // Process printing specifications with paper integration
     if (printingSpecs) {
-      const printingMappings = this.createCategoryRowMappings(
-        printingSpecs, 'printing', excelRows, headers, rowIndex
+      const printingMappings = this.createPrintingRowMappingsWithPaper(
+        printingSpecs, paperMappings, excelRows, headers, rowIndex
       );
       rowMappings.push(...printingMappings);
       rowIndex += Object.keys(printingSpecs).length;
@@ -133,9 +138,9 @@ export class EnhancedStageMapper {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
-    // For printing category, we need to handle paper type splitting
+    // For printing category, use the new paper-integrated approach
     if (category === 'printing') {
-      return this.createPrintingRowMappings(specs, excelRows, headers, startRowIndex);
+      return this.createPrintingRowMappingsWithPaper(specs, [], excelRows, headers, startRowIndex);
     }
 
     // For non-printing categories, use standard processing
@@ -170,10 +175,97 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Create printing row mappings with paper type splitting
+   * Process paper specifications and map them using existing mappings
    */
-  private createPrintingRowMappings(
-    specs: GroupSpecifications,
+  private processPaperSpecs(paperSpecs: GroupSpecifications): Array<{groupName: string, spec: any, mappedSpec: string, qty: number}> {
+    const mappedPapers: Array<{groupName: string, spec: any, mappedSpec: string, qty: number}> = [];
+    
+    for (const [groupName, spec] of Object.entries(paperSpecs)) {
+      const description = spec.description || '';
+      
+      // Try to map paper specification using existing mappings
+      const mappedSpec = this.mapPaperSpecification(groupName, description);
+      
+      mappedPapers.push({
+        groupName,
+        spec,
+        mappedSpec,
+        qty: spec.qty || 0
+      });
+      
+      this.logger.addDebugInfo(`Mapped paper: "${groupName}" (${description}) -> "${mappedSpec}"`);
+    }
+    
+    // Sort by quantity for cover/text determination
+    return mappedPapers.sort((a, b) => a.qty - b.qty);
+  }
+
+  /**
+   * Map paper specification using existing mappings
+   */
+  private mapPaperSpecification(groupName: string, description: string): string {
+    const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    
+    // Check for existing paper mappings
+    const paperMapping = this.findPaperMapping(searchText);
+    if (paperMapping) {
+      return paperMapping;
+    }
+    
+    // Extract paper weight and type from description
+    const weightMatch = description.match(/(\d+)\s*gsm/i);
+    const weight = weightMatch ? weightMatch[1] + 'gsm' : '';
+    
+    // Check for paper type keywords
+    let paperType = '';
+    const desc = description.toLowerCase();
+    if (desc.includes('gloss')) paperType = 'Gloss';
+    else if (desc.includes('matt') || desc.includes('matte')) paperType = 'Matt';
+    else if (desc.includes('silk')) paperType = 'Silk';
+    else if (desc.includes('uncoated')) paperType = 'Uncoated';
+    else if (desc.includes('coated')) paperType = 'Coated';
+    
+    // Combine weight and type
+    if (weight && paperType) {
+      return `${weight} ${paperType}`;
+    } else if (weight) {
+      return weight;
+    } else if (paperType) {
+      return paperType;
+    }
+    
+    // Fallback to original description
+    return description || groupName;
+  }
+
+  /**
+   * Find paper mapping in existing database
+   */
+  private findPaperMapping(searchText: string): string | null {
+    // Check paper-specific mappings
+    for (const [mappedText, mapping] of this.existingMappings.entries()) {
+      if (mapping.mapping_type === 'paper_specification' || 
+          mapping.paper_type_specification_id || 
+          mapping.paper_weight_specification_id) {
+        if (searchText.includes(mappedText) || mappedText.includes(searchText)) {
+          // Try to get the display name from print specifications
+          if (mapping.paper_type_specification_id) {
+            // This would require a lookup to print_specifications table
+            // For now, return the mapped text
+            return mappedText;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Create printing row mappings with paper integration
+   */
+  private createPrintingRowMappingsWithPaper(
+    printingSpecs: GroupSpecifications,
+    paperMappings: Array<{groupName: string, spec: any, mappedSpec: string, qty: number}>,
     excelRows: any[][],
     headers: string[],
     startRowIndex: number
@@ -181,65 +273,60 @@ export class EnhancedStageMapper {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
-    // Get all printing and paper specifications from the specs
-    const printingSpecs: Array<{groupName: string, spec: any, rowIndex: number}> = [];
-    const paperSpecs: Array<{groupName: string, spec: any, rowIndex: number}> = [];
-
-    // Categorize specs into printing and paper
-    for (const [groupName, spec] of Object.entries(specs)) {
-      const description = (spec.description || '').toLowerCase();
-      
-      // Check if this is a paper specification
-      if (description.includes('gsm') || description.includes('paper') || description.includes('stock') || 
-          description.includes('quality') || description.includes('performance') || 
-          description.includes('coated') || description.includes('uncoated') ||
-          description.includes('gloss') || description.includes('matt')) {
-        paperSpecs.push({groupName, spec, rowIndex: currentRowIndex});
-      } else {
-        // This is a printing operation
-        printingSpecs.push({groupName, spec, rowIndex: currentRowIndex});
-      }
+    // Get printing operations from specs
+    const printingOps: Array<{groupName: string, spec: any, rowIndex: number}> = [];
+    
+    for (const [groupName, spec] of Object.entries(printingSpecs)) {
+      printingOps.push({groupName, spec, rowIndex: currentRowIndex});
       currentRowIndex++;
     }
 
-    this.logger.addDebugInfo(`Found ${printingSpecs.length} printing operations and ${paperSpecs.length} paper specifications`);
+    this.logger.addDebugInfo(`Found ${printingOps.length} printing operations and ${paperMappings.length} paper specifications`);
 
-    // If we have multiple papers, we need to create separate printing mappings for each
-    if (printingSpecs.length > 0 && paperSpecs.length > 1) {
-      // Sort both by quantity for optimal pairing
-      const sortedPrinting = printingSpecs.sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
-      const sortedPapers = paperSpecs.sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
-
-      // For each printing operation, create separate instances for each paper type
+    // If we have multiple papers and printing operations
+    if (printingOps.length > 0 && paperMappings.length > 1) {
+      // Sort printing operations by quantity for pairing
+      const sortedPrinting = printingOps.sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
+      
+      // Create separate mappings for each paper type
       for (let printIdx = 0; printIdx < sortedPrinting.length; printIdx++) {
-        const printingSpec = sortedPrinting[printIdx];
-        const stageMapping = this.findIntelligentStageMatchWithSpec(
-          printingSpec.groupName, 
-          printingSpec.spec.description || '', 
-          'printing'
-        );
-
-        // Create separate row mappings for each paper type
-        for (let paperIdx = 0; paperIdx < sortedPapers.length; paperIdx++) {
-          const paperSpec = sortedPapers[paperIdx];
-          const instanceId = this.generateInstanceId(
-            `${printingSpec.groupName}_paper_${paperIdx}`, 
-            printingSpec.rowIndex
+        const printingOp = sortedPrinting[printIdx];
+        
+        // Pair with papers using smallest-to-smallest principle
+        for (let paperIdx = 0; paperIdx < paperMappings.length; paperIdx++) {
+          const paperMapping = paperMappings[paperIdx];
+          
+          // Determine if this is cover or text based on quantity comparison
+          const isText = paperIdx === 0; // Smallest quantity = text
+          const isCover = paperIdx === paperMappings.length - 1; // Largest quantity = cover
+          const partType = isText ? 'Text' : isCover ? 'Cover' : `Part ${paperIdx + 1}`;
+          
+          const stageMapping = this.findIntelligentStageMatchWithSpec(
+            printingOp.groupName, 
+            printingOp.spec.description || '', 
+            'printing'
           );
 
-          // Calculate quantity allocation (distribute total quantity across paper types)
-          const totalQty = printingSpec.spec.qty || 0;
-          const qtyPerPaper = Math.floor(totalQty / sortedPapers.length);
-          const extraQty = totalQty % sortedPapers.length;
-          const adjustedQty = qtyPerPaper + (paperIdx < extraQty ? 1 : 0);
+          // Calculate quantity - pair printing qty with paper qty using smaller/larger principle
+          const printingQty = printingOp.spec.qty || 0;
+          const paperQty = paperMapping.qty;
+          const finalQty = Math.min(printingQty, paperQty); // Use the smaller quantity
+          
+          const instanceId = this.generateInstanceId(
+            `${printingOp.groupName}_${partType}_${paperIdx}`, 
+            printingOp.rowIndex
+          );
+
+          const displayName = `${printingOp.groupName} - ${paperMapping.mappedSpec}`;
+          const description = `${printingOp.spec.description || ''} (${partType}: ${paperMapping.mappedSpec})`;
 
           mappings.push({
-            excelRowIndex: printingSpec.rowIndex,
-            excelData: excelRows[printingSpec.rowIndex] || [],
-            groupName: `${printingSpec.groupName} - ${paperSpec.spec.description || paperSpec.groupName}`,
-            description: `${printingSpec.spec.description || ''} (${paperSpec.spec.description || paperSpec.groupName})`,
-            qty: adjustedQty,
-            woQty: adjustedQty,
+            excelRowIndex: printingOp.rowIndex,
+            excelData: excelRows[printingOp.rowIndex] || [],
+            groupName: displayName,
+            description: description,
+            qty: finalQty,
+            woQty: finalQty,
             mappedStageId: stageMapping?.stageId || null,
             mappedStageName: stageMapping?.stageName || null,
             mappedStageSpecId: stageMapping?.stageSpecId || null,
@@ -249,30 +336,31 @@ export class EnhancedStageMapper {
             isUnmapped: !stageMapping || stageMapping.confidence < 30,
             manualOverride: false,
             instanceId,
-            paperSpecification: paperSpec.spec.description || paperSpec.groupName
+            paperSpecification: paperMapping.mappedSpec,
+            partType: partType
           });
 
-          this.logger.addDebugInfo(`Created printing mapping: "${printingSpec.groupName}" with paper "${paperSpec.spec.description}" (qty: ${adjustedQty})`);
+          this.logger.addDebugInfo(`Created ${partType} printing mapping: "${displayName}" (qty: ${finalQty})`);
         }
       }
     } else {
       // Standard processing for single paper or no paper scenarios
-      for (const printingSpec of printingSpecs) {
+      for (const printingOp of printingOps) {
         const stageMapping = this.findIntelligentStageMatchWithSpec(
-          printingSpec.groupName, 
-          printingSpec.spec.description || '', 
+          printingOp.groupName, 
+          printingOp.spec.description || '', 
           'printing'
         );
         
-        const instanceId = this.generateInstanceId(printingSpec.groupName, printingSpec.rowIndex);
+        const instanceId = this.generateInstanceId(printingOp.groupName, printingOp.rowIndex);
         
         mappings.push({
-          excelRowIndex: printingSpec.rowIndex,
-          excelData: excelRows[printingSpec.rowIndex] || [],
-          groupName: printingSpec.groupName,
-          description: printingSpec.spec.description || '',
-          qty: printingSpec.spec.qty || 0,
-          woQty: printingSpec.spec.wo_qty || 0,
+          excelRowIndex: printingOp.rowIndex,
+          excelData: excelRows[printingOp.rowIndex] || [],
+          groupName: printingOp.groupName,
+          description: printingOp.spec.description || '',
+          qty: printingOp.spec.qty || 0,
+          woQty: printingOp.spec.wo_qty || 0,
           mappedStageId: stageMapping?.stageId || null,
           mappedStageName: stageMapping?.stageName || null,
           mappedStageSpecId: stageMapping?.stageSpecId || null,
@@ -282,7 +370,7 @@ export class EnhancedStageMapper {
           isUnmapped: !stageMapping || stageMapping.confidence < 30,
           manualOverride: false,
           instanceId,
-          paperSpecification: this.findAssociatedPaperSpec(printingSpec.groupName, printingSpec.spec.description || '', printingSpec.rowIndex)
+          paperSpecification: paperMappings.length > 0 ? paperMappings[0].mappedSpec : undefined
         });
       }
     }

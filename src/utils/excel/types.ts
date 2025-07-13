@@ -127,6 +127,7 @@ export interface RowMappingResult {
   isUnmapped: boolean;
   instanceId?: string;
   paperSpecification?: string;
+  partType?: string;
 }
 
 export interface StageMapping {

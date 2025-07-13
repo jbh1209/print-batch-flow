@@ -104,7 +104,8 @@ export class ProductionStageMapper {
       finishingSpecs,
       prepressSpecs,
       excelRows,
-      headers
+      headers,
+      null // Paper specs not available at this level
     );
   }
 

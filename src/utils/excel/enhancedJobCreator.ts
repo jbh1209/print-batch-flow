@@ -235,7 +235,8 @@ export class EnhancedJobCreator {
         job.finishing_specifications,
         job.prepress_specifications,
         [actualExcelRow], // Pass the actual Excel row as a single-row array
-        headers || []
+        headers || [],
+        job.paper_specifications
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
@@ -375,7 +376,8 @@ export class EnhancedJobCreator {
         job.finishing_specifications,
         job.prepress_specifications,
         [actualExcelRow], // Pass the actual Excel row as a single-row array
-        headers || []
+        headers || [],
+        job.paper_specifications
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
