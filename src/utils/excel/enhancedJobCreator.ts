@@ -656,6 +656,20 @@ export class EnhancedJobCreator {
         !mapping.isUnmapped && mapping.category === 'paper'
       );
       
+      this.logger.addDebugInfo(`DEBUG: Total row mappings: ${rowMappings.length}`);
+      this.logger.addDebugInfo(`DEBUG: Mapped row categories: ${JSON.stringify(rowMappings.map(m => ({ category: m.category, stageName: m.mappedStageName, isUnmapped: m.isUnmapped })))}`);
+      this.logger.addDebugInfo(`DEBUG: Printing mappings stage IDs: ${JSON.stringify(printingMappings.map(m => ({ stageId: m.mappedStageId, stageName: m.mappedStageName })))}`);
+      
+      // Include ALL valid mapped stages, not just printing
+      const allValidMappings = rowMappings.filter(mapping => 
+        !mapping.isUnmapped && mapping.mappedStageId
+      );
+      
+      this.logger.addDebugInfo(`DEBUG: All valid mappings: ${allValidMappings.length} (including ${printingMappings.length} printing)`);
+      allValidMappings.forEach(mapping => {
+        this.logger.addDebugInfo(`  - ${mapping.mappedStageName} (${mapping.category}) - Stage ID: ${mapping.mappedStageId}`);
+      });
+      
       this.logger.addDebugInfo(`Found ${printingMappings.length} printing mappings and ${paperMappings.length} paper mappings`);
 
       // Sort both printing and paper mappings by quantity (ascending)
@@ -685,23 +699,26 @@ export class EnhancedJobCreator {
       // Group mappings by stage to detect multi-instance scenarios
       const stageGroups = new Map<string, Array<{mapping: any, paperType?: string}>>();
       
-      rowMappings
-        .filter(mapping => !mapping.isUnmapped && mapping.mappedStageId)
-        .forEach((mapping) => {
+      // Use allValidMappings instead of re-filtering
+      allValidMappings.forEach((mapping) => {
           const stageId = mapping.mappedStageId!;
           if (!stageGroups.has(stageId)) {
             stageGroups.set(stageId, []);
           }
           
-          // Get paper type from allocation map for printing stages
+          // Get paper type from allocation map for printing stages, or use paperSpecification
           let paperType = '';
           if (mapping.category === 'printing') {
-            paperType = paperToStageMap.get(stageId) || '';
+            paperType = paperToStageMap.get(stageId) || mapping.paperSpecification || '';
+          } else {
+            paperType = mapping.paperSpecification || '';
           }
+          
+          this.logger.addDebugInfo(`  Adding to stage group ${stageId}: ${mapping.mappedStageName} with paper: "${paperType}"`);
           
           stageGroups.get(stageId)!.push({ 
             mapping, 
-            paperType: paperType || mapping.paperSpecification || ''
+            paperType: paperType || ''
           });
         });
 
@@ -786,7 +803,7 @@ export class EnhancedJobCreator {
             stage_order: index + 1, // Use sequential order based on system ordering
             status: 'pending',
             part_name: instance.partName || null,
-            part_type: instance.mapping.partType || null, // Store cover/text flag
+            part_type: instance.mapping.partType || null, // Store cover/text flag from mapping
             stage_specification_id: instance.mapping.mappedStageSpecId || null,
             quantity: instance.quantity || 0, // Ensure quantity is always set
             estimated_duration_minutes: timingResult.estimatedDuration,
@@ -800,7 +817,7 @@ export class EnhancedJobCreator {
           throw new Error(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
         }
         
-        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - Qty: ${instance.quantity} - Duration: ${timingResult.estimatedDuration}min - ID: ${data.id}`);
+        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - Part Type: ${instance.mapping.partType || 'none'} - Qty: ${instance.quantity} - Duration: ${timingResult.estimatedDuration}min - ID: ${data.id}`);
         return data;
       });
 

@@ -337,6 +337,8 @@ export class EnhancedStageMapper {
 
           const displayName = `${printingOp.groupName} - ${paperMapping.mappedSpec}`;
           const description = `${printingOp.spec.description || ''} (${partType}: ${paperMapping.mappedSpec})`;
+          
+          this.logger.addDebugInfo(`Creating printing instance: ${displayName} with partType: ${partType}`);
 
           mappings.push({
             excelRowIndex: printingOp.rowIndex,
