@@ -500,7 +500,7 @@ export class EnhancedMappingProcessor {
   /**
    * Extract user-approved stage mappings from mapping object
    */
-  private extractUserStageMappings(userMapping?: any): Record<string, number> {
+  public extractUserStageMappings(userMapping?: any): Record<string, number> {
     if (!userMapping) return {};
     
     const stageMappings: Record<string, number> = {};

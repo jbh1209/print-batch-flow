@@ -338,24 +338,32 @@ export const parseAndPrepareProductionReadyJobs = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
-  
-  // Step 2: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
-  await jobCreator.initialize();
-  
-  // Step 3: Get enhanced mapping result for user stage mappings
+  // Step 2: FIRST get enhanced mapping result to extract user-approved stage mappings
+  logger.addDebugInfo(`CRITICAL: Extracting user-approved stage mappings BEFORE parsing jobs`);
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
   await enhancedProcessor.initialize();
+  
+  // Extract user stage mappings from the column mapping
+  const userStageMappings = enhancedProcessor.extractUserStageMappings(mapping);
+  logger.addDebugInfo(`EXTRACTED USER STAGE MAPPINGS: ${JSON.stringify(userStageMappings)}`);
+  
+  // Step 3: Parse jobs WITH user mappings already available
+  const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
+  
+  // Step 4: Process jobs with enhanced mapping, preserving user stage mappings
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
     jobs, 
     mapping.paperType || -1, 
     mapping.delivery || -1, 
     dataRows, 
-    mapping
+    mapping // Pass full mapping for user stage mappings
   );
   
-  // Step 4: Prepare jobs with mappings but DON'T save to database yet - PASS USER MAPPINGS
+  // Step 5: Create enhanced job creator with Excel data
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
+  
+  // Step 6: Prepare jobs with mappings but DON'T save to database yet - PASS USER MAPPINGS
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     enhancedResult.jobs, 
     headers, 
