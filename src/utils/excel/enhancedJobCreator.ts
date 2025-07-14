@@ -359,6 +359,11 @@ export class EnhancedJobCreator {
 
     // 1. Map specifications to production stages using enhanced mapper with user-approved mappings
     const userApprovedMappings = this.extractUserApprovedMappings(job);
+    this.logger.addDebugInfo(`🔍 EXTRACTED ${userApprovedMappings.length} USER MAPPINGS during job processing:`);
+    userApprovedMappings.forEach(mapping => {
+      this.logger.addDebugInfo(`   - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}]`);
+    });
+    
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
@@ -631,13 +636,32 @@ export class EnhancedJobCreator {
     try {
       this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
       
+      // DEBUGGING: Check what user mappings were extracted
+      const userApprovedMappings = this.extractUserApprovedMappings(originalJob);
+      this.logger.addDebugInfo(`🔍 EXTRACTED ${userApprovedMappings.length} USER MAPPINGS during workflow initialization:`);
+      userApprovedMappings.forEach(mapping => {
+        this.logger.addDebugInfo(`   - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}]`);
+      });
+      
       // Use the row mappings already created in processJobWithExcelData
       const rowMappings = result.rowMappings[originalJob.wo_no] || [];
       
       this.logger.addDebugInfo(`Using ${rowMappings.length} existing row mappings for workflow initialization`);
+      rowMappings.forEach((mapping, i) => {
+        this.logger.addDebugInfo(`   Row ${i}: ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}] isUnmapped:${mapping.isUnmapped}`);
+      });
 
       if (rowMappings.length === 0) {
-        this.logger.addDebugInfo(`No stage mappings found for job ${originalJob.wo_no}, skipping workflow initialization`);
+        this.logger.addDebugInfo(`❌ NO STAGE MAPPINGS found for job ${originalJob.wo_no} - this is where user mappings are lost!`);
+        this.logger.addDebugInfo(`🔧 SURGICAL FIX: Creating stage instances directly from user-approved mappings`);
+        
+        // SURGICAL FIX: If no row mappings but we have user-approved mappings, use them directly
+        if (userApprovedMappings.length > 0) {
+          await this.createStageInstancesFromUserMappings(insertedJob, originalJob, userApprovedMappings);
+          return;
+        }
+        
+        this.logger.addDebugInfo(`No user mappings either, skipping workflow initialization`);
         return;
       }
 
@@ -1339,6 +1363,89 @@ export class EnhancedJobCreator {
     }
     
     return mappings;
+  }
+
+  /**
+   * SURGICAL FIX: Create stage instances directly from user-approved mappings
+   * This bypasses any issues with row mapping generation and uses the raw user mappings
+   */
+  private async createStageInstancesFromUserMappings(
+    insertedJob: any, 
+    originalJob: ParsedJob, 
+    userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
+  ): Promise<void> {
+    this.logger.addDebugInfo(`🔧 SURGICAL FIX: Creating ${userApprovedMappings.length} stage instances directly from user mappings`);
+    
+    // Get all production stages for system ordering
+    const { data: allProductionStages, error: stagesError } = await supabase
+      .from('production_stages')
+      .select('id, name, order_index, supports_parts')
+      .eq('is_active', true)
+      .order('order_index');
+
+    if (stagesError || !allProductionStages) {
+      throw new Error(`Failed to load production stages: ${stagesError?.message}`);
+    }
+
+    // Create a map for quick stage lookup
+    const stageMap = new Map(allProductionStages.map(stage => [stage.id, stage]));
+    
+    // Sort user mappings by stage system order to maintain proper workflow sequence
+    const sortedMappings = userApprovedMappings
+      .map(mapping => ({
+        ...mapping,
+        systemOrder: stageMap.get(mapping.mappedStageId)?.order_index || 999
+      }))
+      .sort((a, b) => a.systemOrder - b.systemOrder);
+    
+    this.logger.addDebugInfo(`Sorted user mappings by system order: ${sortedMappings.map(m => m.mappedStageName).join(' -> ')}`);
+    
+    // Create stage instances directly
+    const stageInsertPromises = sortedMappings.map(async (mapping, index) => {
+      const stage = stageMap.get(mapping.mappedStageId);
+      if (!stage) {
+        this.logger.addDebugInfo(`Warning: Stage ${mapping.mappedStageId} not found in system stages`);
+        return;
+      }
+      
+      // Use job quantity or default to 1
+      const quantity = originalJob.qty || 1;
+      
+      // Calculate timing using Supabase function
+      const timingResult = await this.calculateStageTiming(quantity, mapping.mappedStageId);
+      
+      const { data, error } = await supabase
+        .from('job_stage_instances')
+        .insert({
+          job_id: insertedJob.id,
+          job_table_name: 'production_jobs',
+          production_stage_id: mapping.mappedStageId,
+          stage_order: index + 1, // Sequential order based on system ordering
+          status: 'pending',
+          part_name: `${mapping.mappedStageName} - ${mapping.groupName}`,
+          part_type: mapping.category?.toLowerCase() || null,
+          stage_specification_id: null,
+          quantity: quantity,
+          estimated_duration_minutes: timingResult.estimatedDuration,
+          setup_time_minutes: timingResult.setupTime
+        })
+        .select('id, production_stage_id, part_name, quantity, estimated_duration_minutes')
+        .single();
+
+      if (error) {
+        this.logger.addDebugInfo(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
+        throw error;
+      }
+
+      this.logger.addDebugInfo(`✅ Created stage instance: ${mapping.mappedStageName} (${mapping.groupName}) with quantity ${quantity}`);
+      return data;
+    });
+
+    // Execute all stage creation promises
+    const stageInstances = await Promise.all(stageInsertPromises);
+    const successfulInstances = stageInstances.filter(instance => instance !== undefined);
+    
+    this.logger.addDebugInfo(`🎉 SURGICAL FIX SUCCESS: Created ${successfulInstances.length}/${userApprovedMappings.length} stage instances from user mappings`);
   }
 
   /**
