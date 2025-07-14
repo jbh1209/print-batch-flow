@@ -11,6 +11,7 @@ export interface EnhancedMappingResult {
   unmappedPaperSpecs: string[];
   unmappedDeliverySpecs: string[];
   enhancedDeliveryMappings: any[];
+  userApprovedStageMappings?: Record<string, number>; // PRESERVE USER MAPPINGS
   stats: {
     totalJobs: number;
     paperSpecsMapped: number;
@@ -81,7 +82,7 @@ export class EnhancedMappingProcessor {
     this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Processing ${jobs.length} jobs with user mappings`);
     this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: User mapping object: ${JSON.stringify(userMapping, null, 2)}`);
     
-    // Extract and count user-approved stage mappings
+    // Extract and count user-approved stage mappings - CRITICAL PATH
     const userStageMappings = this.extractUserStageMappings(userMapping);
     this.logger.addDebugInfo(`ENHANCED MAPPING DEBUG: Found ${Object.keys(userStageMappings).length} user-approved stage mappings:`);
     Object.entries(userStageMappings).forEach(([stageId, columnIndex]) => {
@@ -98,6 +99,8 @@ export class EnhancedMappingProcessor {
       enhancedDeliveryMappings: [],
       unmappedPaperSpecs: [],
       unmappedDeliverySpecs: [],
+      // PRESERVE USER-APPROVED STAGE MAPPINGS IN RESULT
+      userApprovedStageMappings: userStageMappings,
       stats: {
         totalJobs: jobs.length,
         paperSpecsMapped: 0,

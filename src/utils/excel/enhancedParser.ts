@@ -344,8 +344,24 @@ export const parseAndPrepareProductionReadyJobs = async (
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
   await jobCreator.initialize();
   
-  // Step 3: Prepare jobs with mappings but DON'T save to database yet
-  const result = await jobCreator.prepareEnhancedJobsWithExcelData(jobs, headers, dataRows);
+  // Step 3: Get enhanced mapping result for user stage mappings
+  const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
+  await enhancedProcessor.initialize();
+  const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
+    jobs, 
+    mapping.paperType || -1, 
+    mapping.delivery || -1, 
+    dataRows, 
+    mapping
+  );
+  
+  // Step 4: Prepare jobs with mappings but DON'T save to database yet - PASS USER MAPPINGS
+  const result = await jobCreator.prepareEnhancedJobsWithExcelData(
+    enhancedResult.jobs, 
+    headers, 
+    dataRows, 
+    enhancedResult.userApprovedStageMappings || {}
+  );
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
   

@@ -14,6 +14,7 @@ export interface EnhancedJobCreationResult {
   rowMappings: { [woNo: string]: RowMappingResult[] };
   userId?: string;
   generateQRCodes?: boolean;
+  userApprovedStageMappings?: Record<string, number>; // PRESERVE USER MAPPINGS
   stats: {
     total: number;
     successful: number;
@@ -57,7 +58,8 @@ export class EnhancedJobCreator {
   async prepareEnhancedJobsWithExcelData(
     jobs: ParsedJob[], 
     headers: string[], 
-    dataRows: any[][]
+    dataRows: any[][],
+    userApprovedStageMappings: Record<string, number> = {}
   ): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Preparing enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
     this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
@@ -71,6 +73,7 @@ export class EnhancedJobCreator {
       rowMappings: {},
       userId: this.userId,
       generateQRCodes: this.generateQRCodes,
+      userApprovedStageMappings: userApprovedStageMappings, // PASS THROUGH USER MAPPINGS
       stats: {
         total: jobs.length,
         successful: 0,
@@ -83,7 +86,7 @@ export class EnhancedJobCreator {
     // Process each job for mapping but DON'T save to database
     for (let i = 0; i < jobs.length; i++) {
       try {
-        await this.prepareJobWithExcelData(jobs[i], result, headers, dataRows[i] || []);
+        await this.prepareJobWithExcelData(jobs[i], result, headers, dataRows[i] || [], userApprovedStageMappings);
         result.stats.successful++;
       } catch (error) {
         this.logger.addDebugInfo(`Failed to prepare job ${jobs[i].wo_no}: ${error}`);
@@ -199,7 +202,8 @@ export class EnhancedJobCreator {
     job: ParsedJob, 
     result: EnhancedJobCreationResult, 
     headers: string[], 
-    excelRow: any[]
+    excelRow: any[],
+    userApprovedStageMappings: Record<string, number> = {}
   ): Promise<void> {
     this.logger.addDebugInfo(`Preparing job: ${job.wo_no} with Excel data`);
     this.logger.addDebugInfo(`Job specifications - printing: ${JSON.stringify(job.printing_specifications)}`);
@@ -214,13 +218,28 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`Original row index: ${actualRowIndex}`);
     this.logger.addDebugInfo(`Headers length: ${headers?.length || 0}`);
 
-    // 1. Map specifications to production stages using enhanced mapper with user-approved mappings
+    // 1. CRITICAL: Use BOTH job specifications AND user-approved stage mappings
+    this.logger.addDebugInfo(`USER APPROVED STAGE MAPPINGS RECEIVED: ${JSON.stringify(userApprovedStageMappings)}`);
+    
     const userApprovedMappings = this.extractUserApprovedMappings(job);
+    this.logger.addDebugInfo(`EXTRACTED USER MAPPINGS FROM JOB: ${JSON.stringify(userApprovedMappings)}`);
+    
+    // MERGE user-approved mappings from ColumnMappingDialog with job specifications
+    const combinedUserMappings = { ...userApprovedMappings };
+    
+    // If we have user-approved stage mappings from the dialog, they take PRIORITY
+    if (Object.keys(userApprovedStageMappings).length > 0) {
+      this.logger.addDebugInfo(`USING USER-APPROVED DIALOG MAPPINGS AS PRIORITY SOURCE`);
+      Object.assign(combinedUserMappings, userApprovedStageMappings);
+    }
+    
+    this.logger.addDebugInfo(`FINAL COMBINED USER MAPPINGS: ${JSON.stringify(combinedUserMappings)}`);
+    
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
-      userApprovedMappings
+      combinedUserMappings // Use combined mappings
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
