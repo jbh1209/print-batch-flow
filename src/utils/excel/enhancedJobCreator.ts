@@ -664,7 +664,7 @@ export class EnhancedJobCreator {
     if (Object.keys(userApprovedStageMappings).length > 0) {
       this.logger.addDebugInfo(`🎯 SURGICAL FIX: CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${Object.keys(userApprovedStageMappings).length} stages)`);
       this.logger.addDebugInfo(`🚀 BYPASSING ALL AUTO-DETECTION - USING ONLY USER CHOICES`);
-      await this.createStageInstancesFromUserApprovedMappings(insertedJob, originalJob, userApprovedStageMappings);
+      await this.createStageInstancesFromUserApprovedMappings(insertedJob, originalJob, userApprovedStageMappings, result);
       
       // Mark job as having custom workflow
       await supabase
@@ -730,30 +730,28 @@ export class EnhancedJobCreator {
         }
       }
 
-      // Group mappings by stage to detect multi-instance scenarios
-      const stageGroups = new Map<string, Array<{mapping: any, paperType?: string}>>();
+      // CRITICAL FIX: Group mappings by instanceId instead of stageId to support multi-row printing
+      const instanceGroups = new Map<string, {mapping: any, paperType?: string}>();
       
       rowMappings
         .filter(mapping => !mapping.isUnmapped && mapping.mappedStageId)
         .forEach((mapping) => {
-          const stageId = mapping.mappedStageId!;
-          if (!stageGroups.has(stageId)) {
-            stageGroups.set(stageId, []);
-          }
+          // Use instanceId for grouping to preserve Cover/Text separation
+          const instanceKey = mapping.instanceId || `${mapping.mappedStageId}_${mapping.excelRowIndex}`;
           
           // Get paper type from allocation map for printing stages
           let paperType = '';
           if (mapping.category === 'printing') {
-            paperType = paperToStageMap.get(stageId) || '';
+            paperType = paperToStageMap.get(mapping.mappedStageId!) || '';
           }
           
-          stageGroups.get(stageId)!.push({ 
+          instanceGroups.set(instanceKey, { 
             mapping, 
             paperType: paperType || mapping.paperSpecification || ''
           });
         });
 
-      this.logger.addDebugInfo(`Grouped mappings into ${stageGroups.size} unique stages`);
+      this.logger.addDebugInfo(`Grouped mappings into ${instanceGroups.size} unique instances (enabling multi-row printing)`);
 
       // Create stage instances with proper system ordering and multi-instance support
       const stageInstances: Array<{
@@ -764,50 +762,47 @@ export class EnhancedJobCreator {
         quantity: number;
         mapping: any;
         paperType?: string;
+        stageSpecId?: string;
+        stageSpecName?: string;
       }> = [];
 
-      // Process each stage group to create instances
-      for (const [stageId, stageMappings] of stageGroups.entries()) {
-        const productionStage = allProductionStages.find(ps => ps.id === stageId);
+      // Process each instance group to create separate instances
+      for (const [instanceKey, {mapping, paperType}] of instanceGroups.entries()) {
+        const productionStage = allProductionStages.find(ps => ps.id === mapping.mappedStageId);
         if (!productionStage) {
-          this.logger.addDebugInfo(`Warning: Production stage ${stageId} not found in system stages`);
+          this.logger.addDebugInfo(`Warning: Production stage ${mapping.mappedStageId} not found in system stages`);
           continue;
         }
 
-        this.logger.addDebugInfo(`Processing stage: ${productionStage.name} with ${stageMappings.length} instance(s)`);
+        this.logger.addDebugInfo(`Processing instance: ${productionStage.name} (${mapping.partType || 'standard'})`);
 
-        // Since row mappings are now pre-split in enhancedStageMapper, 
-        // each mapping already represents a separate instance
-        stageMappings.forEach((stageMapping, instanceIndex) => {
-          const { mapping, paperType } = stageMapping;
-          
-          // Create meaningful part names from pre-split mapping data
-          let partName = '';
-          if (mapping.paperSpecification) {
-            partName = `${productionStage.name} - ${mapping.paperSpecification}`;
-          } else if (paperType) {
-            partName = `${productionStage.name} - ${paperType}`;
-          } else if (stageMappings.length > 1) {
-            partName = `${productionStage.name} - Run ${instanceIndex + 1}`;
-          } else {
-            partName = productionStage.name;
+        // Create meaningful part names that include paper specifications and part types
+        let partName = productionStage.name;
+        if (mapping.partType) {
+          partName = `${productionStage.name} - ${mapping.partType}`;
+          if (mapping.paperSpecification || paperType) {
+            partName = `${productionStage.name} - ${mapping.partType} (${mapping.paperSpecification || paperType})`;
           }
+        } else if (mapping.paperSpecification || paperType) {
+          partName = `${productionStage.name} - ${mapping.paperSpecification || paperType}`;
+        }
 
-          // Get quantity from mapping or job operation quantities
-          const quantity = this.getQuantityForStageInstance(mapping, originalJob, instanceIndex);
+        // Get quantity from mapping (already set correctly for Cover/Text in enhancedStageMapper)
+        const quantity = mapping.qty || mapping.woQty || originalJob.qty || 1;
 
-          stageInstances.push({
-            stageId: productionStage.id,
-            stageName: productionStage.name,
-            systemOrder: productionStage.order_index,
-            partName,
-            quantity,
-            mapping,
-            paperType: mapping.paperSpecification || paperType
-          });
-
-          this.logger.addDebugInfo(`Created stage instance: ${partName} with quantity ${quantity}`);
+        stageInstances.push({
+          stageId: productionStage.id,
+          stageName: productionStage.name,
+          systemOrder: productionStage.order_index,
+          partName,
+          quantity,
+          mapping,
+          paperType: mapping.paperSpecification || paperType,
+          stageSpecId: mapping.mappedStageSpecId,
+          stageSpecName: mapping.mappedStageSpecName
         });
+
+        this.logger.addDebugInfo(`Created stage instance: ${partName} with quantity ${quantity}, stageSpec: ${mapping.mappedStageSpecName || 'none'}`);
       }
 
       // Sort stage instances by system-defined order to ensure proper workflow sequence
@@ -822,8 +817,12 @@ export class EnhancedJobCreator {
       
       // Create stage instances in database with correct ordering and timing calculations
       const stageInsertPromises = stageInstances.map(async (instance, index) => {
-        // Calculate timing using Supabase function
-        const timingResult = await this.calculateStageTiming(instance.quantity, instance.stageId);
+        // CRITICAL FIX: Calculate timing using stage specification or fallback to production stage
+        const timingResult = await this.calculateStageTimingWithInheritance(
+          instance.quantity, 
+          instance.stageId, 
+          instance.stageSpecId
+        );
         
         const { data, error } = await supabase
           .from('job_stage_instances')
@@ -835,17 +834,27 @@ export class EnhancedJobCreator {
             status: 'pending',
             part_name: instance.partName || null,
             part_type: instance.mapping.partType?.toLowerCase() || null, // Store cover/text flag
-            stage_specification_id: instance.mapping.mappedStageSpecId || null,
+            stage_specification_id: instance.stageSpecId || null, // CRITICAL: Store stage specification
             quantity: instance.quantity || 0, // Ensure quantity is always set
             estimated_duration_minutes: timingResult.estimatedDuration,
             setup_time_minutes: timingResult.setupTime
           })
-          .select('id, production_stage_id, part_name, quantity, estimated_duration_minutes')
+          .select('id, production_stage_id, part_name, quantity, estimated_duration_minutes, stage_specification_id')
           .single();
           
         if (error) {
           this.logger.addDebugInfo(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
           throw new Error(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
+        }
+
+        // CRITICAL FIX: Create paper allocation for printing stages
+        if (instance.mapping.category === 'printing' && instance.paperType) {
+          await this.createJobPrintSpecification(
+            insertedJob.id,
+            'production_jobs',
+            instance.paperType,
+            data.id
+          );
         }
         
         this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - Qty: ${instance.quantity} - Duration: ${timingResult.estimatedDuration}min - ID: ${data.id}`);
@@ -940,6 +949,99 @@ export class EnhancedJobCreator {
     } catch (error) {
       this.logger.addDebugInfo(`Error calculating stage timing: ${error}`);
       return { estimatedDuration: 60, setupTime: 10 }; // Safe fallback
+    }
+  }
+
+  /**
+   * CRITICAL FIX: Calculate stage timing with inheritance from stage specifications
+   */
+  private async calculateStageTimingWithInheritance(
+    quantity: number, 
+    stageId: string, 
+    stageSpecId?: string
+  ): Promise<{estimatedDuration: number, setupTime: number}> {
+    try {
+      // First try to use stage specification timing (most specific)
+      if (stageSpecId) {
+        const { data: stageSpec, error: specError } = await supabase
+          .from('stage_specifications')
+          .select('running_speed_per_hour, make_ready_time_minutes, speed_unit')
+          .eq('id', stageSpecId)
+          .eq('is_active', true)
+          .single();
+
+        if (!specError && stageSpec && stageSpec.running_speed_per_hour) {
+          this.logger.addDebugInfo(`Using stage specification timing: ${stageSpec.running_speed_per_hour} ${stageSpec.speed_unit || 'sheets_per_hour'}`);
+          
+          const { data: timing } = await supabase.rpc('calculate_stage_duration', {
+            p_quantity: quantity,
+            p_running_speed_per_hour: stageSpec.running_speed_per_hour,
+            p_make_ready_time_minutes: stageSpec.make_ready_time_minutes || 10,
+            p_speed_unit: stageSpec.speed_unit || 'sheets_per_hour'
+          });
+
+          return {
+            estimatedDuration: timing || 60,
+            setupTime: stageSpec.make_ready_time_minutes || 10
+          };
+        }
+      }
+
+      // Fallback to production stage timing
+      this.logger.addDebugInfo(`Falling back to production stage timing for stage ${stageId}`);
+      return await this.calculateStageTiming(quantity, stageId);
+      
+    } catch (error) {
+      this.logger.addDebugInfo(`Error calculating stage timing with inheritance: ${error}`);
+      return {
+        estimatedDuration: 60,
+        setupTime: 10
+      };
+    }
+  }
+
+  /**
+   * CRITICAL FIX: Create job print specification for paper allocation
+   */
+  private async createJobPrintSpecification(
+    jobId: string,
+    jobTableName: string,
+    paperSpecification: string,
+    stageInstanceId?: string
+  ): Promise<void> {
+    try {
+      // Look up paper specification in print_specifications table
+      const { data: paperSpecs, error: paperError } = await supabase
+        .from('print_specifications')
+        .select('id, category, name, display_name')
+        .or(`name.ilike.%${paperSpecification}%,display_name.ilike.%${paperSpecification}%`)
+        .in('category', ['paper_type', 'paper_weight'])
+        .eq('is_active', true);
+
+      if (paperError || !paperSpecs?.length) {
+        this.logger.addDebugInfo(`Warning: Could not find paper specification for "${paperSpecification}"`);
+        return;
+      }
+
+      // Create job print specification entries for each found paper spec
+      for (const spec of paperSpecs) {
+        const { error: insertError } = await supabase
+          .from('job_print_specifications')
+          .insert({
+            job_id: jobId,
+            job_table_name: jobTableName,
+            specification_id: spec.id,
+            specification_category: spec.category
+          });
+
+        if (insertError) {
+          this.logger.addDebugInfo(`Warning: Failed to create job print specification: ${insertError.message}`);
+        } else {
+          this.logger.addDebugInfo(`✅ Created job print specification: ${spec.display_name} (${spec.category})`);
+        }
+      }
+    } catch (error) {
+      this.logger.addDebugInfo(`Error creating job print specification: ${error}`);
     }
   }
 
@@ -1431,7 +1533,7 @@ export class EnhancedJobCreator {
       // Use job quantity or default to 1
       const quantity = originalJob.qty || 1;
       
-      // Calculate timing using Supabase function
+      // Calculate timing using production stage (fallback for user-approved mappings)
       const timingResult = await this.calculateStageTiming(quantity, mapping.mappedStageId);
       
       const { data, error } = await supabase
@@ -1444,7 +1546,7 @@ export class EnhancedJobCreator {
           status: 'pending',
           part_name: `${mapping.mappedStageName} - ${mapping.groupName}`,
           part_type: mapping.category?.toLowerCase() || null,
-          stage_specification_id: null,
+          stage_specification_id: null, // User-approved mappings don't have stage specifications
           quantity: quantity,
           estimated_duration_minutes: timingResult.estimatedDuration,
           setup_time_minutes: timingResult.setupTime
@@ -1475,7 +1577,8 @@ export class EnhancedJobCreator {
   private async createStageInstancesFromUserApprovedMappings(
     insertedJob: any, 
     originalJob: ParsedJob, 
-    userApprovedStageMappings: Record<string, number>
+    userApprovedStageMappings: Record<string, number>,
+    result: EnhancedJobCreationResult
   ): Promise<void> {
     this.logger.addDebugInfo(`🎯 CREATING WORKFLOW FROM USER-APPROVED MAPPINGS: ${Object.keys(userApprovedStageMappings).length} stages`);
     
@@ -1516,8 +1619,28 @@ export class EnhancedJobCreator {
       // Use job quantity or default to 1
       const quantity = originalJob.qty || 1;
       
-      // Calculate timing using Supabase function
-      const timingResult = await this.calculateStageTiming(quantity, stageId);
+      // CRITICAL FIX: Look up stage specification from enhanced results
+      let stageSpecId = null;
+      let stageSpecName = null;
+      
+      // Try to find stage specification from the result row mappings
+      const allRowMappings = Object.values(result.rowMappings).flat();
+      const relatedMapping = allRowMappings.find(mapping => 
+        mapping.mappedStageId === stageId && !mapping.isUnmapped
+      );
+      
+      if (relatedMapping?.mappedStageSpecId) {
+        stageSpecId = relatedMapping.mappedStageSpecId;
+        stageSpecName = relatedMapping.mappedStageSpecName;
+        this.logger.addDebugInfo(`Found stage specification for ${stage.name}: ${stageSpecName}`);
+      }
+
+      // Calculate timing with stage specification inheritance
+      const timingResult = await this.calculateStageTimingWithInheritance(
+        quantity, 
+        stageId, 
+        stageSpecId
+      );
       
       const { data, error } = await supabase
         .from('job_stage_instances')
@@ -1527,9 +1650,9 @@ export class EnhancedJobCreator {
           production_stage_id: stageId,
           stage_order: index + 1, // Sequential order based on system ordering
           status: 'pending',
-          part_name: `${stage!.name} - User Approved`,
+          part_name: `${stage!.name} - User Approved${stageSpecName ? ` (${stageSpecName})` : ''}`,
           part_type: 'user_approved',
-          stage_specification_id: null,
+          stage_specification_id: stageSpecId, // CRITICAL: Store stage specification
           quantity: quantity,
           estimated_duration_minutes: timingResult.estimatedDuration,
           setup_time_minutes: timingResult.setupTime
