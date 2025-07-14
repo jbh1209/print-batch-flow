@@ -1,4 +1,4 @@
-import type { ParsedJob, RowMappingResult } from './types';
+import type { ParsedJob, RowMappingResult, GroupSpecifications } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { ProductionStageMapper, type CategoryAssignmentResult } from './productionStageMapper';
 import { EnhancedStageMapper } from './enhancedStageMapper';
@@ -234,11 +234,17 @@ export class EnhancedJobCreator {
 
     // 1. Map specifications to production stages using enhanced mapper with user-approved mappings
     const userApprovedMappings = this.extractUserApprovedMappings(job);
+    
+    // CRITICAL FIX: Convert job.paper_specifications to GroupSpecifications format for stage mapper
+    const paperSpecsForMapping = this.convertPaperSpecsToGroupFormat(job.paper_specifications);
+    this.logger.addDebugInfo(`🎯 CONVERTED PAPER SPECS: ${JSON.stringify(paperSpecsForMapping)}`);
+    
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
-      userApprovedMappings
+      userApprovedMappings,
+      paperSpecsForMapping  // Pass converted paper specifications
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -281,6 +287,45 @@ export class EnhancedJobCreator {
     };
 
     this.logger.addDebugInfo(`Job ${job.wo_no} prepared with custom workflow mappings`);
+  }
+
+  /**
+   * Convert job.paper_specifications to GroupSpecifications format for enhanced stage mapper
+   */
+  private convertPaperSpecsToGroupFormat(paperSpecs: any): GroupSpecifications | null {
+    if (!paperSpecs) return null;
+    
+    const converted: GroupSpecifications = {};
+    
+    // Check if it's already in group format or needs conversion
+    if (paperSpecs.parsed_paper) {
+      // Coming from enhanced mapping processor
+      converted.parsed_paper = {
+        description: `${paperSpecs.parsed_paper.type || ''} ${paperSpecs.parsed_paper.weight || ''}`.trim(),
+        specifications: paperSpecs.parsed_paper.original_text || '',
+        qty: 1,
+        paperType: paperSpecs.parsed_paper.type,
+        paperWeight: paperSpecs.parsed_paper.weight,
+        color: paperSpecs.parsed_paper.color,
+        size: paperSpecs.parsed_paper.size,
+        finish: paperSpecs.parsed_paper.finish
+      };
+    } else {
+      // Convert any other paper spec format
+      Object.entries(paperSpecs).forEach(([key, value]: [string, any]) => {
+        if (value && typeof value === 'object') {
+          converted[key] = {
+            description: value.description || value.type || '',
+            specifications: value.specifications || value.original_text || '',
+            qty: value.qty || 1,
+            ...value  // Preserve all other properties
+          };
+        }
+      });
+    }
+    
+    this.logger.addDebugInfo(`🔄 PAPER SPECS CONVERSION: ${Object.keys(paperSpecs).join(', ')} -> ${Object.keys(converted).join(', ')}`);
+    return Object.keys(converted).length > 0 ? converted : null;
   }
 
   private async finalizeIndividualJob(
@@ -382,11 +427,16 @@ export class EnhancedJobCreator {
       this.logger.addDebugInfo(`   - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}]`);
     });
     
+    // CRITICAL FIX: Convert job.paper_specifications to GroupSpecifications format for stage mapper
+    const paperSpecsForMapping = this.convertPaperSpecsToGroupFormat(job.paper_specifications);
+    this.logger.addDebugInfo(`🎯 CONVERTED PAPER SPECS: ${JSON.stringify(paperSpecsForMapping)}`);
+    
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
-      userApprovedMappings
+      userApprovedMappings,
+      paperSpecsForMapping  // Pass converted paper specifications
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);

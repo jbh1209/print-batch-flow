@@ -101,10 +101,15 @@ export class EnhancedStageMapper {
     const rowMappings: RowMappingResult[] = [];
     let rowIndex = 0;
 
-    // Process paper specifications first to map them for later use
+    // CRITICAL FIX: Process paper specifications passed from job creator
     const paperMappings = paperSpecs ? this.processPaperSpecs(paperSpecs) : [];
     this.allPaperMappings = paperMappings; // Store for use in createCategoryRowMappings
-    this.logger.addDebugInfo(`Processed ${paperMappings.length} paper specifications`);
+    this.logger.addDebugInfo(`🎯 PAPER SPECS IN STAGE MAPPER: ${paperSpecs ? 'Found' : 'None'} - Processed ${paperMappings.length} paper specifications`);
+    
+    // Debug the paper mappings for multi-row printing
+    if (paperMappings.length > 0) {
+      this.logger.addDebugInfo(`🎯 PAPER MAPPINGS FOR MULTI-ROW: ${paperMappings.map(p => `${p.groupName}:${p.mappedSpec}`).join(', ')}`);
+    }
 
     // Process printing specifications with paper integration
     if (printingSpecs) {
@@ -743,7 +748,8 @@ export class EnhancedStageMapper {
     printingSpecs: GroupSpecifications | null,
     finishingSpecs: GroupSpecifications | null,
     prepressSpecs: GroupSpecifications | null,
-    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
+    paperSpecs?: GroupSpecifications | null  // Add optional paper specs parameter
   ): StageMapping[] {
     const mappedStages: StageMapping[] = [];
     
