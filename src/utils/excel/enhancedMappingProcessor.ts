@@ -11,6 +11,7 @@ export interface EnhancedMappingResult {
   unmappedPaperSpecs: string[];
   unmappedDeliverySpecs: string[];
   enhancedDeliveryMappings: any[];
+  userApprovedStageMappings?: Record<string, number>;
   stats: {
     totalJobs: number;
     paperSpecsMapped: number;
@@ -98,6 +99,7 @@ export class EnhancedMappingProcessor {
       enhancedDeliveryMappings: [],
       unmappedPaperSpecs: [],
       unmappedDeliverySpecs: [],
+      userApprovedStageMappings: userStageMappings,
       stats: {
         totalJobs: jobs.length,
         paperSpecsMapped: 0,

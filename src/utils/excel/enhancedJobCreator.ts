@@ -12,6 +12,7 @@ export interface EnhancedJobCreationResult {
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
   rowMappings: { [woNo: string]: RowMappingResult[] };
+  userApprovedStageMappings?: Record<string, number>;
   userId?: string;
   generateQRCodes?: boolean;
   stats: {
@@ -57,7 +58,8 @@ export class EnhancedJobCreator {
   async prepareEnhancedJobsWithExcelData(
     jobs: ParsedJob[], 
     headers: string[], 
-    dataRows: any[][]
+    dataRows: any[][],
+    userApprovedStageMappings?: Record<string, number>
   ): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Preparing enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
     this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
@@ -148,7 +150,8 @@ export class EnhancedJobCreator {
   async createEnhancedJobsWithExcelData(
     jobs: ParsedJob[], 
     headers: string[], 
-    dataRows: any[][]
+    dataRows: any[][],
+    userApprovedStageMappings?: Record<string, number>
   ): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Creating enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
     this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
@@ -169,6 +172,9 @@ export class EnhancedJobCreator {
       }
     };
 
+    // Store user-approved stage mappings in result for later use
+    result.userApprovedStageMappings = userApprovedStageMappings;
+    
     // Process each job individually for better error handling
     for (let i = 0; i < jobs.length; i++) {
       try {
@@ -636,32 +642,26 @@ export class EnhancedJobCreator {
     try {
       this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
       
-      // DEBUGGING: Check what user mappings were extracted
-      const userApprovedMappings = this.extractUserApprovedMappings(originalJob);
-      this.logger.addDebugInfo(`🔍 EXTRACTED ${userApprovedMappings.length} USER MAPPINGS during workflow initialization:`);
-      userApprovedMappings.forEach(mapping => {
-        this.logger.addDebugInfo(`   - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}]`);
+      // CRITICAL FIX: Use user-approved stage mappings from result first
+      const userApprovedStageMappings = result.userApprovedStageMappings || {};
+      this.logger.addDebugInfo(`🔍 USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings found:`);
+      Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
+        this.logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
       });
       
-      // Use the row mappings already created in processJobWithExcelData
+      // If we have user-approved stage mappings, create stages directly from them
+      if (Object.keys(userApprovedStageMappings).length > 0) {
+        this.logger.addDebugInfo(`🎯 CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${Object.keys(userApprovedStageMappings).length} stages)`);
+        await this.createStageInstancesFromUserApprovedMappings(insertedJob, originalJob, userApprovedStageMappings);
+        return;
+      }
+      
+      // Fallback: Use the row mappings if no user-approved mappings
       const rowMappings = result.rowMappings[originalJob.wo_no] || [];
-      
       this.logger.addDebugInfo(`Using ${rowMappings.length} existing row mappings for workflow initialization`);
-      rowMappings.forEach((mapping, i) => {
-        this.logger.addDebugInfo(`   Row ${i}: ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}] isUnmapped:${mapping.isUnmapped}`);
-      });
-
+      
       if (rowMappings.length === 0) {
-        this.logger.addDebugInfo(`❌ NO STAGE MAPPINGS found for job ${originalJob.wo_no} - this is where user mappings are lost!`);
-        this.logger.addDebugInfo(`🔧 SURGICAL FIX: Creating stage instances directly from user-approved mappings`);
-        
-        // SURGICAL FIX: If no row mappings but we have user-approved mappings, use them directly
-        if (userApprovedMappings.length > 0) {
-          await this.createStageInstancesFromUserMappings(insertedJob, originalJob, userApprovedMappings);
-          return;
-        }
-        
-        this.logger.addDebugInfo(`No user mappings either, skipping workflow initialization`);
+        this.logger.addDebugInfo(`❌ NO MAPPINGS found for job ${originalJob.wo_no} - skipping workflow initialization`);
         return;
       }
 
@@ -1446,6 +1446,91 @@ export class EnhancedJobCreator {
     const successfulInstances = stageInstances.filter(instance => instance !== undefined);
     
     this.logger.addDebugInfo(`🎉 SURGICAL FIX SUCCESS: Created ${successfulInstances.length}/${userApprovedMappings.length} stage instances from user mappings`);
+  }
+
+  /**
+   * CRITICAL FIX: Create stage instances directly from user-approved stage mappings
+   * This method works with the Record<string, number> format from the Enhanced Production Job Creation modal
+   */
+  private async createStageInstancesFromUserApprovedMappings(
+    insertedJob: any, 
+    originalJob: ParsedJob, 
+    userApprovedStageMappings: Record<string, number>
+  ): Promise<void> {
+    this.logger.addDebugInfo(`🎯 CREATING WORKFLOW FROM USER-APPROVED MAPPINGS: ${Object.keys(userApprovedStageMappings).length} stages`);
+    
+    // Get all production stages for system ordering and stage details
+    const { data: allProductionStages, error: stagesError } = await supabase
+      .from('production_stages')
+      .select('id, name, order_index, supports_parts')
+      .eq('is_active', true)
+      .order('order_index');
+
+    if (stagesError || !allProductionStages) {
+      throw new Error(`Failed to load production stages: ${stagesError?.message}`);
+    }
+
+    // Create a map for quick stage lookup
+    const stageMap = new Map(allProductionStages.map(stage => [stage.id, stage]));
+    
+    // Convert user mappings to array and sort by stage system order
+    const stageEntries = Object.entries(userApprovedStageMappings)
+      .map(([stageId, columnIndex]) => {
+        const stage = stageMap.get(stageId);
+        return {
+          stageId,
+          columnIndex,
+          stage,
+          systemOrder: stage?.order_index || 999
+        };
+      })
+      .filter(entry => entry.stage) // Only include valid stages
+      .sort((a, b) => a.systemOrder - b.systemOrder);
+    
+    this.logger.addDebugInfo(`Sorted ${stageEntries.length} user-approved stages by system order: ${stageEntries.map(e => e.stage!.name).join(' -> ')}`);
+    
+    // Create stage instances directly
+    const stageInsertPromises = stageEntries.map(async (entry, index) => {
+      const { stageId, stage } = entry;
+      
+      // Use job quantity or default to 1
+      const quantity = originalJob.qty || 1;
+      
+      // Calculate timing using Supabase function
+      const timingResult = await this.calculateStageTiming(quantity, stageId);
+      
+      const { data, error } = await supabase
+        .from('job_stage_instances')
+        .insert({
+          job_id: insertedJob.id,
+          job_table_name: 'production_jobs',
+          production_stage_id: stageId,
+          stage_order: index + 1, // Sequential order based on system ordering
+          status: 'pending',
+          part_name: `${stage!.name} - User Approved`,
+          part_type: 'user_approved',
+          stage_specification_id: null,
+          quantity: quantity,
+          estimated_duration_minutes: timingResult.estimatedDuration,
+          setup_time_minutes: timingResult.setupTime
+        })
+        .select('id, production_stage_id, part_name, quantity, estimated_duration_minutes')
+        .single();
+
+      if (error) {
+        this.logger.addDebugInfo(`Failed to create stage instance for ${stage!.name}: ${error.message}`);
+        throw error;
+      }
+
+      this.logger.addDebugInfo(`✅ Created stage instance: ${stage!.name} with quantity ${quantity}`);
+      return data;
+    });
+
+    // Execute all stage creation promises
+    const stageInstances = await Promise.all(stageInsertPromises);
+    const successfulInstances = stageInstances.filter(instance => instance !== undefined);
+    
+    this.logger.addDebugInfo(`🎉 USER-APPROVED WORKFLOW SUCCESS: Created ${successfulInstances.length}/${Object.keys(userApprovedStageMappings).length} stage instances from user-approved mappings`);
   }
 
   /**
