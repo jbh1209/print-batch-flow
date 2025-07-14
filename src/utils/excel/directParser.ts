@@ -131,13 +131,7 @@ export const finalizeJobsDirectly = async (
   userId: string
 ): Promise<DirectJobResult> => {
   logger.addDebugInfo('Finalizing jobs using direct approach');
-  logger.addDebugInfo(`FINALIZATION: Preserving user-approved stage mappings: ${JSON.stringify(preparedResult.userApprovedStageMappings || {})}`);
   
-  // CRITICAL: Pass user-approved stage mappings to DirectJobCreator
   const directCreator = new DirectJobCreator(logger, userId, preparedResult.generateQRCodes || true);
-  
-  // Ensure user mappings are preserved in the prepared result
-  preparedResult.preservedUserMappings = preparedResult.userApprovedStageMappings || {};
-  
   return await directCreator.createJobsFromMappings(preparedResult);
 };
