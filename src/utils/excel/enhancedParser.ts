@@ -82,7 +82,23 @@ export const parseMatrixExcelFileWithMapping = async (
   
   // Find paper and delivery columns from specification column
   const paperColumnIndex = mapping.specification !== -1 ? mapping.specification : -1;
-  const deliveryColumnIndex = -1; // Could be extracted from other columns in future
+  
+  // FIXED: Extract delivery column from matrix data instead of hardcoded -1
+  let deliveryColumnIndex = -1;
+  if (matrixData?.detectedGroups?.includes('delivery')) {
+    // Find delivery group data in rows
+    for (let i = 0; i < matrixData.rows.length; i++) {
+      const row = matrixData.rows[i];
+      if (matrixData.groupColumn !== -1 && row[matrixData.groupColumn]) {
+        const groupName = String(row[matrixData.groupColumn]).toLowerCase();
+        if (groupName.includes('delivery')) {
+          deliveryColumnIndex = matrixData.descriptionColumn !== -1 ? matrixData.descriptionColumn : -1;
+          logger.addDebugInfo(`🎯 Found delivery group - setting deliveryColumnIndex to ${deliveryColumnIndex}`);
+          break;
+        }
+      }
+    }
+  }
   
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
     jobs,

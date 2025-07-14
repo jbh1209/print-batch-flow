@@ -17,6 +17,7 @@ export class EnhancedStageMapper {
   private stageSpecs: any[] = [];
   private specifications: any[] = [];
   private existingMappings: Map<string, any> = new Map();
+  private allPaperMappings: Array<{groupName: string, spec: any, mappedSpec: string, qty: number}> = [];
   
   constructor(private logger: ExcelImportDebugger) {}
 
@@ -102,6 +103,7 @@ export class EnhancedStageMapper {
 
     // Process paper specifications first to map them for later use
     const paperMappings = paperSpecs ? this.processPaperSpecs(paperSpecs) : [];
+    this.allPaperMappings = paperMappings; // Store for use in createCategoryRowMappings
     this.logger.addDebugInfo(`Processed ${paperMappings.length} paper specifications`);
 
     // Process printing specifications with paper integration
@@ -177,7 +179,10 @@ export class EnhancedStageMapper {
 
     // For printing category, use the new paper-integrated approach
     if (category === 'printing') {
-      return this.createPrintingRowMappingsWithPaper(specs, [], excelRows, headers, startRowIndex);
+      // FIXED: Pass the actual paper mappings instead of empty array to enable multi-row printing
+      const paperMappings = this.allPaperMappings || [];
+      this.logger.addDebugInfo(`🎯 MULTI-ROW PRINTING: Using ${paperMappings.length} paper mappings for printing stage creation (Cover: ${paperMappings[0]?.mappedSpec || 'none'}, Text: ${paperMappings[1]?.mappedSpec || 'none'})`);
+      return this.createPrintingRowMappingsWithPaper(specs, paperMappings, excelRows, headers, startRowIndex);
     }
 
     // For non-printing categories, use standard processing
