@@ -320,8 +320,8 @@ export const ExcelUpload = () => {
     try {
       setIsCreatingJobs(true);
       
-      // STEP 2: Use simplified direct approach - preserves all existing logic but removes complexity
-      const finalResult = await finalizeJobsDirectly(enhancedResult, debugLogger, user.id);
+      // CRITICAL FIX: Use the enhanced job creator that preserves user-approved stage mappings
+      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger, user.id);
       
       toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
       
