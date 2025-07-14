@@ -88,25 +88,61 @@ export class TimingCalculationService {
   static async calculateStageTimingWithInheritance(
     params: TimingCalculationParams
   ): Promise<TimingEstimate> {
-    const { quantity, stageData, specificationData } = params;
+    const { quantity, stageId, specificationId } = params;
     
-    // Check if manual override is enabled (specification takes precedence over stage)
-    const isManualOverride = specificationData?.ignore_excel_quantity || stageData?.ignore_excel_quantity;
+    let timingData = null;
+    let calculationSource: TimingEstimate['calculationSource'] = 'default';
     
-    // Determine which data to use (specification overrides stage)
-    const runningSpeed = specificationData?.running_speed_per_hour || stageData?.running_speed_per_hour;
-    const makeReadyTime = specificationData?.make_ready_time_minutes || stageData?.make_ready_time_minutes || 10;
-    const speedUnit = specificationData?.speed_unit || stageData?.speed_unit || 'sheets_per_hour';
+    // PHASE 1: Always query fresh stage specification data first (highest priority)
+    if (specificationId) {
+      try {
+        const { data: stageSpec, error: specError } = await supabase
+          .from('stage_specifications')
+          .select('running_speed_per_hour, make_ready_time_minutes, speed_unit, ignore_excel_quantity')
+          .eq('id', specificationId)
+          .eq('is_active', true)
+          .single();
+
+        if (!specError && stageSpec && stageSpec.running_speed_per_hour) {
+          timingData = stageSpec;
+          calculationSource = stageSpec.ignore_excel_quantity ? 'manual_override' : 'specification';
+          console.log(`🎯 Using LIVE stage specification timing: ${stageSpec.running_speed_per_hour} ${stageSpec.speed_unit || 'sheets_per_hour'}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch stage specification ${specificationId}:`, error);
+      }
+    }
     
-    // Determine calculation source
-    const calculationSource: TimingEstimate['calculationSource'] = 
-      isManualOverride ? 'manual_override' :
-      specificationData?.running_speed_per_hour ? 'specification' :
-      stageData?.running_speed_per_hour ? 'stage' : 'default';
+    // PHASE 2: Fallback to production stage timing (if no specification found)
+    if (!timingData && stageId) {
+      try {
+        const { data: productionStage, error: stageError } = await supabase
+          .from('production_stages')
+          .select('running_speed_per_hour, make_ready_time_minutes, speed_unit, ignore_excel_quantity')
+          .eq('id', stageId)
+          .eq('is_active', true)
+          .single();
+
+        if (!stageError && productionStage && productionStage.running_speed_per_hour) {
+          timingData = productionStage;
+          calculationSource = productionStage.ignore_excel_quantity ? 'manual_override' : 'stage';
+          console.log(`📋 Using LIVE production stage timing: ${productionStage.running_speed_per_hour} ${productionStage.speed_unit || 'sheets_per_hour'}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch production stage ${stageId}:`, error);
+      }
+    }
+
+    // CRITICAL: Throw error if no timing data found (no hardcoded fallbacks)
+    if (!timingData) {
+      throw new Error(`No timing data found for stage ${stageId} or specification ${specificationId}. Admin must configure stage/specification timing.`);
+    }
+
+    const { running_speed_per_hour, make_ready_time_minutes = 10, speed_unit = 'sheets_per_hour', ignore_excel_quantity } = timingData;
 
     // If manual override is enabled, return the fixed time (make-ready time becomes total duration)
-    if (isManualOverride) {
-      const fixedDuration = makeReadyTime;
+    if (ignore_excel_quantity) {
+      const fixedDuration = make_ready_time_minutes;
       return {
         estimatedDurationMinutes: fixedDuration,
         productionMinutes: 0, // No production time in manual override
@@ -117,27 +153,23 @@ export class TimingCalculationService {
       };
     }
 
-    // Use default values if no speed is provided
-    const effectiveSpeed = runningSpeed || 1000; // Default: 1000 sheets per hour
-    const effectiveMakeReady = makeReadyTime;
-    const effectiveSpeedUnit = speedUnit;
-
+    // Calculate using live database timing values
     const totalDuration = await this.calculateStageTimingFromDB(
       quantity,
-      effectiveSpeed,
-      effectiveMakeReady,
-      effectiveSpeedUnit
+      running_speed_per_hour,
+      make_ready_time_minutes,
+      speed_unit
     );
 
     // Calculate production time separately for breakdown
-    const productionMinutes = this.calculateStageTimingLocally(quantity, effectiveSpeed, 0, effectiveSpeedUnit);
+    const productionMinutes = this.calculateStageTimingLocally(quantity, running_speed_per_hour, 0, speed_unit);
 
     return {
       estimatedDurationMinutes: totalDuration,
       productionMinutes,
-      makeReadyMinutes: effectiveMakeReady,
-      speedUsed: effectiveSpeed,
-      speedUnit: effectiveSpeedUnit,
+      makeReadyMinutes: make_ready_time_minutes,
+      speedUsed: running_speed_per_hour,
+      speedUnit: speed_unit,
       calculationSource
     };
   }

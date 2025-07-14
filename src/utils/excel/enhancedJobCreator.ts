@@ -5,6 +5,7 @@ import { EnhancedStageMapper } from './enhancedStageMapper';
 import { supabase } from '@/integrations/supabase/client';
 import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator';
 import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
+import { TimingCalculationService } from '@/services/timingCalculationService';
 
 export interface EnhancedJobCreationResult {
   success: boolean;
@@ -905,55 +906,10 @@ export class EnhancedJobCreator {
     }
   }
 
-  /**
-   * Calculate stage timing using Supabase RPC function
-   */
-  private async calculateStageTiming(quantity: number, stageId: string): Promise<{estimatedDuration: number, setupTime: number}> {
-    try {
-      // Get stage and specification details for timing calculation
-      const { data: stage, error: stageError } = await supabase
-        .from('production_stages')
-        .select('running_speed_per_hour, make_ready_time_minutes, speed_unit')
-        .eq('id', stageId)
-        .single();
-
-      if (stageError || !stage) {
-        this.logger.addDebugInfo(`Warning: Could not fetch stage details for timing calculation: ${stageError?.message}`);
-        return { estimatedDuration: 60, setupTime: 10 }; // Default fallback
-      }
-
-      // Check if there's a specific specification with timing overrides
-      let runningSpeed = stage.running_speed_per_hour || 100;
-      let setupTime = stage.make_ready_time_minutes || 10;
-      let speedUnit = stage.speed_unit || 'sheets_per_hour';
-
-      // Note: stage specifications timing overrides removed for simplicity
-
-      // Use Supabase RPC for timing calculation
-      const { data: timingResult, error: timingError } = await supabase.rpc('calculate_stage_duration', {
-        p_quantity: quantity || 0,
-        p_running_speed_per_hour: runningSpeed,
-        p_make_ready_time_minutes: setupTime,
-        p_speed_unit: speedUnit
-      });
-
-      if (timingError) {
-        this.logger.addDebugInfo(`Warning: RPC timing calculation failed: ${timingError.message}`);
-        return { estimatedDuration: setupTime + Math.ceil((quantity || 0) / runningSpeed * 60), setupTime };
-      }
-
-      const estimatedDuration = timingResult || setupTime;
-      this.logger.addDebugInfo(`Calculated timing: ${estimatedDuration} minutes for ${quantity} units`);
-      
-      return { estimatedDuration, setupTime };
-    } catch (error) {
-      this.logger.addDebugInfo(`Error calculating stage timing: ${error}`);
-      return { estimatedDuration: 60, setupTime: 10 }; // Safe fallback
-    }
-  }
 
   /**
    * CRITICAL FIX: Calculate stage timing with inheritance from stage specifications
+   * Always references LIVE database timing - no hardcoded fallbacks
    */
   private async calculateStageTimingWithInheritance(
     quantity: number, 
@@ -961,42 +917,24 @@ export class EnhancedJobCreator {
     stageSpecId?: string
   ): Promise<{estimatedDuration: number, setupTime: number}> {
     try {
-      // First try to use stage specification timing (most specific)
-      if (stageSpecId) {
-        const { data: stageSpec, error: specError } = await supabase
-          .from('stage_specifications')
-          .select('running_speed_per_hour, make_ready_time_minutes, speed_unit')
-          .eq('id', stageSpecId)
-          .eq('is_active', true)
-          .single();
+      // Use the enhanced timing service for live database timing reference
+      const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
+        quantity,
+        stageId,
+        specificationId: stageSpecId
+      });
 
-        if (!specError && stageSpec && stageSpec.running_speed_per_hour) {
-          this.logger.addDebugInfo(`Using stage specification timing: ${stageSpec.running_speed_per_hour} ${stageSpec.speed_unit || 'sheets_per_hour'}`);
-          
-          const { data: timing } = await supabase.rpc('calculate_stage_duration', {
-            p_quantity: quantity,
-            p_running_speed_per_hour: stageSpec.running_speed_per_hour,
-            p_make_ready_time_minutes: stageSpec.make_ready_time_minutes || 10,
-            p_speed_unit: stageSpec.speed_unit || 'sheets_per_hour'
-          });
+      this.logger.addDebugInfo(`✅ Live timing calculation: ${timingResult.estimatedDurationMinutes}min (${timingResult.speedUsed} ${timingResult.speedUnit}) - Source: ${timingResult.calculationSource}`);
 
-          return {
-            estimatedDuration: timing || 60,
-            setupTime: stageSpec.make_ready_time_minutes || 10
-          };
-        }
-      }
-
-      // Fallback to production stage timing
-      this.logger.addDebugInfo(`Falling back to production stage timing for stage ${stageId}`);
-      return await this.calculateStageTiming(quantity, stageId);
+      return {
+        estimatedDuration: timingResult.estimatedDurationMinutes,
+        setupTime: timingResult.makeReadyMinutes
+      };
       
     } catch (error) {
-      this.logger.addDebugInfo(`Error calculating stage timing with inheritance: ${error}`);
-      return {
-        estimatedDuration: 60,
-        setupTime: 10
-      };
+      this.logger.addDebugInfo(`❌ CRITICAL ERROR: No timing data available - ${error}`);
+      // No hardcoded fallbacks - throw error to force admin to configure timing
+      throw new Error(`Timing calculation failed: ${error}. Please configure stage/specification timing in admin panel.`);
     }
   }
 
@@ -1533,8 +1471,8 @@ export class EnhancedJobCreator {
       // Use job quantity or default to 1
       const quantity = originalJob.qty || 1;
       
-      // Calculate timing using production stage (fallback for user-approved mappings)
-      const timingResult = await this.calculateStageTiming(quantity, mapping.mappedStageId);
+      // Calculate timing using live stage/specification reference (no hardcoded fallbacks)
+      const timingResult = await this.calculateStageTimingWithInheritance(quantity, mapping.mappedStageId);
       
       const { data, error } = await supabase
         .from('job_stage_instances')
