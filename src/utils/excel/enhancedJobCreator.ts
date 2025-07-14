@@ -64,6 +64,16 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`Preparing enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
     this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
     this.logger.addDebugInfo(`Excel data rows: ${dataRows.length}`);
+    
+    // CRITICAL FIX: Log user-approved stage mappings being preserved
+    if (userApprovedStageMappings && Object.keys(userApprovedStageMappings).length > 0) {
+      this.logger.addDebugInfo(`🎯 PREPARE JOBS - PRESERVING USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings`);
+      Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
+        this.logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
+      });
+    } else {
+      this.logger.addDebugInfo(`❌ NO USER-APPROVED STAGE MAPPINGS RECEIVED IN PREPARE PHASE`);
+    }
 
     const result: EnhancedJobCreationResult = {
       success: true,
@@ -73,6 +83,7 @@ export class EnhancedJobCreator {
       rowMappings: {},
       userId: this.userId,
       generateQRCodes: this.generateQRCodes,
+      userApprovedStageMappings: userApprovedStageMappings, // CRITICAL: Preserve user mappings
       stats: {
         total: jobs.length,
         successful: 0,
@@ -642,19 +653,28 @@ export class EnhancedJobCreator {
     try {
       this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
       
-      // CRITICAL FIX: Use user-approved stage mappings from result first
-      const userApprovedStageMappings = result.userApprovedStageMappings || {};
-      this.logger.addDebugInfo(`🔍 USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings found:`);
-      Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
-        this.logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
-      });
+    // CRITICAL FIX: Use user-approved stage mappings from result first
+    const userApprovedStageMappings = result.userApprovedStageMappings || {};
+    this.logger.addDebugInfo(`🔍 INITIALIZE CUSTOM WORKFLOW - USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings found:`);
+    Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
+      this.logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
+    });
+    
+    // If we have user-approved stage mappings, create stages directly from them
+    if (Object.keys(userApprovedStageMappings).length > 0) {
+      this.logger.addDebugInfo(`🎯 SURGICAL FIX: CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${Object.keys(userApprovedStageMappings).length} stages)`);
+      this.logger.addDebugInfo(`🚀 BYPASSING ALL AUTO-DETECTION - USING ONLY USER CHOICES`);
+      await this.createStageInstancesFromUserApprovedMappings(insertedJob, originalJob, userApprovedStageMappings);
       
-      // If we have user-approved stage mappings, create stages directly from them
-      if (Object.keys(userApprovedStageMappings).length > 0) {
-        this.logger.addDebugInfo(`🎯 CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${Object.keys(userApprovedStageMappings).length} stages)`);
-        await this.createStageInstancesFromUserApprovedMappings(insertedJob, originalJob, userApprovedStageMappings);
-        return;
-      }
+      // Mark job as having custom workflow
+      await supabase
+        .from('production_jobs')
+        .update({ has_custom_workflow: true })
+        .eq('id', insertedJob.id);
+        
+      this.logger.addDebugInfo(`✅ SURGICAL FIX COMPLETE: Created ${Object.keys(userApprovedStageMappings).length} stages from user mappings`);
+      return;
+    }
       
       // Fallback: Use the row mappings if no user-approved mappings
       const rowMappings = result.rowMappings[originalJob.wo_no] || [];

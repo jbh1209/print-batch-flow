@@ -297,6 +297,20 @@ export const parseExcelFileWithMapping = async (
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
   await enhancedProcessor.initialize(); // CRITICAL: Initialize to load production stages
   
+  // CRITICAL FIX: Extract user-approved stage mappings BEFORE processing
+  const userApprovedStageMappings: Record<string, number> = {};
+  Object.entries(mapping).forEach(([key, value]) => {
+    if (key.startsWith('stage_') && typeof value === 'number' && value !== -1) {
+      const stageId = key.replace('stage_', '');
+      userApprovedStageMappings[stageId] = value;
+    }
+  });
+  
+  logger.addDebugInfo(`🎯 EXTRACTED USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings`);
+  Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
+    logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
+  });
+
   // Process with enhanced mapping, passing user-approved stage mappings
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
     mapped,
@@ -305,6 +319,9 @@ export const parseExcelFileWithMapping = async (
     dataRows,
     mapping // Pass the entire mapping object to preserve user-approved stage mappings
   );
+  
+  // CRITICAL: Add user-approved mappings to the result
+  enhancedResult.userApprovedStageMappings = userApprovedStageMappings;
 
   // Update stats with enhanced mapping results
   stats.invalidSpecifications = enhancedResult.unmappedPaperSpecs.length + enhancedResult.unmappedDeliverySpecs.length;
@@ -338,12 +355,26 @@ export const parseAndPrepareProductionReadyJobs = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  // CRITICAL FIX: Get enhanced result with user-approved stage mappings FIRST
+  // CRITICAL FIX: Extract user-approved stage mappings BEFORE processing  
+  const userApprovedStageMappings: Record<string, number> = {};
+  Object.entries(mapping).forEach(([key, value]) => {
+    if (key.startsWith('stage_') && typeof value === 'number' && value !== -1) {
+      const stageId = key.replace('stage_', '');
+      userApprovedStageMappings[stageId] = value;
+    }
+  });
+  
+  logger.addDebugInfo(`🎯 PREPARE PHASE - EXTRACTED USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings`);
+  Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
+    logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
+  });
+
+  // Get enhanced result with user-approved stage mappings FIRST
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
   await enhancedProcessor.initialize();
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
   
-  // Step 2: Extract user-approved stage mappings from the enhanced result
+  // Step 2: Process jobs with enhanced mapping
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
     jobs,
     -1, // paper column not relevant here
@@ -352,7 +383,10 @@ export const parseAndPrepareProductionReadyJobs = async (
     mapping // Pass the entire mapping object to preserve user stage mappings
   );
   
-  logger.addDebugInfo(`USER MAPPING EXTRACTION: Found ${Object.keys(enhancedResult.userApprovedStageMappings || {}).length} user-approved stage mappings`);
+  // CRITICAL: Add user-approved mappings to the result
+  enhancedResult.userApprovedStageMappings = userApprovedStageMappings;
+  
+  logger.addDebugInfo(`ENHANCED RESULT: Found ${Object.keys(enhancedResult.userApprovedStageMappings || {}).length} user-approved stage mappings`);
   
   // Step 3: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
@@ -363,8 +397,11 @@ export const parseAndPrepareProductionReadyJobs = async (
     enhancedResult.jobs, // Use jobs with applied user mappings
     headers, 
     dataRows,
-    enhancedResult.userApprovedStageMappings // Pass user-approved mappings to job creator
+    userApprovedStageMappings // Pass user-approved mappings to job creator
   );
+  
+  // CRITICAL: Preserve user-approved mappings in final result
+  result.userApprovedStageMappings = userApprovedStageMappings;
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
   
