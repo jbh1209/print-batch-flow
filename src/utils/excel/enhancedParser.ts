@@ -368,7 +368,7 @@ export const parseAndPrepareProductionReadyJobs = async (
     enhancedResult.jobs, 
     headers, 
     dataRows, 
-    enhancedResult.userApprovedStageMappings || {}
+    userStageMappings // Use the extracted user stage mappings directly
   );
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
