@@ -338,19 +338,13 @@ export const parseAndPrepareProductionReadyJobs = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  // Step 2: FIRST get enhanced mapping result to extract user-approved stage mappings
-  logger.addDebugInfo(`CRITICAL: Extracting user-approved stage mappings BEFORE parsing jobs`);
+  // Step 2: Parse jobs with mapping
+  const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
+  
+  // Step 3: Process jobs with enhanced mapping, preserving user stage mappings
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
   await enhancedProcessor.initialize();
   
-  // Extract user stage mappings from the column mapping
-  const userStageMappings = enhancedProcessor.extractUserStageMappings(mapping);
-  logger.addDebugInfo(`EXTRACTED USER STAGE MAPPINGS: ${JSON.stringify(userStageMappings)}`);
-  
-  // Step 3: Parse jobs WITH user mappings already available
-  const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
-  
-  // Step 4: Process jobs with enhanced mapping, preserving user stage mappings
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
     jobs, 
     mapping.paperType || -1, 
@@ -359,16 +353,16 @@ export const parseAndPrepareProductionReadyJobs = async (
     mapping // Pass full mapping for user stage mappings
   );
   
-  // Step 5: Create enhanced job creator with Excel data
+  // Step 4: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
   await jobCreator.initialize();
   
-  // Step 6: Prepare jobs with mappings but DON'T save to database yet - PASS USER MAPPINGS
+  // Step 5: Prepare jobs with mappings but DON'T save to database yet - PASS USER MAPPINGS
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     enhancedResult.jobs, 
     headers, 
     dataRows, 
-    userStageMappings // Use the extracted user stage mappings directly
+    enhancedResult.userApprovedStageMappings || {}
   );
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
