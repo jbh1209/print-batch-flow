@@ -133,9 +133,16 @@ export class TimingCalculationService {
       }
     }
 
-    // CRITICAL: Throw error if no timing data found (no hardcoded fallbacks)
+    // FALLBACK: Use default timing values if no database timing found (fault-tolerant)
     if (!timingData) {
-      throw new Error(`No timing data found for stage ${stageId} or specification ${specificationId}. Admin must configure stage/specification timing.`);
+      console.warn(`⚠️ No timing data found for stage ${stageId} or specification ${specificationId}. Using fallback timing.`);
+      timingData = {
+        running_speed_per_hour: 100, // Default fallback speed
+        make_ready_time_minutes: 10, // Default make-ready time
+        speed_unit: 'sheets_per_hour',
+        ignore_excel_quantity: false
+      };
+      calculationSource = 'default';
     }
 
     const { running_speed_per_hour, make_ready_time_minutes = 10, speed_unit = 'sheets_per_hour', ignore_excel_quantity } = timingData;

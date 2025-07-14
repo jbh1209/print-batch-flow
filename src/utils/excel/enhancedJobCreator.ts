@@ -650,6 +650,36 @@ export class EnhancedJobCreator {
     await this.updateStageQuantities(insertedJob.id);
   }
 
+  /**
+   * Fallback timing calculation method for backward compatibility
+   */
+  private calculateStageTiming(
+    quantity: number,
+    runningSpeedPerHour: number = 100,
+    makeReadyTimeMinutes: number = 10,
+    speedUnit: string = 'sheets_per_hour'
+  ): number {
+    if (quantity <= 0 || runningSpeedPerHour <= 0) {
+      return makeReadyTimeMinutes;
+    }
+
+    let productionMinutes = 0;
+
+    switch (speedUnit) {
+      case 'sheets_per_hour':
+      case 'items_per_hour':
+        productionMinutes = Math.ceil((quantity / runningSpeedPerHour) * 60);
+        break;
+      case 'minutes_per_item':
+        productionMinutes = quantity * runningSpeedPerHour;
+        break;
+      default:
+        productionMinutes = Math.ceil((quantity / runningSpeedPerHour) * 60);
+    }
+
+    return productionMinutes + makeReadyTimeMinutes;
+  }
+
   private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
     try {
       this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
@@ -908,8 +938,8 @@ export class EnhancedJobCreator {
 
 
   /**
-   * CRITICAL FIX: Calculate stage timing with inheritance from stage specifications
-   * Always references LIVE database timing - no hardcoded fallbacks
+   * REVERTED: Calculate stage timing with fault-tolerant fallbacks
+   * Tries live database timing first, then uses local fallback
    */
   private async calculateStageTimingWithInheritance(
     quantity: number, 
@@ -917,7 +947,7 @@ export class EnhancedJobCreator {
     stageSpecId?: string
   ): Promise<{estimatedDuration: number, setupTime: number}> {
     try {
-      // Use the enhanced timing service for live database timing reference
+      // Try enhanced timing service for live database timing reference
       const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
         quantity,
         stageId,
@@ -932,9 +962,16 @@ export class EnhancedJobCreator {
       };
       
     } catch (error) {
-      this.logger.addDebugInfo(`❌ CRITICAL ERROR: No timing data available - ${error}`);
-      // No hardcoded fallbacks - throw error to force admin to configure timing
-      throw new Error(`Timing calculation failed: ${error}. Please configure stage/specification timing in admin panel.`);
+      this.logger.addDebugInfo(`⚠️ Enhanced timing failed, using local fallback: ${error}`);
+      
+      // FAULT-TOLERANT: Use local calculation as fallback
+      const fallbackDuration = this.calculateStageTiming(quantity, 100, 10, 'sheets_per_hour');
+      this.logger.addDebugInfo(`🔄 Fallback timing calculation: ${fallbackDuration}min`);
+      
+      return {
+        estimatedDuration: fallbackDuration,
+        setupTime: 10 // Default setup time
+      };
     }
   }
 
