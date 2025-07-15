@@ -387,6 +387,9 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                 {stage.part_name && (
                                   <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
                                 )}
+                                {stage.quantity && (
+                                  <p className="text-sm text-gray-600">Qty: {stage.quantity.toLocaleString()}</p>
+                                )}
                                 {stage.estimated_duration_minutes && (
                                   <p className="text-xs text-blue-600 font-medium">
                                     Est. {Math.floor(stage.estimated_duration_minutes / 60)}h {stage.estimated_duration_minutes % 60}m
