@@ -433,8 +433,7 @@ export class EnhancedMappingProcessor {
 
   /**
    * Apply user-approved stage mappings to job specifications
-   * New format: stage_<uuid> -> column index
-   * CRITICAL FIX: Store BOTH mappedStageId AND mappedStageName for complete preservation
+   * SURGICAL FIX: Store with original group names and correct categories for proper detection
    */
   private async applyUserStageMapping(job: ParsedJob, userMapping: any, excelRow?: any[]): Promise<void> {
     this.logger.addDebugInfo(`Applying user stage mappings for job ${job.wo_no}`);
@@ -452,7 +451,7 @@ export class EnhancedMappingProcessor {
       if (key.startsWith('stage_') && columnIndex !== -1 && columnIndex !== null && columnIndex !== undefined) {
         const stageId = key.replace('stage_', '');
         
-        // CRITICAL FIX: Get the stage name from our loaded production stages
+        // Get the stage name from our loaded production stages
         const stageName = this.getStageNameById(stageId);
         if (!stageName) {
           this.logger.addDebugInfo(`Job ${job.wo_no} - Warning: Could not find stage name for stage ID ${stageId}, skipping`);
@@ -464,12 +463,11 @@ export class EnhancedMappingProcessor {
           ? String(excelRow[columnIndex as number]).trim() 
           : '';
         
-        // FIXED: Create ALL user-approved stages regardless of Excel data presence
-        // If user approved this stage, honor their decision even if Excel column is empty
-        const workflowKey = `user_stage_${stageId}`;
+        // SURGICAL FIX: Determine correct category based on stage name/type
+        const stageCategory = this.determineStageCategory(stageName);
         
-        // Store in printing_specifications for now (we could categorize later)
-        job.printing_specifications[workflowKey] = {
+        // SURGICAL FIX: Use stage name as the key (not user_stage_prefix) for proper matching
+        const stageSpec = {
           description: `User Mapped Production Stage`,
           specifications: columnValue || `[User Approved Stage - No Excel Data]`,
           qty: job.qty || 1,
@@ -479,21 +477,67 @@ export class EnhancedMappingProcessor {
           confidence: 100 // High confidence since user explicitly mapped it
         };
         
+        // SURGICAL FIX: Store in correct category using stage name as key
+        switch (stageCategory) {
+          case 'finishing':
+            job.finishing_specifications[stageName] = stageSpec;
+            break;
+          case 'prepress':
+            job.prepress_specifications[stageName] = stageSpec;
+            break;
+          case 'delivery':
+            job.delivery_specifications[stageName] = stageSpec;
+            break;
+          default:
+            job.printing_specifications[stageName] = stageSpec;
+            break;
+        }
+        
         stageMappingsApplied.push({
           stageId,
           stageName,
+          category: stageCategory,
           columnIndex,
           value: columnValue || '[No Excel Data]'
         });
         
-        this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user stage mapping: Stage ${stageId} (${stageName}) -> Column ${columnIndex} = "${columnValue || '[No Excel Data]'}"`);
-      
+        this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user stage mapping: ${stageName} (${stageId}) -> Column ${columnIndex} [${stageCategory}] = "${columnValue || '[No Excel Data]'}"`);
       }
     });
 
     this.logger.addDebugInfo(`Job ${job.wo_no} - Applied ${stageMappingsApplied.length} user stage mappings:
-      ${JSON.stringify(stageMappingsApplied, null, 2)}
-      - Final printing_specifications: ${JSON.stringify(job.printing_specifications, null, 2)}`);
+      ${JSON.stringify(stageMappingsApplied, null, 2)}`);
+  }
+
+  /**
+   * Determine the correct category for a stage based on its name
+   */
+  private determineStageCategory(stageName: string): string {
+    const lowerName = stageName.toLowerCase();
+    
+    // Finishing operations
+    if (lowerName.includes('cut') || lowerName.includes('trim') || lowerName.includes('fold') || 
+        lowerName.includes('stitch') || lowerName.includes('bind') || lowerName.includes('staple') ||
+        lowerName.includes('perforate') || lowerName.includes('score') || lowerName.includes('laminate') ||
+        lowerName.includes('uv') || lowerName.includes('varnish') || lowerName.includes('emboss') ||
+        lowerName.includes('saddle') || lowerName.includes('perfect') || lowerName.includes('spiral')) {
+      return 'finishing';
+    }
+    
+    // Prepress operations
+    if (lowerName.includes('prepress') || lowerName.includes('proof') || lowerName.includes('plate') ||
+        lowerName.includes('artwork') || lowerName.includes('design') || lowerName.includes('typeset')) {
+      return 'prepress';
+    }
+    
+    // Delivery operations
+    if (lowerName.includes('deliver') || lowerName.includes('dispatch') || lowerName.includes('ship') ||
+        lowerName.includes('collect') || lowerName.includes('pack') || lowerName.includes('box')) {
+      return 'delivery';
+    }
+    
+    // Default to printing for everything else
+    return 'printing';
   }
 
   /**
