@@ -6,6 +6,11 @@ interface UserApprovedMapping {
   mappedStageId: string;
   mappedStageName: string;
   category: string;
+  mappedStageSpecId?: string;
+  mappedStageSpecName?: string;
+  paperSpecification?: string;
+  partType?: string;
+  quantity?: number;
 }
 
 /**
@@ -24,40 +29,82 @@ export const initializeJobWorkflowFromMappings = async (
     return false;
   }
 
-  // Remove duplicate stage IDs to avoid database conflicts
-  const uniqueMappings = userApprovedMappings.filter((mapping, index, self) =>
-    index === self.findIndex(m => m.mappedStageId === mapping.mappedStageId)
-  );
-
   try {
-    // Extract unique stage IDs and create stage orders
-    const stageIds = uniqueMappings.map(mapping => mapping.mappedStageId);
-    const stageOrders = uniqueMappings.map((_, index) => index + 1);
+    // First, get the correct stage order from production_stages table
+    const { data: stageOrderData, error: stageOrderError } = await supabase
+      .from('production_stages')
+      .select('id, order_index')
+      .in('id', userApprovedMappings.map(m => m.mappedStageId));
 
-    logger.addDebugInfo(`📋 Stage workflow for job ${jobId} (${uniqueMappings.length} unique stages):`);
-    uniqueMappings.forEach((mapping, index) => {
-      logger.addDebugInfo(`   ${index + 1}. ${mapping.mappedStageName} (${mapping.mappedStageId}) - Category: ${mapping.category}`);
-    });
-
-    if (stageIds.length === 0) {
-      logger.addDebugInfo(`❌ No valid stage IDs found after deduplication for job ${jobId}`);
+    if (stageOrderError) {
+      logger.addDebugInfo(`❌ Failed to fetch stage ordering for job ${jobId}: ${stageOrderError.message}`);
       return false;
     }
 
-    // Use the existing initialize_custom_job_stages database function
-    const { data, error } = await supabase.rpc('initialize_custom_job_stages', {
+    // Create a mapping of stage ID to order_index
+    const stageOrderMap = new Map(stageOrderData.map(stage => [stage.id, stage.order_index]));
+
+    // Sort mappings by the production stage order_index to maintain proper sequence
+    const sortedMappings = [...userApprovedMappings].sort((a, b) => {
+      const orderA = stageOrderMap.get(a.mappedStageId) || 999;
+      const orderB = stageOrderMap.get(b.mappedStageId) || 999;
+      return orderA - orderB;
+    });
+
+    logger.addDebugInfo(`📋 Stage workflow for job ${jobId} (${sortedMappings.length} stages in production sequence):`);
+    sortedMappings.forEach((mapping, index) => {
+      const orderIndex = stageOrderMap.get(mapping.mappedStageId) || 'unknown';
+      logger.addDebugInfo(`   ${index + 1}. ${mapping.mappedStageName} (order: ${orderIndex}) - Category: ${mapping.category}`);
+      if (mapping.mappedStageSpecName) {
+        logger.addDebugInfo(`      └── Specification: ${mapping.mappedStageSpecName}`);
+      }
+      if (mapping.paperSpecification) {
+        logger.addDebugInfo(`      └── Paper: ${mapping.paperSpecification}`);
+      }
+      if (mapping.quantity) {
+        logger.addDebugInfo(`      └── Quantity: ${mapping.quantity}`);
+      }
+    });
+
+    // Create the enhanced database function call with specifications
+    const { data, error } = await supabase.rpc('initialize_custom_job_stages_with_specs', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_stage_ids: stageIds,
-      p_stage_orders: stageOrders
+      p_stage_mappings: sortedMappings.map((mapping, index) => ({
+        stage_id: mapping.mappedStageId,
+        stage_order: index + 1,
+        stage_specification_id: mapping.mappedStageSpecId || null,
+        part_name: mapping.partType || null,
+        quantity: mapping.quantity || null,
+        paper_specification: mapping.paperSpecification || null
+      }))
     });
 
     if (error) {
-      logger.addDebugInfo(`❌ Failed to initialize custom workflow for job ${jobId}: ${error.message}`);
-      return false;
+      logger.addDebugInfo(`❌ Failed to initialize custom workflow with specs for job ${jobId}: ${error.message}`);
+      // Fallback to simple version without specifications
+      logger.addDebugInfo(`🔄 Falling back to simple stage initialization...`);
+      
+      const stageIds = sortedMappings.map(mapping => mapping.mappedStageId);
+      const stageOrders = sortedMappings.map((_, index) => index + 1);
+
+      const { data: fallbackData, error: fallbackError } = await supabase.rpc('initialize_custom_job_stages', {
+        p_job_id: jobId,
+        p_job_table_name: 'production_jobs',
+        p_stage_ids: stageIds,
+        p_stage_orders: stageOrders
+      });
+
+      if (fallbackError) {
+        logger.addDebugInfo(`❌ Fallback initialization also failed for job ${jobId}: ${fallbackError.message}`);
+        return false;
+      }
+
+      logger.addDebugInfo(`✅ Successfully initialized workflow for job ${jobId} using fallback method (${stageIds.length} stages)`);
+      return true;
     }
 
-    logger.addDebugInfo(`✅ Successfully initialized custom workflow for job ${jobId} with ${stageIds.length} stages`);
+    logger.addDebugInfo(`✅ Successfully initialized enhanced workflow for job ${jobId} with specifications (${sortedMappings.length} stages)`);
     return true;
 
   } catch (error) {

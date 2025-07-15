@@ -193,7 +193,17 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
   const handleConfirmWithUserMappings = () => {
     // Extract user-approved mappings from the dialog state
-    const userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+    const userApprovedMappings: Array<{
+      groupName: string, 
+      mappedStageId: string, 
+      mappedStageName: string, 
+      category: string,
+      mappedStageSpecId?: string,
+      mappedStageSpecName?: string,
+      paperSpecification?: string,
+      partType?: string,
+      quantity?: number
+    }> = [];
     
     console.log('🔍 Extracting user-approved mappings from dialog state...');
     
@@ -209,7 +219,13 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
             groupName: mapping.groupName || `Row ${mapping.excelRowIndex}`,
             mappedStageId: mapping.mappedStageId,
             mappedStageName: mapping.mappedStageName,
-            category: stage?.category || 'unknown'
+            category: stage?.category || 'unknown',
+            // Capture all specification data from the mapping
+            mappedStageSpecId: mapping.mappedStageSpecId || undefined,
+            mappedStageSpecName: mapping.mappedStageSpecName || undefined,
+            paperSpecification: mapping.paperSpecification || undefined,
+            partType: mapping.partType || undefined,
+            quantity: mapping.qty || undefined
           };
           
           userApprovedMappings.push(approvedMapping);
@@ -217,7 +233,11 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
           console.log(`✅ Including ${mapping.manualOverride ? 'manual' : 'auto'} mapping:`, {
             groupName: approvedMapping.groupName,
             stage: approvedMapping.mappedStageName,
-            category: approvedMapping.category
+            category: approvedMapping.category,
+            stageSpec: approvedMapping.mappedStageSpecName,
+            paperSpec: approvedMapping.paperSpecification,
+            partType: approvedMapping.partType,
+            quantity: approvedMapping.quantity
           });
         } else if (mapping.isUnmapped) {
           console.log(`❌ Excluding unmapped row:`, mapping.groupName || `Row ${mapping.excelRowIndex}`);
