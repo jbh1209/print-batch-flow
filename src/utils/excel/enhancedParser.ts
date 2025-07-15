@@ -405,11 +405,110 @@ export const parseAndPrepareProductionReadyJobs = async (
   // Step 3: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
   
-  // Step 4: Prepare jobs with mappings AND user-approved stage mappings
+  // Step 4: Transform enhancedResult into the format expected by the job creator
+  const rowMappings: Record<string, Array<{
+    groupName: string;
+    mappedStageId: string;
+    mappedStageName: string;
+    category: string;
+    qty?: number;
+    isUnmapped?: boolean;
+    confidence?: number;
+    manualOverride?: boolean;
+  }>> = {};
+  
+  const categoryAssignments: Record<string, { 
+    categoryId: string | null; 
+    categoryName: string | null;
+    confidence?: number;
+    mappedStages?: any[];
+    requiresCustomWorkflow?: boolean;
+  }> = {};
+  
+  // Build rowMappings from job specifications for detailed dialog interface
+  enhancedResult.jobs.forEach((job) => {
+    const jobMappings: Array<{
+      groupName: string;
+      mappedStageId: string;
+      mappedStageName: string;
+      category: string;
+      qty?: number;
+      isUnmapped?: boolean;
+      confidence?: number;
+      manualOverride?: boolean;
+    }> = [];
+    
+    // Extract mappings from printing specifications
+    if (job.printing_specifications) {
+      Object.entries(job.printing_specifications).forEach(([key, spec]: [string, any]) => {
+        if (spec?.description) {
+          jobMappings.push({
+            groupName: spec.description,
+            mappedStageId: spec.mappedStageId || '',
+            mappedStageName: spec.mappedStageName || 'Unmapped',
+            category: 'printing',
+            qty: spec.qty || job.qty,
+            isUnmapped: !spec.mappedStageId,
+            confidence: spec.confidence || 80,
+            manualOverride: false
+          });
+        }
+      });
+    }
+    
+    // Extract mappings from finishing specifications
+    if (job.finishing_specifications) {
+      Object.entries(job.finishing_specifications).forEach(([key, spec]: [string, any]) => {
+        if (spec?.description) {
+          jobMappings.push({
+            groupName: spec.description,
+            mappedStageId: spec.mappedStageId || '',
+            mappedStageName: spec.mappedStageName || 'Unmapped',
+            category: 'finishing',
+            qty: spec.qty || job.qty,
+            isUnmapped: !spec.mappedStageId,
+            confidence: spec.confidence || 80,
+            manualOverride: false
+          });
+        }
+      });
+    }
+    
+    // Extract mappings from prepress specifications
+    if (job.prepress_specifications) {
+      Object.entries(job.prepress_specifications).forEach(([key, spec]: [string, any]) => {
+        if (spec?.description) {
+          jobMappings.push({
+            groupName: spec.description,
+            mappedStageId: spec.mappedStageId || '',
+            mappedStageName: spec.mappedStageName || 'Unmapped',
+            category: 'prepress',
+            qty: spec.qty || job.qty,
+            isUnmapped: !spec.mappedStageId,
+            confidence: spec.confidence || 80,
+            manualOverride: false
+          });
+        }
+      });
+    }
+    
+    rowMappings[job.wo_no] = jobMappings;
+    
+    // Build category assignments
+    categoryAssignments[job.wo_no] = {
+      categoryId: job.category || null,
+      categoryName: job.category || 'Unknown Category',
+      confidence: 90,
+      mappedStages: jobMappings,
+      requiresCustomWorkflow: false
+    };
+  });
+  
+  // Step 5: Prepare jobs with reconstructed mappings
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
-    enhancedResult.jobs, // Use jobs with applied user mappings
-    {},  // Empty row mappings for now
-    {}   // Empty category assignments for now
+    enhancedResult.jobs,
+    rowMappings,
+    categoryAssignments
   );
   
   // CRITICAL: Preserve user-approved mappings in final result
