@@ -314,14 +314,14 @@ export const ExcelUpload = () => {
     }
   };
 
-  const handleEnhancedJobsConfirmed = async () => {
+  const handleEnhancedJobsConfirmed = async (userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>) => {
     if (!enhancedResult || !user) return;
     
     try {
       setIsCreatingJobs(true);
       
-      // CRITICAL FIX: Use the enhanced job creator that preserves user-approved stage mappings
-      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger, user.id);
+      // Pass user-approved mappings to the finalization process
+      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger, user.id, userApprovedMappings);
       
       toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
       

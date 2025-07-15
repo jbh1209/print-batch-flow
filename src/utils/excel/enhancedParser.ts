@@ -533,15 +533,20 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
 export const finalizeProductionReadyJobs = async (
   preparedResult: any,
   logger: ExcelImportDebugger,
-  currentUserId: string
+  currentUserId: string,
+  userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
 ): Promise<any> => {
   logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs for user ${currentUserId}`);
+  
+  if (userApprovedMappings && userApprovedMappings.length > 0) {
+    logger.addDebugInfo(`User provided ${userApprovedMappings.length} approved stage mappings`);
+  }
   
   // Use the EnhancedJobCreator's finalize method with current authenticated user ID
   const jobCreator = new EnhancedJobCreator(logger, currentUserId, preparedResult.generateQRCodes);
   await jobCreator.initialize();
   
-  const finalResult = await jobCreator.finalizeJobs(preparedResult);
+  const finalResult = await jobCreator.finalizeJobs(preparedResult, userApprovedMappings);
   
   logger.addDebugInfo(`Finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
   

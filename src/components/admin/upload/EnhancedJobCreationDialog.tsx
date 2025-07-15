@@ -19,7 +19,7 @@ interface EnhancedJobCreationDialogProps {
   onOpenChange: (open: boolean) => void;
   result: EnhancedJobCreationResult | null;
   isProcessing: boolean;
-  onConfirm: () => void;
+  onConfirm: (userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>) => void;
 }
 
 interface AvailableStage {
@@ -189,6 +189,30 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     return Object.values(updatedRowMappings).reduce((total, mappings) => {
       return total + mappings.filter(m => m.isUnmapped).length;
     }, 0);
+  };
+
+  const handleConfirmWithUserMappings = () => {
+    // Extract user-approved mappings from the dialog state
+    const userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+    
+    Object.values(updatedRowMappings).forEach(mappings => {
+      mappings.forEach(mapping => {
+        if (mapping.manualOverride && mapping.mappedStageId && mapping.mappedStageName) {
+          // Find the stage to determine its category
+          const stage = availableStages.find(s => s.id === mapping.mappedStageId);
+          
+          userApprovedMappings.push({
+            groupName: mapping.groupName || `Row ${mapping.excelRowIndex}`,
+            mappedStageId: mapping.mappedStageId,
+            mappedStageName: mapping.mappedStageName,
+            category: stage?.category || 'unknown'
+          });
+        }
+      });
+    });
+    
+    console.log('User approved mappings being passed:', userApprovedMappings);
+    onConfirm(userApprovedMappings);
   };
 
   if (!result && !isProcessing) return null;
@@ -529,7 +553,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   </Badge>
                 )}
                 <Button 
-                  onClick={onConfirm} 
+                  onClick={handleConfirmWithUserMappings} 
                   className="flex items-center gap-2"
                   disabled={getTotalUnmappedRows() > 0}
                 >

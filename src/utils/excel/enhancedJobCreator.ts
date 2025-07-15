@@ -118,7 +118,7 @@ export class EnhancedJobCreator {
   /**
    * Finalize prepared jobs by saving them to the database
    */
-  async finalizeJobs(preparedResult: EnhancedJobCreationResult): Promise<EnhancedJobCreationResult> {
+  async finalizeJobs(preparedResult: EnhancedJobCreationResult, userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs`);
 
     const finalResult: EnhancedJobCreationResult = {
@@ -138,7 +138,7 @@ export class EnhancedJobCreator {
         // Use the original job stored in the assignment
         if (assignment.originalJob) {
           // Create the job in database using the prepared data
-          await this.finalizeIndividualJob(woNo, assignment, preparedResult, finalResult);
+          await this.finalizeIndividualJob(woNo, assignment, preparedResult, finalResult, userApprovedMappings);
           finalResult.stats.successful++;
           finalResult.stats.workflowsInitialized++;
         } else {
@@ -332,7 +332,8 @@ export class EnhancedJobCreator {
     woNo: string, 
     assignment: any, 
     preparedResult: EnhancedJobCreationResult, 
-    finalResult: EnhancedJobCreationResult
+    finalResult: EnhancedJobCreationResult,
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): Promise<void> {
     const originalJob = assignment.originalJob;
     if (!originalJob) {
@@ -385,7 +386,7 @@ export class EnhancedJobCreator {
     }
 
     // 6. Auto-create custom workflow from mapped stages
-    await this.initializeCustomWorkflow(insertedJob, originalJob, finalResult);
+    await this.initializeCustomWorkflow(insertedJob, originalJob, finalResult, userApprovedMappings);
     this.logger.addDebugInfo(`Job ${woNo} finalized with custom workflow`);
 
     // 7. Update QR codes with actual job ID
@@ -730,22 +731,20 @@ export class EnhancedJobCreator {
     return productionMinutes + makeReadyTimeMinutes;
   }
 
-  private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
+  private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult, userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>): Promise<void> {
     try {
       this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
       
-    // CRITICAL FIX: Use user-approved stage mappings from result first
-    const userApprovedStageMappings = result.userApprovedStageMappings || {};
-    this.logger.addDebugInfo(`🔍 INITIALIZE CUSTOM WORKFLOW - USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings found:`);
-    Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
-      this.logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
-    });
-    
-    // If we have user-approved stage mappings, create stages directly from them
-    if (Object.keys(userApprovedStageMappings).length > 0) {
-      this.logger.addDebugInfo(`🎯 SURGICAL FIX: CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${Object.keys(userApprovedStageMappings).length} stages)`);
+    // CRITICAL FIX: Use user-approved stage mappings from dialog
+    if (userApprovedMappings && userApprovedMappings.length > 0) {
+      this.logger.addDebugInfo(`🔍 INITIALIZE CUSTOM WORKFLOW - USER-APPROVED STAGE MAPPINGS: ${userApprovedMappings.length} mappings found:`);
+      userApprovedMappings.forEach((mapping) => {
+        this.logger.addDebugInfo(`   - Group "${mapping.groupName}" -> Stage ${mapping.mappedStageId} (${mapping.mappedStageName}) [${mapping.category}]`);
+      });
+      
+      this.logger.addDebugInfo(`🎯 SURGICAL FIX: CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${userApprovedMappings.length} stages)`);
       this.logger.addDebugInfo(`🚀 BYPASSING ALL AUTO-DETECTION - USING ONLY USER CHOICES`);
-      await this.createStageInstancesFromUserApprovedMappings(insertedJob, originalJob, userApprovedStageMappings, result);
+      await this.createStageInstancesFromUserMappings(insertedJob, originalJob, userApprovedMappings);
       
       // Mark job as having custom workflow
       await supabase
@@ -753,7 +752,7 @@ export class EnhancedJobCreator {
         .update({ has_custom_workflow: true })
         .eq('id', insertedJob.id);
         
-      this.logger.addDebugInfo(`✅ SURGICAL FIX COMPLETE: Created ${Object.keys(userApprovedStageMappings).length} stages from user mappings`);
+      this.logger.addDebugInfo(`✅ SURGICAL FIX COMPLETE: Created ${userApprovedMappings.length} stages from user mappings`);
       return;
     }
       
