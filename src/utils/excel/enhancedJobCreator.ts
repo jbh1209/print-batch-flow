@@ -378,9 +378,16 @@ export class EnhancedJobCreator {
     // 6. Initialize workflow using the new unified workflow initializer
     try {
       const rowMappings = preparedResult.rowMappings[woNo] || [];
+      
+      // Filter user-approved mappings to only include mappings for this specific job
+      const jobSpecificMappings = (userApprovedMappings || []).filter(mapping => {
+        // Check if any row mapping for this job matches this group name
+        return rowMappings.some(rowMapping => rowMapping.groupName === mapping.groupName);
+      });
+      
       const success = await initializeJobWorkflow(
         insertedJob.id,
-        userApprovedMappings || [],
+        jobSpecificMappings,
         assignment.categoryId,
         this.logger
       );
@@ -527,9 +534,18 @@ export class EnhancedJobCreator {
 
     // 6. Initialize workflow using the new unified workflow initializer
     try {
+      // For enhanced jobs, we need to filter mappings based on the current job's row mappings
+      const jobRowMappings = result.rowMappings[job.wo_no] || [];
+      
+      // Filter user-approved mappings to only include mappings for this specific job
+      const jobSpecificMappings = (result.userApprovedStageMappings || []).filter(mapping => {
+        // Check if any row mapping for this job matches this group name
+        return jobRowMappings.some(rowMapping => rowMapping.groupName === mapping.groupName);
+      });
+      
       const success = await initializeJobWorkflow(
         insertedJob.id,
-        result.userApprovedStageMappings || [],
+        jobSpecificMappings,
         null, // No category for enhanced jobs
         this.logger
       );
