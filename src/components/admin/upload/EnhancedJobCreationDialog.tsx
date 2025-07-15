@@ -195,23 +195,38 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     // Extract user-approved mappings from the dialog state
     const userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
     
+    console.log('🔍 Extracting user-approved mappings from dialog state...');
+    
     Object.values(updatedRowMappings).forEach(mappings => {
       mappings.forEach(mapping => {
-        if (mapping.manualOverride && mapping.mappedStageId && mapping.mappedStageName) {
+        // Include ALL valid mappings (both auto-mapped AND manually overridden)
+        // The key is that the user is confirming these mappings by clicking "Confirm"
+        if (mapping.mappedStageId && mapping.mappedStageName && !mapping.isUnmapped) {
           // Find the stage to determine its category
           const stage = availableStages.find(s => s.id === mapping.mappedStageId);
           
-          userApprovedMappings.push({
+          const approvedMapping = {
             groupName: mapping.groupName || `Row ${mapping.excelRowIndex}`,
             mappedStageId: mapping.mappedStageId,
             mappedStageName: mapping.mappedStageName,
             category: stage?.category || 'unknown'
+          };
+          
+          userApprovedMappings.push(approvedMapping);
+          
+          console.log(`✅ Including ${mapping.manualOverride ? 'manual' : 'auto'} mapping:`, {
+            groupName: approvedMapping.groupName,
+            stage: approvedMapping.mappedStageName,
+            category: approvedMapping.category
           });
+        } else if (mapping.isUnmapped) {
+          console.log(`❌ Excluding unmapped row:`, mapping.groupName || `Row ${mapping.excelRowIndex}`);
         }
       });
     });
     
-    console.log('User approved mappings being passed:', userApprovedMappings);
+    console.log(`📋 Total user-approved mappings: ${userApprovedMappings.length}`);
+    console.log('🚀 User approved mappings being passed:', userApprovedMappings);
     onConfirm(userApprovedMappings);
   };
 
