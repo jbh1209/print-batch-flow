@@ -75,14 +75,15 @@ export const initializeJobWorkflowFromMappings = async (
       const currentCount = stageIdCounts.get(mapping.mappedStageId) || 0;
       stageIdCounts.set(mapping.mappedStageId, currentCount + 1);
       
-      // If this is the 2nd+ occurrence, append suffix
+      // If this is the 2nd+ occurrence, append suffix for uniqueness
       let uniqueStageId = mapping.mappedStageId;
       if (currentCount > 0) {
         uniqueStageId = `${mapping.mappedStageId}-${currentCount + 1}`;
       }
       
       const stageData = {
-        stage_id: uniqueStageId, // Use the unique ID instead of original
+        stage_id: mapping.mappedStageId, // Keep original for production_stage_id reference
+        unique_stage_id: uniqueStageId, // For uniqueness tracking
         stage_order: stageOrderMap.get(mapping.mappedStageId) || 999, // Use actual production stage order_index
         stage_specification_id: mapping.mappedStageSpecId || null,
         part_name: mapping.partType || null,
@@ -92,8 +93,8 @@ export const initializeJobWorkflowFromMappings = async (
       
       // Debug logging for each stage mapping
       logger.addDebugInfo(`🔍 Stage mapping data for ${mapping.mappedStageName}:`);
-      logger.addDebugInfo(`   - Original Stage ID: ${mapping.mappedStageId}`);
-      logger.addDebugInfo(`   - Unique Stage ID: ${stageData.stage_id}`);
+      logger.addDebugInfo(`   - Production Stage ID: ${stageData.stage_id}`);
+      logger.addDebugInfo(`   - Unique Instance ID: ${stageData.unique_stage_id}`);
       logger.addDebugInfo(`   - Stage Order: ${stageData.stage_order}`);
       logger.addDebugInfo(`   - Specification ID: ${stageData.stage_specification_id}`);
       logger.addDebugInfo(`   - Part Name: ${stageData.part_name}`);
