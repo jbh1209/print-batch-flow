@@ -67,17 +67,32 @@ export const initializeJobWorkflowFromMappings = async (
     });
 
     // Create the enhanced database function call with specifications
-    const { data, error } = await supabase.rpc('initialize_custom_job_stages_with_specs', {
-      p_job_id: jobId,
-      p_job_table_name: 'production_jobs',
-      p_stage_mappings: sortedMappings.map((mapping) => ({
+    const stageMappingsData = sortedMappings.map((mapping) => {
+      const stageData = {
         stage_id: mapping.mappedStageId,
         stage_order: stageOrderMap.get(mapping.mappedStageId) || 999, // Use actual production stage order_index
         stage_specification_id: mapping.mappedStageSpecId || null,
         part_name: mapping.partType || null,
         quantity: mapping.quantity || null,
         paper_specification: mapping.paperSpecification || null
-      }))
+      };
+      
+      // Debug logging for each stage mapping
+      logger.addDebugInfo(`🔍 Stage mapping data for ${mapping.mappedStageName}:`);
+      logger.addDebugInfo(`   - Stage ID: ${stageData.stage_id}`);
+      logger.addDebugInfo(`   - Stage Order: ${stageData.stage_order}`);
+      logger.addDebugInfo(`   - Specification ID: ${stageData.stage_specification_id}`);
+      logger.addDebugInfo(`   - Part Name: ${stageData.part_name}`);
+      logger.addDebugInfo(`   - Quantity: ${stageData.quantity}`);
+      logger.addDebugInfo(`   - Paper Specification: ${stageData.paper_specification}`);
+      
+      return stageData;
+    });
+
+    const { data, error } = await supabase.rpc('initialize_custom_job_stages_with_specs', {
+      p_job_id: jobId,
+      p_job_table_name: 'production_jobs',
+      p_stage_mappings: stageMappingsData
     });
 
     if (error) {

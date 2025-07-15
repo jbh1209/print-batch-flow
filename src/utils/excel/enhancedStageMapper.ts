@@ -203,6 +203,17 @@ export class EnhancedStageMapper {
       // Ensure we have a valid mapping with appropriate confidence threshold
       const hasValidMapping = stageMapping && stageMapping.confidence >= 30;
       
+      // DEBUG: Log detailed mapping information
+      this.logger.addDebugInfo(`🔍 Detailed mapping for "${groupName}":`);
+      this.logger.addDebugInfo(`   - Has Valid Mapping: ${hasValidMapping}`);
+      this.logger.addDebugInfo(`   - Stage ID: ${stageMapping?.stageId || 'null'}`);
+      this.logger.addDebugInfo(`   - Stage Name: ${stageMapping?.stageName || 'null'}`);
+      this.logger.addDebugInfo(`   - Spec ID: ${stageMapping?.stageSpecId || 'null'}`);
+      this.logger.addDebugInfo(`   - Spec Name: ${stageMapping?.stageSpecName || 'null'}`);
+      this.logger.addDebugInfo(`   - Confidence: ${stageMapping?.confidence || 'null'}`);
+      this.logger.addDebugInfo(`   - Category: ${stageMapping?.category || 'null'}`);
+      this.logger.addDebugInfo(`   - Paper Spec: ${this.findAssociatedPaperSpec(groupName, spec.description || '', currentRowIndex) || 'null'}`);
+      
       mappings.push({
         excelRowIndex: currentRowIndex,
         excelData: excelRows[currentRowIndex] || [],
@@ -222,9 +233,24 @@ export class EnhancedStageMapper {
         paperSpecification: this.findAssociatedPaperSpec(groupName, spec.description || '', currentRowIndex)
       });
 
-      this.logger.addDebugInfo(`Created mapping for "${groupName}": isUnmapped=${!hasValidMapping}, mappedStageId=${stageMapping?.stageId || 'null'}`);
+      this.logger.addDebugInfo(`Created mapping for "${groupName}": isUnmapped=${!hasValidMapping}, mappedStageId=${stageMapping?.stageId || 'null'}, mappedStageSpecId=${stageMapping?.stageSpecId || 'null'}`);
       currentRowIndex++;
     }
+
+    // COMPREHENSIVE DEBUG: Log all generated mappings with specification details
+    this.logger.addDebugInfo(`📋 Generated ${mappings.length} row mappings for ${category} category:`);
+    mappings.forEach((mapping, idx) => {
+      this.logger.addDebugInfo(`  ${idx + 1}. ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId})`);
+      if (mapping.mappedStageSpecId) {
+        this.logger.addDebugInfo(`     └── Specification: ${mapping.mappedStageSpecName} (${mapping.mappedStageSpecId})`);
+      }
+      if (mapping.paperSpecification) {
+        this.logger.addDebugInfo(`     └── Paper: ${mapping.paperSpecification}`);
+      }
+      if (mapping.qty) {
+        this.logger.addDebugInfo(`     └── Quantity: ${mapping.qty}`);
+      }
+    });
 
     return mappings;
   }

@@ -206,9 +206,23 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     }> = [];
     
     console.log('🔍 Extracting user-approved mappings from dialog state...');
+    console.log('📊 Current updatedRowMappings state:', updatedRowMappings);
     
     Object.values(updatedRowMappings).forEach(mappings => {
       mappings.forEach(mapping => {
+        console.log(`🔍 Processing mapping for row ${mapping.excelRowIndex}:`, {
+          groupName: mapping.groupName,
+          mappedStageId: mapping.mappedStageId,
+          mappedStageName: mapping.mappedStageName,
+          mappedStageSpecId: mapping.mappedStageSpecId,
+          mappedStageSpecName: mapping.mappedStageSpecName,
+          paperSpecification: mapping.paperSpecification,
+          partType: mapping.partType,
+          qty: mapping.qty,
+          isUnmapped: mapping.isUnmapped,
+          manualOverride: mapping.manualOverride
+        });
+        
         // Include ALL valid mappings (both auto-mapped AND manually overridden)
         // The key is that the user is confirming these mappings by clicking "Confirm"
         if (mapping.mappedStageId && mapping.mappedStageName && !mapping.isUnmapped) {
