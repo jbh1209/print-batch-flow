@@ -283,7 +283,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                 <label className="text-sm font-medium text-gray-500">Due Date</label>
                 <p className="font-medium flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
-                  {job.due_date || 'N/A'}
+                  {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'N/A'}
                 </p>
               </div>
               <div>
@@ -386,6 +386,11 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                 <h4 className="font-medium">{stage.production_stage.name}</h4>
                                 {stage.part_name && (
                                   <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
+                                )}
+                                {stage.estimated_duration_minutes && (
+                                  <p className="text-xs text-blue-600 font-medium">
+                                    Est. {Math.floor(stage.estimated_duration_minutes / 60)}h {stage.estimated_duration_minutes % 60}m
+                                  </p>
                                 )}
                               </div>
                             </div>
