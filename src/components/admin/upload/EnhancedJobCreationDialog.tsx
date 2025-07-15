@@ -1,60 +1,65 @@
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, AlertTriangle, Zap, Factory, Workflow, Database, Settings } from "lucide-react";
-import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
-import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapper";
-import type { RowMappingResult } from "@/utils/excel/types";
-import { RowMappingTable } from "./RowMappingTable";
-import { supabase } from "@/integrations/supabase/client";
+import { CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
+import { useToast } from "@/hooks/use-toast";
 
 interface EnhancedJobCreationDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen: boolean;
+  onClose: () => void;
   result: EnhancedJobCreationResult | null;
-  isProcessing: boolean;
-  onConfirm: (userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>) => void;
+  onConfirm: (userApprovedMappings: Array<{
+    groupName: string;
+    mappedStageId: string;
+    mappedStageName: string;
+    category: string;
+  }>) => Promise<void>;
+  isLoading?: boolean;
+  finalResult?: EnhancedJobCreationResult | null;
 }
 
-interface AvailableStage {
-  id: string;
-  name: string;
-  category: string;
-}
-
-interface AvailableCategory {
-  id: string;
-  name: string;
-  color: string;
+interface RowMappingResult {
+  excelRowIndex: number;
+  excelData: any[];
+  groupName: string;
+  description: string;
+  qty: number;
+  woQty: number;
+  mappedStageId: string | null;
+  mappedStageName: string | null;
+  mappedStageSpecId: string | null;
+  mappedStageSpecName: string | null;
+  confidence: number;
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'paper' | 'unknown';
+  manualOverride?: boolean;
+  isUnmapped: boolean;
+  instanceId?: string;
+  paperSpecification?: string;
+  partType?: string;
 }
 
 export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps> = ({
-  open,
-  onOpenChange,
+  isOpen,
+  onClose,
   result,
-  isProcessing,
-  onConfirm
+  onConfirm,
+  isLoading = false,
+  finalResult
 }) => {
-  const [selectedTab, setSelectedTab] = useState("mapping");
-  const [availableStages, setAvailableStages] = useState<AvailableStage[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<AvailableCategory[]>([]);
-  const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
-
-  useEffect(() => {
-    loadAvailableStages();
-    loadAvailableCategories();
-  }, []);
+  const { toast } = useToast();
+  const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: any[] }>({});
+  const [approvedMappings, setApprovedMappings] = useState<any[]>([]);
+  const [filteredMappings, setFilteredMappings] = useState<any[]>([]);
 
   useEffect(() => {
     if (result?.rowMappings) {
       // Initialize updatedRowMappings with current result data from the correct location
-      const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
+      const initialMappings: { [woNo: string]: any[] } = {};
       Object.entries(result.rowMappings).forEach(([woNo, mappings]) => {
         if (mappings && mappings.length > 0) {
           initialMappings[woNo] = [...mappings];
@@ -65,505 +70,366 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     }
   }, [result]);
 
-  const loadAvailableStages = async () => {
+  // Calculate statistics from the result
+  const stats = result ? {
+    totalJobs: result.jobs?.length || 0,
+    totalMappings: Object.values(result.rowMappings || {}).flat().length,
+    categoriesDetected: Object.keys(result.categoryAssignments || {}).length,
+    requiresApproval: Object.values(result.rowMappings || {}).flat().some(m => !m.mappedStageId)
+  } : null;
+
+  const handlePreview = async () => {
+    if (!result) return;
+
     try {
-      const { data: stages, error } = await supabase
-        .from('production_stages')
-        .select('id, name, description')
-        .eq('is_active', true)
-        .order('name');
+      const allMappings = Object.values(result.rowMappings || {}).flat();
+      
+      if (allMappings.length === 0) {
+        toast({
+          title: "No mappings found",
+          description: "No stage mappings were detected in the uploaded file.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-      if (error) throw error;
+      // Enhanced stage mapping preview with matrix support
+      try {
+        // For standard uploads, check if we have custom workflow requirements
+        const approved = Object.values(result.rowMappings).flat();
+        setApprovedMappings(approved);
+        setFilteredMappings(approved);
+        
+        console.log('📋 Enhanced Preview - Row mappings summary:', {
+          totalMappings: approved.length,
+          mappingsWithStages: approved.filter(m => m.mappedStageId).length,
+          unmappedCount: approved.filter(m => !m.mappedStageId).length
+        });
 
-      // Map stages to categories based on common naming patterns
-      const mappedStages = (stages || []).map(stage => ({
-        id: stage.id,
-        name: stage.name,
-        category: inferStageCategory(stage.name, stage.description)
+        // Categories with custom workflow requirements
+        const hasCustomWorkflow = Object.values(result.categoryAssignments).some(cat => cat.requiresCustomWorkflow === true);
+        
+        if (hasCustomWorkflow) {
+          console.log('🔧 Custom workflow detected - showing category configuration');
+        }
+        
+        toast({
+          title: "Preview Ready",
+          description: `Found ${approved.length} stage mappings ready for review.`
+        });
+        
+      } catch (previewError) {
+        console.error('Preview generation error:', previewError);
+        
+        // Fallback: show simple mapping list
+        const approved = Object.values(result.rowMappings).flat();
+        setApprovedMappings(approved);
+        setFilteredMappings(approved);
+        
+        toast({
+          title: "Preview Generated",
+          description: `Showing ${approved.length} mappings (fallback mode).`,
+          variant: "default"
+        });
+      }
+      
+    } catch (error) {
+      console.error('Preview error:', error);
+      toast({
+        title: "Preview Failed",
+        description: "Could not generate preview. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!result) return;
+
+    try {
+      // Extract all approved mappings from the result
+      const allApprovedMappings = Object.values(result.rowMappings || {}).flat();
+      
+      // Map to the expected format
+      const userApprovedMappings = allApprovedMappings.map(mapping => ({
+        groupName: mapping.groupName,
+        mappedStageId: mapping.mappedStageId,
+        mappedStageName: mapping.mappedStageName,
+        category: mapping.category
       }));
 
-      setAvailableStages(mappedStages);
-    } catch (error) {
-      console.error('Failed to load available stages:', error);
-    }
-  };
-
-  const loadAvailableCategories = async () => {
-    try {
-      const { data: categories, error } = await supabase
-        .from('categories')
-        .select('id, name, color')
-        .order('name');
-
-      if (error) throw error;
-
-      setAvailableCategories(categories || []);
-    } catch (error) {
-      console.error('Failed to load available categories:', error);
-    }
-  };
-
-  const inferStageCategory = (name: string, description?: string): string => {
-    const text = `${name} ${description || ''}`.toLowerCase();
-    
-    if (text.includes('print') || text.includes('hp') || text.includes('xerox') || text.includes('digital')) {
-      return 'printing';
-    }
-    if (text.includes('finish') || text.includes('laminat') || text.includes('cut') || text.includes('fold') || text.includes('bind')) {
-      return 'finishing';
-    }
-    if (text.includes('prepress') || text.includes('dtp') || text.includes('proof') || text.includes('plate')) {
-      return 'prepress';
-    }
-    if (text.includes('deliver') || text.includes('dispatch') || text.includes('ship')) {
-      return 'delivery';
-    }
-    
-    return 'unknown';
-  };
-
-  const handleUpdateMapping = (rowIndex: number, stageId: string, stageName: string) => {
-    setUpdatedRowMappings(prev => {
-      const updated = { ...prev };
-      
-      // Find which work order this row belongs to
-      for (const [woNo, mappings] of Object.entries(result?.rowMappings || {})) {
-        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
-        
-        if (mappingIndex >= 0) {
-          if (!updated[woNo]) updated[woNo] = [...mappings];
-          
-          const mappingsCopy = [...updated[woNo]];
-          mappingsCopy[mappingIndex] = {
-            ...mappingsCopy[mappingIndex],
-            mappedStageId: stageId,
-            mappedStageName: stageName,
-            manualOverride: true,
-            confidence: 100,
-            isUnmapped: false
-          };
-          updated[woNo] = mappingsCopy;
-          break;
-        }
-      }
-      
-      return updated;
-    });
-  };
-
-  const handleUpdateCategory = (woNo: string, categoryId: string | null, categoryName: string | null) => {
-    // Update category assignment in result
-    if (result && result.categoryAssignments[woNo]) {
-      result.categoryAssignments[woNo].categoryId = categoryId;
-      result.categoryAssignments[woNo].categoryName = categoryName;
-      result.categoryAssignments[woNo].requiresCustomWorkflow = !categoryId;
-    }
-  };
-
-  const handleToggleManualOverride = (rowIndex: number) => {
-    setUpdatedRowMappings(prev => {
-      const updated = { ...prev };
-      
-      // Find which work order this row belongs to
-      for (const [woNo, mappings] of Object.entries(result?.rowMappings || {})) {
-        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
-        
-        if (mappingIndex >= 0) {
-          if (!updated[woNo]) updated[woNo] = [...mappings];
-          
-          const mappingsCopy = [...updated[woNo]];
-          mappingsCopy[mappingIndex] = {
-            ...mappingsCopy[mappingIndex],
-            manualOverride: !mappingsCopy[mappingIndex].manualOverride
-          };
-          updated[woNo] = mappingsCopy;
-          break;
-        }
-      }
-      
-      return updated;
-    });
-  };
-
-  const getTotalUnmappedRows = () => {
-    return Object.values(updatedRowMappings).reduce((total, mappings) => {
-      return total + mappings.filter(m => m.isUnmapped).length;
-    }, 0);
-  };
-
-  const handleConfirmWithUserMappings = () => {
-    // Extract ALL user-approved mappings (not just manualOverride ones)
-    const userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
-    
-    Object.values(updatedRowMappings).forEach(mappings => {
-      mappings.forEach(mapping => {
-        if (!mapping.isUnmapped && mapping.mappedStageId && mapping.mappedStageName) {
-          // Find the stage to determine its category
-          const stage = availableStages.find(s => s.id === mapping.mappedStageId);
-          
-          userApprovedMappings.push({
-            groupName: mapping.groupName,
-            mappedStageId: mapping.mappedStageId,
-            mappedStageName: mapping.mappedStageName,
-            category: mapping.category
-          });
-        }
+      console.log('🎯 CONFIRM - Sending user approved mappings:', {
+        count: userApprovedMappings.length,
+        mappings: userApprovedMappings
       });
-    });
-    
-    console.log('User approved mappings being passed:', userApprovedMappings);
-    onConfirm(userApprovedMappings);
+
+      await onConfirm(userApprovedMappings);
+    } catch (error) {
+      console.error('Confirmation error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process job creation. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  if (!result && !isProcessing) return null;
+  // Show final result if available
+  if (finalResult) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              Jobs Created Successfully
+            </DialogTitle>
+          </DialogHeader>
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return "text-green-600 bg-green-100";
-    if (confidence >= 60) return "text-yellow-600 bg-yellow-100";
-    return "text-red-600 bg-red-100";
-  };
-
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 80) return "High";
-    if (confidence >= 60) return "Medium";
-    return "Low";
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-7xl h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Factory className="h-5 w-5" />
-            Enhanced Production Job Creation
-          </DialogTitle>
-          <DialogDescription>
-            Creating fully qualified work orders with automatic stage mapping and workflow initialization
-          </DialogDescription>
-        </DialogHeader>
-
-        {isProcessing ? (
-          <div className="space-y-4 py-8">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-            <div className="text-center">
-              <p className="font-medium">Processing Excel data...</p>
-              <p className="text-sm text-gray-600">Mapping stages, assigning categories, and initializing workflows</p>
-            </div>
-          </div>
-        ) : result ? (
-          <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
-            {/* Statistics Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-600" />
-                    <div>
-                      <div className="text-2xl font-bold">{result.stats.total}</div>
-                      <div className="text-sm text-gray-600">Total Jobs</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-green-600">{result.stats.successful}</div>
-                      <div className="text-sm text-gray-600">Successful</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Workflow className="h-4 w-4 text-purple-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-purple-600">{result.stats.workflowsInitialized}</div>
-                      <div className="text-sm text-gray-600">Workflows</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-orange-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-orange-600">{result.stats.newCategories}</div>
-                      <div className="text-sm text-gray-600">New Categories</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Success Rate Progress */}
+          <div className="space-y-6">
+            {/* Success Summary */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Processing Success Rate</CardTitle>
+                <CardTitle className="text-lg">Creation Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{finalResult.stats.successful}</div>
+                    <div className="text-sm text-green-700">Jobs Created</div>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{finalResult.stats.workflowsInitialized}</div>
+                    <div className="text-sm text-blue-700">Workflows</div>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-600">{finalResult.stats.total}</div>
+                    <div className="text-sm text-gray-700">Total Processed</div>
+                  </div>
+                </div>
+
+                {finalResult.stats.successful > 0 && (
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span className="text-green-700">All jobs created successfully with proper workflows!</span>
+                  </div>
+                )}
+
+                <Progress 
+                  value={(finalResult.stats.successful / finalResult.stats.total) * 100} 
+                  className="w-full"
+                />
+                <p className="text-sm text-center text-muted-foreground">
+                  {finalResult.stats.successful} of {finalResult.stats.total} jobs completed successfully
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* New Categories */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Categories</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <Progress 
-                    value={(result.stats.successful / result.stats.total) * 100} 
-                    className="h-2"
-                  />
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>{result.stats.successful} successful</span>
-                    <span>{result.stats.failed} failed</span>
+                {finalResult.newCategories && finalResult.newCategories.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">New Categories Created:</h4>
+                    {finalResult.newCategories.map((category: any, index: number) => (
+                      <Badge key={index} variant="secondary">
+                        {category.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Job Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Job Details</CardTitle>
+                <CardDescription>Successfully created jobs with workflows</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {finalResult.jobs && finalResult.jobs.map((job, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full" />
+                      <div>
+                        <p className="font-medium">{job.wo_no}</p>
+                        <p className="text-sm text-muted-foreground">{job.customer}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-green-700 border-green-300">
+                      Created
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Errors (if any) */}
+            {finalResult.stats.errors && finalResult.stats.errors.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg text-red-600">Issues</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-red-600">Errors ({finalResult.stats.errors.length})</h4>
+                    {finalResult.stats.errors.map((error, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 bg-red-500 rounded-full" />
+                          <div>
+                            <p className="text-sm text-red-600">{error}</p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-red-700 border-red-300">
+                          Failed
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {finalResult.stats.errors && finalResult.stats.errors.length > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                <span className="text-yellow-700">Some jobs had issues but others were created successfully.</span>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Show creation preview/confirmation dialog
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Enhanced Job Creation Preview</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Summary Statistics */}
+          {stats && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Upload Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                    <div className="text-xl font-bold text-blue-600">{stats.totalJobs}</div>
+                    <div className="text-sm text-blue-700">Jobs</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <div className="text-xl font-bold text-green-600">{stats.totalMappings}</div>
+                    <div className="text-sm text-green-700">Mappings</div>
+                  </div>
+                  <div className="text-center p-3 bg-purple-50 rounded-lg">
+                    <div className="text-xl font-bold text-purple-600">{stats.categoriesDetected}</div>
+                    <div className="text-sm text-purple-700">Categories</div>
+                  </div>
+                  <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                    <div className="text-xl font-bold text-yellow-600">
+                      {stats.requiresApproval ? 'Yes' : 'No'}
+                    </div>
+                    <div className="text-sm text-yellow-700">Needs Review</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+          )}
 
-            {/* Detailed Results */}
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-1 flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-                <TabsTrigger value="mapping" className="flex items-center gap-1 text-xs sm:text-sm">
-                  <Settings className="h-3 w-3" />
-                  <span className="hidden sm:inline">Row Mapping</span>
-                  <span className="sm:hidden">Mapping</span>
-                  {getTotalUnmappedRows() > 0 && (
-                    <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-xs">
-                      {getTotalUnmappedRows()}
+          {/* Category Assignments */}
+          {result?.categoryAssignments && Object.keys(result.categoryAssignments).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Category Assignments</CardTitle>
+                <CardDescription>Detected categories for your jobs</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {Object.entries(result.categoryAssignments).map(([woNo, category]) => (
+                  <div key={woNo} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      <div>
+                        <p className="font-medium">{woNo}</p>
+                        <p className="text-sm text-muted-foreground">{category.categoryName || 'Unknown Category'}</p>
+                      </div>
+                    </div>
+                    
+                    <span className="text-sm text-muted-foreground">Category assignment</span>
+                    
+                    <Badge variant="default">Standard Workflow</Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stage Mappings Preview */}
+          {filteredMappings.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Stage Mappings</CardTitle>
+                <CardDescription>Detected workflow stages for your jobs</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 max-h-60 overflow-y-auto">
+                {filteredMappings.map((mapping, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-3 h-3 rounded-full",
+                        mapping.mappedStageId ? "bg-green-500" : "bg-yellow-500"
+                      )} />
+                      <div>
+                        <p className="font-medium">{mapping.groupName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {mapping.mappedStageName || 'Unmapped stage'}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant={mapping.mappedStageId ? "default" : "destructive"}>
+                      {mapping.category}
                     </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="overview" className="text-xs sm:text-sm">
-                  <span className="hidden sm:inline">Job Overview</span>
-                  <span className="sm:hidden">Overview</span>
-                </TabsTrigger>
-                <TabsTrigger value="jobs" className="text-xs sm:text-sm">
-                  <span className="hidden sm:inline">Created Jobs</span>
-                  <span className="sm:hidden">Jobs</span>
-                </TabsTrigger>
-                <TabsTrigger value="errors" className="text-xs sm:text-sm">Issues</TabsTrigger>
-              </TabsList>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-              <TabsContent value="mapping" className="flex-1 overflow-y-auto space-y-4">
-                {result.rowMappings && Object.entries(result.rowMappings).map(([woNo, mappings]) => {
-                  const currentMappings = updatedRowMappings[woNo] || mappings || [];
-                  
-                  return (
-                    <Card key={woNo}>
-                      <CardHeader>
-                        <CardTitle className="text-base flex items-center justify-between">
-                          <span>Work Order: {woNo}</span>
-                          <div className="flex items-center gap-2">
-                            {currentMappings.filter(m => m.isUnmapped).length > 0 && (
-                              <Badge variant="destructive" className="text-xs">
-                                {currentMappings.filter(m => m.isUnmapped).length} unmapped
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className="text-xs">
-                              {currentMappings.length} rows
-                            </Badge>
-                          </div>
-                        </CardTitle>
-                        <CardDescription>
-                          Review and adjust the automatic stage mappings for each Excel row
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <RowMappingTable
-                          rowMappings={currentMappings}
-                          availableStages={availableStages}
-                        onUpdateMapping={handleUpdateMapping}
-                        onToggleManualOverride={handleToggleManualOverride}
-                        />
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </TabsContent>
-
-              <TabsContent value="overview" className="flex-1 overflow-y-auto space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Category Assignment Results</CardTitle>
-                    <CardDescription>
-                      How work orders were categorized and which production stages were mapped
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="min-w-[120px]">Work Order</TableHead>
-                            <TableHead className="min-w-[100px]">Category</TableHead>
-                            <TableHead className="min-w-[80px]">Confidence</TableHead>
-                            <TableHead className="min-w-[200px]">Mapped Stages</TableHead>
-                            <TableHead className="min-w-[100px]">Workflow Type</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                      <TableBody>
-                        {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => (
-                          <TableRow key={woNo}>
-                            <TableCell className="font-medium">{woNo}</TableCell>
-                             <TableCell>
-                               <Badge variant="outline" className="text-blue-600 border-blue-600">
-                                 Custom Workflow
-                               </Badge>
-                             </TableCell>
-                            <TableCell>
-                              <Badge className={getConfidenceColor(assignment.confidence)}>
-                                {getConfidenceLabel(assignment.confidence)} ({assignment.confidence.toFixed(0)}%)
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {assignment.mappedStages.map((stage, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {stage.stageName}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {assignment.requiresCustomWorkflow ? (
-                                <Badge variant="outline" className="text-orange-600 border-orange-600">
-                                  Custom
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-green-600 border-green-600">
-                                  Standard
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="jobs" className="flex-1 overflow-y-auto space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Successfully Created Jobs</CardTitle>
-                    <CardDescription>
-                      Production jobs ready for the manufacturing floor
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="min-w-[120px]">Work Order</TableHead>
-                            <TableHead className="min-w-[150px]">Customer</TableHead>
-                            <TableHead className="min-w-[80px]">Quantity</TableHead>
-                            <TableHead className="min-w-[100px]">Category</TableHead>
-                            <TableHead className="min-w-[120px]">Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                      <TableBody>
-                        {result.createdJobs.map((job) => (
-                          <TableRow key={job.id}>
-                            <TableCell className="font-medium">{job.wo_no}</TableCell>
-                            <TableCell>{job.customer || 'N/A'}</TableCell>
-                            <TableCell>{job.qty}</TableCell>
-                            <TableCell>
-                              {result.categoryAssignments[job.wo_no]?.categoryName || (
-                                <span className="text-gray-500 italic">Custom</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className="bg-green-100 text-green-700">
-                                Ready for Production
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="errors" className="flex-1 overflow-y-auto space-y-4">
-                {result.failedJobs.length > 0 ? (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-red-600" />
-                        Failed Jobs ({result.failedJobs.length})
-                      </CardTitle>
-                      <CardDescription>
-                        Jobs that could not be processed due to errors
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Work Order</TableHead>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Error</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {result.failedJobs.map((failedJob, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="font-medium">{failedJob.job.wo_no}</TableCell>
-                              <TableCell>{failedJob.job.customer || 'N/A'}</TableCell>
-                              <TableCell className="text-red-600 text-sm">{failedJob.error}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-                      <h3 className="font-semibold text-green-700">All Jobs Processed Successfully!</h3>
-                      <p className="text-gray-600 mt-2">
-                        No errors occurred during the job creation process.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-            </Tabs>
-
-            {/* Actions */}
-            <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Review Later
+          {/* Action Buttons */}
+          <div className="flex justify-between gap-3">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={handlePreview}>
+                Preview Details
               </Button>
-              <div className="flex items-center gap-2">
-                {getTotalUnmappedRows() > 0 && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {getTotalUnmappedRows()} unmapped rows require attention
-                  </Badge>
-                )}
-                <Button 
-                  onClick={handleConfirmWithUserMappings} 
-                  className="flex items-center gap-2"
-                  disabled={getTotalUnmappedRows() > 0}
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Confirm & Continue to Production
-                </Button>
-              </div>
+              <Button 
+                onClick={handleConfirm} 
+                disabled={isLoading}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isLoading ? 'Creating Jobs...' : 'Confirm & Create Jobs'}
+              </Button>
             </div>
           </div>
-        ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );

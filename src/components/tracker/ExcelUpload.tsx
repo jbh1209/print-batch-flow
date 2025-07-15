@@ -497,10 +497,10 @@ export const ExcelUpload = () => {
 
       {/* Phase 4: Enhanced Job Creation Dialog */}
       <EnhancedJobCreationDialog
-        open={showEnhancedDialog}
-        onOpenChange={setShowEnhancedDialog}
+        isOpen={showEnhancedDialog}
+        onClose={() => setShowEnhancedDialog(false)}
         result={enhancedResult}
-        isProcessing={isCreatingJobs}
+        isLoading={isCreatingJobs}
         onConfirm={handleEnhancedJobsConfirmed}
       />
 

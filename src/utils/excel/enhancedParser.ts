@@ -403,19 +403,21 @@ export const parseAndPrepareProductionReadyJobs = async (
   logger.addDebugInfo(`ENHANCED RESULT: Found ${userApprovedStageMappings.length} user-approved stage mappings`);
   
   // Step 3: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
-  await jobCreator.initialize();
+  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
   
   // Step 4: Prepare jobs with mappings AND user-approved stage mappings
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     enhancedResult.jobs, // Use jobs with applied user mappings
-    headers, 
-    dataRows,
-    userApprovedStageMappings // Pass user-approved mappings to job creator
+    {},  // Empty row mappings for now
+    {}   // Empty category assignments for now
   );
   
   // CRITICAL: Preserve user-approved mappings in final result
   result.userApprovedStageMappings = userApprovedStageMappings;
+  
+  result.stats.total = result.stats.totalJobs;
+  result.stats.successful = result.stats.jobsCreated;
+  result.stats.failed = result.stats.totalJobs - result.stats.jobsCreated;
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
   
@@ -448,11 +450,10 @@ export const parseAndCreateProductionReadyJobs = async (
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
-  await jobCreator.initialize();
+  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
   
   // Step 3: Create production-ready jobs with workflows, passing Excel data
-  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows);
+  const result = await jobCreator.prepareEnhancedJobsWithExcelData(jobs, {}, {});
   
   logger.addDebugInfo(`Phase 4 enhanced job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
   
@@ -477,14 +478,13 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with matrix data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
-  await jobCreator.initialize();
+  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
   
   // Step 3: Prepare jobs with mappings but DON'T save to database yet
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     jobs, 
-    matrixData.headers, 
-    matrixData.rows
+    {},  // Empty row mappings for now
+    {}   // Empty category assignments for now
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job preparation completed: ${result.stats.total} jobs prepared for review`);
@@ -510,14 +510,13 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
   const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with matrix data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
-  await jobCreator.initialize();
+  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
   
   // Step 3: Create production-ready jobs with workflows, passing matrix data
-  const result = await jobCreator.createEnhancedJobsWithExcelData(
+  const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     jobs, 
-    matrixData.headers, 
-    matrixData.rows
+    {},  // Empty row mappings for now
+    {}   // Empty category assignments for now
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
@@ -541,10 +540,9 @@ export const finalizeProductionReadyJobs = async (
   }
   
   // Use the EnhancedJobCreator's finalize method with current authenticated user ID
-  const jobCreator = new EnhancedJobCreator(logger, currentUserId, preparedResult.generateQRCodes);
-  await jobCreator.initialize();
+  const jobCreator = new EnhancedJobCreator(currentUserId, logger, preparedResult.generateQRCodes || true);
   
-  const finalResult = await jobCreator.finalizeJobs(preparedResult, userApprovedMappings);
+  const finalResult = await jobCreator.finalizeEnhancedJobs(preparedResult, currentUserId, userApprovedMappings);
   
   logger.addDebugInfo(`Finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
   
