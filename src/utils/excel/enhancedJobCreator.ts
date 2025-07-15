@@ -793,13 +793,21 @@ private async calculateTimingForJob(
     // Create a map of stage IDs to quantities from user mappings and original job
     const quantityMap = new Map<string, number>();
     
-    // Add quantities from user mappings
+    // Add quantities from user mappings - these should contain the parsed Excel quantities
     if (userApprovedMappings) {
       userApprovedMappings.forEach(mapping => {
-        // Try to find quantity from the mapping's groupName in the original job specs
-        const qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+        this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
+        
+        // First try to extract quantity from job specifications based on groupName
+        let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+        
+        // If no quantity found from specs, check if this is a user mapping that might have quantity info
+        // For now, we'll rely on the job specifications to contain the quantities
+        this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
+        
         if (qty > 0) {
           quantityMap.set(mapping.mappedStageId, qty);
+          this.logger.addDebugInfo(`✅ Set quantity ${qty} for stage ${mapping.mappedStageId} (${mapping.mappedStageName})`);
         }
       });
     }
@@ -873,29 +881,38 @@ private async calculateTimingForJob(
  * Extract quantity from job specifications for a specific group
  */
 private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
-  // Try to find quantity in printing specifications
+  this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
+  
+  // Try to find quantity in printing specifications first (most common)
   if (job.printing_specifications && job.printing_specifications[groupName]) {
     const spec = job.printing_specifications[groupName];
+    this.logger.addDebugInfo(`📄 Found printing spec for ${groupName}: qty=${spec.qty}`);
     if (spec.qty && spec.qty > 0) return spec.qty;
   }
   
   // Try to find quantity in finishing specifications  
   if (job.finishing_specifications && job.finishing_specifications[groupName]) {
     const spec = job.finishing_specifications[groupName];
+    this.logger.addDebugInfo(`🎨 Found finishing spec for ${groupName}: qty=${spec.qty}`);
     if (spec.qty && spec.qty > 0) return spec.qty;
   }
   
   // Try to find quantity in prepress specifications
   if (job.prepress_specifications && job.prepress_specifications[groupName]) {
     const spec = job.prepress_specifications[groupName];
+    this.logger.addDebugInfo(`⚙️ Found prepress spec for ${groupName}: qty=${spec.qty}`);
     if (spec.qty && spec.qty > 0) return spec.qty;
   }
   
   // Try to find quantity in paper specifications
   if (job.paper_specifications && job.paper_specifications[groupName]) {
     const spec = job.paper_specifications[groupName];
+    this.logger.addDebugInfo(`📋 Found paper spec for ${groupName}: qty=${spec.qty}`);
     if (spec.qty && spec.qty > 0) return spec.qty;
   }
+
+  // Also check if groupName matches any of the mapped stage names and look for quantity in user mappings
+  this.logger.addDebugInfo(`⚠️ No quantity found for group ${groupName}, using job default: ${job.qty || 1}`);
   
   // Return job qty as fallback
   return job.qty || 1;
