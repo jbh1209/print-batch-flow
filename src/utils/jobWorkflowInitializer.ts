@@ -24,15 +24,25 @@ export const initializeJobWorkflowFromMappings = async (
     return false;
   }
 
+  // Remove duplicate stage IDs to avoid database conflicts
+  const uniqueMappings = userApprovedMappings.filter((mapping, index, self) =>
+    index === self.findIndex(m => m.mappedStageId === mapping.mappedStageId)
+  );
+
   try {
     // Extract unique stage IDs and create stage orders
-    const stageIds = userApprovedMappings.map(mapping => mapping.mappedStageId);
-    const stageOrders = userApprovedMappings.map((_, index) => index + 1);
+    const stageIds = uniqueMappings.map(mapping => mapping.mappedStageId);
+    const stageOrders = uniqueMappings.map((_, index) => index + 1);
 
-    logger.addDebugInfo(`📋 Stage workflow for job ${jobId}:`);
-    userApprovedMappings.forEach((mapping, index) => {
+    logger.addDebugInfo(`📋 Stage workflow for job ${jobId} (${uniqueMappings.length} unique stages):`);
+    uniqueMappings.forEach((mapping, index) => {
       logger.addDebugInfo(`   ${index + 1}. ${mapping.mappedStageName} (${mapping.mappedStageId}) - Category: ${mapping.category}`);
     });
+
+    if (stageIds.length === 0) {
+      logger.addDebugInfo(`❌ No valid stage IDs found after deduplication for job ${jobId}`);
+      return false;
+    }
 
     // Use the existing initialize_custom_job_stages database function
     const { data, error } = await supabase.rpc('initialize_custom_job_stages', {
