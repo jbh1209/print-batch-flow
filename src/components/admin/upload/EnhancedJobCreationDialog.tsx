@@ -192,20 +192,20 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   };
 
   const handleConfirmWithUserMappings = () => {
-    // Extract user-approved mappings from the dialog state
+    // Extract ALL user-approved mappings (not just manualOverride ones)
     const userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
     
     Object.values(updatedRowMappings).forEach(mappings => {
       mappings.forEach(mapping => {
-        if (mapping.manualOverride && mapping.mappedStageId && mapping.mappedStageName) {
+        if (!mapping.isUnmapped && mapping.mappedStageId && mapping.mappedStageName) {
           // Find the stage to determine its category
           const stage = availableStages.find(s => s.id === mapping.mappedStageId);
           
           userApprovedMappings.push({
-            groupName: mapping.groupName || `Row ${mapping.excelRowIndex}`,
+            groupName: mapping.groupName,
             mappedStageId: mapping.mappedStageId,
             mappedStageName: mapping.mappedStageName,
-            category: stage?.category || 'unknown'
+            category: mapping.category
           });
         }
       });
