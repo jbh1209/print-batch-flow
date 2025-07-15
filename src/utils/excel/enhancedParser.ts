@@ -372,17 +372,15 @@ export const parseAndPrepareProductionReadyJobs = async (
   const dataRows = jsonData.slice(1) as any[][];
   
   // CRITICAL FIX: Extract user-approved stage mappings BEFORE processing  
-  const userApprovedStageMappings: Record<string, number> = {};
-  Object.entries(mapping).forEach(([key, value]) => {
-    if (key.startsWith('stage_') && typeof value === 'number' && value !== -1) {
-      const stageId = key.replace('stage_', '');
-      userApprovedStageMappings[stageId] = value;
-    }
-  });
+  const userApprovedStageMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
   
-  logger.addDebugInfo(`🎯 PREPARE PHASE - EXTRACTED USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings`);
-  Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
-    logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
+  // Convert column mapping format to user-approved format
+  // For now, this will be empty since we don't have stage info in the column mapping
+  // The real user mappings come from the dialog
+  
+  logger.addDebugInfo(`🎯 PREPARE PHASE - USER-APPROVED STAGE MAPPINGS: ${userApprovedStageMappings.length} mappings (will be provided by dialog)`);
+  userApprovedStageMappings.forEach((mapping) => {
+    logger.addDebugInfo(`   - Group "${mapping.groupName}" -> Stage ${mapping.mappedStageId} (${mapping.mappedStageName}) [${mapping.category}]`);
   });
 
   // Get enhanced result with user-approved stage mappings FIRST
@@ -399,10 +397,10 @@ export const parseAndPrepareProductionReadyJobs = async (
     mapping // Pass the entire mapping object to preserve user stage mappings
   );
   
-  // CRITICAL: Add user-approved mappings to the result
-  enhancedResult.userApprovedStageMappings = userApprovedStageMappings;
+  // CRITICAL: User-approved mappings will be passed directly to job creator
+  // No need to assign to enhancedResult since they use different formats
   
-  logger.addDebugInfo(`ENHANCED RESULT: Found ${Object.keys(enhancedResult.userApprovedStageMappings || {}).length} user-approved stage mappings`);
+  logger.addDebugInfo(`ENHANCED RESULT: Found ${userApprovedStageMappings.length} user-approved stage mappings`);
   
   // Step 3: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);

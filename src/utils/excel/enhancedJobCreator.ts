@@ -13,7 +13,7 @@ export interface EnhancedJobCreationResult {
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
   rowMappings: { [woNo: string]: RowMappingResult[] };
-  userApprovedStageMappings?: Record<string, number>;
+  userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
   userId?: string;
   generateQRCodes?: boolean;
   stats: {
@@ -60,17 +60,17 @@ export class EnhancedJobCreator {
     jobs: ParsedJob[], 
     headers: string[], 
     dataRows: any[][],
-    userApprovedStageMappings?: Record<string, number>
+    userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Preparing enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
     this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
     this.logger.addDebugInfo(`Excel data rows: ${dataRows.length}`);
     
     // CRITICAL FIX: Log user-approved stage mappings being preserved
-    if (userApprovedStageMappings && Object.keys(userApprovedStageMappings).length > 0) {
-      this.logger.addDebugInfo(`🎯 PREPARE JOBS - PRESERVING USER-APPROVED STAGE MAPPINGS: ${Object.keys(userApprovedStageMappings).length} mappings`);
-      Object.entries(userApprovedStageMappings).forEach(([stageId, columnIndex]) => {
-        this.logger.addDebugInfo(`   - Stage ${stageId} -> Column ${columnIndex}`);
+    if (userApprovedStageMappings && userApprovedStageMappings.length > 0) {
+      this.logger.addDebugInfo(`🎯 PREPARE JOBS - PRESERVING USER-APPROVED STAGE MAPPINGS: ${userApprovedStageMappings.length} mappings`);
+      userApprovedStageMappings.forEach((mapping) => {
+        this.logger.addDebugInfo(`   - Group "${mapping.groupName}" -> Stage ${mapping.mappedStageId} (${mapping.mappedStageName}) [${mapping.category}]`);
       });
     } else {
       this.logger.addDebugInfo(`❌ NO USER-APPROVED STAGE MAPPINGS RECEIVED IN PREPARE PHASE`);
@@ -163,7 +163,7 @@ export class EnhancedJobCreator {
     jobs: ParsedJob[], 
     headers: string[], 
     dataRows: any[][],
-    userApprovedStageMappings?: Record<string, number>
+    userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Creating enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
     this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
