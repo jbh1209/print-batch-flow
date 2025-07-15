@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ExcelImportDebugger } from "@/utils/excel";
+import { TimingCalculationService } from "@/services/timingCalculationService";
 
 interface UserApprovedMapping {
   groupName: string;
@@ -131,10 +132,18 @@ export const initializeJobWorkflowFromMappings = async (
       }
 
       logger.addDebugInfo(`✅ Successfully initialized workflow for job ${jobId} using fallback method (${stageIds.length} stages)`);
+      
+      // 🚀 TIMING CALCULATION: Calculate timing estimates for fallback stages
+      await calculateTimingForCreatedStages(jobId, sortedMappings, logger);
+      
       return true;
     }
 
     logger.addDebugInfo(`✅ Successfully initialized enhanced workflow for job ${jobId} with specifications (${sortedMappings.length} stages)`);
+    
+    // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
+    await calculateTimingForCreatedStages(jobId, sortedMappings, logger);
+    
     return true;
 
   } catch (error) {
@@ -205,3 +214,101 @@ export const initializeJobWorkflow = async (
   logger.addDebugInfo(`❌ Failed to initialize any workflow for job ${jobId}`);
   return false;
 };
+
+/**
+ * Calculate timing estimates for all created stage instances
+ */
+async function calculateTimingForCreatedStages(
+  jobId: string,
+  userApprovedMappings: UserApprovedMapping[],
+  logger: ExcelImportDebugger
+): Promise<void> {
+  try {
+    logger.addDebugInfo(`🎯 Starting timing calculations for job ${jobId}`);
+    
+    // Fetch all stage instances for this job
+    const { data: stageInstances, error } = await supabase
+      .from('job_stage_instances')
+      .select('id, production_stage_id, stage_specification_id, quantity')
+      .eq('job_id', jobId)
+      .eq('job_table_name', 'production_jobs');
+    
+    if (error) {
+      logger.addDebugInfo(`❌ Failed to fetch stage instances for timing calculation: ${error.message}`);
+      return;
+    }
+    
+    if (!stageInstances || stageInstances.length === 0) {
+      logger.addDebugInfo(`⚠️ No stage instances found for job ${jobId}, skipping timing calculation`);
+      return;
+    }
+    
+    // Create a map of stage IDs to quantities from user mappings
+    const quantityMap = new Map<string, number>();
+    userApprovedMappings.forEach(mapping => {
+      if (mapping.quantity && mapping.quantity > 0) {
+        quantityMap.set(mapping.mappedStageId, mapping.quantity);
+      }
+    });
+    
+    logger.addDebugInfo(`📊 Found ${quantityMap.size} stage quantities from user mappings`);
+    
+    // Calculate timing for each stage instance
+    const timingPromises = stageInstances.map(async (stageInstance) => {
+      const quantity = quantityMap.get(stageInstance.production_stage_id) || stageInstance.quantity || 1;
+      
+      logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
+      
+      try {
+        // Update the stage instance with quantity and calculated timing
+        const { error: updateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            quantity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stageInstance.id);
+        
+        if (updateError) {
+          logger.addDebugInfo(`❌ Failed to update stage instance ${stageInstance.id}: ${updateError.message}`);
+          return false;
+        }
+        
+        // Now calculate timing using the service
+        const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
+          quantity,
+          stageId: stageInstance.production_stage_id,
+          specificationId: stageInstance.stage_specification_id
+        });
+        
+        // Update the stage instance with the calculated timing
+        const { error: timingUpdateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            estimated_duration_minutes: timingResult.estimatedDurationMinutes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stageInstance.id);
+        
+        if (timingUpdateError) {
+          logger.addDebugInfo(`❌ Failed to update timing for stage instance ${stageInstance.id}: ${timingUpdateError.message}`);
+          return false;
+        }
+        
+        logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${timingResult.estimatedDurationMinutes} minutes`);
+        return true;
+      } catch (error) {
+        logger.addDebugInfo(`❌ Error calculating timing for stage instance ${stageInstance.id}: ${error}`);
+        return false;
+      }
+    });
+    
+    const results = await Promise.all(timingPromises);
+    const successCount = results.filter(result => result === true).length;
+    
+    logger.addDebugInfo(`🎯 Timing calculation completed: ${successCount}/${stageInstances.length} successful`);
+    
+  } catch (error) {
+    logger.addDebugInfo(`❌ Error in timing calculation process: ${error}`);
+  }
+}

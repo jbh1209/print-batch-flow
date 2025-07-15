@@ -393,6 +393,10 @@ export class EnhancedJobCreator {
       }
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
+      
+      // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
+      await this.calculateTimingForJob(insertedJob.id, userApprovedMappings, originalJob, woNo);
+      
     } catch (error) {
       this.logger.addDebugInfo(`Workflow initialization error for ${originalJob.wo_no}: ${error}`);
       throw error;
@@ -724,10 +728,150 @@ export class EnhancedJobCreator {
         throw new Error(`QR code update failed: ${error.message}`);
       }
 
-      this.logger.addDebugInfo(`QR code updated for job ${job.wo_no} with real job ID`);
-    } catch (error) {
-      this.logger.addDebugInfo(`QR code update error for ${job.wo_no}: ${error}`);
-      throw error;
-    }
+    this.logger.addDebugInfo(`QR code updated for job ${job.wo_no} with real job ID`);
+  } catch (error) {
+    this.logger.addDebugInfo(`QR code update error for ${job.wo_no}: ${error}`);
+    throw error;
   }
+}
+
+/**
+ * Calculate timing estimates for all stage instances of a job
+ */
+private async calculateTimingForJob(
+  jobId: string,
+  userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> | undefined,
+  originalJob: ParsedJob,
+  woNo: string
+): Promise<void> {
+  try {
+    this.logger.addDebugInfo(`🎯 Starting timing calculations for job ${woNo} (${jobId})`);
+    
+    // Fetch all stage instances for this job
+    const { data: stageInstances, error } = await supabase
+      .from('job_stage_instances')
+      .select('id, production_stage_id, stage_specification_id, quantity, part_name')
+      .eq('job_id', jobId)
+      .eq('job_table_name', 'production_jobs');
+    
+    if (error) {
+      this.logger.addDebugInfo(`❌ Failed to fetch stage instances for timing calculation: ${error.message}`);
+      return;
+    }
+    
+    if (!stageInstances || stageInstances.length === 0) {
+      this.logger.addDebugInfo(`⚠️ No stage instances found for job ${woNo}, skipping timing calculation`);
+      return;
+    }
+    
+    // Create a map of stage IDs to quantities from user mappings and original job
+    const quantityMap = new Map<string, number>();
+    
+    // Add quantities from user mappings
+    if (userApprovedMappings) {
+      userApprovedMappings.forEach(mapping => {
+        // Try to find quantity from the mapping's groupName in the original job specs
+        const qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+        if (qty > 0) {
+          quantityMap.set(mapping.mappedStageId, qty);
+        }
+      });
+    }
+    
+    // Fallback to job qty if no specific quantities found
+    const defaultQty = originalJob.qty || 1;
+    
+    this.logger.addDebugInfo(`📊 Found ${quantityMap.size} specific stage quantities, using default ${defaultQty} for others`);
+    
+    // Calculate timing for each stage instance
+    const timingPromises = stageInstances.map(async (stageInstance) => {
+      const quantity = quantityMap.get(stageInstance.production_stage_id) || defaultQty;
+      
+      this.logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
+      
+      try {
+        // Update the stage instance with quantity first
+        const { error: updateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            quantity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stageInstance.id);
+        
+        if (updateError) {
+          this.logger.addDebugInfo(`❌ Failed to update stage instance ${stageInstance.id}: ${updateError.message}`);
+          return false;
+        }
+        
+        // Calculate timing using the service
+        const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
+          quantity,
+          stageId: stageInstance.production_stage_id,
+          specificationId: stageInstance.stage_specification_id || undefined
+        });
+        
+        // Update the stage instance with the calculated timing
+        const { error: timingUpdateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            estimated_duration_minutes: timingResult.estimatedDurationMinutes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stageInstance.id);
+        
+        if (timingUpdateError) {
+          this.logger.addDebugInfo(`❌ Failed to update timing for stage instance ${stageInstance.id}: ${timingUpdateError.message}`);
+          return false;
+        }
+        
+        this.logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${timingResult.estimatedDurationMinutes} minutes`);
+        return true;
+      } catch (error) {
+        this.logger.addDebugInfo(`❌ Error calculating timing for stage instance ${stageInstance.id}: ${error}`);
+        return false;
+      }
+    });
+    
+    const results = await Promise.all(timingPromises);
+    const successCount = results.filter(result => result === true).length;
+    
+    this.logger.addDebugInfo(`🎯 Timing calculation completed for job ${woNo}: ${successCount}/${stageInstances.length} successful`);
+    
+  } catch (error) {
+    this.logger.addDebugInfo(`❌ Error in timing calculation process for job ${woNo}: ${error}`);
+  }
+}
+
+/**
+ * Extract quantity from job specifications for a specific group
+ */
+private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
+  // Try to find quantity in printing specifications
+  if (job.printing_specifications && job.printing_specifications[groupName]) {
+    const spec = job.printing_specifications[groupName];
+    if (spec.qty && spec.qty > 0) return spec.qty;
+  }
+  
+  // Try to find quantity in finishing specifications  
+  if (job.finishing_specifications && job.finishing_specifications[groupName]) {
+    const spec = job.finishing_specifications[groupName];
+    if (spec.qty && spec.qty > 0) return spec.qty;
+  }
+  
+  // Try to find quantity in prepress specifications
+  if (job.prepress_specifications && job.prepress_specifications[groupName]) {
+    const spec = job.prepress_specifications[groupName];
+    if (spec.qty && spec.qty > 0) return spec.qty;
+  }
+  
+  // Try to find quantity in paper specifications
+  if (job.paper_specifications && job.paper_specifications[groupName]) {
+    const spec = job.paper_specifications[groupName];
+    if (spec.qty && spec.qty > 0) return spec.qty;
+  }
+  
+  // Return job qty as fallback
+  return job.qty || 1;
+}
 }
