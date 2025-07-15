@@ -403,120 +403,19 @@ export const parseAndPrepareProductionReadyJobs = async (
   logger.addDebugInfo(`ENHANCED RESULT: Found ${userApprovedStageMappings.length} user-approved stage mappings`);
   
   // Step 3: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
   
-  // Step 4: Transform enhancedResult into the format expected by the job creator
-  const rowMappings: Record<string, Array<{
-    groupName: string;
-    mappedStageId: string;
-    mappedStageName: string;
-    category: string;
-    qty?: number;
-    isUnmapped?: boolean;
-    confidence?: number;
-    manualOverride?: boolean;
-  }>> = {};
-  
-  const categoryAssignments: Record<string, { 
-    categoryId: string | null; 
-    categoryName: string | null;
-    confidence?: number;
-    mappedStages?: any[];
-    requiresCustomWorkflow?: boolean;
-  }> = {};
-  
-  // Build rowMappings from job specifications for detailed dialog interface
-  enhancedResult.jobs.forEach((job) => {
-    const jobMappings: Array<{
-      groupName: string;
-      mappedStageId: string;
-      mappedStageName: string;
-      category: string;
-      qty?: number;
-      isUnmapped?: boolean;
-      confidence?: number;
-      manualOverride?: boolean;
-    }> = [];
-    
-    // Extract mappings from printing specifications
-    if (job.printing_specifications) {
-      Object.entries(job.printing_specifications).forEach(([key, spec]: [string, any]) => {
-        if (spec?.description) {
-          jobMappings.push({
-            groupName: spec.description,
-            mappedStageId: spec.mappedStageId || '',
-            mappedStageName: spec.mappedStageName || 'Unmapped',
-            category: 'printing',
-            qty: spec.qty || job.qty,
-            isUnmapped: !spec.mappedStageId,
-            confidence: spec.confidence || 80,
-            manualOverride: false
-          });
-        }
-      });
-    }
-    
-    // Extract mappings from finishing specifications
-    if (job.finishing_specifications) {
-      Object.entries(job.finishing_specifications).forEach(([key, spec]: [string, any]) => {
-        if (spec?.description) {
-          jobMappings.push({
-            groupName: spec.description,
-            mappedStageId: spec.mappedStageId || '',
-            mappedStageName: spec.mappedStageName || 'Unmapped',
-            category: 'finishing',
-            qty: spec.qty || job.qty,
-            isUnmapped: !spec.mappedStageId,
-            confidence: spec.confidence || 80,
-            manualOverride: false
-          });
-        }
-      });
-    }
-    
-    // Extract mappings from prepress specifications
-    if (job.prepress_specifications) {
-      Object.entries(job.prepress_specifications).forEach(([key, spec]: [string, any]) => {
-        if (spec?.description) {
-          jobMappings.push({
-            groupName: spec.description,
-            mappedStageId: spec.mappedStageId || '',
-            mappedStageName: spec.mappedStageName || 'Unmapped',
-            category: 'prepress',
-            qty: spec.qty || job.qty,
-            isUnmapped: !spec.mappedStageId,
-            confidence: spec.confidence || 80,
-            manualOverride: false
-          });
-        }
-      });
-    }
-    
-    rowMappings[job.wo_no] = jobMappings;
-    
-    // Build category assignments
-    categoryAssignments[job.wo_no] = {
-      categoryId: job.category || null,
-      categoryName: job.category || 'Unknown Category',
-      confidence: 90,
-      mappedStages: jobMappings,
-      requiresCustomWorkflow: false
-    };
-  });
-  
-  // Step 5: Prepare jobs with reconstructed mappings
+  // Step 4: Prepare jobs with mappings AND user-approved stage mappings
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
-    enhancedResult.jobs,
-    rowMappings,
-    categoryAssignments
+    enhancedResult.jobs, // Use jobs with applied user mappings
+    headers, 
+    dataRows,
+    userApprovedStageMappings // Pass user-approved mappings to job creator
   );
   
   // CRITICAL: Preserve user-approved mappings in final result
   result.userApprovedStageMappings = userApprovedStageMappings;
-  
-  result.stats.total = result.stats.totalJobs;
-  result.stats.successful = result.stats.jobsCreated;
-  result.stats.failed = result.stats.totalJobs - result.stats.jobsCreated;
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
   
@@ -549,10 +448,11 @@ export const parseAndCreateProductionReadyJobs = async (
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
   
   // Step 3: Create production-ready jobs with workflows, passing Excel data
-  const result = await jobCreator.prepareEnhancedJobsWithExcelData(jobs, {}, {});
+  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows);
   
   logger.addDebugInfo(`Phase 4 enhanced job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
   
@@ -577,13 +477,14 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with matrix data
-  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
   
   // Step 3: Prepare jobs with mappings but DON'T save to database yet
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     jobs, 
-    {},  // Empty row mappings for now
-    {}   // Empty category assignments for now
+    matrixData.headers, 
+    matrixData.rows
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job preparation completed: ${result.stats.total} jobs prepared for review`);
@@ -609,13 +510,14 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
   const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with matrix data
-  const jobCreator = new EnhancedJobCreator(userId, logger, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
   
   // Step 3: Create production-ready jobs with workflows, passing matrix data
-  const result = await jobCreator.prepareEnhancedJobsWithExcelData(
+  const result = await jobCreator.createEnhancedJobsWithExcelData(
     jobs, 
-    {},  // Empty row mappings for now
-    {}   // Empty category assignments for now
+    matrixData.headers, 
+    matrixData.rows
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
@@ -639,9 +541,10 @@ export const finalizeProductionReadyJobs = async (
   }
   
   // Use the EnhancedJobCreator's finalize method with current authenticated user ID
-  const jobCreator = new EnhancedJobCreator(currentUserId, logger, preparedResult.generateQRCodes || true);
+  const jobCreator = new EnhancedJobCreator(logger, currentUserId, preparedResult.generateQRCodes);
+  await jobCreator.initialize();
   
-  const finalResult = await jobCreator.finalizeEnhancedJobs(preparedResult, currentUserId, userApprovedMappings);
+  const finalResult = await jobCreator.finalizeJobs(preparedResult, userApprovedMappings);
   
   logger.addDebugInfo(`Finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
   
