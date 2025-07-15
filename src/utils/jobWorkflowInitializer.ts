@@ -70,9 +70,9 @@ export const initializeJobWorkflowFromMappings = async (
     const { data, error } = await supabase.rpc('initialize_custom_job_stages_with_specs', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_stage_mappings: sortedMappings.map((mapping, index) => ({
+      p_stage_mappings: sortedMappings.map((mapping) => ({
         stage_id: mapping.mappedStageId,
-        stage_order: index + 1,
+        stage_order: stageOrderMap.get(mapping.mappedStageId) || 999, // Use actual production stage order_index
         stage_specification_id: mapping.mappedStageSpecId || null,
         part_name: mapping.partType || null,
         quantity: mapping.quantity || null,
@@ -86,7 +86,7 @@ export const initializeJobWorkflowFromMappings = async (
       logger.addDebugInfo(`🔄 Falling back to simple stage initialization...`);
       
       const stageIds = sortedMappings.map(mapping => mapping.mappedStageId);
-      const stageOrders = sortedMappings.map((_, index) => index + 1);
+      const stageOrders = sortedMappings.map(mapping => stageOrderMap.get(mapping.mappedStageId) || 999); // Use actual production stage order_index
 
       const { data: fallbackData, error: fallbackError } = await supabase.rpc('initialize_custom_job_stages', {
         p_job_id: jobId,
