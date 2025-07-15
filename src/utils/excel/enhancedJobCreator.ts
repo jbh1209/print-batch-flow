@@ -647,6 +647,32 @@ export class EnhancedJobCreator {
   private async buildEnhancedJobData(job: ParsedJob, categoryId: string | null): Promise<any> {
     this.logger.addDebugInfo(`Building enhanced job data for ${job.wo_no}`);
 
+    // Calculate due date if not provided using SLA target days
+    let calculatedDueDate = job.due_date;
+    if (!calculatedDueDate) {
+      try {
+        // Get SLA target days from app settings (default to 3 days)
+        const { data: slaSettings } = await supabase
+          .from('app_settings')
+          .select('sla_target_days')
+          .eq('setting_type', 'default')
+          .eq('product_type', 'production_jobs')
+          .single();
+        
+        const slaTargetDays = slaSettings?.sla_target_days || 3;
+        const today = new Date();
+        const dueDate = await this.addWorkingDays(today, slaTargetDays);
+        calculatedDueDate = dueDate.toISOString().split('T')[0];
+        
+        this.logger.addDebugInfo(`Calculated due date for ${job.wo_no}: ${calculatedDueDate} (${slaTargetDays} working days)`);
+      } catch (error) {
+        this.logger.addDebugInfo(`Failed to calculate due date for ${job.wo_no}, using default 3 days: ${error}`);
+        const today = new Date();
+        today.setDate(today.getDate() + 3);
+        calculatedDueDate = today.toISOString().split('T')[0];
+      }
+    }
+
     // Generate QR code data if enabled
     let qrCodeData = null;
     let qrCodeUrl = null;
@@ -681,7 +707,7 @@ export class EnhancedJobCreator {
       size: job.size,
       location: job.location,
       rep: job.rep,
-      due_date: job.due_date,
+      due_date: calculatedDueDate,
       date: job.date,
       user_id: this.userId,
       category_id: categoryId,
@@ -873,5 +899,24 @@ private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
   
   // Return job qty as fallback
   return job.qty || 1;
+}
+
+/**
+ * Add working days to a date (excluding weekends)
+ */
+private async addWorkingDays(startDate: Date, daysToAdd: number): Promise<Date> {
+  let currentDate = new Date(startDate);
+  let daysAdded = 0;
+
+  while (daysAdded < daysToAdd) {
+    currentDate.setDate(currentDate.getDate() + 1);
+    // Simple weekend check (can be enhanced with holiday support later)
+    const dayOfWeek = currentDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not Sunday (0) or Saturday (6)
+      daysAdded++;
+    }
+  }
+
+  return currentDate;
 }
 }

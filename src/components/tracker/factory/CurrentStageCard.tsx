@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 interface StatusBadgeInfo {
   text: string;
@@ -27,6 +29,59 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
   job, 
   statusInfo 
 }) => {
+  const [currentStageInfo, setCurrentStageInfo] = useState<{
+    estimatedDuration: number | null;
+    estimatedCompletion: string | null;
+  }>({ estimatedDuration: null, estimatedCompletion: null });
+
+  // Fetch current stage timing information
+  useEffect(() => {
+    if (!job.current_stage_id) return;
+
+    const fetchStageInfo = async () => {
+      try {
+        const { data } = await supabase
+          .from('job_stage_instances')
+          .select('estimated_duration_minutes, started_at')
+          .eq('job_id', job.job_id)
+          .eq('production_stage_id', job.current_stage_id)
+          .eq('status', 'active')
+          .single();
+
+        if (data?.estimated_duration_minutes) {
+          const estimatedDuration = data.estimated_duration_minutes;
+          let estimatedCompletion = null;
+          
+          if (data.started_at && estimatedDuration) {
+            const startTime = new Date(data.started_at);
+            const completionTime = new Date(startTime.getTime() + estimatedDuration * 60000);
+            estimatedCompletion = completionTime.toLocaleString();
+          }
+
+          setCurrentStageInfo({
+            estimatedDuration,
+            estimatedCompletion
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching stage info:', error);
+      }
+    };
+
+    fetchStageInfo();
+  }, [job.current_stage_id, job.job_id]);
+
+  // Format duration as hours and minutes
+  const formatDuration = (minutes: number | null): string => {
+    if (!minutes) return '';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+    return `${mins}m`;
+  };
+
   // Get appropriate icon based on status
   const getStatusIcon = (text: string) => {
     if (text.includes('Progress')) return <Clock className="h-4 w-4" />;
@@ -54,9 +109,21 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
               <h3 className="font-semibold text-lg">
                 {job.current_stage_name || 'No Stage Assigned'}
               </h3>
-              <p className="text-sm text-gray-600">
-                Stage {job.completed_stages + 1} of {job.total_stages}
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">
+                  Stage {job.completed_stages + 1} of {job.total_stages}
+                </p>
+                {currentStageInfo.estimatedDuration && (
+                  <p className="text-xs text-blue-600 font-medium">
+                    Est. {formatDuration(currentStageInfo.estimatedDuration)}
+                  </p>
+                )}
+                {currentStageInfo.estimatedCompletion && (
+                  <p className="text-xs text-gray-500">
+                    Expected: {currentStageInfo.estimatedCompletion}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           
@@ -89,6 +156,18 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
             <div className="text-xs text-gray-600">Remaining</div>
           </div>
         </div>
+
+        {/* Due Date Display */}
+        {job.due_date && (
+          <div className="pt-3 border-t">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Due Date</span>
+              <span className="text-sm font-bold text-gray-900">
+                {new Date(job.due_date).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Permissions Display */}
         <div className="pt-3 border-t">
