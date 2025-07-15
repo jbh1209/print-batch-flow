@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator';
 import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
 import { TimingCalculationService } from '@/services/timingCalculationService';
+import { TimingCalculationService } from '@/services/timingCalculationService';
 
 export interface EnhancedJobCreationResult {
   success: boolean;
@@ -673,28 +674,26 @@ export class EnhancedJobCreator {
   }
 
   /**
-   * Initialize custom workflow using Supabase RPC
+   * Initialize custom workflow using smart workflow initializer
    */
-  private async initializeDefaultCustomWorkflow(insertedJob: any, originalJob: ParsedJob): Promise<void> {
-    this.logger.addDebugInfo(`Initializing default custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
+  private async initializeDefaultCustomWorkflow(
+    insertedJob: any, 
+    originalJob: ParsedJob, 
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
+  ): Promise<void> {
+    this.logger.addDebugInfo(`Initializing smart workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
     
-    // Get category assignment from enhanced data
-    const categoryAssignment = insertedJob.category_id;
-    
-    if (!categoryAssignment) {
-      this.logger.addDebugInfo(`No category assigned for job ${originalJob.wo_no}, creating basic workflow`);
+    // Use the smart workflow initializer that prioritizes user-approved mappings
+    const success = await initializeJobWorkflow(
+      insertedJob.id,
+      userApprovedMappings || [],
+      insertedJob.category_id,
+      this.logger
+    );
+
+    if (!success) {
+      this.logger.addDebugInfo(`Failed to initialize any workflow for job ${originalJob.wo_no}`);
       return;
-    }
-
-    // Use Supabase RPC to initialize workflow
-    const { error } = await supabase.rpc('initialize_job_stages_auto', {
-      p_job_id: insertedJob.id,
-      p_job_table_name: 'production_jobs',
-      p_category_id: categoryAssignment
-    });
-
-    if (error) {
-      throw new Error(`Failed to initialize workflow: ${error.message}`);
     }
 
     // Update stage instances with appropriate quantities based on operation_quantities
@@ -733,50 +732,47 @@ export class EnhancedJobCreator {
 
   private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult, userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>): Promise<void> {
     try {
-      this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
+      this.logger.addDebugInfo(`🎯 Initializing smart workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
       
-    // CRITICAL FIX: Use user-approved stage mappings from dialog
-    if (userApprovedMappings && userApprovedMappings.length > 0) {
-      this.logger.addDebugInfo(`🔍 INITIALIZE CUSTOM WORKFLOW - USER-APPROVED STAGE MAPPINGS: ${userApprovedMappings.length} mappings found:`);
-      userApprovedMappings.forEach((mapping) => {
-        this.logger.addDebugInfo(`   - Group "${mapping.groupName}" -> Stage ${mapping.mappedStageId} (${mapping.mappedStageName}) [${mapping.category}]`);
-      });
-      
-      this.logger.addDebugInfo(`🎯 SURGICAL FIX: CREATING WORKFLOW FROM USER-APPROVED MAPPINGS (${userApprovedMappings.length} stages)`);
-      this.logger.addDebugInfo(`🚀 BYPASSING ALL AUTO-DETECTION - USING ONLY USER CHOICES`);
-      await this.createStageInstancesFromUserMappings(insertedJob, originalJob, userApprovedMappings);
-      
-      // Mark job as having custom workflow
-      await supabase
-        .from('production_jobs')
-        .update({ has_custom_workflow: true })
-        .eq('id', insertedJob.id);
-        
-      this.logger.addDebugInfo(`✅ SURGICAL FIX COMPLETE: Created ${userApprovedMappings.length} stages from user mappings`);
-      return;
-    }
-      
-      // Fallback: Use the row mappings if no user-approved mappings
-      const rowMappings = result.rowMappings[originalJob.wo_no] || [];
-      this.logger.addDebugInfo(`Using ${rowMappings.length} existing row mappings for workflow initialization`);
-      
-      if (rowMappings.length === 0) {
-        this.logger.addDebugInfo(`❌ NO MAPPINGS found for job ${originalJob.wo_no} - skipping workflow initialization`);
+      // Use the smart workflow initializer that prioritizes user-approved mappings
+      const success = await initializeJobWorkflow(
+        insertedJob.id,
+        userApprovedMappings || [],
+        insertedJob.category_id,
+        this.logger
+      );
+
+      if (!success) {
+        this.logger.addDebugInfo(`⚠️ Failed to initialize workflow for job ${originalJob.wo_no}`);
         return;
       }
 
-      // Get all production stages ordered by system-defined order_index 
-      const { data: allProductionStages, error: stagesError } = await supabase
-        .from('production_stages')
-        .select('id, name, order_index, supports_parts')
-        .eq('is_active', true)
-        .order('order_index');
-
-      if (stagesError || !allProductionStages) {
-        throw new Error(`Failed to load production stages: ${stagesError?.message}`);
+      // Mark job as having custom workflow if user mappings were used
+      if (userApprovedMappings && userApprovedMappings.length > 0) {
+        await supabase
+          .from('production_jobs')
+          .update({ has_custom_workflow: true })
+          .eq('id', insertedJob.id);
+        
+        this.logger.addDebugInfo(`✅ Custom workflow created from ${userApprovedMappings.length} user-approved mappings`);
+      } else {
+        this.logger.addDebugInfo(`✅ Category-based workflow initialized for job ${originalJob.wo_no}`);
       }
 
-      // Separate printing and paper mappings for quantity-based pairing
+      // Update stage instances with appropriate quantities based on operation_quantities
+      await this.updateStageQuantities(insertedJob.id);
+      
+    } catch (error) {
+      this.logger.addDebugInfo(`Custom workflow initialization error for ${originalJob.wo_no}: ${error}`);
+      throw error; // Re-throw to ensure errors are visible in the UI
+    }
+  }
+
+  /**
+   * Calculate stage timing with fault-tolerant fallbacks
+   * Tries live database timing first, then uses local fallback
+   */
+  private async calculateStageTimingWithInheritance(
       const printingMappings = rowMappings.filter(mapping => 
         !mapping.isUnmapped && mapping.mappedStageId && mapping.category === 'printing'
       );
