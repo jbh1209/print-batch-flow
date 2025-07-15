@@ -2448,6 +2448,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      initialize_custom_job_stages_with_specs: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_stage_mappings: Json
+        }
+        Returns: boolean
+      }
       initialize_job_stages: {
         Args: {
           p_job_id: string
