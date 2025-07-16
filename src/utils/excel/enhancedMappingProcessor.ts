@@ -181,6 +181,9 @@ export class EnhancedMappingProcessor {
     if (!job.prepress_specifications) {
       job.prepress_specifications = {};
     }
+    if (!job.packaging_specifications) {
+      job.packaging_specifications = {};
+    }
 
     // Preserve existing mappedStageId values from user-approved mappings
     const preserveExistingMappings = (specObj: any) => {
@@ -443,6 +446,7 @@ export class EnhancedMappingProcessor {
     if (!job.finishing_specifications) job.finishing_specifications = {};
     if (!job.prepress_specifications) job.prepress_specifications = {};
     if (!job.delivery_specifications) job.delivery_specifications = {};
+    if (!job.packaging_specifications) job.packaging_specifications = {};
 
     // Extract stage mappings from user column mapping and apply them to the job
     const stageMappingsApplied = [];
@@ -487,6 +491,9 @@ export class EnhancedMappingProcessor {
             break;
           case 'delivery':
             job.delivery_specifications[stageName] = stageSpec;
+            break;
+          case 'packaging':
+            job.packaging_specifications[stageName] = stageSpec;
             break;
           default:
             job.printing_specifications[stageName] = stageSpec;
@@ -536,6 +543,12 @@ export class EnhancedMappingProcessor {
       return 'delivery';
     }
     
+    // Packaging operations
+    if (lowerName.includes('packaging') || lowerName.includes('package') || lowerName.includes('boxed') ||
+        lowerName.includes('shrinkwrap') || lowerName.includes('poly') || lowerName.includes('bubble')) {
+      return 'packaging';
+    }
+    
     // Default to printing for everything else
     return 'printing';
   }
@@ -581,6 +594,13 @@ export class EnhancedMappingProcessor {
     // Check prepress specifications
     if (job.prepress_specifications) {
       Object.values(job.prepress_specifications).forEach((spec: any) => {
+        if (spec?.mappedStageId) count++;
+      });
+    }
+    
+    // Check packaging specifications
+    if (job.packaging_specifications) {
+      Object.values(job.packaging_specifications).forEach((spec: any) => {
         if (spec?.mappedStageId) count++;
       });
     }
