@@ -114,6 +114,8 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       const [
         productionStagesResult,
         printSpecsResult,
+        packagingStageResult,
+        packagingSpecsResult,
         existingMappingsResult
       ] = await Promise.all([
         supabase
@@ -127,6 +129,18 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           .select('id, name, display_name, category')
           .eq('is_active', true)
           .order('category, sort_order, name'),
+        
+        supabase
+          .from('production_stages')
+          .select('id')
+          .eq('name', 'Packaging')
+          .eq('is_active', true)
+          .single(),
+        
+        supabase
+          .from('stage_specifications')
+          .select('id, name, production_stage_id')
+          .eq('is_active', true),
         
         supabase
           .from('excel_import_mappings')
@@ -143,7 +157,12 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       const paperTypes = specs.filter(s => s.category === 'paper_type' && !s.name.startsWith('_category'));
       const paperWeights = specs.filter(s => s.category === 'paper_weight' && !s.name.startsWith('_category'));
       const deliveryMethods = specs.filter(s => s.category === 'delivery_method' && !s.name.startsWith('_category'));
-      const packagingTypes = specs.filter(s => s.category === 'packaging' && !s.name.startsWith('_category'));
+      
+      // Process packaging specifications from stage_specifications
+      const packagingStageId = packagingStageResult.data?.id;
+      const packagingTypes = packagingStageId && packagingSpecsResult.data 
+        ? packagingSpecsResult.data.filter(s => s.production_stage_id === packagingStageId)
+        : [];
 
       setMappingOptions({
         productionStages: productionStagesResult.data || [],
@@ -364,22 +383,23 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           });
           break;
 
-        case 'packaging_specification':
-          if (!selectedMappings.packagingType) {
-            throw new Error("Please select a packaging type");
-          }
-          
-          // Validate UUID format
-          if (!selectedMappings.packagingType.match(/^[0-9a-f-]{36}$/i)) {
-            throw new Error("Invalid packaging type selection");
-          }
-          
-          result = await supabase.rpc('upsert_print_specification_mapping', {
-            p_excel_text: pattern.text,
-            p_print_specification_id: selectedMappings.packagingType,
-            p_confidence_score: 100
-          });
-          break;
+         case 'packaging_specification':
+           if (!selectedMappings.packagingType) {
+             throw new Error("Please select a packaging type");
+           }
+           
+           // Validate UUID format
+           if (!selectedMappings.packagingType.match(/^[0-9a-f-]{36}$/i)) {
+             throw new Error("Invalid packaging type selection");
+           }
+           
+           result = await supabase.rpc('upsert_excel_mapping', {
+             p_excel_text: pattern.text,
+             p_production_stage_id: null,
+             p_stage_specification_id: selectedMappings.packagingType,
+             p_confidence_score: 100
+           });
+           break;
 
         default:
           throw new Error("Invalid mapping type");
@@ -556,16 +576,17 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               });
               break;
               
-            case 'packaging_specification':
-              if (!mappingConfig.packagingType) {
-                throw new Error("Packaging type not selected");
-              }
-              result = await supabase.rpc('upsert_print_specification_mapping', {
-                p_excel_text: pattern.text,
-                p_print_specification_id: mappingConfig.packagingType,
-                p_confidence_score: 100
-              });
-              break;
+             case 'packaging_specification':
+               if (!mappingConfig.packagingType) {
+                 throw new Error("Packaging type not selected");
+               }
+               result = await supabase.rpc('upsert_excel_mapping', {
+                 p_excel_text: pattern.text,
+                 p_production_stage_id: null,
+                 p_stage_specification_id: mappingConfig.packagingType,
+                 p_confidence_score: 100
+               });
+               break;
               
             default:
               throw new Error(`Unsupported pattern type: ${pattern.type}`);
