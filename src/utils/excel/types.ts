@@ -29,6 +29,7 @@ export interface ParsedJob {
   finishing_specifications?: GroupSpecifications | null;
   prepress_specifications?: GroupSpecifications | null;
   printing_specifications?: GroupSpecifications | null;
+  packaging_specifications?: GroupSpecifications | null;
   operation_quantities?: OperationQuantities | null;
   // Cover/text workflow detection
   cover_text_detection?: CoverTextDetection | null;

@@ -195,6 +195,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           'finishing_specifications': 'production_stage' as const,
           'prepress_specifications': 'production_stage' as const,
           'delivery_specifications': 'delivery_specification' as const,
+          'packaging_specifications': 'production_stage' as const,
         };
         
         Object.entries(specGroups).forEach(([groupKey, type]) => {

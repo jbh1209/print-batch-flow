@@ -10,7 +10,8 @@ const GROUP_CATEGORIES = {
   DELIVERY: ['Delivery', 'DELIVERY', 'delivery'],
   FINISHING: ['Finishing', 'FINISHING', 'finishing', 'Finish', 'FINISH', 'finish'],
   PREPRESS: ['Pre-press', 'PRE-PRESS', 'pre-press', 'Prepress', 'PREPRESS', 'prepress', 'DTP', 'dtp'],
-  PRINTING: ['Printing', 'PRINTING', 'printing', 'Print', 'PRINT', 'print']
+  PRINTING: ['Printing', 'PRINTING', 'printing', 'Print', 'PRINT', 'print'],
+  PACKAGING: ['Packaging', 'PACKAGING', 'packaging', 'Package', 'PACKAGE', 'package']
 };
 
 export const parseMatrixExcelFile = async (file: File, logger: ExcelImportDebugger): Promise<MatrixExcelData> => {
