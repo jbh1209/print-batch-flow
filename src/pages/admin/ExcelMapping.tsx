@@ -6,6 +6,7 @@ import { ArrowLeft, Upload, Database, Map } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ExcelUpload } from "@/components/tracker/ExcelUpload";
 import { MappingLibrary } from "@/components/admin/MappingLibrary";
+import { MappingExcelUpload } from "@/components/admin/mapping/MappingExcelUpload";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const ExcelMapping = () => {
@@ -86,19 +87,7 @@ const ExcelMapping = () => {
         </TabsContent>
 
         <TabsContent value="mapping" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Smart Mapping Tools</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Create intelligent mappings using AI-powered text analysis and pattern recognition.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Coming soon: AI-powered mapping tools</p>
-              </div>
-            </CardContent>
-          </Card>
+          <MappingExcelUpload />
         </TabsContent>
 
         <TabsContent value="library" className="space-y-6">
