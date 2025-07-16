@@ -9,7 +9,7 @@ export interface MappingConfidence {
   stageSpecName?: string;
   confidence: number;
   source: 'database' | 'fuzzy' | 'pattern';
-  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown';
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'unknown';
 }
 
 export class EnhancedStageMapper {
@@ -93,10 +93,11 @@ export class EnhancedStageMapper {
     prepressSpecs: GroupSpecifications | null,
     excelRows: any[][],
     headers: string[],
-    paperSpecs?: GroupSpecifications | null
+    paperSpecs?: GroupSpecifications | null,
+    packagingSpecs?: GroupSpecifications | null
   ): RowMappingResult[] {
     this.logger.addDebugInfo(`Creating intelligent row mappings with ${excelRows.length} Excel rows and ${headers.length} headers`);
-    this.logger.addDebugInfo(`Input specifications - Printing: ${printingSpecs ? Object.keys(printingSpecs).length : 0}, Finishing: ${finishingSpecs ? Object.keys(finishingSpecs).length : 0}, Prepress: ${prepressSpecs ? Object.keys(prepressSpecs).length : 0}`);
+    this.logger.addDebugInfo(`Input specifications - Printing: ${printingSpecs ? Object.keys(printingSpecs).length : 0}, Finishing: ${finishingSpecs ? Object.keys(finishingSpecs).length : 0}, Prepress: ${prepressSpecs ? Object.keys(prepressSpecs).length : 0}, Packaging: ${packagingSpecs ? Object.keys(packagingSpecs).length : 0}`);
     
     const rowMappings: RowMappingResult[] = [];
     let rowIndex = 0;
@@ -158,6 +159,21 @@ export class EnhancedStageMapper {
       });
     }
 
+    // Process packaging specifications
+    if (packagingSpecs) {
+      this.logger.addDebugInfo(`Processing packaging specs: ${JSON.stringify(Object.keys(packagingSpecs))}`);
+      const packagingMappings = this.createCategoryRowMappings(
+        packagingSpecs, 'packaging' as any, excelRows, headers, rowIndex
+      );
+      rowMappings.push(...packagingMappings);
+      this.logger.addDebugInfo(`Created ${packagingMappings.length} packaging specification mappings`);
+      
+      // Debug each packaging mapping
+      packagingMappings.forEach((mapping, idx) => {
+        this.logger.addDebugInfo(`Packaging mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+      });
+    }
+
     // Learn from new mappings
     this.learnFromMappings(rowMappings);
 
@@ -174,7 +190,7 @@ export class EnhancedStageMapper {
    */
   private createCategoryRowMappings(
     specs: GroupSpecifications,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery',
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging',
     excelRows: any[][],
     headers: string[],
     startRowIndex: number
@@ -486,7 +502,7 @@ export class EnhancedStageMapper {
   private findIntelligentStageMatch(
     groupName: string,
     description: string,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase().trim();
     this.logger.addDebugInfo(`Searching for stage match: "${searchText}" in category: ${category}`);
@@ -653,7 +669,7 @@ export class EnhancedStageMapper {
   private findPatternMatch(
     groupName: string,
     description: string,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase();
     
@@ -681,6 +697,12 @@ export class EnhancedStageMapper {
         { patterns: ['proof'], stageName: 'Proofing', confidence: 75 },
         { patterns: ['plate'], stageName: 'Plate Making', confidence: 75 },
         { patterns: ['rip', 'ripping'], stageName: 'RIP Processing', confidence: 75 }
+      ],
+      packaging: [
+        { patterns: ['packag', 'box', 'boxing'], stageName: 'Packaging', confidence: 85 },
+        { patterns: ['wrap', 'wrapping'], stageName: 'Wrapping', confidence: 80 },
+        { patterns: ['ship', 'shipping'], stageName: 'Shipping', confidence: 75 },
+        { patterns: ['mail', 'mailing'], stageName: 'Mailing', confidence: 75 }
       ]
     };
 
@@ -714,7 +736,7 @@ export class EnhancedStageMapper {
   /**
    * Infer stage category from stage name
    */
-  private inferStageCategory(stageName: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown' {
+  private inferStageCategory(stageName: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'unknown' {
     const name = stageName.toLowerCase();
     
     if (name.includes('print') || name.includes('hp') || name.includes('xerox') || name.includes('digital')) {
@@ -730,6 +752,9 @@ export class EnhancedStageMapper {
     }
     if (name.includes('deliver') || name.includes('dispatch') || name.includes('ship')) {
       return 'delivery';
+    }
+    if (name.includes('packag') || name.includes('box') || name.includes('wrap')) {
+      return 'packaging';
     }
     
     return 'unknown';
@@ -775,7 +800,8 @@ export class EnhancedStageMapper {
     finishingSpecs: GroupSpecifications | null,
     prepressSpecs: GroupSpecifications | null,
     userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
-    paperSpecs?: GroupSpecifications | null  // Add optional paper specs parameter
+    paperSpecs?: GroupSpecifications | null,  // Add optional paper specs parameter
+    packagingSpecs?: GroupSpecifications | null  // Add optional packaging specs parameter
   ): StageMapping[] {
     const mappedStages: StageMapping[] = [];
     
@@ -809,6 +835,14 @@ export class EnhancedStageMapper {
       this.logger.addDebugInfo(`✅ Created ${prepressMappings.length} prepress stage mappings`);
     }
     
+    // Map packaging specifications
+    if (packagingSpecs) {
+      this.logger.addDebugInfo(`📦 Processing ${Object.keys(packagingSpecs).length} packaging specifications`);
+      const packagingMappings = this.mapSpecificationsToStagesIntelligent(packagingSpecs, 'packaging' as any, userApprovedMappings);
+      mappedStages.push(...packagingMappings);
+      this.logger.addDebugInfo(`✅ Created ${packagingMappings.length} packaging stage mappings`);
+    }
+    
     // Apply DTP/PROOF deduplication logic
     const deduplicatedStages = this.applyDTPProofDeduplication(mappedStages);
     
@@ -826,7 +860,7 @@ export class EnhancedStageMapper {
    */
   private mapSpecificationsToStagesIntelligent(
     specs: GroupSpecifications,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery',
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging',
     userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): StageMapping[] {
     const mappings: StageMapping[] = [];
@@ -869,7 +903,7 @@ export class EnhancedStageMapper {
             stageId: stageMapping.stageId,
             stageName: stageMapping.stageName,
             confidence: stageMapping.confidence,
-            category: stageMapping.category === 'unknown' ? 'printing' : stageMapping.category,
+            category: stageMapping.category === 'unknown' ? category : stageMapping.category,
             specifications: [groupName, spec.description || ''].filter(Boolean)
           });
         } else {
@@ -941,7 +975,7 @@ export class EnhancedStageMapper {
   private findIntelligentStageMatchWithSpec(
     groupName: string,
     description: string,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase().trim();
     

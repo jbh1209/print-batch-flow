@@ -234,7 +234,8 @@ export class EnhancedJobCreator {
       job.finishing_specifications,
       job.prepress_specifications,
       userApprovedMappings,
-      paperSpecsForMapping  // Pass converted paper specifications
+      paperSpecsForMapping,  // Pass converted paper specifications
+      job.packaging_specifications  // Pass packaging specifications
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -242,7 +243,7 @@ export class EnhancedJobCreator {
     // 2. Create detailed row mappings for UI display 
     let rowMappings: any[] = [];
     
-    if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications) {
+    if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications || job.packaging_specifications) {
       // Use the actual Excel row data for mapping instead of synthetic data
       this.logger.addDebugInfo(`Creating row mappings from group specifications for job ${job.wo_no}`);
       
@@ -252,7 +253,8 @@ export class EnhancedJobCreator {
         job.prepress_specifications,
         [actualExcelRow], // Pass the actual Excel row as a single-row array
         headers || [],
-        job.paper_specifications
+        job.paper_specifications,
+        job.packaging_specifications  // Pass packaging specifications
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
@@ -445,7 +447,8 @@ export class EnhancedJobCreator {
       job.finishing_specifications,
       job.prepress_specifications,
       userApprovedMappings,
-      paperSpecsForMapping  // Pass converted paper specifications
+      paperSpecsForMapping,  // Pass converted paper specifications
+      job.packaging_specifications  // Pass packaging specifications
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -453,7 +456,7 @@ export class EnhancedJobCreator {
     // 2. Create detailed row mappings for UI display 
     let rowMappings: any[] = [];
     
-    if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications) {
+    if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications || job.packaging_specifications) {
       // Use the actual Excel row data for mapping instead of synthetic data
       this.logger.addDebugInfo(`Creating row mappings from group specifications for job ${job.wo_no}`);
       
@@ -463,7 +466,8 @@ export class EnhancedJobCreator {
         job.prepress_specifications,
         [actualExcelRow], // Pass the actual Excel row as a single-row array
         headers || [],
-        job.paper_specifications
+        job.paper_specifications,
+        job.packaging_specifications  // Pass packaging specifications
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
@@ -608,6 +612,20 @@ export class EnhancedJobCreator {
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
             category: 'prepress'
+          });
+        }
+      });
+    }
+    
+    // Extract from packaging specifications
+    if (job.packaging_specifications) {
+      Object.entries(job.packaging_specifications).forEach(([groupName, spec]: [string, any]) => {
+        if (spec && spec.mappedStageId && spec.mappedStageName) {
+          mappings.push({
+            groupName,
+            mappedStageId: spec.mappedStageId,
+            mappedStageName: spec.mappedStageName,
+            category: 'packaging'
           });
         }
       });
