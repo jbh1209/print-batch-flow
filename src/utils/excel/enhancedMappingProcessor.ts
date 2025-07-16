@@ -544,8 +544,7 @@ export class EnhancedMappingProcessor {
     }
     
     // Packaging operations
-    if (lowerName.includes('packaging') || lowerName.includes('package') || lowerName.includes('boxed') ||
-        lowerName.includes('shrinkwrap') || lowerName.includes('poly') || lowerName.includes('bubble')) {
+    if (lowerName.includes('packaging') || lowerName.includes('package')) {
       return 'packaging';
     }
     
