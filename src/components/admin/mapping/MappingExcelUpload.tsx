@@ -3,6 +3,8 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { FileDropZone } from "@/components/admin/upload/FileDropZone";
 import { ExcelDataAnalyzer } from "@/components/admin/ExcelDataAnalyzer";
 import { useToast } from "@/hooks/use-toast";
+import { parseMatrixExcelFile } from "@/utils/excel/matrixParser";
+import { ExcelImportDebugger } from "@/utils/excel/debugger";
 import * as XLSX from "xlsx";
 
 interface ParsedExcelData {
@@ -43,98 +45,174 @@ export const MappingExcelUpload: React.FC = () => {
       // Simulate progress
       setUploadProgress(25);
 
-      // Parse Excel file
-      const fileBuffer = await file.arrayBuffer();
-      setUploadProgress(50);
-
-      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
+      // Create debugger for logging
+      const logger = new ExcelImportDebugger();
       
-      setUploadProgress(75);
+      // Try matrix parsing first
+      try {
+        setUploadProgress(50);
+        const matrixData = await parseMatrixExcelFile(file, logger);
+        setUploadProgress(75);
 
-      // Convert to JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
-      if (jsonData.length < 2) {
-        throw new Error("Excel file must contain at least a header row and one data row");
-      }
+        // Convert matrix data to jobs format for pattern analysis
+        const jobs = matrixData.rows.map((row: any[], index: number) => {
+          const job: any = { row_index: index + 2 }; // +2 because we start from row 2 in Excel
+          
+          // Extract basic job info from matrix row
+          if (matrixData.workOrderColumn !== undefined && matrixData.workOrderColumn !== -1 && row[matrixData.workOrderColumn]) {
+            job.wo_no = String(row[matrixData.workOrderColumn]).trim();
+          }
+          if (matrixData.descriptionColumn !== undefined && matrixData.descriptionColumn !== -1 && row[matrixData.descriptionColumn]) {
+            job.description = String(row[matrixData.descriptionColumn]).trim();
+          }
+          if (matrixData.qtyColumn !== undefined && matrixData.qtyColumn !== -1 && row[matrixData.qtyColumn]) {
+            job.qty = parseInt(String(row[matrixData.qtyColumn])) || 1;
+          }
 
-      // Extract headers and data
-      const headers = jsonData[0] as string[];
-      const dataRows = jsonData.slice(1);
-      
-      // Process each row into job objects for pattern extraction
-      const jobs = dataRows.map((row: any[], index: number) => {
-        const job: any = { row_index: index + 2 }; // +2 because we start from row 2 in Excel
-        
-        headers.forEach((header, colIndex) => {
-          if (row[colIndex] !== undefined && row[colIndex] !== null) {
-            const value = String(row[colIndex]).trim();
-            if (value) {
-              // Map common Excel columns to our job structure
-              const normalizedHeader = header.toLowerCase().trim();
-              
-              if (normalizedHeader.includes('wo') || normalizedHeader.includes('work order')) {
-                job.wo_no = value;
-              } else if (normalizedHeader.includes('customer') || normalizedHeader.includes('client')) {
-                job.customer = value;
-              } else if (normalizedHeader.includes('reference') || normalizedHeader.includes('ref')) {
-                job.reference = value;
-              } else if (normalizedHeader.includes('category') || normalizedHeader.includes('type')) {
-                job.category = value;
-              } else if (normalizedHeader.includes('specification') || normalizedHeader.includes('spec')) {
-                job.specification = value;
-              } else if (normalizedHeader.includes('location') || normalizedHeader.includes('address')) {
-                job.location = value;
-              } else if (normalizedHeader.includes('quantity') || normalizedHeader.includes('qty')) {
-                job.qty = parseInt(value) || 1;
-              } else if (normalizedHeader.includes('paper')) {
-                job.paper_spec = value;
-              } else if (normalizedHeader.includes('delivery') || normalizedHeader.includes('shipping')) {
-                job.delivery_spec = value;
-              } else {
-                // Store any other data with the original header as key
+          // Store all column data for pattern extraction
+          matrixData.headers.forEach((header, colIndex) => {
+            if (row[colIndex] !== undefined && row[colIndex] !== null) {
+              const value = String(row[colIndex]).trim();
+              if (value) {
                 job[header] = value;
               }
             }
-          }
+          });
+
+          return job;
         });
 
-        return job;
-      });
+        setUploadProgress(100);
 
-      setUploadProgress(100);
+        // Create parsed data structure for ExcelDataAnalyzer with matrix mode
+        const parsedExcelData: ParsedExcelData = {
+          fileName: file.name,
+          headers: matrixData.headers,
+          totalRows: matrixData.rows.length,
+          jobs,
+          stats: {
+            totalJobs: jobs.length,
+            withGroups: matrixData.detectedGroups.length,
+            detectedGroups: matrixData.detectedGroups,
+            matrixColumns: {
+              groups: matrixData.groupColumn !== undefined && matrixData.groupColumn !== -1,
+              workOrder: matrixData.workOrderColumn !== undefined && matrixData.workOrderColumn !== -1,
+              description: matrixData.descriptionColumn !== undefined && matrixData.descriptionColumn !== -1,
+              quantity: matrixData.qtyColumn !== undefined && matrixData.qtyColumn !== -1
+            }
+          },
+          mapping: {},
+          debugLog: logger.getDebugInfo(),
+          isMatrixMode: true,
+          matrixData
+        };
 
-      // Create parsed data structure for ExcelDataAnalyzer
-      const parsedExcelData: ParsedExcelData = {
-        fileName: file.name,
-        headers,
-        totalRows: dataRows.length,
-        jobs,
-        stats: {
-          totalJobs: jobs.length,
-          withCustomer: jobs.filter(j => j.customer).length,
-          withReference: jobs.filter(j => j.reference).length,
-          withCategory: jobs.filter(j => j.category).length,
-          withSpecification: jobs.filter(j => j.specification).length,
-        },
-        mapping: {},
-        debugLog: [
-          `Parsed Excel file: ${file.name}`,
-          `Headers found: ${headers.join(', ')}`,
-          `Total rows processed: ${jobs.length}`,
-          `Processing complete for mapping extraction`
-        ],
-        isMatrixMode: false
-      };
+        logger.addDebugInfo(`Matrix parsing complete - Found ${matrixData.detectedGroups.length} groups: ${matrixData.detectedGroups.join(', ')}`);
 
-      setParsedData(parsedExcelData);
+        setParsedData(parsedExcelData);
 
-      toast({
-        title: "File processed successfully",
-        description: `Extracted ${jobs.length} rows with ${headers.length} columns for pattern analysis`,
-      });
+        toast({
+          title: "Matrix file processed successfully",
+          description: `Extracted ${jobs.length} rows with ${matrixData.detectedGroups.length} groups for pattern analysis`,
+        });
+
+      } catch (matrixError) {
+        // Fallback to simple Excel parsing if matrix parsing fails
+        logger.addDebugInfo(`Matrix parsing failed, falling back to simple Excel parsing: ${matrixError}`);
+        
+        setUploadProgress(50);
+        
+        // Parse Excel file using simple method
+        const fileBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        setUploadProgress(75);
+
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length < 2) {
+          throw new Error("Excel file must contain at least a header row and one data row");
+        }
+
+        // Extract headers and data
+        const headers = jsonData[0] as string[];
+        const dataRows = jsonData.slice(1);
+        
+        // Process each row into job objects for pattern extraction
+        const jobs = dataRows.map((row: any[], index: number) => {
+          const job: any = { row_index: index + 2 }; // +2 because we start from row 2 in Excel
+          
+          headers.forEach((header, colIndex) => {
+            if (row[colIndex] !== undefined && row[colIndex] !== null) {
+              const value = String(row[colIndex]).trim();
+              if (value) {
+                // Map common Excel columns to our job structure
+                const normalizedHeader = header.toLowerCase().trim();
+                
+                if (normalizedHeader.includes('wo') || normalizedHeader.includes('work order')) {
+                  job.wo_no = value;
+                } else if (normalizedHeader.includes('customer') || normalizedHeader.includes('client')) {
+                  job.customer = value;
+                } else if (normalizedHeader.includes('reference') || normalizedHeader.includes('ref')) {
+                  job.reference = value;
+                } else if (normalizedHeader.includes('category') || normalizedHeader.includes('type')) {
+                  job.category = value;
+                } else if (normalizedHeader.includes('specification') || normalizedHeader.includes('spec')) {
+                  job.specification = value;
+                } else if (normalizedHeader.includes('location') || normalizedHeader.includes('address')) {
+                  job.location = value;
+                } else if (normalizedHeader.includes('quantity') || normalizedHeader.includes('qty')) {
+                  job.qty = parseInt(value) || 1;
+                } else if (normalizedHeader.includes('paper')) {
+                  job.paper_spec = value;
+                } else if (normalizedHeader.includes('delivery') || normalizedHeader.includes('shipping')) {
+                  job.delivery_spec = value;
+                } else {
+                  // Store any other data with the original header as key
+                  job[header] = value;
+                }
+              }
+            }
+          });
+
+          return job;
+        });
+
+        setUploadProgress(100);
+
+        // Create parsed data structure for ExcelDataAnalyzer
+        const parsedExcelData: ParsedExcelData = {
+          fileName: file.name,
+          headers,
+          totalRows: dataRows.length,
+          jobs,
+          stats: {
+            totalJobs: jobs.length,
+            withCustomer: jobs.filter(j => j.customer).length,
+            withReference: jobs.filter(j => j.reference).length,
+            withCategory: jobs.filter(j => j.category).length,
+            withSpecification: jobs.filter(j => j.specification).length,
+          },
+          mapping: {},
+          debugLog: logger.getDebugInfo().concat([
+            `Parsed Excel file: ${file.name}`,
+            `Headers found: ${headers.join(', ')}`,
+            `Total rows processed: ${jobs.length}`,
+            `Processing complete for mapping extraction`
+          ]),
+          isMatrixMode: false
+        };
+
+        setParsedData(parsedExcelData);
+
+        toast({
+          title: "File processed successfully",
+          description: `Extracted ${jobs.length} rows with ${headers.length} columns for pattern analysis`,
+        });
+      }
 
     } catch (error: any) {
       console.error('Error processing Excel file:', error);
