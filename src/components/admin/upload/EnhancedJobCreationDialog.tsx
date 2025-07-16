@@ -115,7 +115,10 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     if (text.includes('prepress') || text.includes('dtp') || text.includes('proof') || text.includes('plate')) {
       return 'prepress';
     }
-    if (text.includes('deliver') || text.includes('dispatch') || text.includes('ship')) {
+    if (text.includes('packag') || text.includes('box') || text.includes('wrap') || text.includes('ship')) {
+      return 'packaging';
+    }
+    if (text.includes('deliver') || text.includes('dispatch')) {
       return 'delivery';
     }
     
