@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Scissors, Loader2, CheckSquare, Square } from "lucide-react";
+import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Scissors, Loader2, CheckSquare, Square, Package2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,7 +34,7 @@ interface ExcelDataAnalyzerProps {
 interface TextPattern {
   text: string;
   frequency: number;
-  type: 'production_stage' | 'paper_specification' | 'delivery_specification';
+  type: 'production_stage' | 'paper_specification' | 'delivery_specification' | 'packaging_specification';
 }
 
 interface MappingOption {
@@ -50,7 +50,7 @@ interface MappingState {
   mappedPatterns: Set<string>;
   isLoading: boolean;
   searchTerm: string;
-  selectedType: 'all' | 'production_stage' | 'paper_specification' | 'delivery_specification';
+  selectedType: 'all' | 'production_stage' | 'paper_specification' | 'delivery_specification' | 'packaging_specification';
   currentPage: number;
   patternsPerPage: number;
   selectedPatterns: Set<string>;
@@ -63,6 +63,7 @@ interface MappingOptions {
   paperTypes: MappingOption[];
   paperWeights: MappingOption[];
   deliveryMethods: MappingOption[];
+  packagingTypes: MappingOption[];
 }
 
 export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMappingCreated }) => {
@@ -85,6 +86,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     paperTypes: [],
     paperWeights: [],
     deliveryMethods: [],
+    packagingTypes: [],
   });
 
   const [selectedMappings, setSelectedMappings] = useState({
@@ -95,6 +97,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     deliveryMethod: "",
     addressPattern: "",
     isCollection: false,
+    packagingType: "",
   });
 
   const [activeMappingPattern, setActiveMappingPattern] = useState<string>("");
@@ -140,6 +143,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       const paperTypes = specs.filter(s => s.category === 'paper_type' && !s.name.startsWith('_category'));
       const paperWeights = specs.filter(s => s.category === 'paper_weight' && !s.name.startsWith('_category'));
       const deliveryMethods = specs.filter(s => s.category === 'delivery_method' && !s.name.startsWith('_category'));
+      const packagingTypes = specs.filter(s => s.category === 'packaging' && !s.name.startsWith('_category'));
 
       setMappingOptions({
         productionStages: productionStagesResult.data || [],
@@ -147,6 +151,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         paperTypes,
         paperWeights,
         deliveryMethods,
+        packagingTypes,
       });
 
       // Get existing mappings
@@ -195,7 +200,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           'finishing_specifications': 'production_stage' as const,
           'prepress_specifications': 'production_stage' as const,
           'delivery_specifications': 'delivery_specification' as const,
-          'packaging_specifications': 'production_stage' as const,
+          'packaging_specifications': 'packaging_specification' as const,
         };
         
         Object.entries(specGroups).forEach(([groupKey, type]) => {
@@ -359,6 +364,22 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           });
           break;
 
+        case 'packaging_specification':
+          if (!selectedMappings.packagingType) {
+            throw new Error("Please select a packaging type");
+          }
+          
+          // Validate UUID format
+          if (!selectedMappings.packagingType.match(/^[0-9a-f-]{36}$/i)) {
+            throw new Error("Invalid packaging type selection");
+          }
+          
+          result = await supabase.rpc('upsert_print_specification_mapping', {
+            p_excel_text: pattern.text,
+            p_print_specification_id: selectedMappings.packagingType,
+            p_confidence_score: 100
+          });
+          break;
 
         default:
           throw new Error("Invalid mapping type");
@@ -535,6 +556,16 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               });
               break;
               
+            case 'packaging_specification':
+              if (!mappingConfig.packagingType) {
+                throw new Error("Packaging type not selected");
+              }
+              result = await supabase.rpc('upsert_print_specification_mapping', {
+                p_excel_text: pattern.text,
+                p_print_specification_id: mappingConfig.packagingType,
+                p_confidence_score: 100
+              });
+              break;
               
             default:
               throw new Error(`Unsupported pattern type: ${pattern.type}`);
@@ -690,6 +721,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                 <SelectItem value="production_stage">Production Stage</SelectItem>
                 <SelectItem value="paper_specification">Paper Specification</SelectItem>
                 <SelectItem value="delivery_specification">Delivery Specification</SelectItem>
+                <SelectItem value="packaging_specification">Packaging Specification</SelectItem>
                 
               </SelectContent>
             </Select>
@@ -697,7 +729,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
           {/* Mapping Configuration Tabs */}
           <Tabs defaultValue="production_stage" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="production_stage" className="flex items-center gap-2">
                 <Database className="h-4 w-4" />
                 Production Stage
@@ -709,6 +741,10 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               <TabsTrigger value="delivery_specification" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
                 Delivery Specification
+              </TabsTrigger>
+              <TabsTrigger value="packaging_specification" className="flex items-center gap-2">
+                <Package2 className="h-4 w-4" />
+                Packaging Specification
               </TabsTrigger>
             </TabsList>
 
@@ -876,6 +912,32 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                     addressPattern: e.target.value 
                   }))}
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="packaging_specification" className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Packaging Type</label>
+                  <Select
+                    value={selectedMappings.packagingType}
+                    onValueChange={(value) => setSelectedMappings(prev => ({ 
+                      ...prev, 
+                      packagingType: value 
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select packaging type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mappingOptions.packagingTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.display_name || type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </TabsContent>
 
