@@ -10,8 +10,7 @@ const GROUP_CATEGORIES = {
   DELIVERY: ['Delivery', 'DELIVERY', 'delivery'],
   FINISHING: ['Finishing', 'FINISHING', 'finishing', 'Finish', 'FINISH', 'finish'],
   PREPRESS: ['Pre-press', 'PRE-PRESS', 'pre-press', 'Prepress', 'PREPRESS', 'prepress', 'DTP', 'dtp'],
-  PRINTING: ['Printing', 'PRINTING', 'printing', 'Print', 'PRINT', 'print'],
-  PACKAGING: ['Packaging', 'PACKAGING', 'packaging', 'Package', 'PACKAGE', 'package', 'Pack', 'PACK', 'pack']
+  PRINTING: ['Printing', 'PRINTING', 'printing', 'Print', 'PRINT', 'print']
 };
 
 export const parseMatrixExcelFile = async (file: File, logger: ExcelImportDebugger): Promise<MatrixExcelData> => {
@@ -125,7 +124,6 @@ export const parseMatrixDataToJobs = (
       finishing_specifications: groupSpecs.finishing,
       prepress_specifications: groupSpecs.prepress,
       printing_specifications: groupSpecs.printing,
-      packaging_specifications: groupSpecs.packaging,
       operation_quantities: groupSpecs.operations,
       cover_text_detection: groupSpecs.coverTextDetection
     };
@@ -207,7 +205,6 @@ const extractGroupSpecifications = (
   finishing: GroupSpecifications | null;
   prepress: GroupSpecifications | null;
   printing: GroupSpecifications | null;
-  packaging: GroupSpecifications | null;
   operations: OperationQuantities | null;
   coverTextDetection?: CoverTextDetection | null;
 } => {
@@ -218,7 +215,6 @@ const extractGroupSpecifications = (
     finishing: {} as GroupSpecifications,
     prepress: {} as GroupSpecifications,
     printing: {} as GroupSpecifications,
-    packaging: {} as GroupSpecifications,
     operations: {} as OperationQuantities
   };
   
@@ -230,7 +226,6 @@ const extractGroupSpecifications = (
       finishing: null,
       prepress: null,
       printing: null,
-      packaging: null,
       operations: null,
       coverTextDetection: null
     };
@@ -321,7 +316,6 @@ const extractGroupSpecifications = (
     finishing: Object.keys(specs.finishing).length > 0 ? specs.finishing : null,
     prepress: Object.keys(specs.prepress).length > 0 ? specs.prepress : null,
     printing: Object.keys(specs.printing).length > 0 ? specs.printing : null,
-    packaging: Object.keys(specs.packaging).length > 0 ? specs.packaging : null,
     operations: Object.keys(specs.operations).length > 0 ? specs.operations : null,
     coverTextDetection
   };

@@ -181,9 +181,6 @@ export class EnhancedMappingProcessor {
     if (!job.prepress_specifications) {
       job.prepress_specifications = {};
     }
-    if (!job.packaging_specifications) {
-      job.packaging_specifications = {};
-    }
 
     // Preserve existing mappedStageId values from user-approved mappings
     const preserveExistingMappings = (specObj: any) => {
@@ -199,13 +196,11 @@ export class EnhancedMappingProcessor {
     const existingPrintingMappings = preserveExistingMappings(job.printing_specifications);
     const existingFinishingMappings = preserveExistingMappings(job.finishing_specifications);
     const existingPrepressMappings = preserveExistingMappings(job.prepress_specifications);
-    const existingPackagingMappings = preserveExistingMappings(job.packaging_specifications);
 
     this.logger.addDebugInfo(`Job ${job.wo_no} - Preserving existing mappings:
       - Printing: ${Object.keys(existingPrintingMappings).length} mappings
       - Finishing: ${Object.keys(existingFinishingMappings).length} mappings  
-      - Prepress: ${Object.keys(existingPrepressMappings).length} mappings
-      - Packaging: ${Object.keys(existingPackagingMappings).length} mappings`);
+      - Prepress: ${Object.keys(existingPrepressMappings).length} mappings`);
 
     // Extract printing specifications from job data
     if (job.specifications) {
@@ -304,8 +299,7 @@ export class EnhancedMappingProcessor {
     this.logger.addDebugInfo(`Job ${job.wo_no} specifications populated with preserved mappings:
       - Printing: ${JSON.stringify(job.printing_specifications)}
       - Finishing: ${JSON.stringify(job.finishing_specifications)}
-      - Prepress: ${JSON.stringify(job.prepress_specifications)}
-      - Packaging: ${JSON.stringify(job.packaging_specifications)}`);
+      - Prepress: ${JSON.stringify(job.prepress_specifications)}`);
   }
 
   private async processPaperSpecification(
@@ -449,7 +443,6 @@ export class EnhancedMappingProcessor {
     if (!job.finishing_specifications) job.finishing_specifications = {};
     if (!job.prepress_specifications) job.prepress_specifications = {};
     if (!job.delivery_specifications) job.delivery_specifications = {};
-    if (!job.packaging_specifications) job.packaging_specifications = {};
 
     // Extract stage mappings from user column mapping and apply them to the job
     const stageMappingsApplied = [];
@@ -495,9 +488,6 @@ export class EnhancedMappingProcessor {
           case 'delivery':
             job.delivery_specifications[stageName] = stageSpec;
             break;
-          case 'packaging':
-            job.packaging_specifications[stageName] = stageSpec;
-            break;
           default:
             job.printing_specifications[stageName] = stageSpec;
             break;
@@ -540,14 +530,9 @@ export class EnhancedMappingProcessor {
       return 'prepress';
     }
     
-    // Packaging operations
-    if (lowerName.includes('packaging') || lowerName.includes('package') || lowerName.includes('pack') ||
-        lowerName.includes('box') || lowerName.includes('ship') || lowerName.includes('dispatch')) {
-      return 'packaging';
-    }
-    
     // Delivery operations
-    if (lowerName.includes('deliver') || lowerName.includes('collect')) {
+    if (lowerName.includes('deliver') || lowerName.includes('dispatch') || lowerName.includes('ship') ||
+        lowerName.includes('collect') || lowerName.includes('pack') || lowerName.includes('box')) {
       return 'delivery';
     }
     
@@ -596,13 +581,6 @@ export class EnhancedMappingProcessor {
     // Check prepress specifications
     if (job.prepress_specifications) {
       Object.values(job.prepress_specifications).forEach((spec: any) => {
-        if (spec?.mappedStageId) count++;
-      });
-    }
-    
-    // Check packaging specifications
-    if (job.packaging_specifications) {
-      Object.values(job.packaging_specifications).forEach((spec: any) => {
         if (spec?.mappedStageId) count++;
       });
     }

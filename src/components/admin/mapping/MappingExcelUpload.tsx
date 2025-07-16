@@ -13,6 +13,8 @@ interface ParsedExcelData {
   stats: any;
   mapping: any;
   debugLog: string[];
+  isMatrixMode?: boolean;
+  matrixData?: any;
 }
 
 export const MappingExcelUpload: React.FC = () => {
@@ -40,14 +42,16 @@ export const MappingExcelUpload: React.FC = () => {
     try {
       // Simulate progress
       setUploadProgress(25);
-      
+
       // Parse Excel file
       const fileBuffer = await file.arrayBuffer();
+      setUploadProgress(50);
+
       const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      setUploadProgress(50);
+      setUploadProgress(75);
 
       // Convert to JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
@@ -60,43 +64,38 @@ export const MappingExcelUpload: React.FC = () => {
       const headers = jsonData[0] as string[];
       const dataRows = jsonData.slice(1);
       
-      setUploadProgress(75);
-      
-      // Process each row to extract patterns
-      const patterns = new Set<string>();
+      // Process each row into job objects for pattern extraction
       const jobs = dataRows.map((row: any[], index: number) => {
-        const job: any = { row_index: index + 2 };
+        const job: any = { row_index: index + 2 }; // +2 because we start from row 2 in Excel
         
         headers.forEach((header, colIndex) => {
           if (row[colIndex] !== undefined && row[colIndex] !== null) {
             const value = String(row[colIndex]).trim();
             if (value) {
-              job[header] = value;
+              // Map common Excel columns to our job structure
+              const normalizedHeader = header.toLowerCase().trim();
               
-              // Extract patterns for mapping, including group patterns
-              patterns.add(value);
-              
-              // Look for group:description patterns (e.g., "Packaging: Boxed")
-              if (value.includes(':')) {
-                const [group, description] = value.split(':').map(s => s.trim());
-                if (group && description) {
-                  patterns.add(value); // Full pattern
-                  patterns.add(group); // Group name
-                  patterns.add(description); // Description only
-                  
-                  // Store group information for ExcelDataAnalyzer
-                  if (group.toLowerCase() === 'packaging') {
-                    job.packaging_specifications = [{ name: description, display_name: description }];
-                  } else if (group.toLowerCase() === 'paper') {
-                    job.paper_specifications = [{ name: description, display_name: description }];
-                  } else if (group.toLowerCase() === 'printing') {
-                    job.printing_specifications = [{ name: description, display_name: description }];
-                  } else if (group.toLowerCase() === 'finishing') {
-                    job.finishing_specifications = [{ name: description, display_name: description }];
-                  } else if (group.toLowerCase() === 'delivery') {
-                    job.delivery_specifications = [{ name: description, display_name: description }];
-                  }
-                }
+              if (normalizedHeader.includes('wo') || normalizedHeader.includes('work order')) {
+                job.wo_no = value;
+              } else if (normalizedHeader.includes('customer') || normalizedHeader.includes('client')) {
+                job.customer = value;
+              } else if (normalizedHeader.includes('reference') || normalizedHeader.includes('ref')) {
+                job.reference = value;
+              } else if (normalizedHeader.includes('category') || normalizedHeader.includes('type')) {
+                job.category = value;
+              } else if (normalizedHeader.includes('specification') || normalizedHeader.includes('spec')) {
+                job.specification = value;
+              } else if (normalizedHeader.includes('location') || normalizedHeader.includes('address')) {
+                job.location = value;
+              } else if (normalizedHeader.includes('quantity') || normalizedHeader.includes('qty')) {
+                job.qty = parseInt(value) || 1;
+              } else if (normalizedHeader.includes('paper')) {
+                job.paper_spec = value;
+              } else if (normalizedHeader.includes('delivery') || normalizedHeader.includes('shipping')) {
+                job.delivery_spec = value;
+              } else {
+                // Store any other data with the original header as key
+                job[header] = value;
               }
             }
           }
@@ -115,29 +114,26 @@ export const MappingExcelUpload: React.FC = () => {
         jobs,
         stats: {
           totalJobs: jobs.length,
-          totalPatterns: patterns.size,
-          packagingPatterns: jobs.filter(j => j.packaging_specifications).length,
-          paperPatterns: jobs.filter(j => j.paper_specifications).length,
-          printingPatterns: jobs.filter(j => j.printing_specifications).length,
-          finishingPatterns: jobs.filter(j => j.finishing_specifications).length,
-          deliveryPatterns: jobs.filter(j => j.delivery_specifications).length,
+          withCustomer: jobs.filter(j => j.customer).length,
+          withReference: jobs.filter(j => j.reference).length,
+          withCategory: jobs.filter(j => j.category).length,
+          withSpecification: jobs.filter(j => j.specification).length,
         },
         mapping: {},
         debugLog: [
           `Parsed Excel file: ${file.name}`,
           `Headers found: ${headers.join(', ')}`,
           `Total rows processed: ${jobs.length}`,
-          `Total patterns extracted: ${patterns.size}`,
-          `Packaging patterns found: ${jobs.filter(j => j.packaging_specifications).length}`,
           `Processing complete for mapping extraction`
-        ]
+        ],
+        isMatrixMode: false
       };
 
       setParsedData(parsedExcelData);
 
       toast({
         title: "File processed successfully",
-        description: `Extracted ${jobs.length} rows with ${patterns.size} patterns for analysis`,
+        description: `Extracted ${jobs.length} rows with ${headers.length} columns for pattern analysis`,
       });
 
     } catch (error: any) {

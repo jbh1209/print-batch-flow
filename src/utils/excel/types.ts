@@ -29,7 +29,6 @@ export interface ParsedJob {
   finishing_specifications?: GroupSpecifications | null;
   prepress_specifications?: GroupSpecifications | null;
   printing_specifications?: GroupSpecifications | null;
-  packaging_specifications?: GroupSpecifications | null;
   operation_quantities?: OperationQuantities | null;
   // Cover/text workflow detection
   cover_text_detection?: CoverTextDetection | null;
@@ -123,7 +122,7 @@ export interface RowMappingResult {
   mappedStageSpecId: string | null;
   mappedStageSpecName: string | null;
   confidence: number;
-  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'paper' | 'packaging' | 'unknown';
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'paper' | 'unknown';
   manualOverride?: boolean;
   isUnmapped: boolean;
   instanceId?: string;
@@ -138,7 +137,7 @@ export interface StageMapping {
   stageSpecName?: string;
   confidence: number;
   specifications: string[];
-  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging';
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery';
   instanceId?: string;
   quantity?: number;
   paperSpecification?: string;
