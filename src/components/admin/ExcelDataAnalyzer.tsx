@@ -194,6 +194,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           'printing_specifications': 'production_stage' as const,
           'finishing_specifications': 'production_stage' as const,
           'prepress_specifications': 'production_stage' as const,
+          'packaging_specifications': 'production_stage' as const,
           'delivery_specifications': 'delivery_specification' as const,
         };
         
