@@ -116,7 +116,7 @@ export class ProductionStageMapper {
    */
   private createRowMappingsForCategory(
     specs: GroupSpecifications,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery',
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging',
     excelRows: any[][],
     headers: string[],
     startRowIndex: number
@@ -155,7 +155,7 @@ export class ProductionStageMapper {
    */
   private mapSpecificationsToStages(
     specs: GroupSpecifications,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): StageMapping[] {
     const mappings: StageMapping[] = [];
     
@@ -178,7 +178,7 @@ export class ProductionStageMapper {
   private findBestStageMatch(
     groupName: string,
     description: string,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): Omit<StageMapping, 'specifications'> | null {
     const searchText = `${groupName} ${description}`.toLowerCase();
     
@@ -196,13 +196,18 @@ export class ProductionStageMapper {
         { names: ['envelope printing'], patterns: ['envelope'] },
         { names: ['cutting', 'guillotine'], patterns: ['cut', 'guillotine'] },
         { names: ['folding'], patterns: ['fold'] },
-        { names: ['binding'], patterns: ['bind', 'perfect', 'saddle'] },
-        { names: ['packaging'], patterns: ['pack', 'box'] }
+        { names: ['binding'], patterns: ['bind', 'perfect', 'saddle'] }
       ],
       prepress: [
         { names: ['dtp', 'desktop publishing'], patterns: ['dtp', 'desktop'] },
         { names: ['proof', 'proofing'], patterns: ['proof'] },
         { names: ['plate making', 'plates'], patterns: ['plate'] }
+      ],
+      packaging: [
+        { names: ['packaging', 'packing'], patterns: ['pack', 'box', 'wrap', 'bag'] },
+        { names: ['shrink wrap', 'shrinkwrap'], patterns: ['shrink', 'wrap'] },
+        { names: ['boxing', 'box packing'], patterns: ['box'] },
+        { names: ['delivery preparation'], patterns: ['delivery', 'prep'] }
       ]
     };
     
