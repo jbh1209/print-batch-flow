@@ -3,7 +3,8 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { FileDropZone } from "@/components/admin/upload/FileDropZone";
 import { ExcelDataAnalyzer } from "@/components/admin/ExcelDataAnalyzer";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import { parseMatrixExcelFile, parseMatrixDataToJobs } from "@/utils/excel/matrixParser";
+import { ExcelImportDebugger } from "@/utils/excel/debugger";
 
 interface ParsedExcelData {
   fileName: string;
@@ -43,74 +44,30 @@ export const MappingExcelUpload: React.FC = () => {
       // Simulate progress
       setUploadProgress(25);
 
-      // Parse Excel file
-      const fileBuffer = await file.arrayBuffer();
+      // Initialize debugger for matrix parsing
+      const logger = new ExcelImportDebugger();
+      logger.addDebugInfo(`Starting matrix parsing for mapping analysis: ${file.name}`);
+
       setUploadProgress(50);
 
-      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
+      // Parse Excel file using matrix parser
+      const matrixData = await parseMatrixExcelFile(file, logger);
       
       setUploadProgress(75);
 
-      // Convert to JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      // Convert matrix data to jobs using a simplified column mapping
+      const defaultColumnMapping = {};
+      const jobs = parseMatrixDataToJobs(matrixData, defaultColumnMapping, logger);
       
-      if (jsonData.length < 2) {
-        throw new Error("Excel file must contain at least a header row and one data row");
-      }
-
-      // Extract headers and data
-      const headers = jsonData[0] as string[];
-      const dataRows = jsonData.slice(1);
-      
-      // Process each row into job objects for pattern extraction
-      const jobs = dataRows.map((row: any[], index: number) => {
-        const job: any = { row_index: index + 2 }; // +2 because we start from row 2 in Excel
-        
-        headers.forEach((header, colIndex) => {
-          if (row[colIndex] !== undefined && row[colIndex] !== null) {
-            const value = String(row[colIndex]).trim();
-            if (value) {
-              // Map common Excel columns to our job structure
-              const normalizedHeader = header.toLowerCase().trim();
-              
-              if (normalizedHeader.includes('wo') || normalizedHeader.includes('work order')) {
-                job.wo_no = value;
-              } else if (normalizedHeader.includes('customer') || normalizedHeader.includes('client')) {
-                job.customer = value;
-              } else if (normalizedHeader.includes('reference') || normalizedHeader.includes('ref')) {
-                job.reference = value;
-              } else if (normalizedHeader.includes('category') || normalizedHeader.includes('type')) {
-                job.category = value;
-              } else if (normalizedHeader.includes('specification') || normalizedHeader.includes('spec')) {
-                job.specification = value;
-              } else if (normalizedHeader.includes('location') || normalizedHeader.includes('address')) {
-                job.location = value;
-              } else if (normalizedHeader.includes('quantity') || normalizedHeader.includes('qty')) {
-                job.qty = parseInt(value) || 1;
-              } else if (normalizedHeader.includes('paper')) {
-                job.paper_spec = value;
-              } else if (normalizedHeader.includes('delivery') || normalizedHeader.includes('shipping')) {
-                job.delivery_spec = value;
-              } else {
-                // Store any other data with the original header as key
-                job[header] = value;
-              }
-            }
-          }
-        });
-
-        return job;
-      });
+      logger.addDebugInfo(`Matrix parsing completed. Generated ${jobs.length} jobs for pattern analysis.`);
 
       setUploadProgress(100);
 
       // Create parsed data structure for ExcelDataAnalyzer
       const parsedExcelData: ParsedExcelData = {
         fileName: file.name,
-        headers,
-        totalRows: dataRows.length,
+        headers: matrixData.headers,
+        totalRows: jobs.length,
         jobs,
         stats: {
           totalJobs: jobs.length,
@@ -118,22 +75,23 @@ export const MappingExcelUpload: React.FC = () => {
           withReference: jobs.filter(j => j.reference).length,
           withCategory: jobs.filter(j => j.category).length,
           withSpecification: jobs.filter(j => j.specification).length,
+          withPaperSpecs: jobs.filter(j => j.paper_specifications).length,
+          withDeliverySpecs: jobs.filter(j => j.delivery_specifications).length,
+          withFinishingSpecs: jobs.filter(j => j.finishing_specifications).length,
+          withPackagingSpecs: jobs.filter(j => j.packaging_specifications).length,
+          detectedGroups: matrixData.detectedGroups
         },
         mapping: {},
-        debugLog: [
-          `Parsed Excel file: ${file.name}`,
-          `Headers found: ${headers.join(', ')}`,
-          `Total rows processed: ${jobs.length}`,
-          `Processing complete for mapping extraction`
-        ],
-        isMatrixMode: false
+        debugLog: logger.getDebugInfo(),
+        isMatrixMode: true,
+        matrixData
       };
 
       setParsedData(parsedExcelData);
 
       toast({
         title: "File processed successfully",
-        description: `Extracted ${jobs.length} rows with ${headers.length} columns for pattern analysis`,
+        description: `Extracted ${jobs.length} rows with ${matrixData.headers.length} columns for pattern analysis`,
       });
 
     } catch (error: any) {
