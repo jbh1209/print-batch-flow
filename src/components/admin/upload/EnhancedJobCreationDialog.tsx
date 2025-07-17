@@ -152,7 +152,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     return 'unknown';
   };
 
-  const handleUpdateMapping = (woNo: string, rowIndex: number, stageSpecId: string, stageSpecName: string, stageId: string) => {
+  const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
       
@@ -170,9 +170,9 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             mappedStageId: stageId,
-            mappedStageName: availableStages.find(s => s.id === stageId)?.name || 'Unknown Stage',
-            mappedStageSpecId: stageSpecId,
-            mappedStageSpecName: stageSpecName,
+            mappedStageName: stageName,
+            mappedStageSpecId: stageSpecId || null,
+            mappedStageSpecName: stageSpecName || null,
             manualOverride: true,
             confidence: 100,
             isUnmapped: false

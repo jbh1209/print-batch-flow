@@ -17,7 +17,7 @@ interface RowMappingTableProps {
   availableStages: { id: string; name: string; category: string }[];
   stageSpecifications: { [stageId: string]: StageSpecification[] };
   workOrderNumber: string;
-  onUpdateMapping: (woNo: string, rowIndex: number, stageSpecId: string, stageSpecName: string, stageId: string) => void;
+  onUpdateMapping: (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => void;
   onToggleManualOverride: (woNo: string, rowIndex: number) => void;
 }
 
@@ -111,38 +111,61 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
               </TableCell>
               <TableCell>
                 {mapping.manualOverride ? (
-                  <Select
-                    value={mapping.mappedStageSpecId || ""}
-                    onValueChange={(stageSpecId) => {
-                      // Find the stage specification and its parent stage
-                      let selectedStageSpec: StageSpecification | undefined;
-                      let parentStageId = '';
-                      
-                      for (const [stageId, specs] of Object.entries(stageSpecifications)) {
-                        const spec = specs.find(s => s.id === stageSpecId);
-                        if (spec) {
-                          selectedStageSpec = spec;
-                          parentStageId = stageId;
-                          break;
+                  <div className="space-y-2">
+                    {/* Stage Selection */}
+                    <Select
+                      value={mapping.mappedStageId || ""}
+                      onValueChange={(stageId) => {
+                        const selectedStage = availableStages.find(s => s.id === stageId);
+                        if (selectedStage) {
+                          // Reset stage specification when changing stage
+                          onUpdateMapping(workOrderNumber, mapping.excelRowIndex, stageId, selectedStage.name);
                         }
-                      }
-                      
-                      if (selectedStageSpec && parentStageId) {
-                        onUpdateMapping(workOrderNumber, mapping.excelRowIndex, stageSpecId, selectedStageSpec.name, parentStageId);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-8 min-w-[200px]">
-                      <SelectValue placeholder="Select specification..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-background">
-                      {mapping.mappedStageId && getStageSpecifications(mapping.mappedStageId).map((stageSpec) => (
-                        <SelectItem key={stageSpec.id} value={stageSpec.id}>
-                          {stageSpec.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      }}
+                    >
+                      <SelectTrigger className="h-8 min-w-[200px]">
+                        <SelectValue placeholder="Select stage..." />
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-background">
+                        {availableStages.map((stage) => (
+                          <SelectItem key={stage.id} value={stage.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{stage.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {stage.category}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* Stage Specification Selection (if available) */}
+                    {mapping.mappedStageId && getStageSpecifications(mapping.mappedStageId).length > 0 && (
+                      <Select
+                        value={mapping.mappedStageSpecId || ""}
+                        onValueChange={(stageSpecId) => {
+                          const specs = getStageSpecifications(mapping.mappedStageId!);
+                          const selectedSpec = specs.find(s => s.id === stageSpecId);
+                          if (selectedSpec && mapping.mappedStageId) {
+                            const stageName = availableStages.find(s => s.id === mapping.mappedStageId)?.name || '';
+                            onUpdateMapping(workOrderNumber, mapping.excelRowIndex, mapping.mappedStageId, stageName, stageSpecId, selectedSpec.name);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-8 min-w-[200px]">
+                          <SelectValue placeholder="Select specification (optional)..." />
+                        </SelectTrigger>
+                        <SelectContent className="z-50 bg-background">
+                          {getStageSpecifications(mapping.mappedStageId).map((stageSpec) => (
+                            <SelectItem key={stageSpec.id} value={stageSpec.id}>
+                              {stageSpec.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-sm min-w-[200px]">
                     {mapping.mappedStageName ? (
