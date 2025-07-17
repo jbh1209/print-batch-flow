@@ -44,11 +44,13 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   const [selectedTab, setSelectedTab] = useState("mapping");
   const [availableStages, setAvailableStages] = useState<AvailableStage[]>([]);
   const [availableCategories, setAvailableCategories] = useState<AvailableCategory[]>([]);
+  const [stageSpecifications, setStageSpecifications] = useState<{ [stageId: string]: any[] }>({});
   const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
 
   useEffect(() => {
     loadAvailableStages();
     loadAvailableCategories();
+    loadStageSpecifications();
   }, []);
 
   useEffect(() => {
@@ -103,6 +105,31 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     }
   };
 
+  const loadStageSpecifications = async () => {
+    try {
+      const { data: specs, error } = await supabase
+        .from('stage_specifications')
+        .select('id, name, production_stage_id')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      // Group specifications by production stage ID
+      const specsByStage: { [stageId: string]: any[] } = {};
+      (specs || []).forEach(spec => {
+        if (!specsByStage[spec.production_stage_id]) {
+          specsByStage[spec.production_stage_id] = [];
+        }
+        specsByStage[spec.production_stage_id].push(spec);
+      });
+
+      setStageSpecifications(specsByStage);
+    } catch (error) {
+      console.error('Failed to load stage specifications:', error);
+    }
+  };
+
   const inferStageCategory = (name: string, description?: string): string => {
     const text = `${name} ${description || ''}`.toLowerCase();
     
@@ -125,13 +152,15 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     return 'unknown';
   };
 
-  const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string) => {
+  const handleUpdateMapping = (woNo: string, rowIndex: number, stageSpecId: string, stageSpecName: string, stageId: string) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
       
-      // Find the specific work order and row
+      // Find the specific work order and row using unique identifier
       const mappings = result?.rowMappings?.[woNo];
       if (mappings) {
+        // For multi-row scenarios, we need to find the exact mapping that matches this rowIndex
+        // Since multiple rows can have the same excelRowIndex but different stage mappings
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         
         if (mappingIndex >= 0) {
@@ -141,7 +170,9 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             mappedStageId: stageId,
-            mappedStageName: stageName,
+            mappedStageName: availableStages.find(s => s.id === stageId)?.name || 'Unknown Stage',
+            mappedStageSpecId: stageSpecId,
+            mappedStageSpecName: stageSpecName,
             manualOverride: true,
             confidence: 100,
             isUnmapped: false
@@ -428,6 +459,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         <RowMappingTable
                           rowMappings={currentMappings}
                           availableStages={availableStages}
+                          stageSpecifications={stageSpecifications}
                           workOrderNumber={woNo}
                           onUpdateMapping={handleUpdateMapping}
                           onToggleManualOverride={handleToggleManualOverride}

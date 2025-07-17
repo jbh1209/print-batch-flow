@@ -6,17 +6,25 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, Edit3 } from "lucide-react";
 import type { RowMappingResult } from "@/utils/excel/types";
 
+interface StageSpecification {
+  id: string;
+  name: string;
+  production_stage_id: string;
+}
+
 interface RowMappingTableProps {
   rowMappings: RowMappingResult[];
   availableStages: { id: string; name: string; category: string }[];
+  stageSpecifications: { [stageId: string]: StageSpecification[] };
   workOrderNumber: string;
-  onUpdateMapping: (woNo: string, rowIndex: number, stageId: string, stageName: string) => void;
+  onUpdateMapping: (woNo: string, rowIndex: number, stageSpecId: string, stageSpecName: string, stageId: string) => void;
   onToggleManualOverride: (woNo: string, rowIndex: number) => void;
 }
 
 export const RowMappingTable: React.FC<RowMappingTableProps> = ({
   rowMappings,
   availableStages,
+  stageSpecifications,
   workOrderNumber,
   onUpdateMapping,
   onToggleManualOverride
@@ -40,10 +48,13 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
     return colors[category as keyof typeof colors] || colors.unknown;
   };
 
-  const getFilteredStages = (category: string) => {
-    return availableStages.filter(stage => 
-      category === 'unknown' || stage.category === category
-    );
+  const getStageSpecifications = (stageId: string) => {
+    return stageSpecifications[stageId] || [];
+  };
+
+  // Create unique identifier for each row mapping to handle multi-rows correctly
+  const getUniqueRowId = (mapping: RowMappingResult) => {
+    return `${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}-${mapping.instanceId || ''}`;
   };
 
   return (
@@ -73,7 +84,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
           </TableHeader>
         <TableBody>
           {rowMappings.map((mapping, index) => (
-            <TableRow key={index} className={mapping.isUnmapped ? "bg-red-50" : ""}>
+            <TableRow key={getUniqueRowId(mapping)} className={mapping.isUnmapped ? "bg-red-50" : ""}>
               <TableCell className="font-mono text-sm">
                 {mapping.excelRowIndex + 1}
               </TableCell>
@@ -101,21 +112,33 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
               <TableCell>
                 {mapping.manualOverride ? (
                   <Select
-                    value={mapping.mappedStageId || ""}
-                    onValueChange={(stageId) => {
-                      const stage = availableStages.find(s => s.id === stageId);
-                      if (stage) {
-                        onUpdateMapping(workOrderNumber, mapping.excelRowIndex, stageId, stage.name);
+                    value={mapping.mappedStageSpecId || ""}
+                    onValueChange={(stageSpecId) => {
+                      // Find the stage specification and its parent stage
+                      let selectedStageSpec: StageSpecification | undefined;
+                      let parentStageId = '';
+                      
+                      for (const [stageId, specs] of Object.entries(stageSpecifications)) {
+                        const spec = specs.find(s => s.id === stageSpecId);
+                        if (spec) {
+                          selectedStageSpec = spec;
+                          parentStageId = stageId;
+                          break;
+                        }
+                      }
+                      
+                      if (selectedStageSpec && parentStageId) {
+                        onUpdateMapping(workOrderNumber, mapping.excelRowIndex, stageSpecId, selectedStageSpec.name, parentStageId);
                       }
                     }}
                   >
                     <SelectTrigger className="h-8 min-w-[200px]">
-                      <SelectValue placeholder="Select stage..." />
+                      <SelectValue placeholder="Select specification..." />
                     </SelectTrigger>
                     <SelectContent className="z-50 bg-background">
-                      {getFilteredStages(mapping.category).map((stage) => (
-                        <SelectItem key={stage.id} value={stage.id}>
-                          {stage.name}
+                      {mapping.mappedStageId && getStageSpecifications(mapping.mappedStageId).map((stageSpec) => (
+                        <SelectItem key={stageSpec.id} value={stageSpec.id}>
+                          {stageSpec.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -172,6 +195,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                   size="sm"
                   onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
                   className="h-8 w-8 p-0"
+                  title={`Edit row ${mapping.excelRowIndex + 1}: ${mapping.groupName}`}
                 >
                   {mapping.manualOverride ? (
                     <CheckCircle className="h-4 w-4 text-green-600" />
