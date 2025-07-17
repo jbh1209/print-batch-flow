@@ -94,10 +94,11 @@ export class EnhancedStageMapper {
     excelRows: any[][],
     headers: string[],
     paperSpecs?: GroupSpecifications | null,
-    packagingSpecs?: GroupSpecifications | null
+    packagingSpecs?: GroupSpecifications | null,
+    deliverySpecs?: GroupSpecifications | null
   ): RowMappingResult[] {
     this.logger.addDebugInfo(`Creating intelligent row mappings with ${excelRows.length} Excel rows and ${headers.length} headers`);
-    this.logger.addDebugInfo(`Input specifications - Printing: ${printingSpecs ? Object.keys(printingSpecs).length : 0}, Finishing: ${finishingSpecs ? Object.keys(finishingSpecs).length : 0}, Prepress: ${prepressSpecs ? Object.keys(prepressSpecs).length : 0}, Packaging: ${packagingSpecs ? Object.keys(packagingSpecs).length : 0}`);
+    this.logger.addDebugInfo(`Input specifications - Printing: ${printingSpecs ? Object.keys(printingSpecs).length : 0}, Finishing: ${finishingSpecs ? Object.keys(finishingSpecs).length : 0}, Prepress: ${prepressSpecs ? Object.keys(prepressSpecs).length : 0}, Packaging: ${packagingSpecs ? Object.keys(packagingSpecs).length : 0}, Delivery: ${deliverySpecs ? Object.keys(deliverySpecs).length : 0}`);
     
     const rowMappings: RowMappingResult[] = [];
     let rowIndex = 0;
@@ -167,11 +168,27 @@ export class EnhancedStageMapper {
         packagingSpecs, 'packaging' as any, excelRows, headers, rowIndex
       );
       rowMappings.push(...packagingMappings);
-      this.logger.addDebugInfo(`Created ${packagingMappings.length} packaging specification mappings`);
+      rowIndex += packagingMappings.length;
+      this.logger.addDebugInfo(`Created ${packagingMappings.length} packaging specification mappings, rowIndex now: ${rowIndex}`);
       
       // Debug each packaging mapping
       packagingMappings.forEach((mapping, idx) => {
         this.logger.addDebugInfo(`Packaging mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+      });
+    }
+
+    // Process delivery specifications
+    if (deliverySpecs) {
+      this.logger.addDebugInfo(`Processing delivery specs: ${JSON.stringify(Object.keys(deliverySpecs))}`);
+      const deliveryMappings = this.createCategoryRowMappings(
+        deliverySpecs, 'delivery', excelRows, headers, rowIndex
+      );
+      rowMappings.push(...deliveryMappings);
+      this.logger.addDebugInfo(`Created ${deliveryMappings.length} delivery specification mappings`);
+      
+      // Debug each delivery mapping
+      deliveryMappings.forEach((mapping, idx) => {
+        this.logger.addDebugInfo(`Delivery mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
       });
     }
 
@@ -820,7 +837,8 @@ export class EnhancedStageMapper {
     prepressSpecs: GroupSpecifications | null,
     userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
     paperSpecs?: GroupSpecifications | null,  // Add optional paper specs parameter
-    packagingSpecs?: GroupSpecifications | null  // Add optional packaging specs parameter
+    packagingSpecs?: GroupSpecifications | null,  // Add optional packaging specs parameter
+    deliverySpecs?: GroupSpecifications | null  // Add optional delivery specs parameter
   ): StageMapping[] {
     const mappedStages: StageMapping[] = [];
     
@@ -860,6 +878,14 @@ export class EnhancedStageMapper {
       const packagingMappings = this.mapSpecificationsToStagesIntelligent(packagingSpecs, 'packaging' as any, userApprovedMappings);
       mappedStages.push(...packagingMappings);
       this.logger.addDebugInfo(`✅ Created ${packagingMappings.length} packaging stage mappings`);
+    }
+    
+    // Map delivery specifications
+    if (deliverySpecs) {
+      this.logger.addDebugInfo(`🚚 Processing ${Object.keys(deliverySpecs).length} delivery specifications`);
+      const deliveryMappings = this.mapSpecificationsToStagesIntelligent(deliverySpecs, 'delivery', userApprovedMappings);
+      mappedStages.push(...deliveryMappings);
+      this.logger.addDebugInfo(`✅ Created ${deliveryMappings.length} delivery stage mappings`);
     }
     
     // Apply DTP/PROOF deduplication logic
