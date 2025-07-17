@@ -31,6 +31,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
       printing: "bg-blue-100 text-blue-700",
       finishing: "bg-purple-100 text-purple-700",
       prepress: "bg-green-100 text-green-700",
+      packaging: "bg-amber-100 text-amber-700",
       delivery: "bg-orange-100 text-orange-700",
       unknown: "bg-gray-100 text-gray-700"
     };
