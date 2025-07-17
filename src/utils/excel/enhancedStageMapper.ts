@@ -739,6 +739,13 @@ export class EnhancedStageMapper {
         { patterns: ['wrap', 'wrapping'], stageName: 'Wrapping', confidence: 80 },
         { patterns: ['ship', 'shipping'], stageName: 'Shipping', confidence: 75 },
         { patterns: ['mail', 'mailing'], stageName: 'Mailing', confidence: 75 }
+      ],
+      delivery: [
+        { patterns: ['collect', 'collection', 'pickup', 'customer collect'], stageName: 'Shipping', confidence: 85 },
+        { patterns: ['local delivery', 'delivery', 'local'], stageName: 'Shipping', confidence: 85 },
+        { patterns: ['courier', 'post', 'mail'], stageName: 'Shipping', confidence: 80 },
+        { patterns: ['dispatch', 'ship'], stageName: 'Shipping', confidence: 80 },
+        { patterns: ['hand deliver'], stageName: 'Shipping', confidence: 75 }
       ]
     };
 
@@ -786,7 +793,8 @@ export class EnhancedStageMapper {
         name.includes('plate') || name.includes('rip')) {
       return 'prepress';
     }
-    if (name.includes('deliver') || name.includes('dispatch') || name.includes('ship')) {
+    if (name.includes('deliver') || name.includes('dispatch') || name.includes('ship') || 
+        name.includes('collect') || name.includes('courier') || name.includes('post') || name.includes('mail')) {
       return 'delivery';
     }
     if (name.includes('packag') || name.includes('box') || name.includes('wrap')) {
