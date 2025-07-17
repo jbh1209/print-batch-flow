@@ -9,13 +9,15 @@ import type { RowMappingResult } from "@/utils/excel/types";
 interface RowMappingTableProps {
   rowMappings: RowMappingResult[];
   availableStages: { id: string; name: string; category: string }[];
-  onUpdateMapping: (rowIndex: number, stageId: string, stageName: string) => void;
-  onToggleManualOverride: (rowIndex: number) => void;
+  workOrderNumber: string;
+  onUpdateMapping: (woNo: string, rowIndex: number, stageId: string, stageName: string) => void;
+  onToggleManualOverride: (woNo: string, rowIndex: number) => void;
 }
 
 export const RowMappingTable: React.FC<RowMappingTableProps> = ({
   rowMappings,
   availableStages,
+  workOrderNumber,
   onUpdateMapping,
   onToggleManualOverride
 }) => {
@@ -103,7 +105,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                     onValueChange={(stageId) => {
                       const stage = availableStages.find(s => s.id === stageId);
                       if (stage) {
-                        onUpdateMapping(mapping.excelRowIndex, stageId, stage.name);
+                        onUpdateMapping(workOrderNumber, mapping.excelRowIndex, stageId, stage.name);
                       }
                     }}
                   >
@@ -168,7 +170,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onToggleManualOverride(mapping.excelRowIndex)}
+                  onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
                   className="h-8 w-8 p-0"
                 >
                   {mapping.manualOverride ? (

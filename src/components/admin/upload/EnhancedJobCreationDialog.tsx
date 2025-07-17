@@ -125,12 +125,13 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     return 'unknown';
   };
 
-  const handleUpdateMapping = (rowIndex: number, stageId: string, stageName: string) => {
+  const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
       
-      // Find which work order this row belongs to
-      for (const [woNo, mappings] of Object.entries(result?.rowMappings || {})) {
+      // Find the specific work order and row
+      const mappings = result?.rowMappings?.[woNo];
+      if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         
         if (mappingIndex >= 0) {
@@ -146,7 +147,6 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
             isUnmapped: false
           };
           updated[woNo] = mappingsCopy;
-          break;
         }
       }
       
@@ -163,12 +163,13 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     }
   };
 
-  const handleToggleManualOverride = (rowIndex: number) => {
+  const handleToggleManualOverride = (woNo: string, rowIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
       
-      // Find which work order this row belongs to
-      for (const [woNo, mappings] of Object.entries(result?.rowMappings || {})) {
+      // Find the specific work order and row
+      const mappings = result?.rowMappings?.[woNo];
+      if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         
         if (mappingIndex >= 0) {
@@ -180,7 +181,6 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
             manualOverride: !mappingsCopy[mappingIndex].manualOverride
           };
           updated[woNo] = mappingsCopy;
-          break;
         }
       }
       
@@ -428,8 +428,9 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         <RowMappingTable
                           rowMappings={currentMappings}
                           availableStages={availableStages}
-                        onUpdateMapping={handleUpdateMapping}
-                        onToggleManualOverride={handleToggleManualOverride}
+                          workOrderNumber={woNo}
+                          onUpdateMapping={handleUpdateMapping}
+                          onToggleManualOverride={handleToggleManualOverride}
                         />
                       </CardContent>
                     </Card>
