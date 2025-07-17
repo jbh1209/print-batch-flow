@@ -519,7 +519,7 @@ export class EnhancedStageMapper {
       }
       // If no stage found and mapping uses stage_specification_id, look up the specification
       else if (dbMapping.stage_specification_id) {
-        const specification = this.specifications?.find(s => s.id === dbMapping.stage_specification_id);
+        const specification = this.stageSpecs?.find(s => s.id === dbMapping.stage_specification_id);
         if (specification) {
           // Find the parent stage for this specification
           stage = this.stages.find(s => s.id === specification.production_stage_id);
