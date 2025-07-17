@@ -119,12 +119,12 @@ export class EnhancedStageMapper {
         printingSpecs, paperMappings, excelRows, headers, rowIndex
       );
       rowMappings.push(...printingMappings);
-      rowIndex += Object.keys(printingSpecs).length;
-      this.logger.addDebugInfo(`Created ${printingMappings.length} printing specification mappings`);
+      rowIndex += printingMappings.length; // FIX: Use actual mappings created, not spec count
+      this.logger.addDebugInfo(`Created ${printingMappings.length} printing specification mappings, rowIndex now: ${rowIndex}`);
       
       // Debug each printing mapping
       printingMappings.forEach((mapping, idx) => {
-        this.logger.addDebugInfo(`Printing mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+        this.logger.addDebugInfo(`Printing mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}, excelRowIndex: ${mapping.excelRowIndex}`);
       });
     }
 
@@ -135,12 +135,12 @@ export class EnhancedStageMapper {
         finishingSpecs, 'finishing', excelRows, headers, rowIndex
       );
       rowMappings.push(...finishingMappings);
-      rowIndex += Object.keys(finishingSpecs).length;
-      this.logger.addDebugInfo(`Created ${finishingMappings.length} finishing specification mappings`);
+      rowIndex += finishingMappings.length; // FIX: Use actual mappings created, not spec count
+      this.logger.addDebugInfo(`Created ${finishingMappings.length} finishing specification mappings, rowIndex now: ${rowIndex}`);
       
       // Debug each finishing mapping
       finishingMappings.forEach((mapping, idx) => {
-        this.logger.addDebugInfo(`Finishing mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+        this.logger.addDebugInfo(`Finishing mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}, excelRowIndex: ${mapping.excelRowIndex}`);
       });
     }
 
@@ -151,11 +151,12 @@ export class EnhancedStageMapper {
         prepressSpecs, 'prepress', excelRows, headers, rowIndex
       );
       rowMappings.push(...prepressMappings);
-      this.logger.addDebugInfo(`Created ${prepressMappings.length} prepress specification mappings`);
+      rowIndex += prepressMappings.length; // FIX: Use actual mappings created, not spec count
+      this.logger.addDebugInfo(`Created ${prepressMappings.length} prepress specification mappings, rowIndex now: ${rowIndex}`);
       
       // Debug each prepress mapping
       prepressMappings.forEach((mapping, idx) => {
-        this.logger.addDebugInfo(`Prepress mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+        this.logger.addDebugInfo(`Prepress mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}, excelRowIndex: ${mapping.excelRowIndex}`);
       });
     }
 
