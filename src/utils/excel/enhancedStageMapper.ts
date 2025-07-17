@@ -510,15 +510,33 @@ export class EnhancedStageMapper {
     // Strategy 1: Database mapping lookup (highest confidence)
     const dbMapping = this.findDatabaseMapping(searchText);
     if (dbMapping) {
-      const stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+      let stage = null;
+      let specificationName = null;
+
+      // Check if mapping uses production_stage_id
+      if (dbMapping.production_stage_id) {
+        stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+      }
+      // If no stage found and mapping uses stage_specification_id, look up the specification
+      else if (dbMapping.stage_specification_id) {
+        const specification = this.specifications?.find(s => s.id === dbMapping.stage_specification_id);
+        if (specification) {
+          // Find the parent stage for this specification
+          stage = this.stages.find(s => s.id === specification.production_stage_id);
+          specificationName = specification.name;
+        }
+      }
+
       if (stage) {
-        this.logger.addDebugInfo(`Found database mapping: "${searchText}" -> "${stage.name}" (confidence: ${dbMapping.confidence_score})`);
+        this.logger.addDebugInfo(`Found database mapping: "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''} (confidence: ${dbMapping.confidence_score})`);
         return {
           stageId: stage.id,
           stageName: stage.name,
           confidence: Math.min(dbMapping.confidence_score + 10, 100), // Boost verified mappings
           source: 'database',
-          category: this.inferStageCategory(stage.name)
+          category: this.inferStageCategory(stage.name),
+          stageSpecId: dbMapping.stage_specification_id,
+          stageSpecName: specificationName
         };
       }
     }
