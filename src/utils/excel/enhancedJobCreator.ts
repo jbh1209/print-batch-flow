@@ -264,5 +264,3 @@ export class EnhancedJobCreator {
     };
   }
 }
-
-export type { EnhancedJobCreationResult };
