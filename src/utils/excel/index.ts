@@ -7,3 +7,4 @@ export * from './dataValidator';
 export * from './parser';
 export * from './types';
 export { EnhancedStageMapper, type EnhancedStageMapperResult } from './enhancedStageMapper';
+export { EnhancedJobCreator, type EnhancedJobCreationResult } from './enhancedJobCreator';

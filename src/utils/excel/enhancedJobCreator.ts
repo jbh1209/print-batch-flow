@@ -1,5 +1,5 @@
 import type { ExcelImportDebugger } from './debugger';
-import type { ParsedJob } from './types';
+import type { ParsedJob, EnhancedJobCreationResult } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
 import { EnhancedMappingProcessor } from './enhancedMappingProcessor';
@@ -264,3 +264,5 @@ export class EnhancedJobCreator {
     };
   }
 }
+
+export type { EnhancedJobCreationResult };

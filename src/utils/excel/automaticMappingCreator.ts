@@ -1,5 +1,5 @@
 import type { ExcelImportDebugger } from './debugger';
-import type { EnhancedMappingResult } from './enhancedMappingProcessor';
+import type { EnhancedMappingResult } from './types';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AutoMappingResult {
@@ -32,7 +32,7 @@ export class AutomaticMappingCreator {
       errors: []
     };
 
-    this.logger.addDebugInfo(`Starting automatic mapping creation with ${enhancedResult.jobs.length} jobs`);
+    this.logger.addDebugInfo(`Starting automatic mapping creation with ${enhancedResult.processedJobs?.length || 0} jobs`);
 
     // Process paper specification mappings
     await this.createPaperMappings(enhancedResult, minConfidenceThreshold, result);
@@ -53,7 +53,7 @@ export class AutomaticMappingCreator {
     minConfidence: number,
     result: AutoMappingResult
   ): Promise<void> {
-    for (const paperMapping of enhancedResult.paperMappings) {
+    for (const paperMapping of enhancedResult.paperMappings || []) {
       if (paperMapping.confidence < minConfidence) {
         this.logger.addDebugInfo(`Skipping paper mapping '${paperMapping.originalText}' - confidence too low: ${paperMapping.confidence}`);
         continue;
@@ -107,7 +107,7 @@ export class AutomaticMappingCreator {
     minConfidence: number,
     result: AutoMappingResult
   ): Promise<void> {
-    for (const deliveryMapping of enhancedResult.deliveryMappings) {
+    for (const deliveryMapping of enhancedResult.deliveryMappings || []) {
       if (deliveryMapping.confidence < minConfidence) {
         this.logger.addDebugInfo(`Skipping delivery mapping '${deliveryMapping.originalText}' - confidence too low: ${deliveryMapping.confidence}`);
         continue;
@@ -161,7 +161,7 @@ export class AutomaticMappingCreator {
     minConfidence: number,
     result: AutoMappingResult
   ): Promise<void> {
-    for (const enhancedMapping of enhancedResult.enhancedDeliveryMappings) {
+    for (const enhancedMapping of enhancedResult.enhancedDeliveryMappings || []) {
       if (enhancedMapping.confidence < minConfidence) {
         this.logger.addDebugInfo(`Skipping enhanced delivery mapping '${enhancedMapping.originalText}' - confidence too low: ${enhancedMapping.confidence}`);
         continue;
