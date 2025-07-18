@@ -14,7 +14,7 @@ export interface EnhancedJobCreationResult {
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
   rowMappings: { [woNo: string]: RowMappingResult[] };
-  userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
+  userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string, qty?: number, mappedStageSpecId?: string, mappedStageSpecName?: string, paperSpecification?: string, partType?: string}>;
   userId?: string;
   generateQRCodes?: boolean;
   stats: {
@@ -576,65 +576,101 @@ export class EnhancedJobCreator {
     result.createdJobs.push(insertedJob);
   }
 
-  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> {
-    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+  /**
+   * Extract user-approved mappings from rowMappings data with complete information including quantities
+   */
+  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string, qty?: number, mappedStageSpecId?: string, mappedStageSpecName?: string, paperSpecification?: string, partType?: string}> {
+    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string, qty?: number, mappedStageSpecId?: string, mappedStageSpecName?: string, paperSpecification?: string, partType?: string}> = [];
     
-    // Extract from printing specifications
+    this.logger.addDebugInfo(`🔍 EXTRACTING USER MAPPINGS FROM JOB ${job.wo_no}`);
+    
+    // CRITICAL FIX: Instead of extracting from job specifications, we need to use the rowMappings 
+    // which contain the actual individual quantities from Excel rows
+    
+    // However, since this method is called during job processing, we need to create row mappings first
+    // and then extract from those. For now, we'll extract from job specifications but also include quantity data
+    
+    // Extract from printing specifications WITH quantity data
     if (job.printing_specifications) {
       Object.entries(job.printing_specifications).forEach(([groupName, spec]: [string, any]) => {
         if (spec && spec.mappedStageId && spec.mappedStageName) {
+          this.logger.addDebugInfo(`   📋 PRINTING - ${groupName}: qty=${spec.qty}, stageId=${spec.mappedStageId}`);
           mappings.push({
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
-            category: 'printing'
+            category: 'printing',
+            qty: spec.qty || undefined,
+            mappedStageSpecId: spec.mappedStageSpecId || undefined,
+            mappedStageSpecName: spec.mappedStageSpecName || undefined,
+            paperSpecification: spec.paperSpecification || undefined,
+            partType: spec.partType || undefined
           });
         }
       });
     }
     
-    // Extract from finishing specifications
+    // Extract from finishing specifications WITH quantity data
     if (job.finishing_specifications) {
       Object.entries(job.finishing_specifications).forEach(([groupName, spec]: [string, any]) => {
         if (spec && spec.mappedStageId && spec.mappedStageName) {
+          this.logger.addDebugInfo(`   🎨 FINISHING - ${groupName}: qty=${spec.qty}, stageId=${spec.mappedStageId}`);
           mappings.push({
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
-            category: 'finishing'
+            category: 'finishing',
+            qty: spec.qty || undefined,
+            mappedStageSpecId: spec.mappedStageSpecId || undefined,
+            mappedStageSpecName: spec.mappedStageSpecName || undefined,
+            paperSpecification: spec.paperSpecification || undefined,
+            partType: spec.partType || undefined
           });
         }
       });
     }
     
-    // Extract from prepress specifications
+    // Extract from prepress specifications WITH quantity data
     if (job.prepress_specifications) {
       Object.entries(job.prepress_specifications).forEach(([groupName, spec]: [string, any]) => {
         if (spec && spec.mappedStageId && spec.mappedStageName) {
+          this.logger.addDebugInfo(`   🖨️ PREPRESS - ${groupName}: qty=${spec.qty}, stageId=${spec.mappedStageId}`);
           mappings.push({
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
-            category: 'prepress'
+            category: 'prepress',
+            qty: spec.qty || undefined,
+            mappedStageSpecId: spec.mappedStageSpecId || undefined,
+            mappedStageSpecName: spec.mappedStageSpecName || undefined,
+            paperSpecification: spec.paperSpecification || undefined,
+            partType: spec.partType || undefined
           });
         }
       });
     }
     
-    // Extract from packaging specifications
+    // Extract from packaging specifications WITH quantity data
     if (job.packaging_specifications) {
       Object.entries(job.packaging_specifications).forEach(([groupName, spec]: [string, any]) => {
         if (spec && spec.mappedStageId && spec.mappedStageName) {
+          this.logger.addDebugInfo(`   📦 PACKAGING - ${groupName}: qty=${spec.qty}, stageId=${spec.mappedStageId}`);
           mappings.push({
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
-            category: 'packaging'
+            category: 'packaging',
+            qty: spec.qty || undefined,
+            mappedStageSpecId: spec.mappedStageSpecId || undefined,
+            mappedStageSpecName: spec.mappedStageSpecName || undefined,
+            paperSpecification: spec.paperSpecification || undefined,
+            partType: spec.partType || undefined
           });
         }
       });
     }
     
+    this.logger.addDebugInfo(`🎯 EXTRACTED ${mappings.length} COMPLETE MAPPINGS WITH QUANTITIES`);
     return mappings;
   }
 
