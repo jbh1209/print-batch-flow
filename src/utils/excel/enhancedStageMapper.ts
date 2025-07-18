@@ -213,6 +213,28 @@ export class EnhancedStageMapper {
     headers: string[],
     startRowIndex: number
   ): RowMappingResult[] {
+    // Helper function to safely extract cell values
+    const safeGetCellValue = (row: any[], index: number): any => {
+      if (index === -1 || !row || index >= row.length) return '';
+      const value = row[index];
+      return value === null || value === undefined ? '' : value;
+    };
+
+    // Find quantity column index by looking for common quantity headers
+    const findQuantityColumnIndex = (): number => {
+      const qtyHeaders = ['qty', 'quantity', 'qnty', 'quant'];
+      for (let i = 0; i < headers.length; i++) {
+        const header = String(headers[i] || '').toLowerCase().trim();
+        if (qtyHeaders.some(qtyHeader => header.includes(qtyHeader))) {
+          this.logger.addDebugInfo(`Found quantity column at index ${i}: "${headers[i]}"`);
+          return i;
+        }
+      }
+      this.logger.addDebugInfo(`No quantity column found in headers`);
+      return -1;
+    };
+
+    const qtyColumnIndex = findQuantityColumnIndex();
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
@@ -253,7 +275,7 @@ export class EnhancedStageMapper {
         excelData: excelRows[currentRowIndex] || [],
         groupName,
         description: spec.description || '',
-        qty: spec.qty || 0,
+        qty: qtyColumnIndex !== -1 ? parseInt(String(safeGetCellValue(excelRows[currentRowIndex] || [], qtyColumnIndex) || '0').replace(/[^0-9]/g, '')) || 0 : (spec.qty || 0),
         woQty: spec.wo_qty || 0,
         mappedStageId: stageMapping?.stageId || null,
         mappedStageName: stageMapping?.stageName || null,
@@ -523,7 +545,7 @@ export class EnhancedStageMapper {
           excelData: excelRows[printingOp.rowIndex] || [],
           groupName: printingOp.groupName,
           description: printingOp.spec.description || '',
-          qty: printingOp.spec.qty || 0,
+          qty: qtyColumnIndex !== -1 ? parseInt(String(safeGetCellValue(excelRows[printingOp.rowIndex] || [], qtyColumnIndex) || '0').replace(/[^0-9]/g, '')) || 0 : (printingOp.spec.qty || 0),
           woQty: printingOp.spec.wo_qty || 0,
           mappedStageId: stageMapping?.stageId || null,
           mappedStageName: stageMapping?.stageName || null,
