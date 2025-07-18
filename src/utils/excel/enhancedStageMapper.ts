@@ -435,7 +435,7 @@ export class EnhancedStageMapper {
         excelData: excelRows[0] || [],
         groupName: `${coverPrintingOp.groupName} - ${coverPaper.mappedSpec}`,
         description: `${coverPrintingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
-        qty: coverPrintingOp.spec.qty || 0,
+        qty: coverPaper.qty, // Use paper quantity for cover printing
         woQty: coverPrintingOp.spec.wo_qty || 0,
         mappedStageId: coverStageMapping?.stageId || null,
         mappedStageName: coverStageMapping?.stageName || null,
@@ -467,7 +467,7 @@ export class EnhancedStageMapper {
         excelData: excelRows[0] || [],
         groupName: `${textPrintingOp.groupName} - ${textPaper.mappedSpec}`,
         description: `${textPrintingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
-        qty: textPrintingOp.spec.qty || 0,
+        qty: textPaper.qty, // Use paper quantity for text printing
         woQty: textPrintingOp.spec.wo_qty || 0,
         mappedStageId: textStageMapping?.stageId || null,
         mappedStageName: textStageMapping?.stageName || null,
