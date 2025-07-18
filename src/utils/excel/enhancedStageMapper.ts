@@ -5,7 +5,14 @@ import type { ParsedJob } from './types';
 export interface StageMapping {
   stageId: string;
   stageName: string;
-  category: string;
+  stageSpecId?: string;
+  stageSpecName?: string;
+  confidence: number;
+  specifications: string[];
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging';
+  instanceId?: string;
+  quantity?: number;
+  paperSpecification?: string;
 }
 
 export interface RowMappingResult {
@@ -17,7 +24,14 @@ export interface RowMappingResult {
   woQty: number;
   mappedStageId: string | null;
   mappedStageName: string | null;
-  category: string;
+  mappedStageSpecId: string | null;
+  mappedStageSpecName: string | null;
+  confidence: number;
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'paper' | 'unknown';
+  manualOverride?: boolean;
+  isUnmapped: boolean;
+  instanceId?: string;
+  paperSpecification?: string;
   isManualMapping?: boolean;
 }
 
@@ -86,18 +100,24 @@ export class EnhancedStageMapper {
         woQty: job.qty || 0,
         mappedStageId: null,
         mappedStageName: null,
-        category: 'production'
+        mappedStageSpecId: null,
+        mappedStageSpecName: null,
+        confidence: 0,
+        category: 'unknown',
+        isUnmapped: true
       };
 
       // Check for user-approved stage mappings
       const userMapping = this.userApprovedMappings.find(mapping => 
-        mapping.category === 'production' || mapping.groupName === job.wo_no
+        mapping.category === 'prepress'
       );
 
       if (userMapping) {
         baseMapping.mappedStageId = userMapping.stageId;
         baseMapping.mappedStageName = userMapping.stageName;
-        baseMapping.category = userMapping.category;
+        baseMapping.category = userMapping.category as any;
+        baseMapping.confidence = 1.0;
+        baseMapping.isUnmapped = false;
         baseMapping.isManualMapping = true;
         
         this.logger.addDebugInfo(`🎯 Applied user mapping for ${job.wo_no}: ${userMapping.stageName}`);
@@ -109,6 +129,8 @@ export class EnhancedStageMapper {
           baseMapping.mappedStageId = autoMapping.stageId;
           baseMapping.mappedStageName = autoMapping.stageName;
           baseMapping.category = autoMapping.category;
+          baseMapping.confidence = autoMapping.confidence;
+          baseMapping.isUnmapped = false;
           
           this.logger.addDebugInfo(`🎯 Auto-mapped ${job.wo_no} to: ${autoMapping.stageName}`);
           mappedRows.push(baseMapping);
@@ -133,6 +155,8 @@ export class EnhancedStageMapper {
           printingMapping.mappedStageId = printingStageMapping.stageId;
           printingMapping.mappedStageName = printingStageMapping.stageName;
           printingMapping.category = printingStageMapping.category;
+          printingMapping.confidence = printingStageMapping.confidence;
+          printingMapping.isUnmapped = false;
           
           this.logger.addDebugInfo(`🎯 Mapped printing operation for ${job.wo_no}: ${printingStageMapping.stageName}, Qty: ${printingMapping.qty}`);
           printingOperations.push(printingMapping);
@@ -175,7 +199,9 @@ export class EnhancedStageMapper {
         return {
           stageId: matchingStage.id,
           stageName: matchingStage.name,
-          category: 'production'
+          category: 'prepress' as any,
+          confidence: 0.7,
+          specifications: []
         };
       }
     }
@@ -198,7 +224,138 @@ export class EnhancedStageMapper {
       return {
         stageId: printingStage.id,
         stageName: printingStage.name,
-        category: 'printing'
+        category: 'printing',
+        confidence: 0.8,
+        specifications: []
+      };
+    }
+    
+    return null;
+  }
+
+  /**
+   * INTELLIGENT MAPPING - Maps groups to stages with user-approved mappings
+   */
+  mapGroupsToStagesIntelligent(
+    printingSpecs: any,
+    finishingSpecs: any,
+    prepressSpecs: any,
+    userApprovedMappings?: any[],
+    paperSpecs?: any,
+    packagingSpecs?: any,
+    deliverySpecs?: any
+  ): StageMapping[] {
+    this.logger.addDebugInfo(`🎯 INTELLIGENT MAPPING: Processing specifications`);
+    
+    const mappedStages: StageMapping[] = [];
+    
+    // Process each specification group and map to stages
+    [printingSpecs, finishingSpecs, prepressSpecs, paperSpecs, packagingSpecs, deliverySpecs]
+      .filter(specs => specs)
+      .forEach((specs, index) => {
+        const categories = ['printing', 'finishing', 'prepress', 'paper', 'packaging', 'delivery'];
+        const category = categories[index];
+        
+        if (specs.groupName) {
+          // Check for user-approved mapping first
+          const userMapping = userApprovedMappings?.find(mapping => 
+            mapping.groupName === specs.groupName
+          );
+          
+          if (userMapping) {
+            mappedStages.push({
+              stageId: userMapping.mappedStageId,
+              stageName: userMapping.mappedStageName,
+              category: userMapping.category as any,
+              confidence: 1.0,
+              specifications: []
+            });
+          } else {
+            // Auto-detect stage
+            const autoMapping = this.findStageByCategory(category);
+            if (autoMapping) {
+              mappedStages.push(autoMapping);
+            }
+          }
+        }
+      });
+    
+    return mappedStages;
+  }
+
+  /**
+   * INTELLIGENT ROW MAPPINGS - Creates detailed row mappings for UI
+   */
+  createIntelligentRowMappings(
+    printingSpecs: any,
+    finishingSpecs: any,
+    prepressSpecs: any,
+    excelRows?: any[][],
+    headers?: string[],
+    paperSpecs?: any,
+    packagingSpecs?: any,
+    deliverySpecs?: any
+  ): RowMappingResult[] {
+    this.logger.addDebugInfo(`🎯 CREATING INTELLIGENT ROW MAPPINGS`);
+    
+    const rowMappings: RowMappingResult[] = [];
+    
+    // Process each specification and create row mapping
+    [printingSpecs, finishingSpecs, prepressSpecs, paperSpecs, packagingSpecs, deliverySpecs]
+      .filter(specs => specs)
+      .forEach((specs, index) => {
+        const categories = ['printing', 'finishing', 'prepress', 'paper', 'packaging', 'delivery'];
+        const category = categories[index];
+        
+        if (specs.groupName) {
+          const mapping: RowMappingResult = {
+            excelRowIndex: 0,
+            excelData: excelRows?.[0] || [],
+            groupName: specs.groupName,
+            description: specs.description || '',
+            qty: specs.qty || 0,
+            woQty: specs.qty || 0,
+            mappedStageId: null,
+            mappedStageName: null,
+            mappedStageSpecId: null,
+            mappedStageSpecName: null,
+            confidence: 0,
+            category: category as any,
+            isUnmapped: true
+          };
+          
+          // Try to find matching stage
+          const stageMapping = this.findStageByCategory(category);
+          if (stageMapping) {
+            mapping.mappedStageId = stageMapping.stageId;
+            mapping.mappedStageName = stageMapping.stageName;
+            mapping.confidence = stageMapping.confidence;
+            mapping.isUnmapped = false;
+          }
+          
+          rowMappings.push(mapping);
+        }
+      });
+    
+    return rowMappings;
+  }
+
+  /**
+   * Find stage by category
+   */
+  private findStageByCategory(category: string): StageMapping | null {
+    const matchingStage = this.availableStages.find(stage => 
+      stage.name.toLowerCase().includes(category) ||
+      category.includes(stage.name.toLowerCase())
+    );
+    
+    if (matchingStage) {
+      return {
+        stageId: matchingStage.id,
+        stageName: matchingStage.name,
+        category: category as any,
+        confidence: 0.8,
+        specifications: []
       };
     }
     
