@@ -392,12 +392,52 @@ export class EnhancedStageMapper {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
-    // Get printing operations from specs
-    const printingOps: Array<{groupName: string, spec: any, rowIndex: number}> = [];
+    // CRITICAL FIX: Create printing operations directly from Excel rows to preserve individual quantities
+    // Instead of using consolidated printingSpecs, find Excel rows that match printing operations
+    const printingOps: Array<{groupName: string, spec: any, rowIndex: number, originalExcelRow: any[]}> = [];
     
-    for (const [groupName, spec] of Object.entries(printingSpecs)) {
-      printingOps.push({groupName, spec, rowIndex: currentRowIndex});
-      currentRowIndex++;
+    // Find Excel rows that correspond to printing operations
+    for (let i = 0; i < excelRows.length; i++) {
+      const row = excelRows[i];
+      if (!row || row.length === 0) continue;
+      
+      // Check if this row matches any printing specification
+      for (const [groupName, spec] of Object.entries(printingSpecs)) {
+        // Match by checking if the row description/operation matches the group
+        const rowText = row.join(' ').toLowerCase();
+        const groupText = groupName.toLowerCase();
+        
+        // Simple matching - if the group name appears in the row or has similar content
+        if (rowText.includes(groupText) || groupText.includes(rowText.split(' ')[0])) {
+          // Extract quantity from this specific Excel row
+          const qtyIndex = headers.findIndex(h => h.toLowerCase().includes('qty'));
+          const rowQty = qtyIndex >= 0 ? parseInt(row[qtyIndex]) || 0 : spec.qty || 0;
+          
+          // Create a spec object with the row's actual quantity
+          const rowSpec = {
+            ...spec,
+            qty: rowQty,
+            wo_qty: spec.wo_qty || 0,
+            description: spec.description || row.join(' ')
+          };
+          
+          printingOps.push({
+            groupName, 
+            spec: rowSpec, 
+            rowIndex: currentRowIndex,
+            originalExcelRow: row
+          });
+          currentRowIndex++;
+        }
+      }
+    }
+    
+    // If no Excel rows found, fall back to original method
+    if (printingOps.length === 0) {
+      for (const [groupName, spec] of Object.entries(printingSpecs)) {
+        printingOps.push({groupName, spec, rowIndex: currentRowIndex, originalExcelRow: []});
+        currentRowIndex++;
+      }
     }
 
     this.logger.addDebugInfo(`Found ${printingOps.length} printing operations and ${paperMappings.length} paper specifications`);
