@@ -431,7 +431,7 @@ export class EnhancedStageMapper {
 
       mappings.push({
         excelRowIndex: coverPrintingOp.rowIndex,
-        excelData: excelRows[coverPrintingOp.rowIndex] || [],
+        excelData: excelRows[0] || [],
         groupName: `${coverPrintingOp.groupName} - ${coverPaper.mappedSpec}`,
         description: `${coverPrintingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
         qty: coverPaper.qty,
@@ -463,7 +463,7 @@ export class EnhancedStageMapper {
 
       mappings.push({
         excelRowIndex: textPrintingOp.rowIndex,
-        excelData: excelRows[textPrintingOp.rowIndex] || [],
+        excelData: excelRows[0] || [],
         groupName: `${textPrintingOp.groupName} - ${textPaper.mappedSpec}`,
         description: `${textPrintingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
         qty: textPaper.qty,
