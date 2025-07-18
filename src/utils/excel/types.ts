@@ -129,6 +129,10 @@ export interface RowMappingResult {
   instanceId?: string;
   paperSpecification?: string;
   partType?: string;
+  // Enhanced row management
+  ignored?: boolean;
+  isCustomRow?: boolean;
+  customRowId?: string;
 }
 
 export interface StageMapping {

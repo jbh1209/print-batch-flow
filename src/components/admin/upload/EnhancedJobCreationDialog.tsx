@@ -13,6 +13,7 @@ import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapp
 import type { RowMappingResult } from "@/utils/excel/types";
 import { RowMappingTable } from "./RowMappingTable";
 import { supabase } from "@/integrations/supabase/client";
+import { AddRowDialog } from "./AddRowDialog";
 
 interface EnhancedJobCreationDialogProps {
   open: boolean;
@@ -46,6 +47,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   const [availableCategories, setAvailableCategories] = useState<AvailableCategory[]>([]);
   const [stageSpecifications, setStageSpecifications] = useState<{ [stageId: string]: any[] }>({});
   const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
+  const [showAddRowDialog, setShowAddRowDialog] = useState(false);
+  const [selectedWoForAdd, setSelectedWoForAdd] = useState<string>("");
 
   useEffect(() => {
     loadAvailableStages();
@@ -219,9 +222,58 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     });
   };
 
+  const handleIgnoreRow = (woNo: string, rowIndex: number) => {
+    setUpdatedRowMappings(prev => {
+      const updated = { ...prev };
+      const mappings = result?.rowMappings?.[woNo];
+      if (mappings) {
+        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
+        if (mappingIndex >= 0) {
+          if (!updated[woNo]) updated[woNo] = [...mappings];
+          const mappingsCopy = [...updated[woNo]];
+          mappingsCopy[mappingIndex] = {
+            ...mappingsCopy[mappingIndex],
+            ignored: true
+          };
+          updated[woNo] = mappingsCopy;
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleRestoreRow = (woNo: string, rowIndex: number) => {
+    setUpdatedRowMappings(prev => {
+      const updated = { ...prev };
+      const mappings = result?.rowMappings?.[woNo];
+      if (mappings) {
+        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
+        if (mappingIndex >= 0) {
+          if (!updated[woNo]) updated[woNo] = [...mappings];
+          const mappingsCopy = [...updated[woNo]];
+          mappingsCopy[mappingIndex] = {
+            ...mappingsCopy[mappingIndex],
+            ignored: false
+          };
+          updated[woNo] = mappingsCopy;
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleAddCustomRow = (woNo: string, newRow: RowMappingResult) => {
+    setUpdatedRowMappings(prev => {
+      const updated = { ...prev };
+      if (!updated[woNo]) updated[woNo] = [];
+      updated[woNo] = [...updated[woNo], newRow];
+      return updated;
+    });
+  };
+
   const getTotalUnmappedRows = () => {
     return Object.values(updatedRowMappings).reduce((total, mappings) => {
-      return total + mappings.filter(m => m.isUnmapped).length;
+      return total + mappings.filter(m => m.isUnmapped && !m.ignored).length;
     }, 0);
   };
 
@@ -258,8 +310,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
         });
         
         // Include ALL valid mappings (both auto-mapped AND manually overridden)
-        // The key is that the user is confirming these mappings by clicking "Confirm"
-        if (mapping.mappedStageId && mapping.mappedStageName && !mapping.isUnmapped) {
+        // But exclude ignored rows from the final job creation
+        if (mapping.mappedStageId && mapping.mappedStageName && !mapping.isUnmapped && !mapping.ignored) {
           // Find the stage to determine its category
           const stage = availableStages.find(s => s.id === mapping.mappedStageId);
           
@@ -441,13 +493,29 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         <CardTitle className="text-base flex items-center justify-between">
                           <span>Work Order: {woNo}</span>
                           <div className="flex items-center gap-2">
-                            {currentMappings.filter(m => m.isUnmapped).length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedWoForAdd(woNo);
+                                setShowAddRowDialog(true);
+                              }}
+                              className="text-xs"
+                            >
+                              + Add Row
+                            </Button>
+                            {currentMappings.filter(m => m.isUnmapped && !m.ignored).length > 0 && (
                               <Badge variant="destructive" className="text-xs">
-                                {currentMappings.filter(m => m.isUnmapped).length} unmapped
+                                {currentMappings.filter(m => m.isUnmapped && !m.ignored).length} unmapped
+                              </Badge>
+                            )}
+                            {currentMappings.filter(m => m.ignored).length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {currentMappings.filter(m => m.ignored).length} ignored
                               </Badge>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {currentMappings.length} rows
+                              {currentMappings.filter(m => !m.ignored).length}/{currentMappings.length} active
                             </Badge>
                           </div>
                         </CardTitle>
@@ -463,6 +531,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                           workOrderNumber={woNo}
                           onUpdateMapping={handleUpdateMapping}
                           onToggleManualOverride={handleToggleManualOverride}
+                          onIgnoreRow={handleIgnoreRow}
+                          onRestoreRow={handleRestoreRow}
                         />
                       </CardContent>
                     </Card>
@@ -649,6 +719,16 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
             </div>
           </div>
         ) : null}
+
+        {/* Add Row Dialog */}
+        <AddRowDialog
+          open={showAddRowDialog}
+          onOpenChange={setShowAddRowDialog}
+          woNo={selectedWoForAdd}
+          availableStages={availableStages}
+          stageSpecifications={stageSpecifications}
+          onAddRow={(newRow) => handleAddCustomRow(selectedWoForAdd, newRow)}
+        />
       </DialogContent>
     </Dialog>
   );

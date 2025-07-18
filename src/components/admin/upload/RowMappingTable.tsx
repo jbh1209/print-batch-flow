@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle, Edit3 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Edit3, Trash2, RotateCcw, Plus } from "lucide-react";
 import type { RowMappingResult } from "@/utils/excel/types";
 
 interface StageSpecification {
@@ -19,6 +19,8 @@ interface RowMappingTableProps {
   workOrderNumber: string;
   onUpdateMapping: (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => void;
   onToggleManualOverride: (woNo: string, rowIndex: number) => void;
+  onIgnoreRow?: (woNo: string, rowIndex: number) => void;
+  onRestoreRow?: (woNo: string, rowIndex: number) => void;
 }
 
 export const RowMappingTable: React.FC<RowMappingTableProps> = ({
@@ -27,7 +29,9 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
   stageSpecifications,
   workOrderNumber,
   onUpdateMapping,
-  onToggleManualOverride
+  onToggleManualOverride,
+  onIgnoreRow,
+  onRestoreRow
 }) => {
   const getConfidenceColor = (confidence: number, isUnmapped: boolean) => {
     if (isUnmapped) return "bg-red-100 text-red-700";
@@ -54,17 +58,32 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
 
   // Create unique identifier for each row mapping to handle multi-rows correctly
   const getUniqueRowId = (mapping: RowMappingResult) => {
-    return `${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}-${mapping.instanceId || ''}`;
+    return mapping.customRowId || `${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}-${mapping.instanceId || ''}`;
   };
+
+  const unmappedCount = rowMappings.filter(m => m.isUnmapped && !m.ignored).length;
+  const ignoredCount = rowMappings.filter(m => m.ignored).length;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h3 className="text-base sm:text-lg font-semibold">Row-by-Row Mapping Review</h3>
-        <Badge variant="outline" className="flex items-center gap-1 self-start sm:self-auto">
-          <AlertTriangle className="h-3 w-3" />
-          {rowMappings.filter(rm => rm.isUnmapped).length} unmapped rows
-        </Badge>
+        <div className="flex items-center gap-2">
+          {unmappedCount > 0 && (
+            <Badge variant="destructive" className="flex items-center gap-1 text-xs">
+              <AlertTriangle className="h-3 w-3" />
+              {unmappedCount} unmapped
+            </Badge>
+          )}
+          {ignoredCount > 0 && (
+            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+              {ignoredCount} ignored
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-xs">
+            {rowMappings.filter(m => !m.ignored).length}/{rowMappings.length} active
+          </Badge>
+        </div>
       </div>
 
       <div className="overflow-x-auto border rounded-md">
@@ -79,15 +98,30 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
               <TableHead className="min-w-[250px]">Mapped Stage + Sub-Spec</TableHead>
               <TableHead className="min-w-[120px]">Paper/Spec</TableHead>
               <TableHead className="min-w-[100px] w-24">Confidence</TableHead>
-              <TableHead className="min-w-[80px] w-32">Actions</TableHead>
+              <TableHead className="min-w-[140px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
         <TableBody>
-          {rowMappings.map((mapping, index) => (
-            <TableRow key={getUniqueRowId(mapping)} className={mapping.isUnmapped ? "bg-red-50" : ""}>
-              <TableCell className="font-mono text-sm">
-                {mapping.excelRowIndex + 1}
-              </TableCell>
+          {rowMappings.map((mapping, index) => {
+            const isIgnored = mapping.ignored;
+            const isCustom = mapping.isCustomRow;
+            
+            return (
+              <TableRow 
+                key={getUniqueRowId(mapping)} 
+                className={`${mapping.isUnmapped ? "bg-red-50" : ""} ${isIgnored ? "opacity-50" : ""}`}
+              >
+                <TableCell className="font-mono text-sm">
+                  <div className="flex items-center gap-1">
+                    {isCustom ? (
+                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                        <Plus className="h-3 w-3" />
+                      </Badge>
+                    ) : (
+                      mapping.excelRowIndex + 1
+                    )}
+                  </div>
+                </TableCell>
               <TableCell>
                 <div className="text-sm font-medium truncate max-w-[150px]" title={mapping.groupName}>
                   {mapping.groupName}
@@ -97,8 +131,11 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                 </div>
               </TableCell>
               <TableCell>
-                <div className="text-sm truncate max-w-[200px]" title={mapping.description}>
+                <div className={`text-sm truncate max-w-[200px] ${isIgnored ? "line-through" : ""}`} title={mapping.description}>
                   {mapping.description || 'No description'}
+                  {isCustom && (
+                    <div className="text-xs text-blue-600 mt-1">Custom row</div>
+                  )}
                 </div>
               </TableCell>
               <TableCell className="text-center font-medium">
@@ -213,22 +250,52 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                 )}
               </TableCell>
               <TableCell>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
-                  className="h-8 w-8 p-0"
-                  title={`Edit row ${mapping.excelRowIndex + 1}: ${mapping.groupName}`}
-                >
-                  {mapping.manualOverride ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                <div className="flex items-center gap-1">
+                  {!isIgnored ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
+                        className="h-8 w-8 p-0"
+                        title={`Edit row ${isCustom ? 'custom' : mapping.excelRowIndex + 1}: ${mapping.groupName}`}
+                      >
+                        {mapping.manualOverride ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Edit3 className="h-4 w-4" />
+                        )}
+                      </Button>
+                      {onIgnoreRow && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onIgnoreRow(workOrderNumber, mapping.excelRowIndex)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Ignore this row"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </>
                   ) : (
-                    <Edit3 className="h-4 w-4" />
+                    onRestoreRow && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onRestoreRow(workOrderNumber, mapping.excelRowIndex)}
+                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        title="Restore this row"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    )
                   )}
-                </Button>
+                </div>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
       </div>
