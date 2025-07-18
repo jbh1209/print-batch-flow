@@ -367,22 +367,22 @@ const detectCoverTextScenario = (
   logger.addDebugInfo(`Multiple printing rows detected (${printingRows.length}) - analyzing for cover/text scenario`);
   
   // Sort printing rows by quantity (ascending) - cover will have lower quantity
-  const sortedPrintingRows = [...printingRows].sort((a, b) => a.wo_qty - b.wo_qty);
+  const sortedPrintingRows = [...printingRows].sort((a, b) => a.qty - b.qty);
   
   // Identify cover (smallest quantity) and text (larger quantity)
   const coverPrinting = sortedPrintingRows[0];
   const textPrinting = sortedPrintingRows[sortedPrintingRows.length - 1];
   
-  if (coverPrinting.wo_qty >= textPrinting.wo_qty) {
+  if (coverPrinting.qty >= textPrinting.qty) {
     logger.addDebugInfo("Quantities are not different enough to determine cover/text split");
     return null;
   }
   
-  logger.addDebugInfo(`Cover detected: ${coverPrinting.description} (qty: ${coverPrinting.wo_qty})`);
-  logger.addDebugInfo(`Text detected: ${textPrinting.description} (qty: ${textPrinting.wo_qty})`);
+  logger.addDebugInfo(`Cover detected: ${coverPrinting.description} (qty: ${coverPrinting.qty}, wo_qty: ${coverPrinting.wo_qty})`);
+  logger.addDebugInfo(`Text detected: ${textPrinting.description} (qty: ${textPrinting.qty}, wo_qty: ${textPrinting.wo_qty})`);
   
   // Match paper to printing by quantity logic
-  const sortedPaperRows = [...paperRows].sort((a, b) => a.wo_qty - b.wo_qty);
+  const sortedPaperRows = [...paperRows].sort((a, b) => a.qty - b.qty);
   
   const components: CoverTextComponent[] = [
     {
