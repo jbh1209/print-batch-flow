@@ -1,6 +1,11 @@
-import { EnhancedStage } from './enhancedStageMapper';
+export interface EnhancedStage {
+  id: string;
+  name: string;
+  category: string;
+}
 
 export interface ParsedJob {
+  // Core camelCase properties from Excel parsing
   woNo: string;
   customer: string;
   status: string;
@@ -20,12 +25,34 @@ export interface ParsedJob {
   paperWeight: number;
   paperType: string;
   lamination: string;
-  [key: string]: string | number | undefined;
+  
+  // Additional properties expected by other parts of the system
+  wo_no?: string;
+  due_date?: string;
+  estimated_hours?: number;
+  setup_time_minutes?: number;
+  running_speed?: number;
+  speed_unit?: string;
+  paper_specifications?: any;
+  printing_specifications?: any;
+  finishing_specifications?: any;
+  prepress_specifications?: any;
+  delivery_specifications?: any;
+  packaging_specifications?: any;
+  operation_quantities?: any;
+  cover_text_detection?: any;
+  size?: string;
+  contact?: string;
+  specification?: string;
+  paper_type?: string;
+  paper_weight?: number;
+  _originalExcelRow?: any;
+  _originalRowIndex?: number;
 }
 
 export interface RowMappingResult {
-  success: boolean;
-  message: string;
+  success?: boolean;
+  message?: string;
   data?: any;
   excelRowIndex?: number;
   mappedStageId?: string;
@@ -60,6 +87,7 @@ export interface ImportStats {
   invalidWONumbers: number;
   invalidDates: number;
   invalidTimingData: number;
+  invalidSpecifications?: number;
 }
 
 export interface MatrixExcelData {
@@ -72,6 +100,7 @@ export interface MatrixExcelData {
   qtyColumn: number;
   woQtyColumn: number;
   rows: any[][];
+  workOrderColumn?: number;
 }
 
 export interface CoverTextDetection {
@@ -137,4 +166,31 @@ export interface DeliverySpecification {
 
 export interface GroupSpecifications {
   [key: string]: any;
+}
+
+export interface ParsedData {
+  success: boolean;
+  data: any[];
+  errors: string[];
+  jobs?: any[];
+  stats?: any;
+}
+
+export interface StageMapping {
+  id: string;
+  name: string;
+  category: string;
+  stageId?: string;
+  stageName?: string;
+  confidence?: number;
+  specifications?: any;
+}
+
+export interface OperationQuantities {
+  [key: string]: number;
+}
+
+export interface CoverTextComponent {
+  type: string;
+  printing: string;
 }

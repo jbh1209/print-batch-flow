@@ -62,6 +62,8 @@ export const AddRowDialog: React.FC<AddRowDialogProps> = ({
     const customRowId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const newRow: RowMappingResult = {
+      success: true,
+      message: "Custom row added successfully",
       excelRowIndex: -1, // Custom rows have negative index
       excelData: [],
       groupName: description.trim(),
