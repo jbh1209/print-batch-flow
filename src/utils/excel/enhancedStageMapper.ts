@@ -1,3 +1,4 @@
+
 import type { ParsedJob, RowMappingResult } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +38,17 @@ export interface EnhancedStageMapping {
   instanceId?: string;
   quantity?: number;
   paperSpecification?: string;
+}
+
+interface PrintingStageGroup {
+  stageId: string;
+  stageName: string;
+  specifications: Array<{
+    key: string;
+    spec: any;
+    confidence: number;
+    paperSpec?: string;
+  }>;
 }
 
 export class EnhancedStageMapper {
@@ -114,45 +126,20 @@ export class EnhancedStageMapper {
     this.logger.addDebugInfo(`🎯 ENHANCED STAGE MAPPING for WO: ${job.wo_no}`);
     
     const rowMappings: RowMappingResult[] = [];
-    let sequentialRowIndex = 0; // Use sequential indexing instead of Excel row matching
+    let sequentialRowIndex = 0;
     
-    // Map printing specifications with database mappings
+    // Process printing specifications with multi-stage detection
     if (job.printing_specifications) {
-      this.logger.addDebugInfo(`📝 PROCESSING PRINTING SPECS:`);
-      Object.entries(job.printing_specifications).forEach(([key, spec]) => {
-        this.logger.addDebugInfo(`   - Spec "${key}": qty=${spec.qty}, wo_qty=${spec.wo_qty}, desc="${spec.description}"`);
-        
-        // Use the quantities from the spec, with proper fallbacks
-        const actualQty = spec.qty || spec.wo_qty || 0;
-        const actualWoQty = spec.wo_qty || spec.qty || 0;
-        
-        this.logger.addDebugInfo(`   ✅ QUANTITIES RESOLVED: actualQty=${actualQty}, actualWoQty=${actualWoQty}`);
-        this.logger.addDebugInfo(`   📍 ASSIGNED ROW INDEX: ${sequentialRowIndex} for "${key}"`);
-        
-        // Use database mapping for this specification
-        const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', 'printing');
-        
-        const mapping: RowMappingResult = {
-          excelRowIndex: sequentialRowIndex, // Use sequential index
-          excelData: this.findRowDataInExcel(spec.description || key, excelRows),
-          groupName: key,
-          description: spec.description || key,
-          qty: actualQty,
-          woQty: actualWoQty,
-          mappedStageId: stageMatch?.stageId || null,
-          mappedStageName: stageMatch?.stageName || null,
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: stageMatch?.confidence || 0,
-          category: 'printing',
-          isUnmapped: !stageMatch,
-          instanceId: `printing-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
-        };
-        
-        this.logger.addDebugInfo(`🎯 CREATED ROW MAPPING: "${mapping.description}" with qty=${mapping.qty}, woQty=${mapping.woQty}, stage="${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), rowIndex=${sequentialRowIndex}`);
-        rowMappings.push(mapping);
-        sequentialRowIndex++; // Increment for next row
-      });
+      this.logger.addDebugInfo(`📝 PROCESSING PRINTING SPECS WITH MULTI-STAGE DETECTION:`);
+      const printingMappings = await this.processPrintingSpecificationsWithMultiStage(
+        job.printing_specifications, 
+        job.paper_specifications,
+        excelRows, 
+        sequentialRowIndex
+      );
+      
+      rowMappings.push(...printingMappings);
+      sequentialRowIndex += printingMappings.length;
     }
     
     // Map other specifications (finishing, prepress, etc.) with database mappings
@@ -176,7 +163,7 @@ export class EnhancedStageMapper {
           const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', category);
           
           const mapping: RowMappingResult = {
-            excelRowIndex: sequentialRowIndex, // Use sequential index
+            excelRowIndex: sequentialRowIndex,
             excelData: this.findRowDataInExcel(spec.description || key, excelRows),
             groupName: key,
             description: spec.description || key,
@@ -193,17 +180,162 @@ export class EnhancedStageMapper {
           };
           
           rowMappings.push(mapping);
-          sequentialRowIndex++; // Increment for next row
+          sequentialRowIndex++;
         });
       }
     });
     
     this.logger.addDebugInfo(`🏁 ENHANCED STAGE MAPPING COMPLETE: ${rowMappings.length} row mappings created with sequential indices 0-${sequentialRowIndex - 1}`);
     rowMappings.forEach((mapping, i) => {
-      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), rowIndex: ${mapping.excelRowIndex}`);
+      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), rowIndex: ${mapping.excelRowIndex}, paper: ${mapping.paperSpecification || 'none'}`);
     });
     
     return rowMappings;
+  }
+
+  /**
+   * Process printing specifications with multi-stage detection and paper mapping
+   */
+  private async processPrintingSpecificationsWithMultiStage(
+    printingSpecs: any,
+    paperSpecs: any,
+    excelRows: any[][],
+    startingIndex: number
+  ): Promise<RowMappingResult[]> {
+    const mappings: RowMappingResult[] = [];
+    
+    // First, map all printing specs to their stages
+    const printingStageGroups = new Map<string, PrintingStageGroup>();
+    
+    Object.entries(printingSpecs).forEach(([key, spec]) => {
+      const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', 'printing');
+      
+      if (stageMatch) {
+        const stageKey = `${stageMatch.stageId}-${stageMatch.stageName}`;
+        
+        if (!printingStageGroups.has(stageKey)) {
+          printingStageGroups.set(stageKey, {
+            stageId: stageMatch.stageId,
+            stageName: stageMatch.stageName,
+            specifications: []
+          });
+        }
+        
+        // Find matching paper specification
+        const paperSpec = this.findMatchingPaperSpec(spec, paperSpecs);
+        
+        printingStageGroups.get(stageKey)!.specifications.push({
+          key,
+          spec,
+          confidence: stageMatch.confidence,
+          paperSpec
+        });
+      }
+    });
+    
+    // Now process each stage group
+    let currentIndex = startingIndex;
+    
+    for (const [stageKey, group] of printingStageGroups.entries()) {
+      if (group.specifications.length === 1) {
+        // Single printing spec for this stage
+        const { key, spec, confidence, paperSpec } = group.specifications[0];
+        const actualQty = spec.qty || spec.wo_qty || 0;
+        const actualWoQty = spec.wo_qty || spec.qty || 0;
+        
+        this.logger.addDebugInfo(`   📍 SINGLE PRINTING STAGE: "${key}" -> "${group.stageName}" (qty: ${actualQty})`);
+        
+        mappings.push({
+          excelRowIndex: currentIndex,
+          excelData: this.findRowDataInExcel(spec.description || key, excelRows),
+          groupName: key,
+          description: spec.description || key,
+          qty: actualQty,
+          woQty: actualWoQty,
+          mappedStageId: group.stageId,
+          mappedStageName: group.stageName,
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence,
+          category: 'printing',
+          isUnmapped: false,
+          instanceId: `printing-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          paperSpecification: paperSpec
+        });
+        
+        currentIndex++;
+      } else if (group.specifications.length > 1) {
+        // Multiple printing specs for same stage - apply cover/text logic
+        this.logger.addDebugInfo(`   🔄 MULTIPLE PRINTING SPECS FOR STAGE: "${group.stageName}" (${group.specifications.length} specs)`);
+        
+        // Sort by quantity: smallest = cover, largest = text
+        const sortedSpecs = [...group.specifications].sort((a, b) => {
+          const qtyA = a.spec.qty || a.spec.wo_qty || 0;
+          const qtyB = b.spec.qty || b.spec.wo_qty || 0;
+          return qtyA - qtyB;
+        });
+        
+        sortedSpecs.forEach((specData, index) => {
+          const { key, spec, confidence, paperSpec } = specData;
+          const actualQty = spec.qty || spec.wo_qty || 0;
+          const actualWoQty = spec.wo_qty || spec.qty || 0;
+          
+          const isCover = index === 0; // Smallest quantity = Cover
+          const isText = index === sortedSpecs.length - 1; // Largest quantity = Text
+          const partType = isCover ? 'Cover' : isText ? 'Text' : `Part ${index + 1}`;
+          
+          this.logger.addDebugInfo(`     📄 PART: "${partType}" - "${key}" (qty: ${actualQty}) with paper: ${paperSpec || 'none'}`);
+          
+          mappings.push({
+            excelRowIndex: currentIndex,
+            excelData: this.findRowDataInExcel(spec.description || key, excelRows),
+            groupName: key,
+            description: spec.description || key,
+            qty: actualQty,
+            woQty: actualWoQty,
+            mappedStageId: group.stageId,
+            mappedStageName: `${group.stageName} (${partType})`,
+            mappedStageSpecId: null,
+            mappedStageSpecName: null,
+            confidence,
+            category: 'printing',
+            isUnmapped: false,
+            instanceId: `printing-${partType.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+            paperSpecification: paperSpec,
+            partType
+          });
+          
+          currentIndex++;
+        });
+      }
+    }
+    
+    return mappings;
+  }
+
+  /**
+   * Find matching paper specification for a printing spec based on quantity correlation
+   */
+  private findMatchingPaperSpec(printingSpec: any, paperSpecs: any): string | undefined {
+    if (!paperSpecs) return undefined;
+    
+    const printingQty = printingSpec.qty || printingSpec.wo_qty || 0;
+    
+    // Find paper spec with closest quantity match
+    let bestMatch = null;
+    let smallestDiff = Infinity;
+    
+    for (const [paperKey, paperSpec] of Object.entries(paperSpecs)) {
+      const paperQty = (paperSpec as any).qty || (paperSpec as any).wo_qty || 0;
+      const diff = Math.abs(printingQty - paperQty);
+      
+      if (diff < smallestDiff) {
+        smallestDiff = diff;
+        bestMatch = (paperSpec as any).description || paperKey;
+      }
+    }
+    
+    return bestMatch;
   }
   
   /**
