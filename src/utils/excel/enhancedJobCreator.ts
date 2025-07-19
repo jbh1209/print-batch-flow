@@ -1,5 +1,8 @@
+
 import type { ParsedJob, RowMappingResult } from './types';
 import type { ExcelImportDebugger } from './debugger';
+import { supabase } from '@/integrations/supabase/client';
+import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator';
 
 export interface EnhancedJobCreationResult {
   mappedStages: RowMappingResult[];
@@ -7,7 +10,7 @@ export interface EnhancedJobCreationResult {
   confidence: number;
   rowMappings: { [woNo: string]: RowMappingResult[] };
   categoryAssignments?: any[];
-  stats?: {
+  stats: {
     totalRows: number;
     processedRows: number;
     skippedRows: number;
@@ -34,16 +37,140 @@ export class EnhancedJobCreator {
   ) {}
 
   async initialize() {
-    // Initialize any required data
+    this.logger.addDebugInfo("EnhancedJobCreator initialized");
   }
 
-  async finalizeJobs(preparedResult: any, userApprovedMappings?: any[]) {
-    // Implementation for finalizing jobs
-    return preparedResult;
+  async finalizeJobs(preparedResult: EnhancedJobCreationResult, userApprovedMappings?: any[]): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Finalizing ${preparedResult.createdJobs?.length || 0} jobs to database`);
+    
+    if (!preparedResult.createdJobs || preparedResult.createdJobs.length === 0) {
+      return {
+        ...preparedResult,
+        stats: {
+          ...preparedResult.stats,
+          successful: 0,
+          failed: 0
+        }
+      };
+    }
+
+    const jobsWithUserId = [];
+    const failedJobs = [];
+
+    for (const job of preparedResult.createdJobs) {
+      try {
+        const jobData = {
+          ...job,
+          user_id: this.userId,
+          // Convert null dates to undefined for database insertion
+          date: job.date || undefined,
+          due_date: job.due_date || undefined
+        };
+
+        // Generate QR code if enabled
+        if (this.generateQRCodes) {
+          try {
+            const qrData = generateQRCodeData({
+              wo_no: job.wo_no,
+              job_id: `temp-${job.wo_no}`,
+              customer: job.customer,
+              due_date: job.due_date
+            });
+            
+            const qrUrl = await generateQRCodeImage(qrData);
+            
+            jobData.qr_code_data = qrData;
+            jobData.qr_code_url = qrUrl;
+          } catch (qrError) {
+            this.logger.addDebugInfo(`Failed to generate QR code for ${job.wo_no}: ${qrError}`);
+          }
+        }
+
+        jobsWithUserId.push(jobData);
+      } catch (error) {
+        this.logger.addDebugInfo(`Failed to prepare job ${job.wo_no}: ${error}`);
+        failedJobs.push(job);
+      }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('production_jobs')
+        .upsert(jobsWithUserId, { 
+          onConflict: 'wo_no,user_id',
+          ignoreDuplicates: true 
+        })
+        .select();
+
+      if (error) {
+        this.logger.addDebugInfo(`Database error: ${JSON.stringify(error)}`);
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      const successfulCount = data?.length || 0;
+      this.logger.addDebugInfo(`Successfully created ${successfulCount} jobs in database`);
+
+      // Update QR codes with actual job IDs if QR generation was enabled
+      if (this.generateQRCodes && data) {
+        for (const insertedJob of data) {
+          if (insertedJob.qr_code_data) {
+            try {
+              const updatedQrData = generateQRCodeData({
+                wo_no: insertedJob.wo_no,
+                job_id: insertedJob.id,
+                customer: insertedJob.customer,
+                due_date: insertedJob.due_date
+              });
+              
+              const updatedQrUrl = await generateQRCodeImage(updatedQrData);
+              
+              await supabase
+                .from('production_jobs')
+                .update({
+                  qr_code_data: updatedQrData,
+                  qr_code_url: updatedQrUrl
+                })
+                .eq('id', insertedJob.id);
+            } catch (qrError) {
+              this.logger.addDebugInfo(`Failed to update QR code for job ${insertedJob.id}: ${qrError}`);
+            }
+          }
+        }
+      }
+
+      return {
+        ...preparedResult,
+        createdJobs: data || [],
+        failedJobs,
+        stats: {
+          ...preparedResult.stats,
+          successful: successfulCount,
+          failed: failedJobs.length
+        }
+      };
+    } catch (error) {
+      this.logger.addDebugInfo(`Database operation failed: ${error}`);
+      return {
+        ...preparedResult,
+        createdJobs: [],
+        failedJobs: preparedResult.createdJobs,
+        stats: {
+          ...preparedResult.stats,
+          successful: 0,
+          failed: preparedResult.createdJobs.length
+        }
+      };
+    }
   }
 
-  async prepareEnhancedJobsWithExcelData(jobs: ParsedJob[], headers?: any, dataRows?: any, userApprovedStageMappings?: any[]) {
-    // Implementation for preparing enhanced jobs with Excel data
+  async prepareEnhancedJobsWithExcelData(
+    jobs: ParsedJob[], 
+    headers?: any, 
+    dataRows?: any, 
+    userApprovedStageMappings?: any[]
+  ): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Preparing ${jobs.length} jobs with enhanced Excel data processing`);
+    
     const allRowMappings: RowMappingResult[] = [];
     const groupedRowMappings: { [woNo: string]: RowMappingResult[] } = {};
     
@@ -56,7 +183,7 @@ export class EnhancedJobCreator {
           job._originalRowIndex,
           'Default Group',
           job.specifications || '',
-          [],
+          userApprovedStageMappings || [],
           this.logger
         );
         allRowMappings.push(mapping);
@@ -75,29 +202,6 @@ export class EnhancedJobCreator {
       requiresCustomWorkflow: false,
       confidence: 0.8,
       userApprovedStageMappings,
-      stats: {
-        totalRows: jobs.length,
-        processedRows: jobs.length,
-        skippedRows: 0,
-        invalidWONumbers: 0,
-        invalidDates: 0,
-        invalidTimingData: 0,
-        invalidSpecifications: 0,
-        total: jobs.length,
-        successful: jobs.length,
-        failed: 0,
-        workflowsInitialized: 0,
-        newCategories: 0
-      }
-    };
-  }
-
-  async createEnhancedJobsWithExcelData(jobs: ParsedJob[], headers?: any, userApprovedStageMappings?: any[]) {
-    // Implementation for creating enhanced jobs with Excel data
-    const preparedResult = await this.prepareEnhancedJobsWithExcelData(jobs, headers, undefined, userApprovedStageMappings);
-    
-    return {
-      ...preparedResult,
       createdJobs: jobs,
       failedJobs: [],
       stats: {
@@ -115,6 +219,23 @@ export class EnhancedJobCreator {
         newCategories: 0
       }
     };
+  }
+
+  async createEnhancedJobsWithExcelData(
+    jobs: ParsedJob[], 
+    headers?: any, 
+    userApprovedStageMappings?: any[]
+  ): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Creating enhanced jobs with Excel data for ${jobs.length} jobs`);
+    
+    const preparedResult = await this.prepareEnhancedJobsWithExcelData(
+      jobs, 
+      headers, 
+      undefined, 
+      userApprovedStageMappings
+    );
+    
+    return preparedResult;
   }
 }
 
