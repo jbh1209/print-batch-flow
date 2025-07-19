@@ -138,3 +138,11 @@ export const validateStageMapping = (mapping: ProductionStageMapping): boolean =
     ['printing', 'finishing', 'prepress', 'delivery', 'packaging', 'paper'].includes(mapping.category)
   );
 };
+
+// Category assignment result for enhanced job creation
+export interface CategoryAssignmentResult {
+  categoryId: string;
+  categoryName: string;
+  confidence: number;
+  stageMappings: ProductionStageMapping[];
+}

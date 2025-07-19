@@ -2,7 +2,7 @@
 import type { ExcelImportDebugger } from './debugger';
 import type { RowMappingResult } from './types';
 
-export interface StageMapping {
+export interface EnhancedStageMapping {
   stageId: string;
   stageName: string;
   confidence: number;
@@ -78,7 +78,7 @@ export class EnhancedStageMapper {
     return mappings;
   }
 
-  private findBestStageMatch(groupName: string, description: string): StageMapping {
+  private findBestStageMatch(groupName: string, description: string): EnhancedStageMapping {
     const searchText = `${groupName} ${description}`.toLowerCase();
     
     // Simple pattern matching for now
@@ -120,7 +120,7 @@ export class EnhancedStageMapper {
 }
 
 // Legacy functions for backward compatibility
-export const mapDescriptionToStage = (description: string, availableStages: any[]): StageMapping => {
+export const mapDescriptionToStage = (description: string, availableStages: any[]): EnhancedStageMapping => {
   const searchText = description.toLowerCase();
   
   if (searchText.includes('print') || searchText.includes('hp') || searchText.includes('inkjet')) {
@@ -141,13 +141,13 @@ export const mapDescriptionToStage = (description: string, availableStages: any[
 };
 
 export const enhanceStageMapping = (
-  mapping: StageMapping,
+  mapping: EnhancedStageMapping,
   context: {
     jobCustomer?: string;
     jobReference?: string;
     rowData?: any[];
   }
-): StageMapping => {
+): EnhancedStageMapping => {
   // Enhanced mapping logic here
   return {
     ...mapping,
