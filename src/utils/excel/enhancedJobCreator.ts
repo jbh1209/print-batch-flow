@@ -229,15 +229,18 @@ export class EnhancedJobCreator {
     // CRITICAL FIX: Convert job.paper_specifications to GroupSpecifications format for stage mapper
     const paperSpecsForMapping = this.convertPaperSpecsToGroupFormat(job.paper_specifications);
     
-    const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
-      job.printing_specifications,
-      job.finishing_specifications,
-      job.prepress_specifications,
-      userApprovedMappings,
-      paperSpecsForMapping,  // Pass converted paper specifications
-      job.packaging_specifications,  // Pass packaging specifications
-      job.delivery_specifications   // Pass delivery specifications
-    );
+    // Use the enhanced stage mapper's mapJobToStages method
+    const rowMappingsTemp = await this.enhancedStageMapper.mapJobToStages(job, headers || [], [actualExcelRow]);
+    const mappedStages = rowMappingsTemp
+      .filter(mapping => mapping.mappedStageId && ['printing', 'finishing', 'prepress', 'delivery', 'packaging'].includes(mapping.category))
+      .map(mapping => ({
+        stageId: mapping.mappedStageId,
+        stageName: mapping.mappedStageName,
+        category: mapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging',
+        confidence: mapping.confidence,
+        instanceId: mapping.instanceId,
+        specifications: []
+      }));
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
 
@@ -248,16 +251,7 @@ export class EnhancedJobCreator {
       // Use the actual Excel row data for mapping instead of synthetic data
       this.logger.addDebugInfo(`Creating row mappings from group specifications for job ${job.wo_no}`);
       
-      rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
-        job.printing_specifications,
-        job.finishing_specifications,
-        job.prepress_specifications,
-        [actualExcelRow], // Pass the actual Excel row as a single-row array
-        headers || [],
-        job.paper_specifications,
-        job.packaging_specifications,  // Pass packaging specifications
-        job.delivery_specifications   // Pass delivery specifications
-      );
+      rowMappings = await this.enhancedStageMapper.mapJobToStages(job, headers || [], [actualExcelRow]);
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
       this.logger.addDebugInfo(`No group specifications found for job ${job.wo_no}, creating single row mapping from job data`);
@@ -444,15 +438,18 @@ export class EnhancedJobCreator {
     const paperSpecsForMapping = this.convertPaperSpecsToGroupFormat(job.paper_specifications);
     this.logger.addDebugInfo(`🎯 CONVERTED PAPER SPECS: ${JSON.stringify(paperSpecsForMapping)}`);
     
-    const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
-      job.printing_specifications,
-      job.finishing_specifications,
-      job.prepress_specifications,
-      userApprovedMappings,
-      paperSpecsForMapping,  // Pass converted paper specifications  
-      job.packaging_specifications,  // Pass packaging specifications
-      job.delivery_specifications   // Pass delivery specifications
-    );
+    // Use the enhanced stage mapper's mapJobToStages method
+    const rowMappingsTemp = await this.enhancedStageMapper.mapJobToStages(job, headers || [], [actualExcelRow]);
+    const mappedStages = rowMappingsTemp
+      .filter(mapping => mapping.mappedStageId && ['printing', 'finishing', 'prepress', 'delivery', 'packaging'].includes(mapping.category))
+      .map(mapping => ({
+        stageId: mapping.mappedStageId,
+        stageName: mapping.mappedStageName,
+        category: mapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging',
+        confidence: mapping.confidence,
+        instanceId: mapping.instanceId,
+        specifications: []
+      }));
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
 
@@ -463,16 +460,7 @@ export class EnhancedJobCreator {
       // Use the actual Excel row data for mapping instead of synthetic data
       this.logger.addDebugInfo(`Creating row mappings from group specifications for job ${job.wo_no}`);
       
-      rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
-        job.printing_specifications,
-        job.finishing_specifications,
-        job.prepress_specifications,
-        [actualExcelRow], // Pass the actual Excel row as a single-row array
-        headers || [],
-        job.paper_specifications,
-        job.packaging_specifications,  // Pass packaging specifications
-        job.delivery_specifications   // Pass delivery specifications
-      );
+      rowMappings = await this.enhancedStageMapper.mapJobToStages(job, headers || [], [actualExcelRow]);
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
       this.logger.addDebugInfo(`No group specifications found for job ${job.wo_no}, creating single row mapping from job data`);
