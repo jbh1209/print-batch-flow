@@ -1,11 +1,13 @@
 
 import type { ExcelImportDebugger } from './debugger';
 
-export const findColumnIndex = (headers: string[], possibleNames: string[], logger: ExcelImportDebugger): number => {
+export const findColumnIndex = (headers: string[], possibleNames: string[], logger: ExcelImportDebugger, exactMatch: boolean = false): number => {
   const headerLower = headers.map(h => String(h || '').toLowerCase().trim());
   
   for (const name of possibleNames) {
-    const index = headerLower.findIndex(h => h.includes(name.toLowerCase()));
+    const index = exactMatch 
+      ? headerLower.findIndex(h => h === name.toLowerCase())
+      : headerLower.findIndex(h => h.includes(name.toLowerCase()));
     if (index !== -1) {
       logger.addDebugInfo(`Found column "${name}" at index ${index} (header: "${headers[index]}")`);
       return index;
@@ -25,7 +27,8 @@ export const createColumnMap = (headers: string[], logger: ExcelImportDebugger) 
     category: findColumnIndex(headers, ['category', 'type'], logger),
     customer: findColumnIndex(headers, ['customer', 'client'], logger),
     reference: findColumnIndex(headers, ['reference', 'ref'], logger),
-    qty: findColumnIndex(headers, ['qty', 'quantity'], logger),
+    qty: findColumnIndex(headers, ['qty'], logger, true), // Exact match for 'qty' only
+    woQty: findColumnIndex(headers, ['wo_qty'], logger, true), // Exact match for 'wo_qty' only
     dueDate: findColumnIndex(headers, ['due date', 'due'], logger),
     location: findColumnIndex(headers, ['location', 'dept', 'department'], logger),
     // New timing and specification columns
