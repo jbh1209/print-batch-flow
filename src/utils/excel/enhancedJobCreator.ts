@@ -192,7 +192,12 @@ export class EnhancedJobCreator {
             category: 'printing',
             isUnmapped: false,
             excelRowIndex: 0,
-            excelData: component.printing.row || []
+            excelData: component.printing.row || [],
+            manualOverride: false,
+            ignored: false,
+            customRowId: `${job.wo_no}_${component.type}`,
+            instanceId: `${job.wo_no}_${component.type}_${Date.now()}`,
+            isCustomRow: false
           });
         }
       }
@@ -222,7 +227,12 @@ export class EnhancedJobCreator {
                 category: 'printing',
                 isUnmapped: false,
                 excelRowIndex: 0,
-                excelData: []
+                excelData: [],
+                manualOverride: false,
+                ignored: false,
+                customRowId: `${job.wo_no}_${key}`,
+                instanceId: `${job.wo_no}_${key}_${Date.now()}`,
+                isCustomRow: false
               });
             }
           });

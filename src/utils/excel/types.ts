@@ -1,3 +1,4 @@
+
 export interface ParsedJob {
   wo_no: string;
   status: string;
@@ -155,7 +156,7 @@ export interface StageMapping {
   stageId: string;
   stageName: string;
   confidence: number;
-  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'paper' | 'unknown';
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'paper';
   specifications?: string;
 }
 
@@ -175,4 +176,6 @@ export interface EnhancedJobCreationResult {
   rowMappings?: RowMappingResult[];
   categoryAssignments?: any;
   userApprovedStageMappings?: any;
+  jobsCreated?: number;
+  totalJobs?: number;
 }
