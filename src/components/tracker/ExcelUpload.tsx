@@ -244,15 +244,7 @@ export const ExcelUpload = () => {
 
       const { data, error } = await supabase
         .from('production_jobs')
-        .upsert(jobsWithUserId.map(job => ({
-          ...job,
-          paper_specifications: job.paper_specifications as any,
-          delivery_specifications: job.delivery_specifications as any,
-          finishing_specifications: job.finishing_specifications as any,
-          prepress_specifications: job.prepress_specifications as any,
-          printing_specifications: job.printing_specifications as any,
-          packaging_specifications: job.packaging_specifications as any
-        })), { 
+        .upsert(jobsWithUserId, { 
           onConflict: 'wo_no,user_id',
           ignoreDuplicates: true 
         })

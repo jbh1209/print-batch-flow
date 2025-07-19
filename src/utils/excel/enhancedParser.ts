@@ -33,10 +33,12 @@ export const parseExcelFileForPreview = async (file: File): Promise<ExcelPreview
   };
 };
 
+// New function for matrix Excel preview
 export const parseMatrixExcelFileForPreview = async (file: File, logger: ExcelImportDebugger): Promise<MatrixExcelData> => {
   return await parseMatrixExcelFile(file, logger);
 };
 
+// New function for matrix parsing with mapping
 export const parseMatrixExcelFileWithMapping = async (
   file: File,
   matrixData: MatrixExcelData,
@@ -357,7 +359,7 @@ export const parseAndPrepareProductionReadyJobs = async (
   generateQRCodes: boolean = true,
   availableSpecs: any[] = []
 ): Promise<any> => {
-  logger.addDebugInfo(`🚀 Starting Phase 4 enhanced job preparation for file: ${file.name}`);
+  logger.addDebugInfo(`Starting Phase 4 enhanced job preparation for file: ${file.name}`);
   
   // Step 1: Parse Excel with enhanced mapping and extract raw data
   const data = await file.arrayBuffer();
@@ -369,22 +371,53 @@ export const parseAndPrepareProductionReadyJobs = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  // Parse jobs with enhanced mapping
+  // CRITICAL FIX: Extract user-approved stage mappings BEFORE processing  
+  const userApprovedStageMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+  
+  // Convert column mapping format to user-approved format
+  // For now, this will be empty since we don't have stage info in the column mapping
+  // The real user mappings come from the dialog
+  
+  logger.addDebugInfo(`🎯 PREPARE PHASE - USER-APPROVED STAGE MAPPINGS: ${userApprovedStageMappings.length} mappings (will be provided by dialog)`);
+  userApprovedStageMappings.forEach((mapping) => {
+    logger.addDebugInfo(`   - Group "${mapping.groupName}" -> Stage ${mapping.mappedStageId} (${mapping.mappedStageName}) [${mapping.category}]`);
+  });
+
+  // Get enhanced result with user-approved stage mappings FIRST
+  const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
+  await enhancedProcessor.initialize();
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
   
-  // Step 2: Create enhanced job creator with Excel data
+  // Step 2: Process jobs with enhanced mapping
+  const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
+    jobs,
+    -1, // paper column not relevant here
+    -1, // delivery column not relevant here
+    dataRows,
+    mapping // Pass the entire mapping object to preserve user stage mappings
+  );
+  
+  // CRITICAL: User-approved mappings will be passed directly to job creator
+  // No need to assign to enhancedResult since they use different formats
+  
+  logger.addDebugInfo(`ENHANCED RESULT: Found ${userApprovedStageMappings.length} user-approved stage mappings`);
+  
+  // Step 3: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
   await jobCreator.initialize();
   
-  // Step 3: Prepare jobs with mappings but DON'T save to database yet
+  // Step 4: Prepare jobs with mappings AND user-approved stage mappings
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
-    jobs, 
+    enhancedResult.jobs, // Use jobs with applied user mappings
     headers, 
     dataRows,
-    [] // User-approved mappings will be provided by dialog
+    userApprovedStageMappings // Pass user-approved mappings to job creator
   );
   
-  logger.addDebugInfo(`✅ Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
+  // CRITICAL: Preserve user-approved mappings in final result
+  result.userApprovedStageMappings = userApprovedStageMappings;
+  
+  logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
   
   return result;
 };
@@ -419,7 +452,7 @@ export const parseAndCreateProductionReadyJobs = async (
   await jobCreator.initialize();
   
   // Step 3: Create production-ready jobs with workflows, passing Excel data
-  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows, []);
+  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows);
   
   logger.addDebugInfo(`Phase 4 enhanced job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
   
@@ -451,8 +484,7 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     jobs, 
     matrixData.headers, 
-    matrixData.rows,
-    []
+    matrixData.rows
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job preparation completed: ${result.stats.total} jobs prepared for review`);
@@ -485,8 +517,7 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
   const result = await jobCreator.createEnhancedJobsWithExcelData(
     jobs, 
     matrixData.headers, 
-    matrixData.rows,
-    []
+    matrixData.rows
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
@@ -503,7 +534,7 @@ export const finalizeProductionReadyJobs = async (
   currentUserId: string,
   userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
 ): Promise<any> => {
-  logger.addDebugInfo(`🎯 Finalizing ${preparedResult.stats.total} prepared jobs for user ${currentUserId}`);
+  logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs for user ${currentUserId}`);
   
   if (userApprovedMappings && userApprovedMappings.length > 0) {
     logger.addDebugInfo(`User provided ${userApprovedMappings.length} approved stage mappings`);
@@ -515,7 +546,7 @@ export const finalizeProductionReadyJobs = async (
   
   const finalResult = await jobCreator.finalizeJobs(preparedResult, userApprovedMappings);
   
-  logger.addDebugInfo(`✅ Finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
+  logger.addDebugInfo(`Finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
   
   return finalResult;
 };
