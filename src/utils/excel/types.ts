@@ -186,7 +186,7 @@ export interface StageMapping {
   specifications?: any;
 }
 
-// Alternative interface for compatibility
+// Alternative interface for compatibility - use this for cases where id/name are missing
 export interface StageMappingCompat {
   stageId: string;
   stageName: string;
@@ -195,15 +195,8 @@ export interface StageMappingCompat {
   specifications?: any[];
 }
 
-// Compatibility fix for existing code
-export interface ProductionStageMappingResult {
-  id: string;
-  name: string;
-  stageId: string;
-  stageName: string;
-  confidence: number;
-  category: string;
-}
+// Use this for production stage mapper compatibility
+export type ProductionStageMapperResult = Omit<StageMappingCompat, "specifications">;
 
 export interface OperationQuantities {
   [key: string]: number;

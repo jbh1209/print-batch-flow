@@ -342,7 +342,7 @@ export class EnhancedMappingProcessor {
 
       // Also update legacy fields for compatibility
       job.paper_type = paperMapping.paperType;
-      job.paper_weight = paperMapping.paperWeight;
+      job.paper_weight = parseFloat(String(paperMapping.paperWeight)) || 0;
 
       result.paperMappings.push({
         woNo: job.wo_no,
@@ -371,7 +371,7 @@ export class EnhancedMappingProcessor {
     }
 
     // Enhanced delivery method detection
-    const enhancedMapping = this.deliveryMatcher.enhanceDeliveryDetection(deliverySpec, deliveryText);
+    const enhancedMapping = this.deliveryMatcher.enhanceDeliveryDetection({ id: '', name: '', ...deliverySpec }, deliveryText);
     
     // Update job with delivery specifications
     if (!job.delivery_specifications) {

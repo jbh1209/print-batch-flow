@@ -1,3 +1,4 @@
+import type { ProductionStageMapperResult } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import type { GroupSpecifications, RowMappingResult, StageMapping } from './types';
 import { supabase } from '@/integrations/supabase/client';
@@ -163,6 +164,8 @@ export class ProductionStageMapper {
       const stageMapping = this.findBestStageMatch(groupName, spec.description || '', category);
       if (stageMapping) {
         mappings.push({
+          id: stageMapping.stageId,
+          name: stageMapping.stageName,
           ...stageMapping,
           specifications: [groupName, spec.description || ''].filter(Boolean)
         });
@@ -179,7 +182,7 @@ export class ProductionStageMapper {
     groupName: string,
     description: string,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
-  ): Omit<StageMapping, 'specifications'> | null {
+  ): ProductionStageMapperResult | null {
     const searchText = `${groupName} ${description}`.toLowerCase();
     
     // Define stage matching patterns
@@ -221,21 +224,25 @@ export class ProductionStageMapper {
       for (const pattern of categoryPatterns) {
         if (pattern.names.some(name => stageName.includes(name) || searchText.includes(name))) {
           return {
+            id: stage.id,
+            name: stage.name,
             stageId: stage.id,
             stageName: stage.name,
             confidence: 90,
             category
-          };
+          } as ProductionStageMapperResult;
         }
         
         // Pattern-based matching with medium confidence
         if (pattern.patterns.some(p => searchText.includes(p))) {
           return {
+            id: stage.id,
+            name: stage.name,
             stageId: stage.id,
             stageName: stage.name,
             confidence: 70,
             category
-          };
+          } as ProductionStageMapperResult;
         }
       }
     }
