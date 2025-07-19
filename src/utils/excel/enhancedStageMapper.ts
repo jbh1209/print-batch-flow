@@ -42,6 +42,34 @@ export class EnhancedStageMapper {
     this.logger.addDebugInfo("EnhancedStageMapper initialized");
   }
   
+  mapGroupsToStagesIntelligent(
+    printingSpecs: any,
+    finishingSpecs: any,
+    prepressSpecs: any,
+    userApprovedMappings?: any,
+    paperSpecs?: any,
+    packagingSpecs?: any,
+    deliverySpecs?: any,
+    excelRows?: any[][]
+  ): any[] {
+    this.logger.addDebugInfo(`🎯 INTELLIGENT STAGE MAPPING`);
+    return [];
+  }
+
+  createIntelligentRowMappings(
+    printingSpecs: any,
+    finishingSpecs: any,
+    prepressSpecs: any,
+    excelRows?: any[][],
+    headers?: string[],
+    paperSpecs?: any,
+    packagingSpecs?: any,
+    deliverySpecs?: any
+  ): RowMappingResult[] {
+    this.logger.addDebugInfo(`🎯 INTELLIGENT ROW MAPPING`);
+    return [];
+  }
+
   async mapJobToStages(job: ParsedJob, excelHeaders: string[], excelRows: any[][]): Promise<RowMappingResult[]> {
     this.logger.addDebugInfo(`🎯 ENHANCED STAGE MAPPING for WO: ${job.wo_no}`);
     
