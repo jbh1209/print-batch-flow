@@ -102,7 +102,6 @@ export const parseMatrixDataToJobs = (
   logger.addDebugInfo("Starting matrix data to jobs conversion...");
   
   const jobs: ParsedJob[] = [];
-  const jobMap = new Map<string, ParsedJob>();
   
   // Group rows by work order
   const workOrderGroups = groupRowsByWorkOrder(matrixData, logger);
@@ -263,6 +262,9 @@ const extractGroupSpecifications = (
     const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     
+    // CRITICAL FIX: Log the actual quantities being extracted
+    logger.addDebugInfo(`🔢 QUANTITY EXTRACTION - Row ${index}: Group="${group}", Desc="${description}", Qty=${qty}, WO_Qty=${woQty}`);
+    
     // Categorize group
     const category = categorizeGroup(group);
     
@@ -275,6 +277,7 @@ const extractGroupSpecifications = (
         rawRow: row,
         rowIndex: index
       });
+      logger.addDebugInfo(`📝 PRINTING ROW COLLECTED: "${description}" - Qty: ${qty}, WO_Qty: ${woQty}`);
     }
     
     if (category === 'paper') {
@@ -287,10 +290,11 @@ const extractGroupSpecifications = (
       });
     }
     
+    // CRITICAL FIX: Ensure quantities are properly assigned to specs
     const specData = {
       description: String(description || '').trim(),
-      qty,
-      wo_qty: woQty,
+      qty: qty, // FIXED: Use the parsed qty directly
+      wo_qty: woQty, // FIXED: Use the parsed woQty directly
       specifications: group
     };
     
@@ -306,14 +310,21 @@ const extractGroupSpecifications = (
           total_wo_qty: woQty
         };
       }
+      
+      logger.addDebugInfo(`✅ SPEC CREATED - Category: ${category}, Key: ${specKey}, Qty: ${specData.qty}, WO_Qty: ${specData.wo_qty}`);
     }
-    
-    const specKey = description && description.trim() ? description.trim() : group;
-    logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
   
   // Detect cover/text scenario if multiple printing rows exist
   const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
+  
+  // CRITICAL FIX: Log the final printing specifications
+  if (Object.keys(specs.printing).length > 0) {
+    logger.addDebugInfo(`🎯 FINAL PRINTING SPECS:`);
+    Object.entries(specs.printing).forEach(([key, spec]) => {
+      logger.addDebugInfo(`   - "${key}": qty=${spec.qty}, wo_qty=${spec.wo_qty}`);
+    });
+  }
   
   return {
     paper: Object.keys(specs.paper).length > 0 ? specs.paper : null,
@@ -364,7 +375,10 @@ const detectCoverTextScenario = (
     return null;
   }
   
-  logger.addDebugInfo(`Multiple printing rows detected (${printingRows.length}) - analyzing for cover/text scenario`);
+  logger.addDebugInfo(`📚 BOOK JOB DETECTION - ${printingRows.length} printing rows found:`);
+  printingRows.forEach((row, i) => {
+    logger.addDebugInfo(`   ${i + 1}. "${row.description}" - Qty: ${row.qty}, WO_Qty: ${row.wo_qty}`);
+  });
   
   // Sort printing rows by quantity (ascending) - cover will have lower quantity
   const sortedPrintingRows = [...printingRows].sort((a, b) => a.qty - b.qty);
@@ -378,8 +392,8 @@ const detectCoverTextScenario = (
     return null;
   }
   
-  logger.addDebugInfo(`Cover detected: ${coverPrinting.description} (qty: ${coverPrinting.qty}, wo_qty: ${coverPrinting.wo_qty})`);
-  logger.addDebugInfo(`Text detected: ${textPrinting.description} (qty: ${textPrinting.qty}, wo_qty: ${textPrinting.wo_qty})`);
+  logger.addDebugInfo(`📖 COVER IDENTIFIED: "${coverPrinting.description}" - Qty: ${coverPrinting.qty}, WO_Qty: ${coverPrinting.wo_qty}`);
+  logger.addDebugInfo(`📄 TEXT IDENTIFIED: "${textPrinting.description}" - Qty: ${textPrinting.qty}, WO_Qty: ${textPrinting.wo_qty}`);
   
   // Match paper to printing by quantity logic
   const sortedPaperRows = [...paperRows].sort((a, b) => a.qty - b.qty);
@@ -420,7 +434,7 @@ const detectCoverTextScenario = (
   // Generate dependency group ID for synchronization points
   const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
-  logger.addDebugInfo(`Book job detected with dependency group: ${dependencyGroupId}`);
+  logger.addDebugInfo(`📋 BOOK JOB CREATED with dependency group: ${dependencyGroupId}`);
   
   return {
     isBookJob: true,
