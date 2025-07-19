@@ -260,7 +260,7 @@ export class EnhancedStageMapper {
         mappedStageSpecId: stageMapping?.stageSpecId || null,
         mappedStageSpecName: stageMapping?.stageSpecName || null,
         confidence: stageMapping?.confidence || 70, // Boost confidence for better matching
-        category: stageMapping?.category || category,
+        category: stageMapping?.category === 'unknown' ? 'paper' : stageMapping?.category || category,
         isUnmapped: !hasValidMapping,
         manualOverride: false,
         instanceId,
@@ -943,7 +943,7 @@ export class EnhancedStageMapper {
           stageName: userMapping.mappedStageName,
           confidence: 100, // User-approved mappings have highest confidence
           category: userMapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery',
-          specifications: [groupName, spec.description || ''].filter(Boolean)
+          specifications: [groupName, spec.description || ''].filter(Boolean).join(' ')
         });
       } else if (hasUserMappings) {
         // If user has provided explicit mappings for this category, DON'T use text-pattern fallback
@@ -961,7 +961,7 @@ export class EnhancedStageMapper {
             stageName: stageMapping.stageName,
             confidence: stageMapping.confidence,
             category: stageMapping.category === 'unknown' ? category : stageMapping.category,
-            specifications: [groupName, spec.description || ''].filter(Boolean)
+            specifications: [groupName, spec.description || ''].filter(Boolean).join(' ')
           });
         } else {
           this.logger.addDebugInfo(`  ❌ NO MATCH FOUND for "${groupName}" in text-pattern detection`);

@@ -139,7 +139,7 @@ export class ProductionStageMapper {
         mappedStageSpecId: null, // Basic mapper doesn't handle sub-specs
         mappedStageSpecName: null,
         confidence: stageMapping?.confidence || 0,
-        category: stageMapping?.category || 'unknown',
+        category: 'paper',
         isUnmapped: !stageMapping,
         manualOverride: false
       });
@@ -164,7 +164,7 @@ export class ProductionStageMapper {
       if (stageMapping) {
         mappings.push({
           ...stageMapping,
-          specifications: [groupName, spec.description || ''].filter(Boolean)
+          specifications: [groupName, spec.description || ''].filter(Boolean).join(' ')
         });
       }
     }
