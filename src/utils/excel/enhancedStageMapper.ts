@@ -12,7 +12,7 @@ interface StageSpecification {
 interface ProductionStage {
   id: string;
   name: string;
-  category: string;
+  category?: string;
   stage_specifications?: StageSpecification[];
 }
 
