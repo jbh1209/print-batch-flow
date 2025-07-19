@@ -939,6 +939,8 @@ export class EnhancedStageMapper {
       if (userMapping) {
         this.logger.addDebugInfo(`  ✅ USING USER-APPROVED MAPPING: ${groupName} -> ${userMapping.mappedStageName} (${userMapping.mappedStageId})`);
         mappings.push({
+          id: userMapping.mappedStageId,
+          name: userMapping.mappedStageName,
           stageId: userMapping.mappedStageId,
           stageName: userMapping.mappedStageName,
           confidence: 100, // User-approved mappings have highest confidence
@@ -957,6 +959,8 @@ export class EnhancedStageMapper {
         if (stageMapping) {
           this.logger.addDebugInfo(`  ✅ TEXT-PATTERN MAPPING: ${groupName} -> ${stageMapping.stageName} (confidence: ${stageMapping.confidence}%)`);
           mappings.push({
+            id: stageMapping.stageId,
+            name: stageMapping.stageName,
             stageId: stageMapping.stageId,
             stageName: stageMapping.stageName,
             confidence: stageMapping.confidence,
