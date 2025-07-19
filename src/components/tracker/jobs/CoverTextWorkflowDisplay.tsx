@@ -91,7 +91,7 @@ export const CoverTextWorkflowDisplay: React.FC<CoverTextWorkflowDisplayProps> =
               <BookOpen className="h-4 w-4" />
               Cover Component
               <Badge variant="outline">
-                {coverTextDetection.components.find(c => c.type === 'cover')?.printing.wo_qty || 0} units
+                {coverTextDetection.components?.find(c => c.type === 'cover')?.printing || 0} units
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -132,7 +132,7 @@ export const CoverTextWorkflowDisplay: React.FC<CoverTextWorkflowDisplayProps> =
               <FileText className="h-4 w-4" />
               Text Component
               <Badge variant="outline">
-                {coverTextDetection.components.find(c => c.type === 'text')?.printing.wo_qty || 0} units
+                {coverTextDetection.components?.find(c => c.type === 'text')?.printing || 0} units
               </Badge>
             </CardTitle>
           </CardHeader>

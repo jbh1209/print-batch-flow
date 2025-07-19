@@ -3,8 +3,8 @@ import { isValid } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { ExcelImportDebugger } from './debugger';
 import { ColumnMapping, ParsedJob } from './types';
-import { formatDate } from './dateFormatter';
-import { formatWoNumber } from './woNumberFormatter';
+import { formatExcelDate } from './dateFormatter';
+import { formatWONumber } from './woNumberFormatter';
 
 const parseDate = (dateString: string): Date | null => {
   if (!dateString) return null;

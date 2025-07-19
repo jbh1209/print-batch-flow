@@ -186,6 +186,25 @@ export interface StageMapping {
   specifications?: any;
 }
 
+// Alternative interface for compatibility
+export interface StageMappingCompat {
+  stageId: string;
+  stageName: string;
+  confidence: number;
+  category: string;
+  specifications?: any[];
+}
+
+// Compatibility fix for existing code
+export interface ProductionStageMappingResult {
+  id: string;
+  name: string;
+  stageId: string;
+  stageName: string;
+  confidence: number;
+  category: string;
+}
+
 export interface OperationQuantities {
   [key: string]: number;
 }
