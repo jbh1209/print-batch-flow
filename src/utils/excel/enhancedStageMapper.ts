@@ -16,6 +16,17 @@ interface ProductionStage {
   stage_specifications?: StageSpecification[];
 }
 
+interface ExcelImportMapping {
+  id: string;
+  excel_text: string;
+  production_stage_id: string;
+  stage_specification_id?: string;
+  confidence_score: number;
+  is_verified: boolean;
+  mapping_type: string;
+  print_specification_id?: string;
+}
+
 export interface EnhancedStageMapping {
   stageId: string;
   stageName: string;
@@ -33,6 +44,7 @@ export class EnhancedStageMapper {
   private productionStages: ProductionStage[] = [];
   private categories: any[] = [];
   private categoryStages: any[] = [];
+  private excelImportMappings: ExcelImportMapping[] = [];
   private logger: ExcelImportDebugger;
   
   constructor(logger: ExcelImportDebugger) {
@@ -54,6 +66,18 @@ export class EnhancedStageMapper {
       }
       
       this.productionStages = stagesData || [];
+      
+      // Load excel import mappings
+      const { data: mappingsData, error: mappingsError } = await supabase
+        .from('excel_import_mappings')
+        .select('*')
+        .eq('mapping_type', 'production_stage');
+      
+      if (mappingsError) {
+        throw new Error(`Failed to load excel import mappings: ${mappingsError.message}`);
+      }
+      
+      this.excelImportMappings = mappingsData || [];
       
       // Load categories
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -80,7 +104,7 @@ export class EnhancedStageMapper {
       
       this.categoryStages = categoryStagesData || [];
       
-      this.logger.addDebugInfo(`✅ Loaded ${this.productionStages.length} stages, ${this.categories.length} categories, ${this.categoryStages.length} relationships`);
+      this.logger.addDebugInfo(`✅ Loaded ${this.productionStages.length} stages, ${this.excelImportMappings.length} mappings, ${this.categories.length} categories, ${this.categoryStages.length} relationships`);
     } catch (error) {
       this.logger.addDebugInfo(`❌ Failed to initialize EnhancedStageMapper: ${error}`);
       throw error;
@@ -92,44 +116,44 @@ export class EnhancedStageMapper {
     
     const rowMappings: RowMappingResult[] = [];
     
-    // Map printing specifications with FIXED quantity extraction and stage matching
+    // Map printing specifications with database mappings
     if (job.printing_specifications) {
       this.logger.addDebugInfo(`📝 PROCESSING PRINTING SPECS:`);
       Object.entries(job.printing_specifications).forEach(([key, spec]) => {
         this.logger.addDebugInfo(`   - Spec "${key}": qty=${spec.qty}, wo_qty=${spec.wo_qty}, desc="${spec.description}"`);
         
-        // CRITICAL FIX: Use the quantities from the spec, with proper fallbacks
+        // Use the quantities from the spec, with proper fallbacks
         const actualQty = spec.qty || spec.wo_qty || 0;
         const actualWoQty = spec.wo_qty || spec.qty || 0;
         
         this.logger.addDebugInfo(`   ✅ QUANTITIES RESOLVED: actualQty=${actualQty}, actualWoQty=${actualWoQty}`);
         
-        // NEW: Find stage match for this specification
-        const stageMatch = this.findBestStageMatch(key, spec.description || '', 'printing');
+        // Use database mapping for this specification
+        const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', 'printing');
         
         const mapping: RowMappingResult = {
           excelRowIndex: this.findRowIndexInExcel(spec.description || key, excelRows),
           excelData: this.findRowDataInExcel(spec.description || key, excelRows),
           groupName: key,
           description: spec.description || key,
-          qty: actualQty, // FIXED: Use resolved quantity
-          woQty: actualWoQty, // FIXED: Use resolved WO quantity
+          qty: actualQty,
+          woQty: actualWoQty,
           mappedStageId: stageMatch?.stageId || null,
           mappedStageName: stageMatch?.stageName || null,
           mappedStageSpecId: null,
           mappedStageSpecName: null,
           confidence: stageMatch?.confidence || 0,
           category: 'printing',
-          isUnmapped: !stageMatch, // Only unmapped if no stage match found
+          isUnmapped: !stageMatch,
           instanceId: `printing-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
         };
         
-        this.logger.addDebugInfo(`🎯 CREATED ROW MAPPING: "${mapping.description}" with qty=${mapping.qty}, woQty=${mapping.woQty}, stage="${mapping.mappedStageName || 'UNMAPPED'}"`);
+        this.logger.addDebugInfo(`🎯 CREATED ROW MAPPING: "${mapping.description}" with qty=${mapping.qty}, woQty=${mapping.woQty}, stage="${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence})`);
         rowMappings.push(mapping);
       });
     }
     
-    // Map other specifications (finishing, prepress, etc.) with same fix
+    // Map other specifications (finishing, prepress, etc.) with database mappings
     const specCategories = [
       { specs: job.finishing_specifications, category: 'finishing' as const },
       { specs: job.prepress_specifications, category: 'prepress' as const },
@@ -140,27 +164,27 @@ export class EnhancedStageMapper {
     specCategories.forEach(({ specs, category }) => {
       if (specs) {
         Object.entries(specs).forEach(([key, spec]) => {
-          // CRITICAL FIX: Apply same quantity resolution logic
+          // Apply same quantity resolution logic
           const actualQty = spec.qty || spec.wo_qty || 0;
           const actualWoQty = spec.wo_qty || spec.qty || 0;
           
-          // NEW: Find stage match for this specification
-          const stageMatch = this.findBestStageMatch(key, spec.description || '', category);
+          // Use database mapping for this specification
+          const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', category);
           
           const mapping: RowMappingResult = {
             excelRowIndex: this.findRowIndexInExcel(spec.description || key, excelRows),
             excelData: this.findRowDataInExcel(spec.description || key, excelRows),
             groupName: key,
             description: spec.description || key,
-            qty: actualQty, // FIXED: Use resolved quantity
-            woQty: actualWoQty, // FIXED: Use resolved WO quantity
+            qty: actualQty,
+            woQty: actualWoQty,
             mappedStageId: stageMatch?.stageId || null,
             mappedStageName: stageMatch?.stageName || null,
             mappedStageSpecId: null,
             mappedStageSpecName: null,
             confidence: stageMatch?.confidence || 0,
             category,
-            isUnmapped: !stageMatch, // Only unmapped if no stage match found
+            isUnmapped: !stageMatch,
             instanceId: `${category}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
           };
           
@@ -171,24 +195,71 @@ export class EnhancedStageMapper {
     
     this.logger.addDebugInfo(`🏁 ENHANCED STAGE MAPPING COMPLETE: ${rowMappings.length} row mappings created`);
     rowMappings.forEach((mapping, i) => {
-      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}"`);
+      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence})`);
     });
     
     return rowMappings;
   }
   
   /**
-   * Find the best matching production stage for a specification
-   * Copied and adapted from ProductionStageMapper
+   * Find the best matching production stage using database mappings first, then fallback to patterns
    */
-  private findBestStageMatch(
+  private findBestStageMatchFromDatabase(
+    groupName: string,
+    description: string,
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
+  ): { stageId: string; stageName: string; confidence: number } | null {
+    const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    
+    this.logger.addDebugInfo(`🔍 SEARCHING DATABASE MAPPINGS for: "${searchText}"`);
+    
+    // First, try exact matches in database mappings
+    for (const mapping of this.excelImportMappings) {
+      if (mapping.excel_text.toLowerCase() === searchText) {
+        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        if (stage) {
+          this.logger.addDebugInfo(`💯 EXACT DATABASE MATCH: "${searchText}" -> "${stage.name}" (confidence: ${mapping.confidence_score})`);
+          return {
+            stageId: stage.id,
+            stageName: stage.name,
+            confidence: mapping.confidence_score
+          };
+        }
+      }
+    }
+    
+    // Second, try partial matches in database mappings
+    for (const mapping of this.excelImportMappings) {
+      if (searchText.includes(mapping.excel_text.toLowerCase()) || mapping.excel_text.toLowerCase().includes(searchText)) {
+        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        if (stage) {
+          const confidence = Math.max(50, mapping.confidence_score - 20); // Reduce confidence for partial matches
+          this.logger.addDebugInfo(`🎯 PARTIAL DATABASE MATCH: "${searchText}" -> "${stage.name}" (confidence: ${confidence})`);
+          return {
+            stageId: stage.id,
+            stageName: stage.name,
+            confidence
+          };
+        }
+      }
+    }
+    
+    // Fallback to pattern matching if no database mapping found
+    this.logger.addDebugInfo(`⚠️ NO DATABASE MATCH - falling back to pattern matching for: "${searchText}"`);
+    return this.findBestStageMatchFromPatterns(groupName, description, category);
+  }
+  
+  /**
+   * Fallback pattern matching (kept as backup)
+   */
+  private findBestStageMatchFromPatterns(
     groupName: string,
     description: string,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): { stageId: string; stageName: string; confidence: number } | null {
     const searchText = `${groupName} ${description}`.toLowerCase();
     
-    // Define stage matching patterns (same as ProductionStageMapper)
+    // Define stage matching patterns (reduced confidence since it's fallback)
     const stagePatterns = {
       printing: [
         { names: ['hp 12000', 'hp12000', '12000'], patterns: ['hp', '12000'] },
@@ -227,24 +298,24 @@ export class EnhancedStageMapper {
     for (const stage of this.productionStages) {
       const stageName = stage.name.toLowerCase();
       
-      // Direct name match with high confidence
+      // Direct name match with medium confidence (fallback pattern)
       for (const pattern of categoryPatterns) {
         if (pattern.names.some(name => stageName.includes(name) || searchText.includes(name))) {
-          this.logger.addDebugInfo(`🎯 DIRECT MATCH: "${searchText}" -> "${stage.name}" (confidence: 90)`);
+          this.logger.addDebugInfo(`🔄 PATTERN MATCH: "${searchText}" -> "${stage.name}" (confidence: 60)`);
           return {
             stageId: stage.id,
             stageName: stage.name,
-            confidence: 90
+            confidence: 60
           };
         }
         
-        // Pattern-based matching with medium confidence
+        // Pattern-based matching with lower confidence
         if (pattern.patterns.some(p => searchText.includes(p))) {
-          this.logger.addDebugInfo(`🔍 PATTERN MATCH: "${searchText}" -> "${stage.name}" (confidence: 70)`);
+          this.logger.addDebugInfo(`🔍 WEAK PATTERN MATCH: "${searchText}" -> "${stage.name}" (confidence: 40)`);
           return {
             stageId: stage.id,
             stageName: stage.name,
-            confidence: 70
+            confidence: 40
           };
         }
       }
