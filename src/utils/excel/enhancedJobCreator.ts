@@ -23,21 +23,7 @@ const extractPaperSpecs = (job: ParsedJob, stageContext?: string) => {
 };
 
 export const extractQuantityFromJobSpecs = (job: ParsedJob, stageContext?: string): number => {
-  // CRITICAL FIX: For cover/text jobs, extract quantities directly from components
-  // This ensures printing stages get printing quantities, not paper quantities
-  if (job.cover_text_detection?.components && stageContext) {
-    const component = job.cover_text_detection.components.find(comp => 
-      comp.type === stageContext.toLowerCase()
-    );
-    
-    if (component?.printing) {
-      // Return the printing quantity for this component
-      console.log(`[Enhanced Parser] Using printing qty ${component.printing.qty} for ${stageContext} from cover_text_detection`);
-      return component.printing.qty;
-    }
-  }
-
-  // Original logic for non-cover/text jobs or when no cover/text data exists
+  // Original logic for extracting quantities
   if (stageContext && job.paper_specifications?.[stageContext]) {
     const specs = job.paper_specifications[stageContext];
     if (typeof specs === 'object' && 'qty' in specs) {
