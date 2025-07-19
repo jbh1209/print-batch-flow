@@ -248,41 +248,50 @@ export const mapRowToStage = (
   stageMappings: any[],
   logger: ExcelImportDebugger
 ): RowMappingResult => {
-  logger.addDebugInfo(`Attempting to map row ${rowIndex} - Group: ${groupName}, Description: ${description}`);
+  logger.addDebugInfo(`Mapping row ${rowIndex} - Group: ${groupName}, Description: ${description}`);
   
+  // Extract from job specifications first
   let mappedStageId: string | null = null;
   let mappedStageName: string | null = null;
   let mappedStageSpecId: string | null = null;
   let mappedStageSpecName: string | null = null;
   let confidence = 0;
   let category: RowMappingResult['category'] = 'unknown';
-  let isUnmapped = false;
-  let instanceId: string | undefined = undefined;
-  let paperSpecification: string | undefined = undefined;
-  let partType: string | undefined = undefined;
+  let isUnmapped = true;
   
-  // Try to find a matching stage mapping
-  const matchingStage = findMatchingStage(description, groupName, stageMappings, logger);
+  // Check if this groupName exists in the job's specifications with mappedStageId
+  const allSpecs = [
+    ...(job.printing_specifications ? Object.entries(job.printing_specifications) : []),
+    ...(job.finishing_specifications ? Object.entries(job.finishing_specifications) : []),
+    ...(job.prepress_specifications ? Object.entries(job.prepress_specifications) : []),
+    ...(job.delivery_specifications ? Object.entries(job.delivery_specifications) : [])
+  ];
   
-  if (matchingStage) {
-    mappedStageId = matchingStage.stageId;
-    mappedStageName = matchingStage.stageName;
-    mappedStageSpecId = matchingStage.stageSpecId || null;
-    mappedStageSpecName = matchingStage.stageSpecName || null;
-    confidence = matchingStage.confidence;
-    category = matchingStage.category;
-    instanceId = matchingStage.instanceId;
-    paperSpecification = matchingStage.paperSpecification;
-    partType = matchingStage.specifications[0];
+  const matchingSpec = allSpecs.find(([key, spec]: [string, any]) => 
+    key === groupName && spec.mappedStageId
+  );
+  
+  if (matchingSpec) {
+    const [key, spec] = matchingSpec;
+    mappedStageId = spec.mappedStageId;
+    mappedStageName = spec.mappedStageName || 'Unknown Stage';
+    mappedStageSpecId = spec.mappedStageSpecId || null;
+    mappedStageSpecName = spec.mappedStageSpecName || null;
+    confidence = 100; // High confidence for user-mapped stages
+    isUnmapped = false;
     
-    logger.addDebugInfo(`Matched stage: ${mappedStageName} (ID: ${mappedStageId}, Confidence: ${confidence})`);
+    // Determine category from spec type
+    if (job.printing_specifications?.[key]) category = 'printing';
+    else if (job.finishing_specifications?.[key]) category = 'finishing';
+    else if (job.prepress_specifications?.[key]) category = 'prepress';
+    else if (job.delivery_specifications?.[key]) category = 'delivery';
+    
+    logger.addDebugInfo(`✅ Found mapping in job specs: ${mappedStageName} (${mappedStageId})`);
   } else {
-    isUnmapped = true;
-    logger.addDebugInfo(`No matching stage found - marking as unmapped`);
+    logger.addDebugInfo(`❌ No mapping found for group: ${groupName}`);
   }
   
   const qty = extractQuantityFromJobSpecs(job, groupName, logger);
-  const woQty = job.qty;
   
   return {
     excelRowIndex: rowIndex,
@@ -290,7 +299,7 @@ export const mapRowToStage = (
     groupName,
     description,
     qty,
-    woQty,
+    woQty: job.qty,
     mappedStageId,
     mappedStageName,
     mappedStageSpecId,
@@ -298,9 +307,9 @@ export const mapRowToStage = (
     confidence,
     category,
     isUnmapped,
-    instanceId,
-    paperSpecification,
-    partType
+    instanceId: undefined,
+    paperSpecification: undefined,
+    partType: undefined
   };
 };
 
