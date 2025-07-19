@@ -382,7 +382,7 @@ export class EnhancedMappingProcessor {
     }
 
     // Enhanced delivery method detection
-    const enhancedMapping = this.deliveryMatcher.enhanceDeliveryDetection(deliverySpec, deliveryText);
+    const enhancedMapping = this.deliveryMatcher.enhanceDeliveryDetection(deliverySpec as any, deliveryText);
     
     // Update job with delivery specifications
     if (!job.delivery_specifications) {
