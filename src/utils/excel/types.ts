@@ -60,6 +60,26 @@ export interface GroupSpecifications {
     qty: number;
     wo_qty: number;
     specifications: string;
+    mappedStageId?: string;
+    mappedStageName?: string;
+    originalColumnIndex?: unknown;
+    confidence?: number;
+    type?: string;
+    weight?: string;
+    method?: string;
+    specification_id?: string;
+    specification_name?: string;
+    address?: string;
+    original_text?: string;
+    route?: string;
+    date?: string;
+    special_instructions?: string;
+    color?: string;
+    size?: string;
+    finish?: string;
+    contact?: string;
+    detected_features?: any;
+    notes?: string;
   };
 }
 
@@ -110,4 +130,49 @@ export interface RowMappingResult {
   isUnmapped: boolean;
   excelRowIndex: number;
   excelData: any[];
+  manualOverride?: boolean;
+  ignored?: boolean;
+  paperSpecification?: string;
+  partType?: string;
+  customRowId?: string;
+  instanceId?: string;
+  isCustomRow?: boolean;
+}
+
+export interface DeliverySpecification {
+  description: string;
+  qty: number;
+  wo_qty: number;
+  specifications: string;
+  method?: string;
+  confidence?: number;
+  type?: string;
+  weight?: string;
+  specification_id?: string;
+}
+
+export interface StageMapping {
+  stageId: string;
+  stageName: string;
+  confidence: number;
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'paper' | 'unknown';
+  specifications?: string;
+}
+
+export interface EnhancedJobCreationResult {
+  success: boolean;
+  createdJobIds: string[];
+  createdJobs?: any[];
+  failedJobs?: any[];
+  errors?: string[];
+  stats: {
+    total: number;
+    successful: number;
+    failed: number;
+    workflowsInitialized?: number;
+    newCategories?: number;
+  };
+  rowMappings?: RowMappingResult[];
+  categoryAssignments?: any;
+  userApprovedStageMappings?: any;
 }

@@ -101,7 +101,14 @@ export class DirectJobCreator {
     // Insert job into database
     const { data: insertedJob, error: insertError } = await supabase
       .from('production_jobs')
-      .insert(jobData)
+      .insert({
+        ...jobData,
+        paper_specifications: jobData.paper_specifications as any,
+        delivery_specifications: jobData.delivery_specifications as any,
+        finishing_specifications: jobData.finishing_specifications as any,
+        prepress_specifications: jobData.prepress_specifications as any,
+        printing_specifications: jobData.printing_specifications as any,
+      })
       .select()
       .single();
 
@@ -115,7 +122,13 @@ export class DirectJobCreator {
           .from('production_jobs')
           .update({
             ...jobData,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            paper_specifications: jobData.paper_specifications as any,
+            delivery_specifications: jobData.delivery_specifications as any,
+            finishing_specifications: jobData.finishing_specifications as any,
+            prepress_specifications: jobData.prepress_specifications as any,
+            printing_specifications: jobData.printing_specifications as any,
+            
           })
           .eq('wo_no', originalJob.wo_no)
           .eq('user_id', this.userId)

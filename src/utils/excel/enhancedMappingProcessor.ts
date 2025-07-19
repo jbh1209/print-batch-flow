@@ -217,6 +217,7 @@ export class EnhancedMappingProcessor {
           specifications: specs.includes('4/4') ? '4/4' : 
                          specs.includes('4/0') ? '4/0' : '1/0',
           qty: job.qty || 1,
+          wo_qty: job.qty || 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingPrintingMappings.color_process && { mappedStageId: existingPrintingMappings.color_process })
         };
@@ -229,6 +230,7 @@ export class EnhancedMappingProcessor {
           specifications: specs.includes('digital') ? 'Digital' :
                          specs.includes('litho') ? 'Litho' : 'Offset',
           qty: job.qty || 1,
+          wo_qty: job.qty || 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingPrintingMappings.print_method && { mappedStageId: existingPrintingMappings.print_method })
         };
@@ -247,6 +249,7 @@ export class EnhancedMappingProcessor {
           specifications: specs.includes('gloss') ? 'Gloss' :
                          specs.includes('matt') ? 'Matt' : 'Standard',
           qty: job.qty || 1,
+          wo_qty: job.qty || 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingFinishingMappings.lamination && { mappedStageId: existingFinishingMappings.lamination })
         };
@@ -257,6 +260,7 @@ export class EnhancedMappingProcessor {
           description: 'Cutting/Trimming Required',
           specifications: 'Cut to Size',
           qty: job.qty || 1,
+          wo_qty: job.qty || 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingFinishingMappings.cutting && { mappedStageId: existingFinishingMappings.cutting })
         };
@@ -267,6 +271,7 @@ export class EnhancedMappingProcessor {
           description: 'Folding/Creasing Required',
           specifications: 'Fold',
           qty: job.qty || 1,
+          wo_qty: job.qty || 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingFinishingMappings.folding && { mappedStageId: existingFinishingMappings.folding })
         };
@@ -282,6 +287,7 @@ export class EnhancedMappingProcessor {
           description: 'Proofing Required',
           specifications: 'Proof for Approval',
           qty: 1,
+          wo_qty: 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingPrepressMappings.proofing && { mappedStageId: existingPrepressMappings.proofing })
         };
@@ -292,6 +298,7 @@ export class EnhancedMappingProcessor {
           description: 'Artwork/Design Required',
           specifications: 'Artwork Setup',
           qty: 1,
+          wo_qty: 1,
           // PRESERVE user-approved mappedStageId if it exists
           ...(existingPrepressMappings.artwork && { mappedStageId: existingPrepressMappings.artwork })
         };
@@ -331,6 +338,10 @@ export class EnhancedMappingProcessor {
       }
 
       job.paper_specifications.parsed_paper = {
+        description: `Paper: ${paperMapping.paperType}`,
+        qty: job.qty || 1,
+        wo_qty: job.qty || 1,
+        specifications: paperText,
         type: paperMapping.paperType,
         weight: paperMapping.paperWeight,
         confidence: paperMapping.confidence,
@@ -379,6 +390,10 @@ export class EnhancedMappingProcessor {
     }
 
     job.delivery_specifications.parsed_delivery = {
+      description: `Delivery: ${deliverySpec.method}`,
+      qty: 1,
+      wo_qty: 1,
+      specifications: deliveryText,
       method: deliverySpec.method,
       address: deliverySpec.address,
       contact: deliverySpec.contact,
@@ -390,6 +405,10 @@ export class EnhancedMappingProcessor {
     // Add enhanced delivery mapping if available
     if (enhancedMapping) {
       job.delivery_specifications.enhanced_delivery = {
+        description: `Enhanced Delivery: ${enhancedMapping.specificationName}`,
+        qty: 1,
+        wo_qty: 1,
+        specifications: deliveryText,
         specification_id: enhancedMapping.specificationId,
         specification_name: enhancedMapping.specificationName,
         method: enhancedMapping.method,
@@ -475,6 +494,7 @@ export class EnhancedMappingProcessor {
           description: `User Mapped Production Stage`,
           specifications: columnValue || `[User Approved Stage - No Excel Data]`,
           qty: job.qty || 1,
+          wo_qty: job.qty || 1,
           mappedStageId: stageId, // Critical value #1 for preservation
           mappedStageName: stageName, // Critical value #2 for preservation
           originalColumnIndex: columnIndex,
