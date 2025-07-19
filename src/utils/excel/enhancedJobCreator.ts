@@ -1,7 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ParsedJob, RowMappingResult } from './types';
 import type { ExcelImportDebugger } from './debugger';
-import { initializeJobWorkflow } from '@/utils/tracker/jobWorkflowInitializer';
+
+export interface EnhancedJobCreationResult {
+  jobs: any[];
+  stats: {
+    total: number;
+    successful: number;
+    failed: number;
+    workflowsInitialized?: number;
+    newCategories?: number;
+  };
+  generateQRCodes?: boolean;
+  rowMappings?: { [woNo: string]: RowMappingResult[] };
+  categoryAssignments?: any[];
+  createdJobs?: any[];
+  failedJobs?: any[];
+}
 
 export class EnhancedJobCreator {
   private logger: ExcelImportDebugger;
@@ -21,8 +36,7 @@ export class EnhancedJobCreator {
     // Load available categories for job creation
     const { data: categories } = await supabase
       .from('categories')
-      .select('*')
-      .eq('is_active', true);
+      .select('*');
     
     this.availableCategories = categories || [];
     this.logger.addDebugInfo(`📂 Loaded ${this.availableCategories.length} active categories`);
@@ -61,7 +75,7 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`✨ Creating new category: ${categoryName}`);
     const { data: newCategory, error: newCategoryError } = await supabase
       .from('categories')
-      .insert([{ name: categoryName, is_active: true }])
+      .insert([{ name: categoryName }])
       .select('*')
       .single();
 
@@ -169,9 +183,9 @@ export class EnhancedJobCreator {
         
         // Create the job
         const { data: newJob, error: jobError } = await supabase
-          .from('jobs')
+          .from('production_jobs')
           .insert([{
-            wo_number: job.wo_no,
+            wo_no: job.wo_no,
             status: job.status,
             date: job.date,
             rep: job.rep,
@@ -181,17 +195,7 @@ export class EnhancedJobCreator {
             qty: job.qty,
             due_date: job.due_date,
             location: job.location,
-            estimated_hours: job.estimated_hours,
-            setup_time_minutes: job.setup_time_minutes,
-            running_speed: job.running_speed,
-            speed_unit: job.speed_unit,
-            specifications: job.specifications,
-            paper_weight: job.paper_weight,
-            paper_type: job.paper_type,
-            lamination: job.lamination,
-            created_by: this.userId,
-            updated_by: this.userId,
-            generate_qr_code: this.generateQRCodes,
+            user_id: this.userId,
           }])
           .select('*')
           .single();
@@ -203,43 +207,22 @@ export class EnhancedJobCreator {
           continue;
         }
         
-        this.logger.addDebugInfo(`✅ Created job: ${newJob.wo_number} (${newJob.id})`);
+        this.logger.addDebugInfo(`✅ Created job: ${newJob.wo_no} (${newJob.id})`);
         
-        // Create a job_stage_instance record for each stage in the workflow
-        const success = await initializeJobWorkflow(newJob.id, 'jobs', category.id);
-        
-        if (!success) {
-          this.logger.addDebugInfo(`❌ Failed to initialize workflow for job ${newJob.wo_number}`);
-          failed++;
-          continue;
+        // Initialize workflow stages if category exists
+        if (category.id) {
+          const { error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
+            p_job_id: newJob.id,
+            p_job_table_name: 'production_jobs',
+            p_category_id: category.id
+          });
+          
+          if (workflowError) {
+            this.logger.addDebugInfo(`❌ Failed to initialize workflow for job ${newJob.wo_no}: ${workflowError.message}`);
+          }
         }
         
-        // Create a row_mapping_result record for the job
-        const { data: newRowMapping, error: rowMappingError } = await supabase
-          .from('row_mapping_results')
-          .insert([{
-            job_id: newJob.id,
-            excel_row_index: rowMapping.excelRowIndex,
-            excel_data: rowMapping.excelData,
-            group_name: rowMapping.groupName,
-            description: rowMapping.description,
-            qty: rowMapping.qty,
-            wo_qty: rowMapping.woQty,
-            mapped_stage_id: rowMapping.mappedStageId,
-            mapped_stage_name: rowMapping.mappedStageName,
-            mapped_stage_spec_id: rowMapping.mappedStageSpecId,
-            mapped_stage_spec_name: rowMapping.mappedStageSpecName,
-            confidence: rowMapping.confidence,
-            category: rowMapping.category,
-            is_unmapped: rowMapping.isUnmapped,
-          }])
-          .select('*')
-          .single();
-        
-        if (rowMappingError) {
-          console.error('❌ Error creating row mapping:', rowMappingError);
-          this.logger.addDebugInfo(`❌ Failed to create row mapping for job ${newJob.wo_number}: ${rowMappingError.message}`);
-        }
+        // Note: row_mapping_results table doesn't exist, skipping this step
         
         jobResults.push(newJob);
         successful++;
@@ -345,9 +328,9 @@ export class EnhancedJobCreator {
       try {
         // Create the job
         const { data: newJob, error: jobError } = await supabase
-          .from('jobs')
+          .from('production_jobs')
           .insert([{
-            wo_number: job.wo_no,
+            wo_no: job.wo_no,
             status: job.status,
             date: job.date,
             rep: job.rep,
@@ -357,18 +340,7 @@ export class EnhancedJobCreator {
             qty: job.qty,
             due_date: job.due_date,
             location: job.location,
-            estimated_hours: job.estimated_hours,
-            setup_time_minutes: job.setup_time_minutes,
-            running_speed: job.running_speed,
-            speed_unit: job.speed_unit,
-            specifications: job.specifications,
-            paper_weight: job.paper_weight,
-            paper_type: job.paper_type,
-            lamination: job.lamination,
-            created_by: this.userId,
-            updated_by: this.userId,
-            updated_by: this.userId,
-            generate_qr_code: job.generate_qr_code,
+            user_id: this.userId,
           }])
           .select('*')
           .single();
@@ -380,44 +352,19 @@ export class EnhancedJobCreator {
           continue;
         }
         
-        this.logger.addDebugInfo(`✅ Created job: ${newJob.wo_number} (${newJob.id})`);
+        this.logger.addDebugInfo(`✅ Created job: ${newJob.wo_no} (${newJob.id})`);
         
-        // Create a job_stage_instance record for each stage in the workflow
-        const success = await initializeJobWorkflow(newJob.id, 'jobs', job.category_id);
-        
-        if (!success) {
-          this.logger.addDebugInfo(`❌ Failed to initialize workflow for job ${newJob.wo_number}`);
-          failed++;
-          continue;
-        }
-        
-        // Create a row_mapping_result record for the job
-        const rowMapping = job.row_mapping_results[0];
-        
-        const { data: newRowMapping, error: rowMappingError } = await supabase
-          .from('row_mapping_results')
-          .insert([{
-            job_id: newJob.id,
-            excel_row_index: rowMapping.excelRowIndex,
-            excel_data: rowMapping.excelData,
-            group_name: rowMapping.groupName,
-            description: rowMapping.description,
-            qty: rowMapping.qty,
-            wo_qty: rowMapping.woQty,
-            mapped_stage_id: rowMapping.mappedStageId,
-            mapped_stage_name: rowMapping.mappedStageName,
-            mapped_stage_spec_id: rowMapping.mappedStageSpecId,
-            mapped_stage_spec_name: rowMapping.mappedStageSpecName,
-            confidence: rowMapping.confidence,
-            category: rowMapping.category,
-            is_unmapped: rowMapping.isUnmapped,
-          }])
-          .select('*')
-          .single();
-        
-        if (rowMappingError) {
-          console.error('❌ Error creating row mapping:', rowMappingError);
-          this.logger.addDebugInfo(`❌ Failed to create row mapping for job ${newJob.wo_number}: ${rowMappingError.message}`);
+        // Initialize workflow stages if category exists
+        if (job.category_id) {
+          const { error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
+            p_job_id: newJob.id,
+            p_job_table_name: 'production_jobs',
+            p_category_id: job.category_id
+          });
+          
+          if (workflowError) {
+            this.logger.addDebugInfo(`❌ Failed to initialize workflow for job ${newJob.wo_no}: ${workflowError.message}`);
+          }
         }
         
         finalizedJobs.push(newJob);

@@ -190,7 +190,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
   const handleUpdateCategory = (woNo: string, categoryId: string | null, categoryName: string | null) => {
     // Update category assignment in result
-    if (result && result.categoryAssignments[woNo]) {
+    if (result && result.categoryAssignments && result.categoryAssignments[woNo]) {
       result.categoryAssignments[woNo].categoryId = categoryId;
       result.categoryAssignments[woNo].categoryName = categoryName;
       result.categoryAssignments[woNo].requiresCustomWorkflow = !categoryId;
@@ -485,7 +485,11 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
               <TabsContent value="mapping" className="flex-1 overflow-y-auto space-y-4">
                 {result.rowMappings && Object.entries(result.rowMappings).map(([woNo, mappings]) => {
-                  const currentMappings = updatedRowMappings[woNo] || mappings || [];
+                  const currentMappings = Array.isArray(updatedRowMappings[woNo]) 
+                    ? updatedRowMappings[woNo] 
+                    : Array.isArray(mappings) 
+                      ? mappings 
+                      : [];
                   
                   return (
                     <Card key={woNo}>
@@ -524,8 +528,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <RowMappingTable
-                          rowMappings={currentMappings}
+                         <RowMappingTable
+                           rowMappings={Array.isArray(currentMappings) ? currentMappings : []}
                           availableStages={availableStages}
                           stageSpecifications={stageSpecifications}
                           workOrderNumber={woNo}
@@ -560,43 +564,43 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                             <TableHead className="min-w-[100px]">Workflow Type</TableHead>
                           </TableRow>
                         </TableHeader>
-                      <TableBody>
-                        {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => (
-                          <TableRow key={woNo}>
-                            <TableCell className="font-medium">{woNo}</TableCell>
+                       <TableBody>
+                         {result.categoryAssignments && Object.entries(result.categoryAssignments).map(([woNo, assignment]) => (
+                           <TableRow key={woNo}>
+                             <TableCell className="font-medium">{woNo}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                  Custom Workflow
+                                </Badge>
+                              </TableCell>
                              <TableCell>
-                               <Badge variant="outline" className="text-blue-600 border-blue-600">
-                                 Custom Workflow
+                               <Badge className={getConfidenceColor(assignment?.confidence || 0)}>
+                                 {getConfidenceLabel(assignment?.confidence || 0)} ({(assignment?.confidence || 0).toFixed(0)}%)
                                </Badge>
                              </TableCell>
-                            <TableCell>
-                              <Badge className={getConfidenceColor(assignment.confidence)}>
-                                {getConfidenceLabel(assignment.confidence)} ({assignment.confidence.toFixed(0)}%)
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {assignment.mappedStages.map((stage, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {stage.stageName}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {assignment.requiresCustomWorkflow ? (
-                                <Badge variant="outline" className="text-orange-600 border-orange-600">
-                                  Custom
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-green-600 border-green-600">
-                                  Standard
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
+                             <TableCell>
+                               <div className="flex flex-wrap gap-1">
+                                 {(assignment?.mappedStages || []).map((stage, idx) => (
+                                   <Badge key={idx} variant="outline" className="text-xs">
+                                     {stage.stageName}
+                                   </Badge>
+                                 ))}
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               {assignment?.requiresCustomWorkflow ? (
+                                 <Badge variant="outline" className="text-orange-600 border-orange-600">
+                                   Custom
+                                 </Badge>
+                               ) : (
+                                 <Badge variant="outline" className="text-green-600 border-green-600">
+                                   Standard
+                                 </Badge>
+                               )}
+                             </TableCell>
+                           </TableRow>
+                         ))}
+                       </TableBody>
                     </Table>
                     </div>
                   </CardContent>
@@ -623,38 +627,38 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                             <TableHead className="min-w-[120px]">Status</TableHead>
                           </TableRow>
                         </TableHeader>
-                      <TableBody>
-                        {result.createdJobs.map((job) => (
-                          <TableRow key={job.id}>
-                            <TableCell className="font-medium">{job.wo_no}</TableCell>
-                            <TableCell>{job.customer || 'N/A'}</TableCell>
-                            <TableCell>{job.qty}</TableCell>
-                            <TableCell>
-                              {result.categoryAssignments[job.wo_no]?.categoryName || (
-                                <span className="text-gray-500 italic">Custom</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className="bg-green-100 text-green-700">
-                                Ready for Production
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
+                       <TableBody>
+                         {(result.createdJobs || result.jobs || []).map((job) => (
+                           <TableRow key={job.id || job.wo_no}>
+                             <TableCell className="font-medium">{job.wo_no}</TableCell>
+                             <TableCell>{job.customer || 'N/A'}</TableCell>
+                             <TableCell>{job.qty}</TableCell>
+                             <TableCell>
+                               {result.categoryAssignments?.[job.wo_no]?.categoryName || (
+                                 <span className="text-gray-500 italic">Custom</span>
+                               )}
+                             </TableCell>
+                             <TableCell>
+                               <Badge className="bg-green-100 text-green-700">
+                                 Ready for Production
+                               </Badge>
+                             </TableCell>
+                           </TableRow>
+                         ))}
+                       </TableBody>
                     </Table>
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="errors" className="flex-1 overflow-y-auto space-y-4">
-                {result.failedJobs.length > 0 ? (
+               <TabsContent value="errors" className="flex-1 overflow-y-auto space-y-4">
+                 {(result.failedJobs && result.failedJobs.length > 0) ? (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-sm flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-red-600" />
-                        Failed Jobs ({result.failedJobs.length})
+                         <XCircle className="h-4 w-4 text-red-600" />
+                         Failed Jobs ({result.failedJobs?.length || 0})
                       </CardTitle>
                       <CardDescription>
                         Jobs that could not be processed due to errors
@@ -669,8 +673,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                             <TableHead>Error</TableHead>
                           </TableRow>
                         </TableHeader>
-                        <TableBody>
-                          {result.failedJobs.map((failedJob, idx) => (
+                         <TableBody>
+                           {(result.failedJobs || []).map((failedJob, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-medium">{failedJob.job.wo_no}</TableCell>
                               <TableCell>{failedJob.job.customer || 'N/A'}</TableCell>
