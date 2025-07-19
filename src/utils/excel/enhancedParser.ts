@@ -452,7 +452,7 @@ export const parseAndCreateProductionReadyJobs = async (
   await jobCreator.initialize();
   
   // Step 3: Create production-ready jobs with workflows, passing Excel data
-  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows);
+  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows, []);
   
   logger.addDebugInfo(`Phase 4 enhanced job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
   
@@ -484,7 +484,8 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   const result = await jobCreator.prepareEnhancedJobsWithExcelData(
     jobs, 
     matrixData.headers, 
-    matrixData.rows
+    matrixData.rows,
+    []
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job preparation completed: ${result.stats.total} jobs prepared for review`);
@@ -517,7 +518,8 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
   const result = await jobCreator.createEnhancedJobsWithExcelData(
     jobs, 
     matrixData.headers, 
-    matrixData.rows
+    matrixData.rows,
+    []
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);

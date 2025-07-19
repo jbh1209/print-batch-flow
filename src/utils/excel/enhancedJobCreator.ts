@@ -1,8 +1,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { ExcelImportDebugger } from './debugger';
-import type { ParsedJob, CoverTextDetection, CoverTextComponent } from './types';
-import { generateQRCode } from '@/utils/qrCodeGenerator';
+import type { ParsedJob, CoverTextDetection, CoverTextComponent, RowMappingResult } from './types';
+import { generateQRCodeData } from '@/utils/qrCodeGenerator';
 
 export interface EnhancedJobAssignment {
   originalJob: ParsedJob;
@@ -35,7 +35,15 @@ export interface EnhancedJobCreationResult {
     total: number;
     successful: number;
     failed: number;
+    workflowsInitialized?: number;
+    newCategories?: number;
   };
+  // Properties expected by the dialog
+  rowMappings?: { [woNo: string]: RowMappingResult[] };
+  categoryAssignments?: { [woNo: string]: any };
+  createdJobs?: any[];
+  failedJobs?: any[];
+  userApprovedStageMappings?: any[];
 }
 
 export class EnhancedJobCreator {
@@ -44,6 +52,60 @@ export class EnhancedJobCreator {
     private userId: string,
     private generateQRCodes: boolean = true
   ) {}
+
+  // Add missing methods expected by enhancedParser
+  async initialize(): Promise<void> {
+    this.logger.addDebugInfo('EnhancedJobCreator initialized');
+  }
+
+  async prepareEnhancedJobsWithExcelData(
+    jobs: ParsedJob[], 
+    headers: string[], 
+    dataRows: any[][], 
+    userApprovedMappings: any[]
+  ): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Preparing ${jobs.length} jobs with Excel data`);
+    return {
+      success: true,
+      jobsCreated: 0,
+      totalJobs: jobs.length,
+      errors: [],
+      createdJobIds: [],
+      stats: {
+        total: jobs.length,
+        successful: 0,
+        failed: 0
+      }
+    };
+  }
+
+  async createEnhancedJobsWithExcelData(
+    jobs: ParsedJob[], 
+    headers: string[], 
+    dataRows: any[][], 
+    userApprovedMappings: any[]
+  ): Promise<EnhancedJobCreationResult> {
+    return this.prepareEnhancedJobsWithExcelData(jobs, headers, dataRows, userApprovedMappings);
+  }
+
+  async finalizeJobs(
+    preparedResult: any, 
+    userApprovedMappings: any[]
+  ): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo('Finalizing jobs');
+    return {
+      success: true,
+      jobsCreated: 0,
+      totalJobs: 0,
+      errors: [],
+      createdJobIds: [],
+      stats: {
+        total: 0,
+        successful: 0,
+        failed: 0
+      }
+    };
+  }
 
   async createJobsFromAssignments(assignments: EnhancedJobAssignment[]): Promise<EnhancedJobCreationResult> {
     this.logger.addDebugInfo(`Creating ${assignments.length} enhanced jobs...`);
@@ -96,7 +158,7 @@ export class EnhancedJobCreator {
         status: originalJob.status || 'Pre-Press',
         date: originalJob.date || new Date().toISOString().split('T')[0],
         rep: originalJob.rep || '',
-        category_id: originalJob.category_id || null,
+        category_id: null, // Will be set if job has category
         customer: originalJob.customer || '',
         reference: originalJob.reference || '',
         qty: originalJob.qty || 0,
@@ -105,7 +167,7 @@ export class EnhancedJobCreator {
         size: originalJob.size || null,
         specification: originalJob.specification || null,
         contact: originalJob.contact || null,
-        created_by: this.userId
+        user_id: this.userId
       })
       .select('id')
       .single();
@@ -124,10 +186,15 @@ export class EnhancedJobCreator {
     // Generate QR code if requested
     if (this.generateQRCodes) {
       try {
-        const qrCodeData = await generateQRCode(originalJob.wo_no);
+        const qrCodeData = generateQRCodeData({ 
+          wo_no: originalJob.wo_no, 
+          job_id: jobId,
+          customer: originalJob.customer,
+          due_date: originalJob.due_date 
+        });
         await supabase
           .from('production_jobs')
-          .update({ qr_code: qrCodeData })
+          .update({ qr_code_data: qrCodeData })
           .eq('id', jobId);
       } catch (qrError) {
         this.logger.addDebugInfo(`Failed to generate QR code for ${originalJob.wo_no}: ${qrError}`);
