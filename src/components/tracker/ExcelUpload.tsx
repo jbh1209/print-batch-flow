@@ -37,7 +37,6 @@ import { EnhancedJobCreationDialog } from "@/components/admin/upload/EnhancedJob
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
-  wo_no: string; // Required by Supabase
   qr_code_data?: string;
   qr_code_url?: string;
 }
@@ -213,7 +212,6 @@ export const ExcelUpload = () => {
         const jobData: JobDataWithQR = {
           ...job,
           user_id: user.id,
-          wo_no: job.woNo, // Map woNo to wo_no for Supabase
           // Convert null dates to undefined for database insertion
           date: job.date || undefined,
           due_date: job.due_date || undefined
@@ -223,10 +221,10 @@ export const ExcelUpload = () => {
         if (generateQRCodes) {
           try {
             const qrData = generateQRCodeData({
-              wo_no: job.woNo,
-              job_id: `temp-${job.woNo}`,
+              wo_no: job.wo_no,
+              job_id: `temp-${job.wo_no}`,
               customer: job.customer,
-              due_date: job.dueDate
+              due_date: job.due_date
             });
             
             const qrUrl = await generateQRCodeImage(qrData);

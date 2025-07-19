@@ -392,10 +392,9 @@ export class EnhancedStageMapper {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
-    // Get printing operations from specs, preserving individual quantities for same stage types
+    // Get printing operations from specs
     const printingOps: Array<{groupName: string, spec: any, rowIndex: number}> = [];
     
-    // Create printing operations directly from printingSpecs, but ensure each has unique identifier
     for (const [groupName, spec] of Object.entries(printingSpecs)) {
       printingOps.push({groupName, spec, rowIndex: currentRowIndex});
       currentRowIndex++;
@@ -412,31 +411,28 @@ export class EnhancedStageMapper {
       
       this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaper.mappedSpec} (qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (qty: ${textPaper.qty})`);
       
-      // Match printing operations to paper components by quantity
-      // Sort printing operations by quantity to match with sorted papers
-      const sortedPrintingOps = [...printingOps].sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
-      const coverPrintingOp = sortedPrintingOps[0];  // Smallest quantity = Cover printing
-      const textPrintingOp = sortedPrintingOps.length > 1 ? sortedPrintingOps[sortedPrintingOps.length - 1] : sortedPrintingOps[0];
+      // Use first printing operation as template for both stages
+      const printingOp = printingOps[0];
       
       // Create Cover printing stage
       const coverStageMapping = this.findIntelligentStageMatchWithSpec(
-        coverPrintingOp.groupName, 
-        coverPrintingOp.spec.description || '', 
+        printingOp.groupName, 
+        printingOp.spec.description || '', 
         'printing'
       );
       
       const coverInstanceId = this.generateInstanceId(
-        `${coverPrintingOp.groupName}_Cover`, 
-        coverPrintingOp.rowIndex
+        `${printingOp.groupName}_Cover`, 
+        printingOp.rowIndex
       );
 
       mappings.push({
-        excelRowIndex: coverPrintingOp.rowIndex,
-        excelData: excelRows[0] || [],
-        groupName: `${coverPrintingOp.groupName} - ${coverPaper.mappedSpec}`,
-        description: `${coverPrintingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
-        qty: coverPrintingOp.spec.qty || 0,
-        woQty: coverPrintingOp.spec.wo_qty || 0,
+        excelRowIndex: printingOp.rowIndex,
+        excelData: excelRows[printingOp.rowIndex] || [],
+        groupName: `${printingOp.groupName} - ${coverPaper.mappedSpec}`,
+        description: `${printingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
+        qty: coverPaper.qty,
+        woQty: printingOp.spec.wo_qty || 0,
         mappedStageId: coverStageMapping?.stageId || null,
         mappedStageName: coverStageMapping?.stageName || null,
         mappedStageSpecId: coverStageMapping?.stageSpecId || null,
@@ -452,23 +448,23 @@ export class EnhancedStageMapper {
 
       // Create Text printing stage
       const textStageMapping = this.findIntelligentStageMatchWithSpec(
-        textPrintingOp.groupName, 
-        textPrintingOp.spec.description || '', 
+        printingOp.groupName, 
+        printingOp.spec.description || '', 
         'printing'
       );
       
       const textInstanceId = this.generateInstanceId(
-        `${textPrintingOp.groupName}_Text`, 
-        textPrintingOp.rowIndex
+        `${printingOp.groupName}_Text`, 
+        printingOp.rowIndex
       );
 
       mappings.push({
-        excelRowIndex: textPrintingOp.rowIndex,
-        excelData: excelRows[0] || [],
-        groupName: `${textPrintingOp.groupName} - ${textPaper.mappedSpec}`,
-        description: `${textPrintingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
-        qty: textPrintingOp.spec.qty || 0,
-        woQty: textPrintingOp.spec.wo_qty || 0,
+        excelRowIndex: printingOp.rowIndex,
+        excelData: excelRows[printingOp.rowIndex] || [],
+        groupName: `${printingOp.groupName} - ${textPaper.mappedSpec}`,
+        description: `${printingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
+        qty: textPaper.qty,
+        woQty: printingOp.spec.wo_qty || 0,
         mappedStageId: textStageMapping?.stageId || null,
         mappedStageName: textStageMapping?.stageName || null,
         mappedStageSpecId: textStageMapping?.stageSpecId || null,
@@ -939,8 +935,6 @@ export class EnhancedStageMapper {
       if (userMapping) {
         this.logger.addDebugInfo(`  ✅ USING USER-APPROVED MAPPING: ${groupName} -> ${userMapping.mappedStageName} (${userMapping.mappedStageId})`);
         mappings.push({
-          id: userMapping.mappedStageId,
-          name: userMapping.mappedStageName,
           stageId: userMapping.mappedStageId,
           stageName: userMapping.mappedStageName,
           confidence: 100, // User-approved mappings have highest confidence
@@ -959,8 +953,6 @@ export class EnhancedStageMapper {
         if (stageMapping) {
           this.logger.addDebugInfo(`  ✅ TEXT-PATTERN MAPPING: ${groupName} -> ${stageMapping.stageName} (confidence: ${stageMapping.confidence}%)`);
           mappings.push({
-            id: stageMapping.stageId,
-            name: stageMapping.stageName,
             stageId: stageMapping.stageId,
             stageName: stageMapping.stageName,
             confidence: stageMapping.confidence,

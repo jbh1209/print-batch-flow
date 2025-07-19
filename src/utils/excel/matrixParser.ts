@@ -56,8 +56,6 @@ const detectMatrixStructure = (headers: string[], rows: any[][], logger: ExcelIm
   
   return {
     headers,
-    data: rows, // Add data property
-    totalRows: rows.length, // Add totalRows property
     rows,
     groupColumn,
     workOrderColumn,
@@ -183,33 +181,19 @@ const createBaseJob = (
   const safeGet = (index: number) => index !== -1 && row[index] ? String(row[index]).trim() : '';
   
   return {
-    // Core camelCase properties
-    woNo: woNo,
-    customer: safeGet(columnMapping.customer || -1),
+    wo_no: woNo,
     status: 'Pre-Press',
     date: formatExcelDate(safeGet(columnMapping.date || -1), logger),
     rep: safeGet(columnMapping.rep || -1),
     category: safeGet(columnMapping.category || -1),
+    customer: safeGet(columnMapping.customer || -1),
     reference: safeGet(columnMapping.reference || -1),
-    qty: parseInt(String(safeGet(columnMapping.qty || matrixData.qtyColumn || -1)).replace(/[^0-9]/g, '')) || 0,
-    woQty: parseInt(String(safeGet(columnMapping.woQty || matrixData.woQtyColumn || -1)).replace(/[^0-9]/g, '')) || 0,
-    dueDate: formatExcelDate(safeGet(columnMapping.dueDate || -1), logger),
-    location: safeGet(columnMapping.location || -1),
-    estimatedHours: 0,
-    setupTime: 0,
-    runningSpeed: 0,
-    speedUnit: 'sheets_per_hour',
-    specifications: safeGet(columnMapping.specification || -1) || '',
-    paperWeight: 0,
-    paperType: '',
-    lamination: '',
-    
-    // Legacy snake_case properties for compatibility
-    wo_no: woNo,
+    qty: parseInt(String(safeGet(columnMapping.qty || matrixData.woQtyColumn || -1)).replace(/[^0-9]/g, '')) || 0,
     due_date: formatExcelDate(safeGet(columnMapping.dueDate || -1), logger),
-    size: safeGet(columnMapping.size || -1) || '',
-    specification: safeGet(columnMapping.specification || -1) || '',
-    contact: safeGet(columnMapping.contact || -1) || ''
+    location: safeGet(columnMapping.location || -1),
+    size: safeGet(columnMapping.size || -1) || null,
+    specification: safeGet(columnMapping.specification || -1) || null,
+    contact: safeGet(columnMapping.contact || -1) || null
   };
 };
 
@@ -317,7 +301,10 @@ const extractGroupSpecifications = (
       
       // Also add to operations with quantity information
       if (qty > 0) {
-        specs.operations[specKey] = qty;
+        specs.operations[specKey] = {
+          operation_qty: qty,
+          total_wo_qty: woQty
+        };
       }
     }
     
@@ -400,11 +387,33 @@ const detectCoverTextScenario = (
   const components: CoverTextComponent[] = [
     {
       type: 'cover',
-      printing: coverPrinting.description
+      printing: {
+        description: coverPrinting.description,
+        qty: coverPrinting.qty,
+        wo_qty: coverPrinting.wo_qty,
+        row: coverPrinting.rawRow
+      },
+      paper: sortedPaperRows.length > 0 ? {
+        description: sortedPaperRows[0].description,
+        qty: sortedPaperRows[0].qty,
+        wo_qty: sortedPaperRows[0].wo_qty,
+        row: sortedPaperRows[0].rawRow
+      } : undefined
     },
     {
-      type: 'text', 
-      printing: textPrinting.description
+      type: 'text',
+      printing: {
+        description: textPrinting.description,
+        qty: textPrinting.qty,
+        wo_qty: textPrinting.wo_qty,
+        row: textPrinting.rawRow
+      },
+      paper: sortedPaperRows.length > 1 ? {
+        description: sortedPaperRows[sortedPaperRows.length - 1].description,
+        qty: sortedPaperRows[sortedPaperRows.length - 1].qty,
+        wo_qty: sortedPaperRows[sortedPaperRows.length - 1].wo_qty,
+        row: sortedPaperRows[sortedPaperRows.length - 1].rawRow
+      } : undefined
     }
   ];
   

@@ -109,11 +109,6 @@ export const parseMatrixExcelFileWithMapping = async (
   );
   
   const stats: ImportStats = {
-    total: matrixData.rows.length,
-    successful: enhancedResult.jobs.length,
-    failed: matrixData.rows.length - enhancedResult.jobs.length,
-    errors: enhancedResult.unmappedPaperSpecs.map(spec => `Unmapped paper spec: ${spec}`)
-      .concat(enhancedResult.unmappedDeliverySpecs.map(spec => `Unmapped delivery spec: ${spec}`)),
     totalRows: matrixData.rows.length,
     processedRows: enhancedResult.jobs.length,
     skippedRows: matrixData.rows.length - enhancedResult.jobs.length,
@@ -126,13 +121,7 @@ export const parseMatrixExcelFileWithMapping = async (
   logger.addDebugInfo(`Enhanced matrix parsing completed: ${enhancedResult.jobs.length} jobs processed`);
   logger.addDebugInfo(`Paper specs mapped: ${enhancedResult.stats.paperSpecsMapped}, Delivery specs mapped: ${enhancedResult.stats.deliverySpecsMapped}`);
   
-  return { 
-    success: true,
-    data: enhancedResult.jobs,
-    errors: stats.errors,
-    jobs: enhancedResult.jobs, 
-    stats 
-  };
+  return { jobs: enhancedResult.jobs, stats };
 };
 
 export const getAutoDetectedMapping = (headers: string[], logger: ExcelImportDebugger): ColumnMapping => {
@@ -192,10 +181,6 @@ export const parseExcelFileWithMapping = async (
   let dataRows = jsonData.slice(1) as any[][];
   
   const stats: ImportStats = {
-    total: dataRows.length,
-    successful: 0,
-    failed: 0,
-    errors: [],
     totalRows: dataRows.length,
     processedRows: 0,
     skippedRows: 0,
@@ -295,37 +280,25 @@ export const parseExcelFileWithMapping = async (
     const normalizedStatus = normalizeStatus(statusValue, logger);
 
     const job: ParsedJob = {
-      // Core camelCase properties from Excel parsing
-      woNo: woNo,
-      customer: String(customerValue || "").trim(),
+      wo_no: woNo,
       status: normalizedStatus,
       date: formattedDate,
       rep: String(repValue || "").trim(),
       category: String(categoryValue || "").trim(),
+      customer: String(customerValue || "").trim(),
       reference: String(referenceValue || "").trim(),
       qty: parseInt(String(qtyValue || "0").replace(/[^0-9]/g, '')) || 0,
-      woQty: parseInt(String(qtyValue || "0").replace(/[^0-9]/g, '')) || 0, // Same as qty for now
-      dueDate: formattedDueDate,
-      location: String(locationValue || "").trim(),
-      estimatedHours: estimatedHours || 0,
-      setupTime: setupTimeMinutes || 0,
-      runningSpeed: runningSpeed || 0,
-      speedUnit: String(speedUnitValue || "").trim() || "sheets_per_hour",
-      specifications: String(specificationsValue || "").trim(),
-      paperWeight: parseFloat(String(paperWeightValue || "0")) || 0,
-      paperType: String(paperTypeValue || "").trim(),
-      lamination: String(laminationValue || "").trim(),
-      
-      // Additional properties for compatibility 
-      wo_no: woNo,
       due_date: formattedDueDate,
+      location: String(locationValue || "").trim(),
+      // New timing and specification fields
       estimated_hours: estimatedHours,
       setup_time_minutes: setupTimeMinutes,
       running_speed: runningSpeed,
-      speed_unit: String(speedUnitValue || "").trim() || "sheets_per_hour",
-      paper_weight: parseFloat(String(paperWeightValue || "0")) || 0,
-      paper_type: String(paperTypeValue || "").trim(),
-      
+      speed_unit: String(speedUnitValue || "").trim() || null,
+      specifications: String(specificationsValue || "").trim() || null,
+      paper_weight: String(paperWeightValue || "").trim() || null,
+      paper_type: String(paperTypeValue || "").trim() || null,
+      lamination: String(laminationValue || "").trim() || null,
       // Preserve original Excel row data and index for row mapping
       _originalExcelRow: row,
       _originalRowIndex: index + 1 // +1 because we sliced headers
@@ -372,13 +345,7 @@ export const parseExcelFileWithMapping = async (
   logger.addDebugInfo(`Enhanced import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped, ${stats.invalidDates} invalid dates, ${stats.invalidTimingData} invalid timing data`);
   logger.addDebugInfo(`Paper specs mapped: ${enhancedResult.stats.paperSpecsMapped}, Delivery specs mapped: ${enhancedResult.stats.deliverySpecsMapped}`);
 
-  return { 
-    success: true,
-    data: enhancedResult.jobs,
-    errors: stats.errors,
-    jobs: enhancedResult.jobs, 
-    stats 
-  };
+  return { jobs: enhancedResult.jobs, stats };
 };
 
 /**

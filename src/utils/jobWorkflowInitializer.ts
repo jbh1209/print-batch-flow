@@ -11,7 +11,7 @@ interface UserApprovedMapping {
   mappedStageSpecName?: string;
   paperSpecification?: string;
   partType?: string;
-  qty?: number;
+  quantity?: number;
 }
 
 /**
@@ -62,8 +62,8 @@ export const initializeJobWorkflowFromMappings = async (
       if (mapping.paperSpecification) {
         logger.addDebugInfo(`      └── Paper: ${mapping.paperSpecification}`);
       }
-      if (mapping.qty) {
-        logger.addDebugInfo(`      └── Quantity: ${mapping.qty}`);
+      if (mapping.quantity) {
+        logger.addDebugInfo(`      └── Quantity: ${mapping.quantity}`);
       }
     });
 
@@ -88,7 +88,7 @@ export const initializeJobWorkflowFromMappings = async (
         stage_order: stageOrderMap.get(mapping.mappedStageId) || 999, // Use actual production stage order_index
         stage_specification_id: mapping.mappedStageSpecId || null,
         part_name: mapping.partType || null,
-        quantity: mapping.qty || null,
+        quantity: mapping.quantity || null,
         paper_specification: mapping.paperSpecification || null
       };
       
@@ -246,8 +246,8 @@ async function calculateTimingForCreatedStages(
     // Create a map of stage IDs to quantities from user mappings
     const quantityMap = new Map<string, number>();
     userApprovedMappings.forEach(mapping => {
-      if (mapping.qty && mapping.qty > 0) {
-        quantityMap.set(mapping.mappedStageId, mapping.qty);
+      if (mapping.quantity && mapping.quantity > 0) {
+        quantityMap.set(mapping.mappedStageId, mapping.quantity);
       }
     });
     

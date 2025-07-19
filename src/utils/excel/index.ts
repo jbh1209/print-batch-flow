@@ -7,4 +7,3 @@ export * from './columnMapper';
 export * from './dataValidator';
 export * from './parser';
 export * from './enhancedStageMapper';
-export * from './parseExcelFile';
