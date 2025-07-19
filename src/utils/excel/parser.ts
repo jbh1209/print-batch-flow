@@ -45,9 +45,12 @@ export const parseExcelRow = (row: any[], columnMap: ColumnMapping, logger?: Exc
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Use qty column first, fall back to woQty if qty is not available
-  const qtyValue = getColumnValue(columnMap.qty) || getColumnValue(columnMap.woQty);
+  // Prioritize qty column over woQty column for individual quantities
+  const qtyValue = getColumnValue(columnMap.qty);
   const woQtyValue = getColumnValue(columnMap.woQty);
+  
+  // Use qty if available, otherwise fall back to woQty for backwards compatibility
+  const finalQtyValue = qtyValue || woQtyValue;
 
   const job: ParsedJob = {
     woNo: getColumnValue(columnMap.woNo),
@@ -57,7 +60,7 @@ export const parseExcelRow = (row: any[], columnMap: ColumnMapping, logger?: Exc
     rep: getColumnValue(columnMap.rep),
     category: getColumnValue(columnMap.category),
     reference: getColumnValue(columnMap.reference),
-    qty: parseNumber(qtyValue), // Use individual quantity
+    qty: parseNumber(finalQtyValue), // Use individual quantity (prioritize qty column)
     woQty: parseNumber(woQtyValue), // Store work order quantity separately
     dueDate: getColumnValue(columnMap.dueDate),
     location: getColumnValue(columnMap.location),
