@@ -113,7 +113,7 @@ export class CoverTextWorkflowService {
         part_name: componentName,
         part_type: 'printing_component',
         dependency_group: needsSynchronization ? dependencyGroupId : null,
-        quantity: component.printing.qty, // Fixed: use qty instead of wo_qty
+        quantity: component.printing.wo_qty,
         status: isFirstStage ? 'active' : 'pending',
         started_at: isFirstStage ? new Date().toISOString() : null,
         started_by: isFirstStage ? null : null // Will be set by the system

@@ -392,9 +392,10 @@ export class EnhancedStageMapper {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
-    // Get printing operations from specs
+    // Get printing operations from specs, preserving individual quantities for same stage types
     const printingOps: Array<{groupName: string, spec: any, rowIndex: number}> = [];
     
+    // Create printing operations directly from printingSpecs, but ensure each has unique identifier
     for (const [groupName, spec] of Object.entries(printingSpecs)) {
       printingOps.push({groupName, spec, rowIndex: currentRowIndex});
       currentRowIndex++;
@@ -411,28 +412,31 @@ export class EnhancedStageMapper {
       
       this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaper.mappedSpec} (qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (qty: ${textPaper.qty})`);
       
-      // Use first printing operation as template for both stages
-      const printingOp = printingOps[0];
+      // Match printing operations to paper components by quantity
+      // Sort printing operations by quantity to match with sorted papers
+      const sortedPrintingOps = [...printingOps].sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
+      const coverPrintingOp = sortedPrintingOps[0];  // Smallest quantity = Cover printing
+      const textPrintingOp = sortedPrintingOps.length > 1 ? sortedPrintingOps[sortedPrintingOps.length - 1] : sortedPrintingOps[0];
       
       // Create Cover printing stage
       const coverStageMapping = this.findIntelligentStageMatchWithSpec(
-        printingOp.groupName, 
-        printingOp.spec.description || '', 
+        coverPrintingOp.groupName, 
+        coverPrintingOp.spec.description || '', 
         'printing'
       );
       
       const coverInstanceId = this.generateInstanceId(
-        `${printingOp.groupName}_Cover`, 
-        printingOp.rowIndex
+        `${coverPrintingOp.groupName}_Cover`, 
+        coverPrintingOp.rowIndex
       );
 
       mappings.push({
-        excelRowIndex: printingOp.rowIndex,
-        excelData: excelRows[printingOp.rowIndex] || [],
-        groupName: `${printingOp.groupName} - ${coverPaper.mappedSpec}`,
-        description: `${printingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
-        qty: coverPaper.qty,
-        woQty: printingOp.spec.wo_qty || 0,
+        excelRowIndex: coverPrintingOp.rowIndex,
+        excelData: excelRows[0] || [],
+        groupName: `${coverPrintingOp.groupName} - ${coverPaper.mappedSpec}`,
+        description: `${coverPrintingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
+        qty: coverPrintingOp.spec.qty || 0,
+        woQty: coverPrintingOp.spec.wo_qty || 0,
         mappedStageId: coverStageMapping?.stageId || null,
         mappedStageName: coverStageMapping?.stageName || null,
         mappedStageSpecId: coverStageMapping?.stageSpecId || null,
@@ -448,23 +452,23 @@ export class EnhancedStageMapper {
 
       // Create Text printing stage
       const textStageMapping = this.findIntelligentStageMatchWithSpec(
-        printingOp.groupName, 
-        printingOp.spec.description || '', 
+        textPrintingOp.groupName, 
+        textPrintingOp.spec.description || '', 
         'printing'
       );
       
       const textInstanceId = this.generateInstanceId(
-        `${printingOp.groupName}_Text`, 
-        printingOp.rowIndex
+        `${textPrintingOp.groupName}_Text`, 
+        textPrintingOp.rowIndex
       );
 
       mappings.push({
-        excelRowIndex: printingOp.rowIndex,
-        excelData: excelRows[printingOp.rowIndex] || [],
-        groupName: `${printingOp.groupName} - ${textPaper.mappedSpec}`,
-        description: `${printingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
-        qty: textPaper.qty,
-        woQty: printingOp.spec.wo_qty || 0,
+        excelRowIndex: textPrintingOp.rowIndex,
+        excelData: excelRows[0] || [],
+        groupName: `${textPrintingOp.groupName} - ${textPaper.mappedSpec}`,
+        description: `${textPrintingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
+        qty: textPrintingOp.spec.qty || 0,
+        woQty: textPrintingOp.spec.wo_qty || 0,
         mappedStageId: textStageMapping?.stageId || null,
         mappedStageName: textStageMapping?.stageName || null,
         mappedStageSpecId: textStageMapping?.stageSpecId || null,
