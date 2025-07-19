@@ -1,4 +1,3 @@
-
 import type { ParsedJob, RowMappingResult } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { supabase } from '@/integrations/supabase/client';
@@ -115,6 +114,7 @@ export class EnhancedStageMapper {
     this.logger.addDebugInfo(`🎯 ENHANCED STAGE MAPPING for WO: ${job.wo_no}`);
     
     const rowMappings: RowMappingResult[] = [];
+    let sequentialRowIndex = 0; // Use sequential indexing instead of Excel row matching
     
     // Map printing specifications with database mappings
     if (job.printing_specifications) {
@@ -127,12 +127,13 @@ export class EnhancedStageMapper {
         const actualWoQty = spec.wo_qty || spec.qty || 0;
         
         this.logger.addDebugInfo(`   ✅ QUANTITIES RESOLVED: actualQty=${actualQty}, actualWoQty=${actualWoQty}`);
+        this.logger.addDebugInfo(`   📍 ASSIGNED ROW INDEX: ${sequentialRowIndex} for "${key}"`);
         
         // Use database mapping for this specification
         const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', 'printing');
         
         const mapping: RowMappingResult = {
-          excelRowIndex: this.findRowIndexInExcel(spec.description || key, excelRows),
+          excelRowIndex: sequentialRowIndex, // Use sequential index
           excelData: this.findRowDataInExcel(spec.description || key, excelRows),
           groupName: key,
           description: spec.description || key,
@@ -148,8 +149,9 @@ export class EnhancedStageMapper {
           instanceId: `printing-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
         };
         
-        this.logger.addDebugInfo(`🎯 CREATED ROW MAPPING: "${mapping.description}" with qty=${mapping.qty}, woQty=${mapping.woQty}, stage="${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence})`);
+        this.logger.addDebugInfo(`🎯 CREATED ROW MAPPING: "${mapping.description}" with qty=${mapping.qty}, woQty=${mapping.woQty}, stage="${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), rowIndex=${sequentialRowIndex}`);
         rowMappings.push(mapping);
+        sequentialRowIndex++; // Increment for next row
       });
     }
     
@@ -168,11 +170,13 @@ export class EnhancedStageMapper {
           const actualQty = spec.qty || spec.wo_qty || 0;
           const actualWoQty = spec.wo_qty || spec.qty || 0;
           
+          this.logger.addDebugInfo(`📍 ASSIGNED ROW INDEX: ${sequentialRowIndex} for "${key}" [${category}]`);
+          
           // Use database mapping for this specification
           const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', category);
           
           const mapping: RowMappingResult = {
-            excelRowIndex: this.findRowIndexInExcel(spec.description || key, excelRows),
+            excelRowIndex: sequentialRowIndex, // Use sequential index
             excelData: this.findRowDataInExcel(spec.description || key, excelRows),
             groupName: key,
             description: spec.description || key,
@@ -189,13 +193,14 @@ export class EnhancedStageMapper {
           };
           
           rowMappings.push(mapping);
+          sequentialRowIndex++; // Increment for next row
         });
       }
     });
     
-    this.logger.addDebugInfo(`🏁 ENHANCED STAGE MAPPING COMPLETE: ${rowMappings.length} row mappings created`);
+    this.logger.addDebugInfo(`🏁 ENHANCED STAGE MAPPING COMPLETE: ${rowMappings.length} row mappings created with sequential indices 0-${sequentialRowIndex - 1}`);
     rowMappings.forEach((mapping, i) => {
-      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence})`);
+      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), rowIndex: ${mapping.excelRowIndex}`);
     });
     
     return rowMappings;
@@ -325,8 +330,14 @@ export class EnhancedStageMapper {
     return null;
   }
   
+  private findRowDataInExcel(description: string, excelRows: any[][]): any[] {
+    // Keep the row data finding logic for now, but row index is now sequential
+    const rowIndex = this.findRowIndexInExcel(description, excelRows);
+    return rowIndex !== -1 ? excelRows[rowIndex] : [];
+  }
+  
   private findRowIndexInExcel(description: string, excelRows: any[][]): number {
-    // Find the row index in Excel data that matches this description
+    // Keep this method for finding row data, but it's no longer used for excelRowIndex assignment
     for (let i = 0; i < excelRows.length; i++) {
       const rowText = excelRows[i].join(' ').toLowerCase();
       if (rowText.includes(description.toLowerCase())) {
@@ -334,10 +345,5 @@ export class EnhancedStageMapper {
       }
     }
     return -1;
-  }
-  
-  private findRowDataInExcel(description: string, excelRows: any[][]): any[] {
-    const rowIndex = this.findRowIndexInExcel(description, excelRows);
-    return rowIndex !== -1 ? excelRows[rowIndex] : [];
   }
 }

@@ -56,9 +56,10 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
     return stageSpecifications[stageId] || [];
   };
 
-  // Create unique identifier for each row mapping to handle multi-rows correctly
+  // Updated unique row ID function to use sequential excelRowIndex
   const getUniqueRowId = (mapping: RowMappingResult) => {
-    return mapping.customRowId || `${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}-${mapping.instanceId || ''}`;
+    // Use excelRowIndex as the primary identifier since it's now sequential
+    return mapping.customRowId || `row-${mapping.excelRowIndex}-${mapping.instanceId || ''}`;
   };
 
   const unmappedCount = rowMappings.filter(m => m.isUnmapped && !m.ignored).length;
@@ -105,6 +106,8 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
           {rowMappings.map((mapping, index) => {
             const isIgnored = mapping.ignored;
             const isCustom = mapping.isCustomRow;
+            
+            console.log(`🔍 ROW DEBUG: Display index ${index}, excelRowIndex: ${mapping.excelRowIndex}, description: "${mapping.description}"`);
             
             return (
               <TableRow 
@@ -256,7 +259,10 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
+                        onClick={() => {
+                          console.log(`🎯 EDIT CLICKED: Display index ${index}, excelRowIndex: ${mapping.excelRowIndex}, description: "${mapping.description}"`);
+                          onToggleManualOverride(workOrderNumber, mapping.excelRowIndex);
+                        }}
                         className="h-8 w-8 p-0"
                         title={`Edit row ${isCustom ? 'custom' : mapping.excelRowIndex + 1}: ${mapping.groupName}`}
                       >
@@ -270,7 +276,10 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onIgnoreRow(workOrderNumber, mapping.excelRowIndex)}
+                          onClick={() => {
+                            console.log(`🗑️ IGNORE CLICKED: Display index ${index}, excelRowIndex: ${mapping.excelRowIndex}, description: "${mapping.description}"`);
+                            onIgnoreRow(workOrderNumber, mapping.excelRowIndex);
+                          }}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           title="Ignore this row"
                         >
@@ -283,7 +292,10 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onRestoreRow(workOrderNumber, mapping.excelRowIndex)}
+                        onClick={() => {
+                          console.log(`🔄 RESTORE CLICKED: Display index ${index}, excelRowIndex: ${mapping.excelRowIndex}, description: "${mapping.description}"`);
+                          onRestoreRow(workOrderNumber, mapping.excelRowIndex);
+                        }}
                         className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         title="Restore this row"
                       >
