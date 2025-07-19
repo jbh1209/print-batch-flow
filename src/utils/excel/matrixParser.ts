@@ -1,3 +1,4 @@
+
 import * as XLSX from "xlsx";
 import type { MatrixExcelData, GroupSpecifications, OperationQuantities, ParsedJob, CoverTextDetection, CoverTextComponent } from './types';
 import type { ExcelImportDebugger } from './debugger';
@@ -384,35 +385,43 @@ const detectCoverTextScenario = (
   // Match paper to printing by quantity logic
   const sortedPaperRows = [...paperRows].sort((a, b) => a.qty - b.qty);
   
+  // Find paper that matches cover quantity (for cover paper)
+  const coverPaper = sortedPaperRows.find(paper => paper.qty === coverPrinting.qty) || sortedPaperRows[0];
+  
+  // Find paper that matches text quantity (for text paper) 
+  const textPaper = sortedPaperRows.find(paper => paper.qty === textPrinting.qty) || 
+                   sortedPaperRows.find(paper => paper !== coverPaper) || 
+                   sortedPaperRows[sortedPaperRows.length - 1];
+  
   const components: CoverTextComponent[] = [
     {
       type: 'cover',
       printing: {
         description: coverPrinting.description,
-        qty: coverPrinting.qty,
+        qty: coverPrinting.qty, // Use printing row quantity for printing operations
         wo_qty: coverPrinting.wo_qty,
         row: coverPrinting.rawRow
       },
-      paper: sortedPaperRows.length > 0 ? {
-        description: sortedPaperRows[0].description,
-        qty: sortedPaperRows[0].qty,
-        wo_qty: sortedPaperRows[0].wo_qty,
-        row: sortedPaperRows[0].rawRow
+      paper: coverPaper ? {
+        description: coverPaper.description,
+        qty: coverPaper.qty, // Keep paper quantity separate
+        wo_qty: coverPaper.wo_qty,
+        row: coverPaper.rawRow
       } : undefined
     },
     {
       type: 'text',
       printing: {
         description: textPrinting.description,
-        qty: textPrinting.qty,
+        qty: textPrinting.qty, // Use printing row quantity for printing operations
         wo_qty: textPrinting.wo_qty,
         row: textPrinting.rawRow
       },
-      paper: sortedPaperRows.length > 1 ? {
-        description: sortedPaperRows[sortedPaperRows.length - 1].description,
-        qty: sortedPaperRows[sortedPaperRows.length - 1].qty,
-        wo_qty: sortedPaperRows[sortedPaperRows.length - 1].wo_qty,
-        row: sortedPaperRows[sortedPaperRows.length - 1].rawRow
+      paper: textPaper ? {
+        description: textPaper.description,
+        qty: textPaper.qty, // Keep paper quantity separate
+        wo_qty: textPaper.wo_qty,
+        row: textPaper.rawRow
       } : undefined
     }
   ];
@@ -421,6 +430,8 @@ const detectCoverTextScenario = (
   const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   logger.addDebugInfo(`Book job detected with dependency group: ${dependencyGroupId}`);
+  logger.addDebugInfo(`Cover printing qty: ${coverPrinting.qty}, Cover paper qty: ${coverPaper?.qty || 'N/A'}`);
+  logger.addDebugInfo(`Text printing qty: ${textPrinting.qty}, Text paper qty: ${textPaper?.qty || 'N/A'}`);
   
   return {
     isBookJob: true,
