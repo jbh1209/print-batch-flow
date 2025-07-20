@@ -101,7 +101,8 @@ export class EnhancedStageMapper {
             stageId: approvedMapping.mappedStageId,
             stageName: approvedMapping.mappedStageName,
             confidence: 100, // Assuming user approval means high confidence
-            specifications: [approvedMapping.groupName]
+            specifications: [approvedMapping.groupName],
+            category: approvedMapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
           });
         }
       });
