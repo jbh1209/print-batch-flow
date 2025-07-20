@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { ParsedJob } from '@/utils/excel/types';
 import type { ExcelImportDebugger } from '@/utils/excel/debugger';
@@ -314,6 +315,15 @@ export class DirectJobCreator {
       const mapping = sortedMappings[i];
       const stageId = mapping.originalStageId || mapping.mappedStageId;
       
+      // CRITICAL FIX: Use the actual quantity from the mapping, not a default value
+      const actualQuantity = mapping.qty || null;
+      
+      this.logger.addDebugInfo(`Creating stage instance with quantity: ${actualQuantity} for mapping: ${JSON.stringify({
+        mappedStageName: mapping.mappedStageName,
+        qty: mapping.qty,
+        partType: mapping.partType
+      })}`);
+      
       const { error } = await supabase
         .from('job_stage_instances')
         .insert({
@@ -323,7 +333,7 @@ export class DirectJobCreator {
           production_stage_id: stageId,
           stage_order: i + 1, // Sequential order
           status: 'pending',
-          quantity: mapping.qty || null,
+          quantity: actualQuantity, // FIXED: Use actual quantity from mapping
           part_type: mapping.partType?.toLowerCase() || null,
           part_name: mapping.partType || null
         });
@@ -332,7 +342,7 @@ export class DirectJobCreator {
         throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
       }
 
-      this.logger.addDebugInfo(`Created stage instance: ${mapping.mappedStageName} (order: ${i + 1})`);
+      this.logger.addDebugInfo(`Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
     }
   }
 
@@ -366,8 +376,8 @@ export class DirectJobCreator {
             const { data: simplifiedMatch } = await supabase
               .from('print_specifications')
               .select('id')
-              .eq('category', 'paper')
               .ilike('name', `%${simplifiedSpec}%`)
+              .eq('category', 'paper')
               .single();
             
             if (simplifiedMatch) {
@@ -397,11 +407,13 @@ export class DirectJobCreator {
         }
       }
 
-      // Calculate timing using stage data and quantity
+      // Calculate timing using stage data and quantity - FIXED: Use actual mapping quantity
       let estimatedDuration = null;
-      if (mapping.qty && stageData) {
+      const mappingQuantity = mapping.qty; // Use actual quantity from mapping
+      
+      if (mappingQuantity && stageData) {
         const { data: calculatedDuration, error: durationError } = await supabase.rpc('calculate_stage_duration', {
-          p_quantity: mapping.qty,
+          p_quantity: mappingQuantity, // FIXED: Use actual mapping quantity
           p_running_speed_per_hour: stageData.running_speed_per_hour || 100,
           p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
           p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
@@ -414,7 +426,7 @@ export class DirectJobCreator {
 
       // Update stage instance with quantity, timing, and part type information
       const updateData: any = {
-        quantity: mapping.qty || null,
+        quantity: mappingQuantity || null, // FIXED: Use actual mapping quantity
         part_type: mapping.partType || null,
       };
 
@@ -439,7 +451,7 @@ export class DirectJobCreator {
       if (error) {
         this.logger.addDebugInfo(`Warning: Failed to update stage specifications for ${job.wo_no}, stage ${mapping.mappedStageName}: ${error.message}`);
       } else {
-        this.logger.addDebugInfo(`Updated stage ${mapping.mappedStageName} with qty: ${mapping.qty}, part: ${mapping.partType}, duration: ${estimatedDuration}min`);
+        this.logger.addDebugInfo(`Updated stage ${mapping.mappedStageName} with qty: ${mappingQuantity}, part: ${mapping.partType}, duration: ${estimatedDuration}min`);
       }
     }
   }
