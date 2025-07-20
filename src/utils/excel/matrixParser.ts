@@ -254,6 +254,7 @@ const extractGroupSpecifications = (
     rowIndex: number;
   }> = [];
   
+  // First pass: collect printing and paper rows
   rows.forEach((row, index) => {
     const groupValue = row[matrixData.groupColumn!];
     if (!groupValue) return;
@@ -263,7 +264,6 @@ const extractGroupSpecifications = (
     const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     
-    // Categorize group
     const category = categorizeGroup(group);
     
     // Collect printing and paper data for cover/text detection
@@ -286,6 +286,43 @@ const extractGroupSpecifications = (
         rowIndex: index
       });
     }
+  });
+  
+  // Detect cover/text scenario before processing specifications
+  const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
+  
+  // Create a map for unique printing specification keys
+  const printingKeyMap = new Map<string, string>();
+  
+  if (coverTextDetection && coverTextDetection.isBookJob) {
+    // For book jobs, create unique keys for cover and text printing
+    const coverComponent = coverTextDetection.components.find(c => c.type === 'cover');
+    const textComponent = coverTextDetection.components.find(c => c.type === 'text');
+    
+    if (coverComponent) {
+      const coverDesc = coverComponent.printing.description;
+      printingKeyMap.set(`${coverDesc}_${coverComponent.printing.qty}`, `${coverDesc}_Cover`);
+      logger.addDebugInfo(`Created unique key for cover printing: ${coverDesc}_Cover (qty: ${coverComponent.printing.qty})`);
+    }
+    
+    if (textComponent) {
+      const textDesc = textComponent.printing.description;
+      printingKeyMap.set(`${textDesc}_${textComponent.printing.qty}`, `${textDesc}_Text`);
+      logger.addDebugInfo(`Created unique key for text printing: ${textDesc}_Text (qty: ${textComponent.printing.qty})`);
+    }
+  }
+  
+  // Second pass: process all specifications with unique keys
+  rows.forEach((row, index) => {
+    const groupValue = row[matrixData.groupColumn!];
+    if (!groupValue) return;
+    
+    const group = String(groupValue).trim();
+    const description = matrixData.descriptionColumn !== -1 ? row[matrixData.descriptionColumn] : '';
+    const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
+    const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
+    
+    const category = categorizeGroup(group);
     
     const specData = {
       description: String(description || '').trim(),
@@ -295,8 +332,18 @@ const extractGroupSpecifications = (
     };
     
     if (category) {
-      // Use description as key if available and not empty, otherwise use group
-      const specKey = description && description.trim() ? description.trim() : group;
+      let specKey = description && description.trim() ? description.trim() : group;
+      
+      // For printing category, use unique keys if this is a book job
+      if (category === 'printing' && coverTextDetection && coverTextDetection.isBookJob) {
+        const lookupKey = `${specKey}_${qty}`;
+        const uniqueKey = printingKeyMap.get(lookupKey);
+        if (uniqueKey) {
+          specKey = uniqueKey;
+          logger.addDebugInfo(`Using unique printing key: ${specKey} for qty: ${qty}`);
+        }
+      }
+      
       specs[category][specKey] = specData;
       
       // Also add to operations with quantity information
@@ -308,12 +355,8 @@ const extractGroupSpecifications = (
       }
     }
     
-    const specKey = description && description.trim() ? description.trim() : group;
     logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
-  
-  // Detect cover/text scenario if multiple printing rows exist
-  const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
   
   return {
     paper: Object.keys(specs.paper).length > 0 ? specs.paper : null,
