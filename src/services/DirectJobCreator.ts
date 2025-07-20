@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { ParsedJob } from '@/utils/excel/types';
 import type { ExcelImportDebugger } from '@/utils/excel/debugger';
@@ -74,6 +73,14 @@ export class DirectJobCreator {
   }
 
   private async createSingleJob(originalJob: ParsedJob, rowMappings: any[]): Promise<any> {
+    this.logger.addDebugInfo(`=== DirectJobCreator.createSingleJob DEBUG ===`);
+    this.logger.addDebugInfo(`Received rowMappings: ${JSON.stringify(rowMappings.map(mapping => ({
+      mappedStageName: mapping.mappedStageName,
+      qty: mapping.qty,
+      partType: mapping.partType,
+      mappedStageId: mapping.mappedStageId
+    })), null, 2)}`);
+
     // Build job data preserving all specifications
     const jobData = {
       wo_no: originalJob.wo_no,
@@ -177,13 +184,24 @@ export class DirectJobCreator {
       return;
     }
 
-    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${rowMappings.length} row mappings - TRUSTING Excel parser`);
-    
+    this.logger.addDebugInfo(`=== DirectJobCreator.initializeWorkflowFromMappings DEBUG ===`);
+    this.logger.addDebugInfo(`Input rowMappings: ${JSON.stringify(rowMappings.map(mapping => ({
+      mappedStageName: mapping.mappedStageName,
+      qty: mapping.qty,
+      partType: mapping.partType,
+      mappedStageId: mapping.mappedStageId
+    })), null, 2)}`);
+
     // TRUST the Excel parser - it has already done all validation and mapping
     // Only use mappings that have mappedStageId (Excel parser's verified results)
     const validMappings = rowMappings.filter(mapping => mapping.mappedStageId);
 
-    this.logger.addDebugInfo(`Excel parser provided ${validMappings.length} validated mappings with stage IDs`);
+    this.logger.addDebugInfo(`Valid mappings with mappedStageId: ${JSON.stringify(validMappings.map(mapping => ({
+      mappedStageName: mapping.mappedStageName,
+      qty: mapping.qty,
+      partType: mapping.partType,
+      mappedStageId: mapping.mappedStageId
+    })), null, 2)}`);
 
     if (validMappings.length === 0) {
       this.logger.addDebugInfo(`No mappings with mappedStageId found - Excel parser should have provided these`);
@@ -193,6 +211,13 @@ export class DirectJobCreator {
     // Pre-process mappings for cover/text logic only
     const processedMappings = this.preprocessMappingsForUniqueStages(validMappings);
     
+    this.logger.addDebugInfo(`Processed mappings: ${JSON.stringify(processedMappings.map(mapping => ({
+      mappedStageName: mapping.mappedStageName,
+      qty: mapping.qty,
+      partType: mapping.partType,
+      mappedStageId: mapping.mappedStageId
+    })), null, 2)}`);
+
     // Get unique stage IDs - Excel parser has already validated these exist
     const stageIds = [...new Set(processedMappings.map(m => m.mappedStageId))];
     
@@ -309,20 +334,24 @@ export class DirectJobCreator {
       return (a.stageInstanceIndex || 0) - (b.stageInstanceIndex || 0);
     });
 
+    this.logger.addDebugInfo(`=== DirectJobCreator.createCustomStageInstances DEBUG ===`);
     this.logger.addDebugInfo(`Creating ${sortedMappings.length} stage instances for job ${job.wo_no}`);
 
     for (let i = 0; i < sortedMappings.length; i++) {
       const mapping = sortedMappings[i];
       const stageId = mapping.originalStageId || mapping.mappedStageId;
       
-      // CRITICAL FIX: Use the actual quantity from the mapping, not a default value
-      const actualQuantity = mapping.qty || null;
+      // CRITICAL: Use the actual quantity from the mapping
+      const actualQuantity = mapping.qty;
       
-      this.logger.addDebugInfo(`Creating stage instance with quantity: ${actualQuantity} for mapping: ${JSON.stringify({
+      this.logger.addDebugInfo(`=== Creating stage instance ${i + 1} ===`);
+      this.logger.addDebugInfo(`Mapping data: ${JSON.stringify({
         mappedStageName: mapping.mappedStageName,
         qty: mapping.qty,
-        partType: mapping.partType
+        partType: mapping.partType,
+        stageId: stageId
       })}`);
+      this.logger.addDebugInfo(`CRITICAL CHECK - actualQuantity to be inserted: ${actualQuantity} (type: ${typeof actualQuantity})`);
       
       const { error } = await supabase
         .from('job_stage_instances')
@@ -333,7 +362,7 @@ export class DirectJobCreator {
           production_stage_id: stageId,
           stage_order: i + 1, // Sequential order
           status: 'pending',
-          quantity: actualQuantity, // FIXED: Use actual quantity from mapping
+          quantity: actualQuantity, // This should be 53 or 583, not 100
           part_type: mapping.partType?.toLowerCase() || null,
           part_name: mapping.partType || null
         });
@@ -342,7 +371,7 @@ export class DirectJobCreator {
         throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
       }
 
-      this.logger.addDebugInfo(`Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
+      this.logger.addDebugInfo(`✅ Successfully created stage instance: ${mapping.mappedStageName} with quantity: ${actualQuantity}`);
     }
   }
 
