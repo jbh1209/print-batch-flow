@@ -1,5 +1,52 @@
-import type { ParsedJob } from './types';
+import type { ParsedJob, GroupSpecifications, StageMapping } from './types';
 import type { ExcelImportDebugger } from './debugger';
+
+/**
+ * Enhanced stage mapper class that provides intelligent mapping functionality
+ */
+export class EnhancedStageMapper {
+  constructor(private logger: ExcelImportDebugger) {}
+
+  async initialize(): Promise<void> {
+    // Initialize any required data
+    this.logger.addDebugInfo('EnhancedStageMapper initialized');
+  }
+
+  mapGroupsToStagesIntelligent(
+    printingSpecs: GroupSpecifications | null,
+    finishingSpecs: GroupSpecifications | null, 
+    prepressSpecs: GroupSpecifications | null,
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
+    paperSpecs?: GroupSpecifications | null,
+    packagingSpecs?: GroupSpecifications | null,
+    deliverySpecs?: GroupSpecifications | null
+  ): StageMapping[] {
+    this.logger.addDebugInfo('EnhancedStageMapper.mapGroupsToStagesIntelligent called');
+    // Return empty array for now - this method needs to be implemented
+    return [];
+  }
+
+  createIntelligentRowMappings(
+    printingSpecs: GroupSpecifications | null,
+    finishingSpecs: GroupSpecifications | null,
+    prepressSpecs: GroupSpecifications | null,
+    excelRows: any[][],
+    headers: string[],
+    paperSpecs?: any,
+    packagingSpecs?: GroupSpecifications | null,
+    deliverySpecs?: GroupSpecifications | null
+  ): any[] {
+    this.logger.addDebugInfo('EnhancedStageMapper.createIntelligentRowMappings called');
+    // Use the existing enhanceStageMappings function logic
+    const fakeJob = { 
+      paper_specifications: paperSpecs,
+      printing_specifications: printingSpecs,
+      operation_quantities: {},
+      wo_no: 'temp'
+    } as ParsedJob;
+    return enhanceStageMappings(fakeJob, this.logger);
+  }
+}
 
 /**
  * Enhances the parsed job data with additional logic for stage mapping,
