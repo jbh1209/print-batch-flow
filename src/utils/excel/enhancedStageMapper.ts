@@ -53,7 +53,7 @@ export class EnhancedStageMapper {
   /**
    * STEP 1: Find exact database mappings ONLY - no fuzzy matching
    */
-  private findExactMappingFromDatabase(description: string): any[] {
+  private findExactMappingFromDatabase(description: string): any {
     if (!description) return [];
 
     const cleanDesc = description.toLowerCase().trim();
@@ -65,11 +65,11 @@ export class EnhancedStageMapper {
 
     if (exactMappings.length > 0) {
       this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> ${exactMappings.length} mappings`);
-      return exactMappings;
+      return exactMappings[0]; // Return first exact mapping
     }
 
     this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - marked for user selection`);
-    return [];
+    return null;
   }
 
   /**
@@ -407,6 +407,152 @@ export class EnhancedStageMapper {
     if (name.includes('packaging') || name.includes('pack')) return 'packaging';
     if (name.includes('paper')) return 'paper';
     return 'unknown';
+  }
+
+  /**
+   * Map job to stages - main method called by enhancedJobCreator
+   */
+  async mapJobToStages(job: any, headers: string[], excelRows: any[][]): Promise<RowMappingResult[]> {
+    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH EXACT MAPPINGS`);
+    
+    const results: RowMappingResult[] = [];
+    
+    // Process printing specifications if they exist
+    if (job.printing_specifications) {
+      const printingResults = await this.processJobPrintingSpecs(job.printing_specifications);
+      results.push(...printingResults);
+    }
+    
+    // Process other specifications
+    const specTypes = ['finishing_specifications', 'delivery_specifications', 'prepress_specifications', 'packaging_specifications'];
+    for (const specType of specTypes) {
+      if (job[specType]) {
+        const otherResults = await this.processJobOtherSpecs(job[specType], specType);
+        results.push(...otherResults);
+      }
+    }
+    
+    this.logger.addDebugInfo(`🎯 JOB MAPPING COMPLETE: ${results.length} stage mappings generated`);
+    return results;
+  }
+
+  /**
+   * Process job printing specifications specifically
+   */
+  private async processJobPrintingSpecs(printingSpecs: any): Promise<RowMappingResult[]> {
+    const results: RowMappingResult[] = [];
+    
+    for (const [key, spec] of Object.entries(printingSpecs)) {
+      const specData = spec as any;
+      if (!specData.description) continue;
+      
+      // Find exact mapping from database
+      const exactMapping = this.findExactMappingFromDatabase(specData.description);
+      
+      if (exactMapping) {
+        // Extract paper specification from mapping
+        const paperSpec = this.extractPaperSpecFromMapping(exactMapping.excel_text);
+        
+        // Find the production stage
+        const stage = this.productionStages.find(s => s.id === exactMapping.production_stage_id);
+        
+        // Single row mapping
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: 'printing',
+          description: specData.description,
+          qty: specData.quantity || 0,
+          woQty: specData.quantity || 0,
+          mappedStageId: stage?.id || null,
+          mappedStageName: stage?.name || 'Unknown Stage',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: exactMapping.confidence_score || 100,
+          category: 'printing',
+          isUnmapped: false,
+          paperSpecification: paperSpec
+        });
+      } else {
+        // No exact mapping found - mark as unmapped
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: 'printing',
+          description: specData.description,
+          qty: specData.quantity || 0,
+          woQty: specData.quantity || 0,
+          mappedStageId: null,
+          mappedStageName: 'Requires User Selection',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: 0,
+          category: 'printing',
+          isUnmapped: true,
+          paperSpecification: null
+        });
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Process job other specifications (finishing, delivery, etc.)
+   */
+  private async processJobOtherSpecs(specs: any, specType: string): Promise<RowMappingResult[]> {
+    const results: RowMappingResult[] = [];
+    const category = this.determineCategory(specType);
+    
+    for (const [key, spec] of Object.entries(specs)) {
+      const specData = spec as any;
+      if (!specData.description) continue;
+      
+      // Find exact mapping from database
+      const exactMapping = this.findExactMappingFromDatabase(specData.description);
+      
+      if (exactMapping) {
+        // Find the production stage
+        const stage = this.productionStages.find(s => s.id === exactMapping.production_stage_id);
+        
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: category,
+          description: specData.description,
+          qty: specData.quantity || 0,
+          woQty: specData.quantity || 0,
+          mappedStageId: stage?.id || null,
+          mappedStageName: stage?.name || 'Unknown Stage',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: exactMapping.confidence_score || 100,
+          category,
+          isUnmapped: false,
+          paperSpecification: null
+        });
+      } else {
+        // No exact mapping found - mark as unmapped
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: category,
+          description: specData.description,
+          qty: specData.quantity || 0,
+          woQty: specData.quantity || 0,
+          mappedStageId: null,
+          mappedStageName: 'Requires User Selection',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: 0,
+          category,
+          isUnmapped: true,
+          paperSpecification: null
+        });
+      }
+    }
+    
+    return results;
   }
 
   /**

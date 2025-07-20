@@ -4,7 +4,7 @@ import type { ExcelImportDebugger } from './debugger';
 import { EnhancedStageMapper } from './enhancedStageMapper';
 import { PaperMappingService } from './paperMappingService';
 
-interface EnhancedMappingResult {
+export interface EnhancedMappingResult {
   jobs: ParsedJob[];
   stats: {
     paperSpecsMapped: number;
@@ -16,6 +16,9 @@ interface EnhancedMappingResult {
   unmappedDeliverySpecs: string[];
   unmappedStageItems: any[];
   userApprovedStageMappings?: Record<string, number>;
+  paperMappings: any[];
+  deliveryMappings: any[];
+  enhancedDeliveryMappings: any[];
 }
 
 export class EnhancedMappingProcessor {
@@ -59,7 +62,10 @@ export class EnhancedMappingProcessor {
       },
       unmappedPaperSpecs: [],
       unmappedDeliverySpecs: [],
-      unmappedStageItems: []
+      unmappedStageItems: [],
+      paperMappings: [],
+      deliveryMappings: [],
+      enhancedDeliveryMappings: []
     };
 
     // Process jobs that have matrix specifications (group-based data)
