@@ -25,6 +25,8 @@ interface ExcelImportMapping {
   is_verified: boolean;
   mapping_type: string;
   print_specification_id?: string;
+  paper_type_specification_id?: string;
+  paper_weight_specification_id?: string;
 }
 
 export interface EnhancedStageMapping {
@@ -38,6 +40,9 @@ export interface EnhancedStageMapping {
   instanceId?: string;
   quantity?: number;
   paperSpecification?: string;
+  partType?: string;
+  stageInstanceIndex?: number;
+  dependencyGroupId?: string;
 }
 
 interface PrintingStageGroup {
@@ -207,7 +212,8 @@ export class EnhancedStageMapper {
     // First, map all printing specs to their stages
     const printingStageGroups = new Map<string, PrintingStageGroup>();
     
-    Object.entries(printingSpecs).forEach(([key, spec]) => {
+    // Process each printing spec sequentially to handle async paper mapping
+    for (const [key, spec] of Object.entries(printingSpecs)) {
       const stageMatch = this.findBestStageMatchFromDatabase(key, (spec as any)?.description || '', 'printing');
       
       if (stageMatch) {
@@ -221,8 +227,8 @@ export class EnhancedStageMapper {
           });
         }
         
-        // Find matching paper specification
-        const paperSpec = this.findMatchingPaperSpec(spec, paperSpecs);
+        // Find matching paper specification (await since it's now async)
+        const paperSpec = await this.findMatchingPaperSpec(spec, paperSpecs);
         
         printingStageGroups.get(stageKey)!.specifications.push({
           key,
@@ -231,7 +237,7 @@ export class EnhancedStageMapper {
           paperSpec
         });
       }
-    });
+    }
     
     // Now process each stage group
     let currentIndex = startingIndex;
@@ -268,6 +274,10 @@ export class EnhancedStageMapper {
         // Multiple printing specs for same stage - apply cover/text logic
         this.logger.addDebugInfo(`   🔄 MULTIPLE PRINTING SPECS FOR STAGE: "${group.stageName}" (${group.specifications.length} specs)`);
         
+        // Generate dependency group ID for book job synchronization
+        const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        this.logger.addDebugInfo(`   📚 BOOK JOB DETECTED - dependency group: ${dependencyGroupId}`);
+        
         // Sort by quantity: smallest = cover, largest = text
         const sortedSpecs = [...group.specifications].sort((a, b) => {
           const qtyA = a.spec.qty || a.spec.wo_qty || 0;
@@ -302,7 +312,9 @@ export class EnhancedStageMapper {
             isUnmapped: false,
             instanceId: `printing-${partType.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
             paperSpecification: paperSpec,
-            partType
+            partType,
+            stageInstanceIndex: index,
+            dependencyGroupId
           });
           
           currentIndex++;
@@ -314,15 +326,15 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find matching paper specification for a printing spec based on quantity correlation
+   * Find matching paper specification from database and map to clean specs like "Matt 250gsm"
    */
-  private findMatchingPaperSpec(printingSpec: any, paperSpecs: any): string | undefined {
+  private async findMatchingPaperSpec(printingSpec: any, paperSpecs: any): Promise<string | undefined> {
     if (!paperSpecs) return undefined;
     
     const printingQty = printingSpec.qty || printingSpec.wo_qty || 0;
     
     // Find paper spec with closest quantity match
-    let bestMatch = null;
+    let bestPaperKey = null;
     let smallestDiff = Infinity;
     
     for (const [paperKey, paperSpec] of Object.entries(paperSpecs)) {
@@ -331,11 +343,68 @@ export class EnhancedStageMapper {
       
       if (diff < smallestDiff) {
         smallestDiff = diff;
-        bestMatch = (paperSpec as any).description || paperKey;
+        bestPaperKey = paperKey;
       }
     }
     
-    return bestMatch;
+    if (!bestPaperKey) return undefined;
+    
+    const rawPaperDescription = (paperSpecs as any)[bestPaperKey].description || bestPaperKey;
+    
+    // Query database for clean paper specifications
+    try {
+      const { data: paperTypeSpecs } = await supabase
+        .from('print_specifications')
+        .select('display_name')
+        .eq('category', 'paper_type')
+        .eq('is_active', true);
+        
+      const { data: paperWeightSpecs } = await supabase
+        .from('print_specifications')
+        .select('display_name')
+        .eq('category', 'paper_weight') 
+        .eq('is_active', true);
+      
+      // Try to match paper type (Matt, Gloss, Bond, etc.)
+      const paperTypes = paperTypeSpecs?.map(spec => spec.display_name) || [];
+      const paperWeights = paperWeightSpecs?.map(spec => spec.display_name) || [];
+      
+      const lowerDescription = rawPaperDescription.toLowerCase();
+      
+      let matchedType = '';
+      let matchedWeight = '';
+      
+      // Find matching paper type
+      for (const type of paperTypes) {
+        if (lowerDescription.includes(type.toLowerCase())) {
+          matchedType = type;
+          break;
+        }
+      }
+      
+      // Find matching paper weight
+      for (const weight of paperWeights) {
+        if (lowerDescription.includes(weight.toLowerCase().replace('gsm', ''))) {
+          matchedWeight = weight;
+          break;
+        }
+      }
+      
+      // Construct clean specification
+      if (matchedType && matchedWeight) {
+        return `${matchedType} ${matchedWeight}`;
+      } else if (matchedType) {
+        return matchedType;
+      } else if (matchedWeight) {
+        return matchedWeight;
+      }
+      
+    } catch (error) {
+      this.logger.addDebugInfo(`⚠️ Error querying paper specifications: ${error}`);
+    }
+    
+    // Fallback to raw description if no clean match found
+    return rawPaperDescription;
   }
   
   /**
@@ -350,28 +419,54 @@ export class EnhancedStageMapper {
     
     this.logger.addDebugInfo(`🔍 SEARCHING DATABASE MAPPINGS for: "${searchText}"`);
     
-    // First, try exact matches in database mappings
-    for (const mapping of this.excelImportMappings) {
+    // Sort mappings by confidence score and verified status for priority
+    const sortedMappings = [...this.excelImportMappings].sort((a, b) => {
+      // Prioritize verified mappings
+      if (a.is_verified && !b.is_verified) return -1;
+      if (!a.is_verified && b.is_verified) return 1;
+      // Then by confidence score
+      return b.confidence_score - a.confidence_score;
+    });
+    
+    // First, try exact matches in database mappings (highest priority)
+    for (const mapping of sortedMappings) {
       if (mapping.excel_text.toLowerCase() === searchText) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
         if (stage) {
-          this.logger.addDebugInfo(`💯 EXACT DATABASE MATCH: "${searchText}" -> "${stage.name}" (confidence: ${mapping.confidence_score})`);
+          const confidence = mapping.is_verified ? Math.min(100, mapping.confidence_score + 20) : mapping.confidence_score;
+          this.logger.addDebugInfo(`💯 EXACT DATABASE MATCH: "${searchText}" -> "${stage.name}" (confidence: ${confidence}, verified: ${mapping.is_verified})`);
           return {
             stageId: stage.id,
             stageName: stage.name,
-            confidence: mapping.confidence_score
+            confidence
           };
         }
       }
     }
     
-    // Second, try partial matches in database mappings
-    for (const mapping of this.excelImportMappings) {
+    // Second, try exact key matches (e.g., "perfect bound" matches key exactly)
+    for (const mapping of sortedMappings) {
+      if (groupName.toLowerCase() === mapping.excel_text.toLowerCase()) {
+        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        if (stage) {
+          const confidence = mapping.is_verified ? Math.min(95, mapping.confidence_score + 15) : Math.max(80, mapping.confidence_score - 10);
+          this.logger.addDebugInfo(`🎯 KEY MATCH: "${groupName}" -> "${stage.name}" (confidence: ${confidence}, verified: ${mapping.is_verified})`);
+          return {
+            stageId: stage.id,
+            stageName: stage.name,
+            confidence
+          };
+        }
+      }
+    }
+    
+    // Third, try partial matches in database mappings
+    for (const mapping of sortedMappings) {
       if (searchText.includes(mapping.excel_text.toLowerCase()) || mapping.excel_text.toLowerCase().includes(searchText)) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
         if (stage) {
-          const confidence = Math.max(50, mapping.confidence_score - 20); // Reduce confidence for partial matches
-          this.logger.addDebugInfo(`🎯 PARTIAL DATABASE MATCH: "${searchText}" -> "${stage.name}" (confidence: ${confidence})`);
+          const confidence = Math.max(50, mapping.confidence_score - 30);
+          this.logger.addDebugInfo(`🔄 PARTIAL DATABASE MATCH: "${searchText}" -> "${stage.name}" (confidence: ${confidence})`);
           return {
             stageId: stage.id,
             stageName: stage.name,

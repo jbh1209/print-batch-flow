@@ -129,6 +129,8 @@ export interface RowMappingResult {
   instanceId?: string;
   paperSpecification?: string;
   partType?: string;
+  stageInstanceIndex?: number;
+  dependencyGroupId?: string;
   // Enhanced row management
   ignored?: boolean;
   isCustomRow?: boolean;
