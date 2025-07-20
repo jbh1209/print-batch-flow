@@ -129,16 +129,22 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Process job specifications and map to stages - RESTORED FUNCTIONALITY
+   * RESTORED: Process job specifications and map to stages using cover_text_detection
    */
   async mapJobToStages(job: any, headers: string[], excelRows: any[][]): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH ENHANCED LOGIC`);
+    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH RESTORED INTEGRATION`);
     
     const results: RowMappingResult[] = [];
     
-    // Process printing specifications with multi-stage detection
-    if (job.printing_specifications) {
-      const printingResults = await this.processPrintingSpecsWithMultiStage(job.printing_specifications, job);
+    // PHASE 1: Check for cover/text detection from matrixParser FIRST
+    if (job.cover_text_detection && job.cover_text_detection.isBookJob) {
+      this.logger.addDebugInfo(`📖 BOOK JOB DETECTED - Using cover_text_detection from matrixParser`);
+      const bookResults = await this.processBookJobWithCoverTextDetection(job);
+      results.push(...bookResults);
+    } else if (job.printing_specifications) {
+      // PHASE 5: Single stage processing for non-book jobs
+      this.logger.addDebugInfo(`📄 SINGLE STAGE JOB - Processing printing specs normally`);
+      const printingResults = await this.processSingleStagePrinting(job.printing_specifications, job);
       results.push(...printingResults);
     }
     
@@ -156,48 +162,107 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Process printing specifications with multi-stage detection - RESTORED
+   * PHASE 2: Process book job using cover_text_detection from matrixParser
    */
-  private async processPrintingSpecsWithMultiStage(printingSpecs: any, job: any): Promise<RowMappingResult[]> {
+  private async processBookJobWithCoverTextDetection(job: any): Promise<RowMappingResult[]> {
     const results: RowMappingResult[] = [];
-    const printingRows: Array<{
-      key: string;
-      description: string;
-      qty: number;
-      wo_qty: number;
-      specData: any;
-    }> = [];
+    const coverTextDetection = job.cover_text_detection;
     
-    // Collect all printing specifications with quantities
+    if (!coverTextDetection || !coverTextDetection.components) {
+      this.logger.addDebugInfo(`❌ No cover_text_detection components found`);
+      return results;
+    }
+
+    this.logger.addDebugInfo(`📚 PROCESSING BOOK JOB with ${coverTextDetection.components.length} components`);
+    this.logger.addDebugInfo(`📋 Dependency Group: ${coverTextDetection.dependencyGroupId}`);
+
+    // Process each component (Cover/Text) using pre-matched data from matrixParser
+    for (let i = 0; i < coverTextDetection.components.length; i++) {
+      const component = coverTextDetection.components[i];
+      
+      this.logger.addDebugInfo(`🔧 Processing ${component.type.toUpperCase()} component:`);
+      this.logger.addDebugInfo(`   Printing: "${component.printing.description}" - Qty: ${component.printing.qty}, WO_Qty: ${component.printing.wo_qty}`);
+      
+      if (component.paper) {
+        this.logger.addDebugInfo(`   Paper: "${component.paper.description}" - Qty: ${component.paper.qty}, WO_Qty: ${component.paper.wo_qty}`);
+      }
+
+      // Find exact mapping for printing stage
+      const printingMapping = this.findExactMappingFromDatabase(component.printing.description);
+      
+      // PHASE 3: Extract and map paper specification
+      let paperSpec = null;
+      if (component.paper) {
+        paperSpec = this.extractPaperSpecFromText(component.paper.description);
+      }
+
+      if (printingMapping) {
+        const stage = this.productionStages.find(s => s.id === printingMapping.production_stage_id);
+        
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: 'printing',
+          description: `${stage?.name || 'Printing'} (${component.type})`,
+          qty: component.printing.qty,
+          woQty: component.printing.wo_qty,
+          mappedStageId: stage?.id || null,
+          mappedStageName: stage?.name || null,
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: printingMapping.confidence_score || 100,
+          category: 'printing',
+          isUnmapped: false,
+          partType: component.type, // 'cover' or 'text'
+          stageInstanceIndex: i, // 0 for cover, 1 for text
+          dependencyGroupId: coverTextDetection.dependencyGroupId,
+          paperSpecification: paperSpec
+        });
+
+        this.logger.addDebugInfo(`✅ ${component.type.toUpperCase()} MAPPED: "${component.printing.description}" -> "${stage?.name}" with paper: ${paperSpec || 'none'}`);
+      } else {
+        // No mapping found - mark for user selection
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: 'printing',
+          description: `${component.printing.description} (${component.type})`,
+          qty: component.printing.qty,
+          woQty: component.printing.wo_qty,
+          mappedStageId: null,
+          mappedStageName: 'Requires User Selection',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: 0,
+          category: 'printing',
+          isUnmapped: true,
+          partType: component.type,
+          stageInstanceIndex: i,
+          dependencyGroupId: coverTextDetection.dependencyGroupId,
+          paperSpecification: paperSpec
+        });
+
+        this.logger.addDebugInfo(`⚠️ ${component.type.toUpperCase()} UNMAPPED: "${component.printing.description}" - requires user selection`);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * PHASE 5: Process single stage printing specifications (non-book jobs)
+   */
+  private async processSingleStagePrinting(printingSpecs: any, job: any): Promise<RowMappingResult[]> {
+    const results: RowMappingResult[] = [];
+    
     for (const [key, spec] of Object.entries(printingSpecs)) {
       const specData = spec as any;
       if (!specData.description) continue;
       
-      printingRows.push({
-        key,
-        description: specData.description,
-        qty: specData.qty || 0,
-        wo_qty: specData.wo_qty || 0,
-        specData
-      });
+      this.logger.addDebugInfo(`📝 SINGLE STAGE PRINTING: "${specData.description}" - Qty: ${specData.qty}, WO_Qty: ${specData.wo_qty}`);
       
-      this.logger.addDebugInfo(`📝 PRINTING ROW: "${specData.description}" - Qty: ${specData.qty}, WO_Qty: ${specData.wo_qty}`);
-    }
-    
-    // Check for multi-stage scenario (Cover/Text)
-    if (printingRows.length >= 2) {
-      const isMultiStage = this.detectMultiStageScenario(printingRows);
-      
-      if (isMultiStage) {
-        this.logger.addDebugInfo(`📖 MULTI-STAGE BOOK JOB DETECTED for ${job.wo_no}`);
-        return this.generateMultiStageRows(printingRows, job);
-      }
-    }
-    
-    // Single stage processing
-    for (const row of printingRows) {
-      const mapping = this.findExactMappingFromDatabase(row.description);
-      const paperSpec = this.extractPaperSpecFromText(row.description);
+      const mapping = this.findExactMappingFromDatabase(specData.description);
+      const paperSpec = this.extractPaperSpecFromText(specData.description);
       
       if (mapping) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
@@ -206,9 +271,9 @@ export class EnhancedStageMapper {
           excelRowIndex: 0,
           excelData: [],
           groupName: 'printing',
-          description: row.description,
-          qty: row.qty,
-          woQty: row.wo_qty,
+          description: specData.description,
+          qty: specData.qty,
+          woQty: specData.wo_qty,
           mappedStageId: stage?.id || null,
           mappedStageName: stage?.name || 'Unknown Stage',
           mappedStageSpecId: null,
@@ -224,9 +289,9 @@ export class EnhancedStageMapper {
           excelRowIndex: 0,
           excelData: [],
           groupName: 'printing',
-          description: row.description,
-          qty: row.qty,
-          woQty: row.wo_qty,
+          description: specData.description,
+          qty: specData.qty,
+          woQty: specData.wo_qty,
           mappedStageId: null,
           mappedStageName: 'Requires User Selection',
           mappedStageSpecId: null,
@@ -238,99 +303,6 @@ export class EnhancedStageMapper {
         });
       }
     }
-    
-    return results;
-  }
-
-  /**
-   * Detect multi-stage scenario (Cover/Text) based on quantity differences
-   */
-  private detectMultiStageScenario(printingRows: any[]): boolean {
-    if (printingRows.length < 2) return false;
-    
-    // Sort by quantity to identify potential cover/text split
-    const sortedRows = [...printingRows].sort((a, b) => a.qty - b.qty);
-    const minQty = sortedRows[0].qty;
-    const maxQty = sortedRows[sortedRows.length - 1].qty;
-    
-    // Consider it multi-stage if there's a significant quantity difference
-    const qtyRatio = maxQty > 0 ? minQty / maxQty : 0;
-    const isMultiStage = qtyRatio < 0.8 && (maxQty - minQty) > 50; // 20% difference and at least 50 units
-    
-    this.logger.addDebugInfo(`🔍 MULTI-STAGE CHECK: Min: ${minQty}, Max: ${maxQty}, Ratio: ${qtyRatio.toFixed(2)}, IsMulti: ${isMultiStage}`);
-    
-    return isMultiStage;
-  }
-
-  /**
-   * Generate multi-stage rows for Cover/Text scenarios
-   */
-  private generateMultiStageRows(printingRows: any[], job: any): RowMappingResult[] {
-    const results: RowMappingResult[] = [];
-    const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Sort by quantity - cover (lower) and text (higher)
-    const sortedRows = [...printingRows].sort((a, b) => a.qty - b.qty);
-    const coverRow = sortedRows[0];
-    const textRow = sortedRows[sortedRows.length - 1];
-    
-    // Process Cover
-    const coverMapping = this.findExactMappingFromDatabase(coverRow.description);
-    const coverPaperSpec = this.extractPaperSpecFromText(coverRow.description);
-    
-    if (coverMapping) {
-      const coverStage = this.productionStages.find(s => s.id === coverMapping.production_stage_id);
-      
-      results.push({
-        excelRowIndex: 0,
-        excelData: [],
-        groupName: 'printing',
-        description: `${coverStage?.name || 'Printing'} (Cover)`,
-        qty: coverRow.qty,
-        woQty: coverRow.wo_qty,
-        mappedStageId: coverStage?.id || null,
-        mappedStageName: coverStage?.name || null,
-        mappedStageSpecId: null,
-        mappedStageSpecName: null,
-        confidence: coverMapping.confidence_score || 100,
-        category: 'printing',
-        isUnmapped: false,
-        partType: 'cover',
-        stageInstanceIndex: 0,
-        dependencyGroupId,
-        paperSpecification: coverPaperSpec
-      });
-    }
-    
-    // Process Text
-    const textMapping = this.findExactMappingFromDatabase(textRow.description);
-    const textPaperSpec = this.extractPaperSpecFromText(textRow.description);
-    
-    if (textMapping) {
-      const textStage = this.productionStages.find(s => s.id === textMapping.production_stage_id);
-      
-      results.push({
-        excelRowIndex: 0,
-        excelData: [],
-        groupName: 'printing',
-        description: `${textStage?.name || 'Printing'} (Text)`,
-        qty: textRow.qty,
-        woQty: textRow.wo_qty,
-        mappedStageId: textStage?.id || null,
-        mappedStageName: textStage?.name || null,
-        mappedStageSpecId: null,
-        mappedStageSpecName: null,
-        confidence: textMapping.confidence_score || 100,
-        category: 'printing',
-        isUnmapped: false,
-        partType: 'text',
-        stageInstanceIndex: 1,
-        dependencyGroupId,
-        paperSpecification: textPaperSpec
-      });
-    }
-    
-    this.logger.addDebugInfo(`📖 MULTI-STAGE GENERATED: Cover(${coverRow.qty}) + Text(${textRow.qty}) with dependency: ${dependencyGroupId}`);
     
     return results;
   }
@@ -400,7 +372,7 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Legacy methods for compatibility - restored with enhanced logic
+   * Legacy methods for compatibility - maintained for backward compatibility
    */
   async processPrintingSpecificationsWithExactMapping(
     matrixRows: any[][],
