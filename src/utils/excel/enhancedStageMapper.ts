@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { ExcelImportDebugger } from './debugger';
 import type { RowMappingResult, StageMapping } from './types';
@@ -64,44 +65,73 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find exact database mapping - STRICT MATCHING ONLY (NO FALLBACK)
+   * FIXED: Find exact database mapping with comprehensive logging
    */
   private findExactMappingFromDatabase(description: string): any {
-    if (!description) return null;
+    if (!description) {
+      this.logger.addDebugInfo(`❌ MAPPING LOOKUP: Empty description provided`);
+      return null;
+    }
 
     const cleanDesc = description.toLowerCase().trim();
+    this.logger.addDebugInfo(`🔍 MAPPING LOOKUP: "${description}" -> cleaned: "${cleanDesc}"`);
+    
+    // Log all available mappings for debugging
+    this.logger.addDebugInfo(`📊 Available mappings: ${this.excelMappings.length} total`);
+    this.excelMappings.forEach((mapping, index) => {
+      if (index < 5) { // Only log first 5 to avoid spam
+        this.logger.addDebugInfo(`   ${index + 1}. "${mapping.excel_text}" -> Stage: ${mapping.production_stage_id}, Spec: ${mapping.stage_specification_id}`);
+      }
+    });
     
     // Find EXACT text matches ONLY
-    const exactMapping = this.excelMappings.find(mapping => 
-      mapping.excel_text.toLowerCase().trim() === cleanDesc
-    );
+    const exactMapping = this.excelMappings.find(mapping => {
+      const mappingText = mapping.excel_text.toLowerCase().trim();
+      const isMatch = mappingText === cleanDesc;
+      
+      if (isMatch) {
+        this.logger.addDebugInfo(`🎯 EXACT MATCH FOUND: "${mapping.excel_text}" === "${description}"`);
+      }
+      
+      return isMatch;
+    });
 
     if (exactMapping) {
-      this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> Stage: ${exactMapping.production_stage_id}, Spec: ${exactMapping.stage_specification_id}`);
+      this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> Stage: ${exactMapping.production_stage_id}, Spec: ${exactMapping.stage_specification_id}, Confidence: ${exactMapping.confidence_score}`);
       return exactMapping;
     }
 
-    this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - will require user selection (NO FALLBACK)`);
+    this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - will require user selection (STRICT DATABASE ONLY)`);
     return null;
   }
 
   /**
-   * FIXED: Extract paper specifications in correct format: "Bond 080gsm", "Matt 250gsm", "Gloss 300gsm"
+   * FIXED: Extract paper specifications with proper type + weight format
    */
   private extractPaperSpecFromText(text: string): string | null {
     if (!text) return null;
 
     const lowerText = text.toLowerCase();
-    this.logger.addDebugInfo(`📄 EXTRACTING PAPER SPEC: "${text}"`);
+    this.logger.addDebugInfo(`📄 PAPER SPEC EXTRACTION: "${text}"`);
     
-    // Enhanced paper spec patterns to capture both type and weight
+    // COMPREHENSIVE paper spec patterns to capture both type and weight
     const paperPatterns = [
-      // Pattern: "Type, Weight gsm" or "Type Weight gsm"
-      /([a-z\s]+?)\s*,?\s*(\d+)\s*gsm/i,
-      // Pattern: "Weight gsm Type"
-      /(\d+)\s*gsm\s*([a-z\s]+)/i,
-      // Pattern: Specific types with weight
-      /(bond|fbb|matt|gloss|silk|art|laser|pre\s*print)\s*[,\s]*(\d+)\s*gsm/i
+      // Pattern: "Sappi Laser Pre Print, 80gsm" or "Pre Print, 80gsm"
+      /(sappi\s+laser\s+pre\s+print|laser\s+pre\s+print|pre\s+print)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "Bond, 80gsm" or "Bond 80gsm"
+      /(bond)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "Matt Art, 250gsm" or "Matt, 250gsm"
+      /(matt\s+art|matt)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "Gloss Art, 300gsm" or "Gloss, 300gsm"
+      /(gloss\s+art|gloss)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "FBB, 250gsm" or "FBS, 250gsm"
+      /(fbb|fbs)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "Silk, 150gsm"
+      /(silk)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "Art Paper, 300gsm"
+      /(art\s+paper|art)\s*,?\s*(\d+)\s*gsm/i,
+      // Generic pattern: "Type, Weightgsm" - must come last
+      /([a-z\s]+?)\s*,\s*(\d+)\s*gsm/i
     ];
 
     let paperType = '';
@@ -110,15 +140,9 @@ export class EnhancedStageMapper {
     for (const pattern of paperPatterns) {
       const match = text.match(pattern);
       if (match) {
-        if (pattern.source.includes('\\d+.*gsm.*[a-z')) {
-          // Weight first pattern: "250gsm Matt"
-          weight = match[1];
-          paperType = match[2];
-        } else {
-          // Type first pattern: "Matt 250gsm" or "Matt, 250gsm"
-          paperType = match[1];
-          weight = match[2];
-        }
+        paperType = match[1].trim();
+        weight = match[2];
+        this.logger.addDebugInfo(`📋 PATTERN MATCHED: "${match[0]}" -> Type: "${paperType}", Weight: "${weight}"`);
         break;
       }
     }
@@ -128,24 +152,24 @@ export class EnhancedStageMapper {
       return null;
     }
 
-    // Clean up and standardize paper type
-    paperType = paperType.trim().toLowerCase();
-    
-    // Map common paper types to standardized names
+    // FIXED: Comprehensive type mapping to standardized names
     const typeMapping: Record<string, string> = {
       'sappi laser pre print': 'Bond',
       'laser pre print': 'Bond',
       'pre print': 'Bond',
       'bond': 'Bond',
       'fbb': 'FBS',
+      'fbs': 'FBS',
       'matt art': 'Matt',
       'matt': 'Matt',
       'gloss art': 'Gloss',
       'gloss': 'Gloss',
-      'silk': 'Silk'
+      'silk': 'Silk',
+      'art paper': 'Art',
+      'art': 'Art'
     };
     
-    const standardType = typeMapping[paperType] || paperType.charAt(0).toUpperCase() + paperType.slice(1);
+    const standardType = typeMapping[paperType.toLowerCase()] || paperType.charAt(0).toUpperCase() + paperType.slice(1);
     
     // FIXED FORMAT: "Type 000gsm" (e.g., "Bond 080gsm", "Matt 250gsm", "Gloss 300gsm")
     const formattedWeight = weight.padStart(3, '0');
@@ -156,18 +180,44 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * FIXED: Get stage specification name from database
+   * FIXED: Get stage specification name from database with proper error handling
    */
   private getStageSpecificationName(stageSpecId: string | null): string | null {
-    if (!stageSpecId) return null;
+    if (!stageSpecId) {
+      this.logger.addDebugInfo(`⚠️ No stage specification ID provided`);
+      return null;
+    }
+    
+    this.logger.addDebugInfo(`🔍 Looking up stage specification: ${stageSpecId}`);
     
     const spec = this.stageSpecifications.find(s => s.id === stageSpecId);
     if (spec) {
-      this.logger.addDebugInfo(`🔧 Found stage specification: ${spec.name} (${spec.id})`);
+      this.logger.addDebugInfo(`✅ Found stage specification: "${spec.name}" (${spec.id})`);
       return spec.name;
     }
     
     this.logger.addDebugInfo(`❌ Stage specification not found: ${stageSpecId}`);
+    return null;
+  }
+
+  /**
+   * FIXED: Get production stage name from database with proper error handling
+   */
+  private getProductionStageName(stageId: string | null): string | null {
+    if (!stageId) {
+      this.logger.addDebugInfo(`⚠️ No production stage ID provided`);
+      return null;
+    }
+    
+    this.logger.addDebugInfo(`🔍 Looking up production stage: ${stageId}`);
+    
+    const stage = this.productionStages.find(s => s.id === stageId);
+    if (stage) {
+      this.logger.addDebugInfo(`✅ Found production stage: "${stage.name}" (${stage.id})`);
+      return stage.name;
+    }
+    
+    this.logger.addDebugInfo(`❌ Production stage not found: ${stageId}`);
     return null;
   }
 
@@ -237,25 +287,27 @@ export class EnhancedStageMapper {
       let paperSpec = null;
       if (component.paper) {
         paperSpec = this.extractPaperSpecFromText(component.paper.description);
+        this.logger.addDebugInfo(`📋 PAPER SPEC RESULT: "${component.paper.description}" -> "${paperSpec}"`);
       }
 
       if (printingMapping) {
-        // FIXED: Proper stage name resolution with fallback
-        const stage = this.productionStages.find(s => s.id === printingMapping.production_stage_id);
-        const stageName = stage?.name || `Stage-${printingMapping.production_stage_id}`;
-        
-        // FIXED: Get sub-specification name
+        // FIXED: Proper stage name resolution with detailed logging
+        const stageName = this.getProductionStageName(printingMapping.production_stage_id);
         const stageSpecName = this.getStageSpecificationName(printingMapping.stage_specification_id);
+        
+        if (!stageName) {
+          this.logger.addDebugInfo(`❌ CRITICAL: Stage name not found for ID: ${printingMapping.production_stage_id}`);
+        }
         
         results.push({
           excelRowIndex: 0,
           excelData: [],
           groupName: 'printing',
-          description: `${stageName} (${component.type})${stageSpecName ? ` - ${stageSpecName}` : ''}`,
+          description: `${stageName || 'Unknown Stage'} (${component.type})${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty: component.printing.qty,
           woQty: component.printing.wo_qty,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stageName,
+          mappedStageId: printingMapping.production_stage_id || null,
+          mappedStageName: stageName || 'Unknown Stage',
           mappedStageSpecId: printingMapping.stage_specification_id || null,
           mappedStageSpecName: stageSpecName,
           confidence: printingMapping.confidence_score || 100,
@@ -267,7 +319,7 @@ export class EnhancedStageMapper {
           paperSpecification: paperSpec
         });
 
-        this.logger.addDebugInfo(`✅ ${component.type.toUpperCase()} MAPPED: "${component.printing.description}" -> "${stageName}"${stageSpecName ? ` (${stageSpecName})` : ''} with paper: ${paperSpec || 'none'}`);
+        this.logger.addDebugInfo(`✅ ${component.type.toUpperCase()} MAPPED: "${component.printing.description}" -> "${stageName || 'Unknown'}"${stageSpecName ? ` (${stageSpecName})` : ''} with paper: ${paperSpec || 'none'}`);
       } else {
         // No mapping found - mark for user selection (NO FALLBACK)
         results.push({
@@ -313,11 +365,8 @@ export class EnhancedStageMapper {
       const paperSpec = this.extractPaperSpecFromText(specData.description);
       
       if (mapping) {
-        // FIXED: Proper stage name resolution with fallback
-        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
-        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
-        
-        // FIXED: Get sub-specification name
+        // FIXED: Proper stage name resolution with detailed logging
+        const stageName = this.getProductionStageName(mapping.production_stage_id);
         const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
@@ -327,8 +376,8 @@ export class EnhancedStageMapper {
           description: `${specData.description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty: specData.qty,
           woQty: specData.wo_qty,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stageName,
+          mappedStageId: mapping.production_stage_id || null,
+          mappedStageName: stageName || 'Unknown Stage',
           mappedStageSpecId: mapping.stage_specification_id || null,
           mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
@@ -337,7 +386,7 @@ export class EnhancedStageMapper {
           paperSpecification: paperSpec
         });
 
-        this.logger.addDebugInfo(`✅ SINGLE STAGE MAPPED: "${specData.description}" -> "${stageName}"${stageSpecName ? ` (${stageSpecName})` : ''} with paper: ${paperSpec || 'none'}`);
+        this.logger.addDebugInfo(`✅ SINGLE STAGE MAPPED: "${specData.description}" -> "${stageName || 'Unknown'}"${stageSpecName ? ` (${stageSpecName})` : ''} with paper: ${paperSpec || 'none'}`);
       } else {
         // No mapping found - mark for user selection (NO FALLBACK)
         results.push({
@@ -383,11 +432,8 @@ export class EnhancedStageMapper {
       const mapping = this.findExactMappingFromDatabase(specData.description);
       
       if (mapping) {
-        // FIXED: Proper stage name resolution with fallback
-        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
-        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
-        
-        // FIXED: Get sub-specification name
+        // FIXED: Proper stage name resolution with detailed logging
+        const stageName = this.getProductionStageName(mapping.production_stage_id);
         const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
@@ -397,8 +443,8 @@ export class EnhancedStageMapper {
           description: `${specData.description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty: specData.qty || 0,
           woQty: specData.wo_qty || 0,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stageName,
+          mappedStageId: mapping.production_stage_id || null,
+          mappedStageName: stageName || 'Unknown Stage',
           mappedStageSpecId: mapping.stage_specification_id || null,
           mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
@@ -406,7 +452,7 @@ export class EnhancedStageMapper {
           isUnmapped: false
         });
 
-        this.logger.addDebugInfo(`   ✅ EXACT MATCH FOUND: "${specData.description}" -> "${stageName}"${stageSpecName ? ` (${stageSpecName})` : ''}`);
+        this.logger.addDebugInfo(`   ✅ EXACT MATCH FOUND: "${specData.description}" -> "${stageName || 'Unknown'}"${stageSpecName ? ` (${stageSpecName})` : ''}`);
       } else {
         // NO FALLBACK - Mark for user selection
         results.push({
@@ -473,8 +519,7 @@ export class EnhancedStageMapper {
       const paperSpec = this.extractPaperSpecFromText(description);
       
       if (mapping) {
-        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
-        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
+        const stageName = this.getProductionStageName(mapping.production_stage_id);
         const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
@@ -484,8 +529,8 @@ export class EnhancedStageMapper {
           description: `${description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty,
           woQty,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stageName,
+          mappedStageId: mapping.production_stage_id || null,
+          mappedStageName: stageName || 'Unknown Stage',
           mappedStageSpecId: mapping.stage_specification_id || null,
           mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
@@ -542,8 +587,7 @@ export class EnhancedStageMapper {
       const mapping = this.findExactMappingFromDatabase(description);
       
       if (mapping) {
-        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
-        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
+        const stageName = this.getProductionStageName(mapping.production_stage_id);
         const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
@@ -553,8 +597,8 @@ export class EnhancedStageMapper {
           description: `${description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty,
           woQty,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stageName,
+          mappedStageId: mapping.production_stage_id || null,
+          mappedStageName: stageName || 'Unknown Stage',
           mappedStageSpecId: mapping.stage_specification_id || null,
           mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,

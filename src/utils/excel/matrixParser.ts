@@ -262,26 +262,25 @@ const extractGroupSpecifications = (
     const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     
-    // ENHANCED: Log the actual quantities being extracted WITH sub-specification details
+    // FIXED: Enhanced logging for paper specification extraction
     logger.addDebugInfo(`🔢 SPECIFICATION EXTRACTION - Row ${index}: Group="${group}", Desc="${description}", Qty=${qty}, WO_Qty=${woQty}`);
     
-    // ENHANCED: Log potential sub-specifications within the description
+    // FIXED: Enhanced sub-specification analysis for paper detection
     if (description && description.trim()) {
-      logger.addDebugInfo(`📋 SUB-SPEC ANALYSIS: "${description}" - checking for stage specifications and details`);
+      logger.addDebugInfo(`📋 SUB-SPEC ANALYSIS: "${description}" - checking for paper specifications`);
       
-      // ENHANCED: Analyze description for sub-specification patterns
-      const subSpecPatterns = [
-        /(\d+gsm)/i,                    // Paper weight patterns
-        /(bond|matt|gloss|silk|art)/i,  // Paper type patterns
-        /(collect|deliver|ship)/i,      // Delivery patterns
-        /(fold|trim|cut|bind)/i,        // Finishing patterns
-        /(proof|design|layout)/i        // Prepress patterns
+      // FIXED: More comprehensive paper specification patterns
+      const paperSpecPatterns = [
+        /(\d+)\s*gsm/i,                           // Weight patterns: "250gsm", "80 gsm"
+        /(bond|matt|gloss|silk|art|fbb|fbs)/i,    // Paper type patterns
+        /(sappi\s+laser\s+pre\s+print|laser\s+pre\s+print|pre\s+print)/i, // Pre-print patterns
+        /(art\s+paper)/i                          // Art paper patterns
       ];
       
-      subSpecPatterns.forEach((pattern, patternIndex) => {
+      paperSpecPatterns.forEach((pattern, patternIndex) => {
         const match = description.match(pattern);
         if (match) {
-          logger.addDebugInfo(`📝 SUB-SPEC PATTERN ${patternIndex + 1} FOUND: "${match[0]}" in "${description}"`);
+          logger.addDebugInfo(`📝 PAPER SPEC PATTERN ${patternIndex + 1} FOUND: "${match[0]}" in "${description}"`);
         }
       });
     }
@@ -312,11 +311,11 @@ const extractGroupSpecifications = (
       logger.addDebugInfo(`📄 PAPER ROW COLLECTED: "${description}" - Qty: ${qty}, WO_Qty: ${woQty}`);
     }
     
-    // CRITICAL FIX: Ensure quantities are properly assigned to specs
+    // FIXED: Ensure quantities are properly assigned to specs
     const specData = {
       description: String(description || '').trim(),
-      qty: qty, // FIXED: Use the parsed qty directly
-      wo_qty: woQty, // FIXED: Use the parsed woQty directly
+      qty: qty,
+      wo_qty: woQty,
       specifications: group
     };
     
@@ -337,10 +336,10 @@ const extractGroupSpecifications = (
     }
   });
   
-  // ENHANCED: Detect cover/text scenario with enhanced sub-specification logging
-  const coverTextDetection = detectCoverTextScenarioWithSubSpecs(printingRows, paperRows, logger);
+  // FIXED: Detect cover/text scenario with enhanced paper specification handling
+  const coverTextDetection = detectCoverTextScenarioWithEnhancedPaperSpecs(printingRows, paperRows, logger);
   
-  // CRITICAL FIX: Log the final printing specifications
+  // FIXED: Log the final printing specifications for validation
   if (Object.keys(specs.printing).length > 0) {
     logger.addDebugInfo(`🎯 FINAL PRINTING SPECS:`);
     Object.entries(specs.printing).forEach(([key, spec]) => {
@@ -374,9 +373,9 @@ const categorizeGroup = (group: string): string | null => {
 };
 
 /**
- * ENHANCED: Detect cover/text scenario with enhanced sub-specification logging and capture
+ * FIXED: Detect cover/text scenario with enhanced paper specification capture
  */
-const detectCoverTextScenarioWithSubSpecs = (
+const detectCoverTextScenarioWithEnhancedPaperSpecs = (
   printingRows: Array<{
     description: string;
     qty: number;
@@ -404,18 +403,10 @@ const detectCoverTextScenarioWithSubSpecs = (
   printingRows.forEach((row, i) => {
     logger.addDebugInfo(`   ${i + 1}. "${row.description}" - Qty: ${row.qty}, WO_Qty: ${row.wo_qty}`);
     
-    // ENHANCED: Log potential sub-specifications within each printing description
-    if (row.description && row.description.includes('gsm')) {
-      logger.addDebugInfo(`      📋 CONTAINS PAPER SPEC: "${row.description}"`);
-    }
-    if (row.description && (row.description.toLowerCase().includes('matt') || row.description.toLowerCase().includes('gloss') || row.description.toLowerCase().includes('bond'))) {
-      logger.addDebugInfo(`      📋 CONTAINS PAPER TYPE: "${row.description}"`);
-    }
-    
-    // ENHANCED: Detailed sub-specification extraction for each printing row
-    const subSpecDetails = extractSubSpecificationDetails(row.description);
-    if (subSpecDetails.length > 0) {
-      logger.addDebugInfo(`      🔍 SUB-SPECIFICATIONS FOUND: ${subSpecDetails.join(', ')}`);
+    // FIXED: Enhanced paper specification detection within printing descriptions
+    const paperSpecsInDescription = extractDetailedPaperSpecifications(row.description);
+    if (paperSpecsInDescription.length > 0) {
+      logger.addDebugInfo(`      📋 PAPER SPECS IN DESCRIPTION: ${paperSpecsInDescription.join(', ')}`);
     }
   });
   
@@ -434,22 +425,22 @@ const detectCoverTextScenarioWithSubSpecs = (
   logger.addDebugInfo(`📖 COVER IDENTIFIED: "${coverPrinting.description}" - Qty: ${coverPrinting.qty}, WO_Qty: ${coverPrinting.wo_qty}`);
   logger.addDebugInfo(`📄 TEXT IDENTIFIED: "${textPrinting.description}" - Qty: ${textPrinting.qty}, WO_Qty: ${textPrinting.wo_qty}`);
   
-  // ENHANCED: Log sub-specifications for each component
-  const coverSubSpecs = extractSubSpecificationDetails(coverPrinting.description);
-  const textSubSpecs = extractSubSpecificationDetails(textPrinting.description);
+  // FIXED: Enhanced sub-specification extraction for each component
+  const coverSubSpecs = extractDetailedPaperSpecifications(coverPrinting.description);
+  const textSubSpecs = extractDetailedPaperSpecifications(textPrinting.description);
   
-  logger.addDebugInfo(`🔍 COVER SUB-SPEC ANALYSIS: "${coverPrinting.description}" -> Sub-specs: [${coverSubSpecs.join(', ')}]`);
-  logger.addDebugInfo(`🔍 TEXT SUB-SPEC ANALYSIS: "${textPrinting.description}" -> Sub-specs: [${textSubSpecs.join(', ')}]`);
+  logger.addDebugInfo(`🔍 COVER PAPER ANALYSIS: "${coverPrinting.description}" -> Specs: [${coverSubSpecs.join(', ')}]`);
+  logger.addDebugInfo(`🔍 TEXT PAPER ANALYSIS: "${textPrinting.description}" -> Specs: [${textSubSpecs.join(', ')}]`);
   
   // Match paper to printing by quantity logic
   const sortedPaperRows = [...paperRows].sort((a, b) => a.qty - b.qty);
   
-  // ENHANCED: Log paper matching logic with sub-specifications
+  // FIXED: Enhanced paper matching logic with detailed specifications
   if (sortedPaperRows.length > 0) {
     logger.addDebugInfo(`📄 PAPER MATCHING - ${sortedPaperRows.length} paper rows found:`);
     sortedPaperRows.forEach((paper, i) => {
-      const paperSubSpecs = extractSubSpecificationDetails(paper.description);
-      logger.addDebugInfo(`   ${i + 1}. "${paper.description}" - Qty: ${paper.qty}, WO_Qty: ${paper.wo_qty} -> Sub-specs: [${paperSubSpecs.join(', ')}]`);
+      const paperSubSpecs = extractDetailedPaperSpecifications(paper.description);
+      logger.addDebugInfo(`   ${i + 1}. "${paper.description}" - Qty: ${paper.qty}, WO_Qty: ${paper.wo_qty} -> Specs: [${paperSubSpecs.join(', ')}]`);
     });
   }
 
@@ -461,14 +452,14 @@ const detectCoverTextScenarioWithSubSpecs = (
         qty: coverPrinting.qty,
         wo_qty: coverPrinting.wo_qty,
         row: coverPrinting.rawRow,
-        subSpecifications: coverSubSpecs // ENHANCED: Store sub-specifications
+        subSpecifications: coverSubSpecs
       },
       paper: sortedPaperRows.length > 0 ? {
         description: sortedPaperRows[0].description,
         qty: sortedPaperRows[0].qty,
         wo_qty: sortedPaperRows[0].wo_qty,
         row: sortedPaperRows[0].rawRow,
-        subSpecifications: extractSubSpecificationDetails(sortedPaperRows[0].description) // ENHANCED: Store sub-specifications
+        subSpecifications: extractDetailedPaperSpecifications(sortedPaperRows[0].description)
       } : undefined
     },
     {
@@ -478,14 +469,14 @@ const detectCoverTextScenarioWithSubSpecs = (
         qty: textPrinting.qty,
         wo_qty: textPrinting.wo_qty,
         row: textPrinting.rawRow,
-        subSpecifications: textSubSpecs // ENHANCED: Store sub-specifications
+        subSpecifications: textSubSpecs
       },
       paper: sortedPaperRows.length > 1 ? {
         description: sortedPaperRows[sortedPaperRows.length - 1].description,
         qty: sortedPaperRows[sortedPaperRows.length - 1].qty,
         wo_qty: sortedPaperRows[sortedPaperRows.length - 1].wo_qty,
         row: sortedPaperRows[sortedPaperRows.length - 1].rawRow,
-        subSpecifications: extractSubSpecificationDetails(sortedPaperRows[sortedPaperRows.length - 1].description) // ENHANCED: Store sub-specifications
+        subSpecifications: extractDetailedPaperSpecifications(sortedPaperRows[sortedPaperRows.length - 1].description)
       } : undefined
     }
   ];
@@ -494,8 +485,8 @@ const detectCoverTextScenarioWithSubSpecs = (
   const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   logger.addDebugInfo(`📋 BOOK JOB CREATED with dependency group: ${dependencyGroupId}`);
-  logger.addDebugInfo(`   COVER: Print="${coverPrinting.description}", Paper="${components[0].paper?.description || 'none'}", Sub-specs: [${coverSubSpecs.join(', ')}]`);
-  logger.addDebugInfo(`   TEXT: Print="${textPrinting.description}", Paper="${components[1].paper?.description || 'none'}", Sub-specs: [${textSubSpecs.join(', ')}]`);
+  logger.addDebugInfo(`   COVER: Print="${coverPrinting.description}", Paper="${components[0].paper?.description || 'none'}", Specs: [${coverSubSpecs.join(', ')}]`);
+  logger.addDebugInfo(`   TEXT: Print="${textPrinting.description}", Paper="${components[1].paper?.description || 'none'}", Specs: [${textSubSpecs.join(', ')}]`);
   
   return {
     isBookJob: true,
@@ -505,43 +496,57 @@ const detectCoverTextScenarioWithSubSpecs = (
 };
 
 /**
- * ENHANCED: Extract detailed sub-specifications from description text
+ * FIXED: Extract detailed paper specifications with comprehensive patterns
  */
-const extractSubSpecificationDetails = (description: string): string[] => {
+const extractDetailedPaperSpecifications = (description: string): string[] => {
   if (!description) return [];
   
   const subSpecs: string[] = [];
   const lowerDesc = description.toLowerCase();
   
-  // Paper weight patterns
+  // FIXED: Enhanced paper weight patterns
   const weightMatch = description.match(/(\d+)\s*gsm/i);
   if (weightMatch) {
-    subSpecs.push(`${weightMatch[1]}gsm`);
+    const formattedWeight = weightMatch[1].padStart(3, '0');
+    subSpecs.push(`${formattedWeight}gsm`);
   }
   
-  // Paper type patterns
-  const typePatterns = ['bond', 'matt', 'gloss', 'silk', 'art', 'fbb'];
-  typePatterns.forEach(type => {
-    if (lowerDesc.includes(type)) {
-      subSpecs.push(type.charAt(0).toUpperCase() + type.slice(1));
-    }
-  });
+  // FIXED: Comprehensive paper type patterns with standardization
+  const typePatterns = {
+    'sappi laser pre print': 'Bond',
+    'laser pre print': 'Bond',
+    'pre print': 'Bond',
+    'bond': 'Bond',
+    'matt art': 'Matt',
+    'matt': 'Matt',
+    'gloss art': 'Gloss',
+    'gloss': 'Gloss',
+    'silk': 'Silk',
+    'art paper': 'Art',
+    'art': 'Art',
+    'fbb': 'FBS',
+    'fbs': 'FBS'
+  };
   
-  // Delivery method patterns
-  const deliveryPatterns = ['collect', 'deliver', 'ship', 'pickup'];
-  deliveryPatterns.forEach(method => {
-    if (lowerDesc.includes(method)) {
-      subSpecs.push(method.charAt(0).toUpperCase() + method.slice(1));
+  for (const [pattern, standardType] of Object.entries(typePatterns)) {
+    if (lowerDesc.includes(pattern)) {
+      if (!subSpecs.includes(standardType)) {
+        subSpecs.push(standardType);
+      }
+      break; // Take first match to avoid duplicates
     }
-  });
+  }
   
-  // Finishing patterns
-  const finishingPatterns = ['fold', 'trim', 'cut', 'bind', 'laminate', 'perforate'];
-  finishingPatterns.forEach(finish => {
-    if (lowerDesc.includes(finish)) {
-      subSpecs.push(finish.charAt(0).toUpperCase() + finish.slice(1));
+  // FIXED: Additional specification patterns
+  const additionalPatterns = ['collect', 'deliver', 'ship', 'pickup', 'fold', 'trim', 'cut', 'bind', 'laminate', 'perforate'];
+  additionalPatterns.forEach(pattern => {
+    if (lowerDesc.includes(pattern)) {
+      subSpecs.push(pattern.charAt(0).toUpperCase() + pattern.slice(1));
     }
   });
   
   return subSpecs;
 };
+
+// Keep the original function for backward compatibility
+const extractSubSpecificationDetails = extractDetailedPaperSpecifications;
