@@ -149,7 +149,7 @@ export class EnhancedMappingProcessor {
           result.paperMappings.push({
             original: specData.description,
             mapped: paperSpec,
-            jobId: job.id,
+            jobId: job.wo_no,
             confidence: 100
           });
         } else {
@@ -164,7 +164,7 @@ export class EnhancedMappingProcessor {
         result.stats.deliverySpecsMapped++;
         result.deliveryMappings.push({
           original: specData.description,
-          jobId: job.id,
+          jobId: job.wo_no,
           qty: specData.qty || 0,
           wo_qty: specData.wo_qty || 0
         });
