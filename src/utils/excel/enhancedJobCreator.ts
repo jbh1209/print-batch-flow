@@ -905,35 +905,72 @@ private async calculateTimingForJob(
 private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
   this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
   
+  // Helper function to find spec by fuzzy matching
+  const findSpecByFuzzyMatch = (specifications: any, category: string): { key: string; spec: any } | null => {
+    if (!specifications) return null;
+    
+    // 1. Try exact match first
+    if (specifications[groupName]) {
+      this.logger.addDebugInfo(`✅ Found exact match for ${groupName} in ${category}`);
+      return { key: groupName, spec: specifications[groupName] };
+    }
+    
+    // 2. Extract base name from composite group names (e.g., "HP 12000 - Cover" -> "HP 12000")
+    const baseName = groupName.replace(/\s*-\s*(Cover|Text|cover|text).*$/i, '').trim();
+    
+    // 3. Look for keys that start with the base name
+    for (const [key, spec] of Object.entries(specifications)) {
+      if (key.startsWith(baseName)) {
+        // 4. Handle cover/text scenarios by checking suffixes
+        if (groupName.toLowerCase().includes('cover') && key.toLowerCase().includes('cover')) {
+          this.logger.addDebugInfo(`✅ Found cover match: ${key} for group ${groupName} in ${category}`);
+          return { key, spec };
+        }
+        if (groupName.toLowerCase().includes('text') && key.toLowerCase().includes('text')) {
+          this.logger.addDebugInfo(`✅ Found text match: ${key} for group ${groupName} in ${category}`);
+          return { key, spec };
+        }
+        // 5. If no cover/text in group name, return first match
+        if (!groupName.toLowerCase().includes('cover') && !groupName.toLowerCase().includes('text')) {
+          this.logger.addDebugInfo(`✅ Found base name match: ${key} for group ${groupName} in ${category}`);
+          return { key, spec };
+        }
+      }
+    }
+    
+    return null;
+  };
+  
   // Try to find quantity in printing specifications first (most common)
-  if (job.printing_specifications && job.printing_specifications[groupName]) {
-    const spec = job.printing_specifications[groupName];
-    this.logger.addDebugInfo(`📄 Found printing spec for ${groupName}: qty=${spec.qty}`);
-    if (spec.qty && spec.qty > 0) return spec.qty;
+  const printingMatch = findSpecByFuzzyMatch(job.printing_specifications, 'printing');
+  if (printingMatch && printingMatch.spec.qty && printingMatch.spec.qty > 0) {
+    this.logger.addDebugInfo(`📄 Found printing spec for ${groupName} via key ${printingMatch.key}: qty=${printingMatch.spec.qty}`);
+    return printingMatch.spec.qty;
   }
   
   // Try to find quantity in finishing specifications  
-  if (job.finishing_specifications && job.finishing_specifications[groupName]) {
-    const spec = job.finishing_specifications[groupName];
-    this.logger.addDebugInfo(`🎨 Found finishing spec for ${groupName}: qty=${spec.qty}`);
-    if (spec.qty && spec.qty > 0) return spec.qty;
+  const finishingMatch = findSpecByFuzzyMatch(job.finishing_specifications, 'finishing');
+  if (finishingMatch && finishingMatch.spec.qty && finishingMatch.spec.qty > 0) {
+    this.logger.addDebugInfo(`🎨 Found finishing spec for ${groupName} via key ${finishingMatch.key}: qty=${finishingMatch.spec.qty}`);
+    return finishingMatch.spec.qty;
   }
   
   // Try to find quantity in prepress specifications
-  if (job.prepress_specifications && job.prepress_specifications[groupName]) {
-    const spec = job.prepress_specifications[groupName];
-    this.logger.addDebugInfo(`⚙️ Found prepress spec for ${groupName}: qty=${spec.qty}`);
-    if (spec.qty && spec.qty > 0) return spec.qty;
+  const prepressMatch = findSpecByFuzzyMatch(job.prepress_specifications, 'prepress');
+  if (prepressMatch && prepressMatch.spec.qty && prepressMatch.spec.qty > 0) {
+    this.logger.addDebugInfo(`⚙️ Found prepress spec for ${groupName} via key ${prepressMatch.key}: qty=${prepressMatch.spec.qty}`);
+    return prepressMatch.spec.qty;
   }
   
   // Try to find quantity in paper specifications
-  if (job.paper_specifications && job.paper_specifications[groupName]) {
-    const spec = job.paper_specifications[groupName];
-    this.logger.addDebugInfo(`📋 Found paper spec for ${groupName}: qty=${spec.qty}`);
-    if (spec.qty && spec.qty > 0) return spec.qty;
+  const paperMatch = findSpecByFuzzyMatch(job.paper_specifications, 'paper');
+  if (paperMatch && paperMatch.spec.qty && paperMatch.spec.qty > 0) {
+    this.logger.addDebugInfo(`📋 Found paper spec for ${groupName} via key ${paperMatch.key}: qty=${paperMatch.spec.qty}`);
+    return paperMatch.spec.qty;
   }
 
-  // Also check if groupName matches any of the mapped stage names and look for quantity in user mappings
+  // Log what specifications are available for debugging
+  this.logger.addDebugInfo(`🔍 Available printing specs: ${job.printing_specifications ? Object.keys(job.printing_specifications).join(', ') : 'none'}`);
   this.logger.addDebugInfo(`⚠️ No quantity found for group ${groupName}, using job default: ${job.qty || 1}`);
   
   // Return job qty as fallback
