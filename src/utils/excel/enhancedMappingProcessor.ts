@@ -37,11 +37,11 @@ export class EnhancedMappingProcessor {
   async initialize() {
     await this.stageMapper.initialize();
     await this.paperMappingService.initialize();
-    this.logger.addDebugInfo('🔧 Enhanced Mapping Processor initialized with COMPREHENSIVE FIXES');
+    this.logger.addDebugInfo('🔧 Enhanced Mapping Processor initialized with FIXED paper spec flow');
   }
 
   /**
-   * FIXED: Enhanced processing with proper paper specification and stage mapping validation
+   * FIXED: Enhanced processing with proper paper specification validation and stage mapping
    */
   async processJobsWithEnhancedMapping(
     jobs: ParsedJob[],
@@ -50,7 +50,7 @@ export class EnhancedMappingProcessor {
     excelRows: any[][],
     userMapping?: any
   ): Promise<EnhancedMappingResult> {
-    this.logger.addDebugInfo('🚀 STARTING COMPREHENSIVE ENHANCED PROCESSING WITH FIXES');
+    this.logger.addDebugInfo('🚀 STARTING FIXED ENHANCED PROCESSING');
     
     const result: EnhancedMappingResult = {
       jobs: [...jobs],
@@ -87,51 +87,53 @@ export class EnhancedMappingProcessor {
             jobId: job.wo_no,
             qty: mapping.qty,
             woQty: mapping.woQty,
-            reason: 'No exact database mapping found - requires user selection'
+            reason: 'No exact database mapping found - requires user selection',
+            paperSpecification: mapping.paperSpecification // Include paper spec even for unmapped items
           });
           
           this.logger.addDebugInfo(`❌ UNMAPPED ITEM: "${mapping.description}" - no database match`);
         } else {
           result.stats.stageMappingsApplied++;
-          
-          // FIXED: Enhanced paper specification tracking with proper validation
-          if (mapping.paperSpecification && (mapping.category === 'printing' || mapping.category === 'paper')) {
-            result.stats.paperSpecsMapped++;
-            result.paperMappings.push({
-              original: mapping.description,
-              mapped: mapping.paperSpecification,
-              jobId: job.wo_no,
-              confidence: mapping.confidence || 100,
-              partType: mapping.partType || 'single',
-              format: mapping.paperSpecification // FIXED: Use the actual paper specification
-            });
-            
-            this.logger.addDebugInfo(`📄 PAPER SPEC TRACKED: "${mapping.paperSpecification}" for job ${job.wo_no} from "${mapping.description}"`);
-          }
-          
-          // FIXED: Enhanced delivery specification tracking
-          if (mapping.category === 'delivery') {
-            result.stats.deliverySpecsMapped++;
-            result.deliveryMappings.push({
-              original: mapping.description,
-              jobId: job.wo_no,
-              qty: mapping.qty || 0,
-              wo_qty: mapping.woQty || 0,
-              mappedStageName: mapping.mappedStageName || 'Unknown Stage',
-              confidence: mapping.confidence || 100
-            });
-            
-            this.logger.addDebugInfo(`🚚 DELIVERY SPEC TRACKED: "${mapping.mappedStageName}" for job ${job.wo_no} from "${mapping.description}"`);
-          }
-          
-          // Log successful mappings for validation
           this.logger.addDebugInfo(`✅ MAPPED: "${mapping.description}" -> "${mapping.mappedStageName}" (${mapping.confidence}% confidence)`);
+        }
+
+        // FIXED: Enhanced paper specification tracking with proper validation
+        if (mapping.paperSpecification && (mapping.category === 'printing' || mapping.category === 'paper')) {
+          result.stats.paperSpecsMapped++;
+          result.paperMappings.push({
+            original: mapping.description,
+            mapped: mapping.paperSpecification,
+            jobId: job.wo_no,
+            confidence: mapping.confidence || 100,
+            partType: mapping.partType || 'single',
+            format: mapping.paperSpecification, // FIXED: Use the actual paper specification
+            stageName: mapping.mappedStageName || 'Unmapped',
+            isUnmapped: mapping.isUnmapped
+          });
+          
+          this.logger.addDebugInfo(`📄 PAPER SPEC TRACKED: "${mapping.paperSpecification}" for job ${job.wo_no} from "${mapping.description}"`);
+        }
+        
+        // FIXED: Enhanced delivery specification tracking
+        if (mapping.category === 'delivery') {
+          result.stats.deliverySpecsMapped++;
+          result.deliveryMappings.push({
+            original: mapping.description,
+            jobId: job.wo_no,
+            qty: mapping.qty || 0,
+            wo_qty: mapping.woQty || 0,
+            mappedStageName: mapping.mappedStageName || 'Unmapped',
+            confidence: mapping.confidence || 100,
+            isUnmapped: mapping.isUnmapped
+          });
+          
+          this.logger.addDebugInfo(`🚚 DELIVERY SPEC TRACKED: "${mapping.mappedStageName}" for job ${job.wo_no} from "${mapping.description}"`);
         }
       }
     }
 
     // FIXED: Enhanced completion logging with detailed validation
-    this.logger.addDebugInfo(`✅ COMPREHENSIVE PROCESSING COMPLETE WITH FIXES:`);
+    this.logger.addDebugInfo(`✅ FIXED PROCESSING COMPLETE:`);
     this.logger.addDebugInfo(`   - Paper specs mapped: ${result.stats.paperSpecsMapped}`);
     this.logger.addDebugInfo(`   - Delivery specs mapped: ${result.stats.deliverySpecsMapped}`);
     this.logger.addDebugInfo(`   - Stage mappings applied: ${result.stats.stageMappingsApplied}`);
@@ -141,7 +143,7 @@ export class EnhancedMappingProcessor {
     if (result.unmappedStageItems.length > 0) {
       this.logger.addDebugInfo(`⚠️ UNMAPPED ITEMS DETAIL:`);
       result.unmappedStageItems.forEach((item, index) => {
-        this.logger.addDebugInfo(`   ${index + 1}. "${item.description}" (${item.category}) - ${item.reason}`);
+        this.logger.addDebugInfo(`   ${index + 1}. "${item.description}" (${item.category}) - ${item.reason} ${item.paperSpecification ? `[Paper: ${item.paperSpecification}]` : ''}`);
       });
     }
 
@@ -149,7 +151,7 @@ export class EnhancedMappingProcessor {
     if (result.paperMappings.length > 0) {
       this.logger.addDebugInfo(`📄 PAPER MAPPINGS VALIDATION:`);
       result.paperMappings.forEach((mapping, index) => {
-        this.logger.addDebugInfo(`   ${index + 1}. "${mapping.original}" -> "${mapping.mapped}" (Format: ${mapping.format})`);
+        this.logger.addDebugInfo(`   ${index + 1}. "${mapping.original}" -> "${mapping.mapped}" (Stage: ${mapping.stageName}, Format: ${mapping.format})`);
       });
     }
 
@@ -157,7 +159,7 @@ export class EnhancedMappingProcessor {
     if (result.deliveryMappings.length > 0) {
       this.logger.addDebugInfo(`🚚 DELIVERY MAPPINGS VALIDATION:`);
       result.deliveryMappings.forEach((mapping, index) => {
-        this.logger.addDebugInfo(`   ${index + 1}. "${mapping.original}" -> "${mapping.mappedStageName}"`);
+        this.logger.addDebugInfo(`   ${index + 1}. "${mapping.original}" -> "${mapping.mappedStageName}" (${mapping.isUnmapped ? 'UNMAPPED' : 'MAPPED'})`);
       });
     }
 
