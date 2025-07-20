@@ -28,24 +28,23 @@ export class EnhancedStageMapper {
     this.productionStages = stagesData || [];
     this.logger.addDebugInfo(`✅ Loaded ${this.productionStages.length} production stages`);
     
-    // Load stage specifications
+    // Load print specifications (stage specifications don't exist as separate table)
     const { data: specsData, error: specsError } = await supabase
-      .from('production_stage_specifications')
+      .from('print_specifications')
       .select('*')
       .eq('is_active', true);
     
     if (specsError) {
-      this.logger.addDebugInfo(`❌ Error loading stage specifications: ${specsError.message}`);
+      this.logger.addDebugInfo(`❌ Error loading print specifications: ${specsError.message}`);
     } else {
       this.stageSpecifications = specsData || [];
-      this.logger.addDebugInfo(`✅ Loaded ${this.stageSpecifications.length} stage specifications`);
+      this.logger.addDebugInfo(`✅ Loaded ${this.stageSpecifications.length} print specifications`);
     }
     
     // FIXED: Load excel mappings with priority filtering for production stages
     const { data: mappingsData, error: mappingsError } = await supabase
       .from('excel_import_mappings')
       .select('*')
-      .eq('is_active', true)
       .order('confidence_score', { ascending: false });
     
     if (mappingsError) {
@@ -55,10 +54,11 @@ export class EnhancedStageMapper {
       this.logger.addDebugInfo(`✅ Loaded ${this.excelMappings.length} excel mappings`);
     }
     
-    // Load delivery specifications
+    // Load delivery specifications from print_specifications table
     const { data: deliveryData, error: deliveryError } = await supabase
-      .from('delivery_specifications')
+      .from('print_specifications')
       .select('*')
+      .eq('category', 'delivery')
       .eq('is_active', true);
     
     if (deliveryError) {
@@ -292,12 +292,12 @@ export class EnhancedStageMapper {
           paperSpecification: this.extractPaperSpecFromText(text)
         };
         
-        // Add sub-specification if exists
-        if (bestMapping.production_stage_specification_id) {
-          const subSpec = this.stageSpecifications.find(s => s.id === bestMapping.production_stage_specification_id);
+        // Add sub-specification if exists (check print_specification_id instead)
+        if (bestMapping.print_specification_id) {
+          const subSpec = this.stageSpecifications.find(s => s.id === bestMapping.print_specification_id);
           if (subSpec) {
-            result.subSpecId = subSpec.id;
-            result.subSpecName = subSpec.name;
+            (result as any).subSpecId = subSpec.id;
+            (result as any).subSpecName = subSpec.name || subSpec.display_name;
           }
         }
         
@@ -308,19 +308,19 @@ export class EnhancedStageMapper {
       }
     }
     
-    // Handle delivery specifications
-    if (bestMapping.delivery_specification_id) {
-      const deliverySpec = this.deliverySpecifications.find(d => d.id === bestMapping.delivery_specification_id);
+    // Handle delivery specifications from print_specifications
+    if (bestMapping.delivery_method_specification_id) {
+      const deliverySpec = this.deliverySpecifications.find(d => d.id === bestMapping.delivery_method_specification_id);
       if (deliverySpec) {
-        this.logger.addDebugInfo(`✅ RESOLVED DELIVERY SPEC: "${deliverySpec.name}" (${deliverySpec.id})`);
+        this.logger.addDebugInfo(`✅ RESOLVED DELIVERY SPEC: "${deliverySpec.name || deliverySpec.display_name}" (${deliverySpec.id})`);
         return {
           stageId: deliverySpec.id,
-          stageName: deliverySpec.name,
+          stageName: deliverySpec.name || deliverySpec.display_name,
           confidence: bestMapping.confidence_score || 100,
           category: 'delivery'
         };
       } else {
-        this.logger.addDebugInfo(`❌ Delivery specification not found in loaded data: ${bestMapping.delivery_specification_id}`);
+        this.logger.addDebugInfo(`❌ Delivery specification not found in loaded data: ${bestMapping.delivery_method_specification_id}`);
       }
     }
     
