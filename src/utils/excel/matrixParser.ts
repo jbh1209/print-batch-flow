@@ -1,3 +1,4 @@
+
 import * as XLSX from "xlsx";
 import type { MatrixExcelData, GroupSpecifications, OperationQuantities, ParsedJob, CoverTextDetection, CoverTextComponent } from './types';
 import type { ExcelImportDebugger } from './debugger';
@@ -180,6 +181,11 @@ const createBaseJob = (
   // Extract basic fields using column mapping (fallback to matrix detection)
   const safeGet = (index: number) => index !== -1 && row[index] ? String(row[index]).trim() : '';
   
+  // LOGGING: Track WO quantity extraction
+  const woQtyRaw = safeGet(columnMapping.qty || matrixData.woQtyColumn || -1);
+  const woQtyParsed = parseInt(String(woQtyRaw).replace(/[^0-9]/g, '')) || 0;
+  logger.addDebugInfo(`[QUANTITY LOG] createBaseJob - WO: ${woNo}, Raw WO Qty: "${woQtyRaw}", Parsed WO Qty: ${woQtyParsed}`);
+  
   return {
     wo_no: woNo,
     status: 'Pre-Press',
@@ -188,7 +194,7 @@ const createBaseJob = (
     category: safeGet(columnMapping.category || -1),
     customer: safeGet(columnMapping.customer || -1),
     reference: safeGet(columnMapping.reference || -1),
-    qty: parseInt(String(safeGet(columnMapping.qty || matrixData.woQtyColumn || -1)).replace(/[^0-9]/g, '')) || 0,
+    qty: woQtyParsed,
     due_date: formatExcelDate(safeGet(columnMapping.dueDate || -1), logger),
     location: safeGet(columnMapping.location || -1),
     size: safeGet(columnMapping.size || -1) || null,
@@ -261,30 +267,40 @@ const extractGroupSpecifications = (
     
     const group = String(groupValue).trim();
     const description = matrixData.descriptionColumn !== -1 ? row[matrixData.descriptionColumn] : '';
-    const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
-    const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
+    
+    // LOGGING: Track quantity extraction for each row
+    const qtyRaw = matrixData.qtyColumn !== -1 ? row[matrixData.qtyColumn] : '';
+    const woQtyRaw = matrixData.woQtyColumn !== -1 ? row[matrixData.woQtyColumn] : '';
+    const qty = parseInt(String(qtyRaw || '0').replace(/[^0-9]/g, '')) || 0;
+    const woQty = parseInt(String(woQtyRaw || '0').replace(/[^0-9]/g, '')) || 0;
+    
+    logger.addDebugInfo(`[QUANTITY LOG] Row ${index} - Group: "${group}", Desc: "${description}", Raw Qty: "${qtyRaw}", Parsed Qty: ${qty}, Raw WO_Qty: "${woQtyRaw}", Parsed WO_Qty: ${woQty}`);
     
     const category = categorizeGroup(group);
     
     // Collect printing and paper data for cover/text detection
     if (category === 'printing') {
-      printingRows.push({
+      const printingRowData = {
         description: String(description || '').trim(),
         qty,
         wo_qty: woQty,
         rawRow: row,
         rowIndex: index
-      });
+      };
+      printingRows.push(printingRowData);
+      logger.addDebugInfo(`[QUANTITY LOG] Added to printingRows: ${JSON.stringify({description: printingRowData.description, qty: printingRowData.qty, wo_qty: printingRowData.wo_qty})}`);
     }
     
     if (category === 'paper') {
-      paperRows.push({
+      const paperRowData = {
         description: String(description || '').trim(),
         qty,
         wo_qty: woQty,
         rawRow: row,
         rowIndex: index
-      });
+      };
+      paperRows.push(paperRowData);
+      logger.addDebugInfo(`[QUANTITY LOG] Added to paperRows: ${JSON.stringify({description: paperRowData.description, qty: paperRowData.qty, wo_qty: paperRowData.wo_qty})}`);
     }
   });
   
@@ -302,13 +318,13 @@ const extractGroupSpecifications = (
     if (coverComponent) {
       const coverDesc = coverComponent.printing.description;
       printingKeyMap.set(`${coverDesc}_${coverComponent.printing.qty}`, `${coverDesc}_Cover`);
-      logger.addDebugInfo(`Created unique key for cover printing: ${coverDesc}_Cover (qty: ${coverComponent.printing.qty})`);
+      logger.addDebugInfo(`[QUANTITY LOG] Created unique key for cover printing: ${coverDesc}_Cover (qty: ${coverComponent.printing.qty})`);
     }
     
     if (textComponent) {
       const textDesc = textComponent.printing.description;
       printingKeyMap.set(`${textDesc}_${textComponent.printing.qty}`, `${textDesc}_Text`);
-      logger.addDebugInfo(`Created unique key for text printing: ${textDesc}_Text (qty: ${textComponent.printing.qty})`);
+      logger.addDebugInfo(`[QUANTITY LOG] Created unique key for text printing: ${textDesc}_Text (qty: ${textComponent.printing.qty})`);
     }
   }
   
@@ -341,11 +357,12 @@ const extractGroupSpecifications = (
         const uniqueKey = printingKeyMap.get(lookupKey);
         if (uniqueKey) {
           specKey = uniqueKey;
-          logger.addDebugInfo(`Using unique printing key: ${specKey} for qty: ${qty}`);
+          logger.addDebugInfo(`[QUANTITY LOG] Using unique printing key: ${specKey} for qty: ${qty}`);
         }
       }
       
       specs[category][specKey] = specData;
+      logger.addDebugInfo(`[QUANTITY LOG] Added to specs[${category}][${specKey}]: qty=${specData.qty}, wo_qty=${specData.wo_qty}`);
       
       // Also add to operations with quantity information
       if (qty > 0) {
@@ -353,11 +370,16 @@ const extractGroupSpecifications = (
           operation_qty: qty,
           total_wo_qty: woQty
         };
+        logger.addDebugInfo(`[QUANTITY LOG] Added to operations[${specKey}]: operation_qty=${qty}, total_wo_qty=${woQty}`);
       }
     }
     
     logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
+  
+  // LOGGING: Final specifications summary
+  logger.addDebugInfo(`[QUANTITY LOG] Final printing specifications: ${JSON.stringify(Object.entries(specs.printing).map(([key, spec]) => ({key, qty: spec.qty, wo_qty: spec.wo_qty})))}`);
+  logger.addDebugInfo(`[QUANTITY LOG] Final operations: ${JSON.stringify(Object.entries(specs.operations).map(([key, op]) => ({key, operation_qty: op.operation_qty, total_wo_qty: op.total_wo_qty})))}`);
   
   return {
     paper: Object.keys(specs.paper).length > 0 ? specs.paper : null,
@@ -408,10 +430,12 @@ const detectCoverTextScenario = (
     return null;
   }
   
-  logger.addDebugInfo(`Multiple printing rows detected (${printingRows.length}) - analyzing for cover/text scenario`);
+  logger.addDebugInfo(`[QUANTITY LOG] Multiple printing rows detected (${printingRows.length}) - analyzing for cover/text scenario`);
+  logger.addDebugInfo(`[QUANTITY LOG] Printing rows before sorting: ${JSON.stringify(printingRows.map(r => ({desc: r.description, qty: r.qty, wo_qty: r.wo_qty})))}`);
   
   // Sort printing rows by quantity (ascending) - cover will have lower quantity
   const sortedPrintingRows = [...printingRows].sort((a, b) => a.qty - b.qty);
+  logger.addDebugInfo(`[QUANTITY LOG] Printing rows after sorting by qty: ${JSON.stringify(sortedPrintingRows.map(r => ({desc: r.description, qty: r.qty, wo_qty: r.wo_qty})))}`);
   
   // Identify cover (smallest quantity) and text (larger quantity)
   const coverPrinting = sortedPrintingRows[0];
@@ -422,8 +446,8 @@ const detectCoverTextScenario = (
     return null;
   }
   
-  logger.addDebugInfo(`Cover detected: ${coverPrinting.description} (qty: ${coverPrinting.qty}, wo_qty: ${coverPrinting.wo_qty})`);
-  logger.addDebugInfo(`Text detected: ${textPrinting.description} (qty: ${textPrinting.qty}, wo_qty: ${textPrinting.wo_qty})`);
+  logger.addDebugInfo(`[QUANTITY LOG] Cover detected: ${coverPrinting.description} (qty: ${coverPrinting.qty}, wo_qty: ${coverPrinting.wo_qty})`);
+  logger.addDebugInfo(`[QUANTITY LOG] Text detected: ${textPrinting.description} (qty: ${textPrinting.qty}, wo_qty: ${textPrinting.wo_qty})`);
   
   // Match paper to printing by quantity logic
   const sortedPaperRows = [...paperRows].sort((a, b) => a.qty - b.qty);
@@ -464,7 +488,8 @@ const detectCoverTextScenario = (
   // Generate dependency group ID for synchronization points
   const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
-  logger.addDebugInfo(`Book job detected with dependency group: ${dependencyGroupId}`);
+  logger.addDebugInfo(`[QUANTITY LOG] Book job detected with dependency group: ${dependencyGroupId}`);
+  logger.addDebugInfo(`[QUANTITY LOG] Final components: ${JSON.stringify(components.map(c => ({type: c.type, printing_qty: c.printing.qty, printing_wo_qty: c.printing.wo_qty, paper_qty: c.paper?.qty, paper_wo_qty: c.paper?.wo_qty})))}`);
   
   return {
     isBookJob: true,

@@ -1,4 +1,5 @@
 
+
 import { supabase } from '@/integrations/supabase/client';
 import type { ParsedJob } from '@/utils/excel/types';
 import type { ExcelImportDebugger } from '@/utils/excel/debugger';
@@ -50,6 +51,19 @@ export class DirectJobCreator {
           throw new Error(`No original job data found for ${woNo}`);
         }
 
+        // LOGGING: Track job data before creation
+        this.logger.addDebugInfo(`[QUANTITY LOG] DirectJobCreator - Processing job ${woNo}: base qty=${originalJob.qty}`);
+        if (originalJob.printing_specifications) {
+          Object.entries(originalJob.printing_specifications).forEach(([key, spec]: [string, any]) => {
+            this.logger.addDebugInfo(`[QUANTITY LOG] DirectJobCreator - Input printing spec[${key}]: qty=${spec.qty}, wo_qty=${spec.wo_qty}`);
+          });
+        }
+        if (originalJob.operation_quantities) {
+          Object.entries(originalJob.operation_quantities).forEach(([key, op]: [string, any]) => {
+            this.logger.addDebugInfo(`[QUANTITY LOG] DirectJobCreator - Input operation[${key}]: operation_qty=${op.operation_qty}, total_wo_qty=${op.total_wo_qty}`);
+          });
+        }
+
         // Create the job directly
         const createdJob = await this.createSingleJob(originalJob, preparedResult.rowMappings[woNo] || []);
         result.createdJobs.push(createdJob);
@@ -74,6 +88,9 @@ export class DirectJobCreator {
   }
 
   private async createSingleJob(originalJob: ParsedJob, rowMappings: any[]): Promise<any> {
+    // LOGGING: Track job data at creation
+    this.logger.addDebugInfo(`[QUANTITY LOG] createSingleJob - Input job qty: ${originalJob.qty}`);
+    
     // Build job data preserving all specifications
     const jobData = {
       wo_no: originalJob.wo_no,
@@ -98,6 +115,9 @@ export class DirectJobCreator {
         temporary: true
       }) : null
     };
+
+    // LOGGING: Track jobData before database insertion
+    this.logger.addDebugInfo(`[QUANTITY LOG] createSingleJob - jobData qty before DB insert: ${jobData.qty}`);
 
     // Insert job into database
     const { data: insertedJob, error: insertError } = await supabase
@@ -136,6 +156,9 @@ export class DirectJobCreator {
     if (!finalJob) {
       throw new Error('Job creation returned no data');
     }
+
+    // LOGGING: Track finalJob after database operation
+    this.logger.addDebugInfo(`[QUANTITY LOG] createSingleJob - finalJob qty after DB operation: ${finalJob.qty}`);
 
     // Initialize custom workflow from row mappings
     await this.initializeWorkflowFromMappings(finalJob, rowMappings);
@@ -176,6 +199,13 @@ export class DirectJobCreator {
       this.logger.addDebugInfo(`No row mappings found for job ${job.wo_no}, skipping workflow initialization`);
       return;
     }
+
+    this.logger.addDebugInfo(`[QUANTITY LOG] initializeWorkflowFromMappings - Job ${job.wo_no} has ${rowMappings.length} row mappings`);
+    
+    // LOGGING: Track input mappings
+    rowMappings.forEach((mapping, index) => {
+      this.logger.addDebugInfo(`[QUANTITY LOG] Input mapping[${index}]: stage="${mapping.mappedStageName}", qty=${mapping.qty}, mappedStageId=${mapping.mappedStageId}`);
+    });
 
     this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${rowMappings.length} row mappings - TRUSTING Excel parser`);
     
@@ -241,6 +271,9 @@ export class DirectJobCreator {
    * and prepare for multiple printing stage instances
    */
   private preprocessMappingsForUniqueStages(mappings: any[]): any[] {
+    // LOGGING: Track preprocessing input
+    this.logger.addDebugInfo(`[QUANTITY LOG] preprocessMappingsForUniqueStages - Input mappings: ${JSON.stringify(mappings.map(m => ({stage: m.mappedStageName, qty: m.qty})))}`);
+    
     // Group mappings by stage name to detect multiple printing stages
     const stageGroups = new Map<string, any[]>();
     
@@ -257,37 +290,44 @@ export class DirectJobCreator {
     for (const [stageName, stageGroup] of stageGroups.entries()) {
       if (stageGroup.length > 1 && stageName.toLowerCase().includes('printing')) {
         // Multiple printing stages - apply cover/text logic
-        this.logger.addDebugInfo(`Found ${stageGroup.length} instances of ${stageName}, applying cover/text logic`);
+        this.logger.addDebugInfo(`[QUANTITY LOG] Found ${stageGroup.length} instances of ${stageName}, applying cover/text logic`);
         
         // Sort by quantity: smallest = cover, largest = text (corrected logic)
         const sortedByQty = [...stageGroup].sort((a, b) => (a.qty || 0) - (b.qty || 0));
+        this.logger.addDebugInfo(`[QUANTITY LOG] Sorted printing stages by qty: ${JSON.stringify(sortedByQty.map(s => ({qty: s.qty, desc: s.description})))}`);
         
         sortedByQty.forEach((mapping, index) => {
           const isCover = index === 0; // Smallest quantity = Cover
           const isText = index === sortedByQty.length - 1; // Largest quantity = Text
           const partType = isCover ? 'Cover' : isText ? 'Text' : `Part ${index + 1}`;
           
-          processedMappings.push({
+          const processedMapping = {
             ...mapping,
             mappedStageName: `${stageName} (${partType})`,
             partType: partType,
             originalStageId: mapping.mappedStageId, // Keep reference to original
             stageInstanceIndex: index // For creating multiple instances
-          });
+          };
           
-          this.logger.addDebugInfo(`Prepared stage: ${stageName} (${partType}) with qty: ${mapping.qty}`);
+          processedMappings.push(processedMapping);
+          
+          this.logger.addDebugInfo(`[QUANTITY LOG] Prepared stage: ${stageName} (${partType}) with qty: ${mapping.qty}`);
         });
       } else {
         // Non-printing stage - keep all mappings to preserve all stage instances
         stageGroup.forEach((mapping, index) => {
-          processedMappings.push({
+          const processedMapping = {
             ...mapping,
             originalStageId: mapping.mappedStageId,
             stageInstanceIndex: index
-          });
+          };
+          processedMappings.push(processedMapping);
         });
       }
     }
+
+    // LOGGING: Track preprocessing output
+    this.logger.addDebugInfo(`[QUANTITY LOG] preprocessMappingsForUniqueStages - Output mappings: ${JSON.stringify(processedMappings.map(m => ({stage: m.mappedStageName, qty: m.qty, partType: m.partType})))}`);
 
     return processedMappings;
   }
@@ -318,7 +358,7 @@ export class DirectJobCreator {
       // CRITICAL FIX: Use the actual quantity from the mapping, not a default value
       const actualQuantity = mapping.qty || null;
       
-      this.logger.addDebugInfo(`Creating stage instance with quantity: ${actualQuantity} for mapping: ${JSON.stringify({
+      this.logger.addDebugInfo(`[QUANTITY LOG] Creating stage instance with quantity: ${actualQuantity} for mapping: ${JSON.stringify({
         mappedStageName: mapping.mappedStageName,
         qty: mapping.qty,
         partType: mapping.partType
@@ -342,13 +382,16 @@ export class DirectJobCreator {
         throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
       }
 
-      this.logger.addDebugInfo(`Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
+      this.logger.addDebugInfo(`[QUANTITY LOG] Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
     }
   }
 
   private async addStageSpecifications(job: any, rowMappings: any[], stageDataMap: Map<string, any>): Promise<void> {
     for (const mapping of rowMappings) {
       if (!mapping.mappedStageId) continue;
+
+      // LOGGING: Track mapping data being processed
+      this.logger.addDebugInfo(`[QUANTITY LOG] addStageSpecifications - Processing mapping: stage="${mapping.mappedStageName}", qty=${mapping.qty}, paperSpec="${mapping.paperSpecification}"`);
 
       // Use original stage ID for looking up stage data
       const lookupStageId = mapping.originalStageId || mapping.mappedStageId;
@@ -434,6 +477,13 @@ export class DirectJobCreator {
         updateData.estimated_duration_minutes = estimatedDuration;
       }
 
+      // LOGGING: Track update data before database operation
+      this.logger.addDebugInfo(`[QUANTITY LOG] addStageSpecifications - Updating stage instance with: ${JSON.stringify({
+        quantity: updateData.quantity,
+        part_type: updateData.part_type,
+        estimated_duration_minutes: updateData.estimated_duration_minutes
+      })}`);
+
       // Update stage instance - find by stage ID and part type for multi-instance stages
       let updateQuery = supabase
         .from('job_stage_instances')
@@ -451,7 +501,7 @@ export class DirectJobCreator {
       if (error) {
         this.logger.addDebugInfo(`Warning: Failed to update stage specifications for ${job.wo_no}, stage ${mapping.mappedStageName}: ${error.message}`);
       } else {
-        this.logger.addDebugInfo(`Updated stage ${mapping.mappedStageName} with qty: ${mappingQuantity}, part: ${mapping.partType}, duration: ${estimatedDuration}min`);
+        this.logger.addDebugInfo(`[QUANTITY LOG] Updated stage ${mapping.mappedStageName} with qty: ${mappingQuantity}, part: ${mapping.partType}, duration: ${estimatedDuration}min`);
       }
     }
   }
