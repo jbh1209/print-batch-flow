@@ -208,7 +208,7 @@ export class EnhancedStageMapper {
     const printingStageGroups = new Map<string, PrintingStageGroup>();
     
     Object.entries(printingSpecs).forEach(([key, spec]) => {
-      const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', 'printing');
+      const stageMatch = this.findBestStageMatchFromDatabase(key, (spec as any)?.description || '', 'printing');
       
       if (stageMatch) {
         const stageKey = `${stageMatch.stageId}-${stageMatch.stageName}`;
