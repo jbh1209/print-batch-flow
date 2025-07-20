@@ -266,12 +266,8 @@ const extractGroupSpecifications = (
     
     const category = categorizeGroup(group);
     
-    // LOGGING: Individual row quantities being extracted
-    logger.addDebugInfo(`[MATRIX PARSER] Row ${index}: Group="${group}", Category="${category}", Description="${description}", Qty=${qty}, WO_Qty=${woQty}`);
-    
     // Collect printing and paper data for cover/text detection
     if (category === 'printing') {
-      logger.addDebugInfo(`[MATRIX PARSER] PRINTING ROW FOUND: "${description}" with qty=${qty}, wo_qty=${woQty}`);
       printingRows.push({
         description: String(description || '').trim(),
         qty,
@@ -292,12 +288,6 @@ const extractGroupSpecifications = (
     }
   });
   
-  // LOGGING: All printing rows collected
-  logger.addDebugInfo(`[MATRIX PARSER] COLLECTED ${printingRows.length} printing rows:`);
-  printingRows.forEach((row, i) => {
-    logger.addDebugInfo(`[MATRIX PARSER] Printing Row ${i}: "${row.description}" qty=${row.qty} wo_qty=${row.wo_qty}`);
-  });
-  
   // Detect cover/text scenario before processing specifications
   const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
   
@@ -312,13 +302,13 @@ const extractGroupSpecifications = (
     if (coverComponent) {
       const coverDesc = coverComponent.printing.description;
       printingKeyMap.set(`${coverDesc}_${coverComponent.printing.qty}`, `${coverDesc}_Cover`);
-      logger.addDebugInfo(`[MATRIX PARSER] Created unique key for cover printing: ${coverDesc}_Cover (qty: ${coverComponent.printing.qty})`);
+      logger.addDebugInfo(`Created unique key for cover printing: ${coverDesc}_Cover (qty: ${coverComponent.printing.qty})`);
     }
     
     if (textComponent) {
       const textDesc = textComponent.printing.description;
       printingKeyMap.set(`${textDesc}_${textComponent.printing.qty}`, `${textDesc}_Text`);
-      logger.addDebugInfo(`[MATRIX PARSER] Created unique key for text printing: ${textDesc}_Text (qty: ${textComponent.printing.qty})`);
+      logger.addDebugInfo(`Created unique key for text printing: ${textDesc}_Text (qty: ${textComponent.printing.qty})`);
     }
   }
   
@@ -351,13 +341,8 @@ const extractGroupSpecifications = (
         const uniqueKey = printingKeyMap.get(lookupKey);
         if (uniqueKey) {
           specKey = uniqueKey;
-          logger.addDebugInfo(`[MATRIX PARSER] Using unique printing key: ${specKey} for qty: ${qty}`);
+          logger.addDebugInfo(`Using unique printing key: ${specKey} for qty: ${qty}`);
         }
-      }
-      
-      // LOGGING: Final spec data being stored
-      if (category === 'printing') {
-        logger.addDebugInfo(`[MATRIX PARSER] STORING PRINTING SPEC: Key="${specKey}", Data=${JSON.stringify(specData)}`);
       }
       
       specs[category][specKey] = specData;
@@ -373,9 +358,6 @@ const extractGroupSpecifications = (
     
     logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
-  
-  // LOGGING: Final printing specifications object
-  logger.addDebugInfo(`[MATRIX PARSER] FINAL PRINTING SPECS OBJECT: ${JSON.stringify(specs.printing, null, 2)}`);
   
   return {
     paper: Object.keys(specs.paper).length > 0 ? specs.paper : null,
