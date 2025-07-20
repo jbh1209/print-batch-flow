@@ -233,7 +233,10 @@ export class EnhancedJobCreator {
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
-      userApprovedMappings
+      userApprovedMappings,
+      paperSpecsForMapping,  // Pass converted paper specifications
+      job.packaging_specifications,  // Pass packaging specifications
+      job.delivery_specifications   // Pass delivery specifications
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -251,7 +254,9 @@ export class EnhancedJobCreator {
         job.prepress_specifications,
         [actualExcelRow], // Pass the actual Excel row as a single-row array
         headers || [],
-        job.paper_specifications
+        job.paper_specifications,
+        job.packaging_specifications,  // Pass packaging specifications
+        job.delivery_specifications   // Pass delivery specifications
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
@@ -443,7 +448,10 @@ export class EnhancedJobCreator {
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
-      userApprovedMappings
+      userApprovedMappings,
+      paperSpecsForMapping,  // Pass converted paper specifications  
+      job.packaging_specifications,  // Pass packaging specifications
+      job.delivery_specifications   // Pass delivery specifications
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -461,7 +469,9 @@ export class EnhancedJobCreator {
         job.prepress_specifications,
         [actualExcelRow], // Pass the actual Excel row as a single-row array
         headers || [],
-        job.paper_specifications
+        job.paper_specifications,
+        job.packaging_specifications,  // Pass packaging specifications
+        job.delivery_specifications   // Pass delivery specifications
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
