@@ -15,35 +15,49 @@ export class EnhancedStageMapper {
 
   async initialize() {
     // Load production stages
-    const { data: stagesData } = await supabase
+    const { data: stagesData, error: stagesError } = await supabase
       .from('production_stages')
       .select('*')
       .eq('is_active', true);
     
+    if (stagesError) {
+      this.logger.addDebugInfo(`❌ Error loading production stages: ${stagesError.message}`);
+    }
     this.productionStages = stagesData || [];
+    this.logger.addDebugInfo(`📋 Loaded ${this.productionStages.length} production stages`);
 
     // Load stage specifications
-    const { data: specsData } = await supabase
+    const { data: specsData, error: specsError } = await supabase
       .from('stage_specifications')
       .select('*')
       .eq('is_active', true);
     
+    if (specsError) {
+      this.logger.addDebugInfo(`❌ Error loading stage specifications: ${specsError.message}`);
+    }
     this.stageSpecifications = specsData || [];
+    this.logger.addDebugInfo(`🔧 Loaded ${this.stageSpecifications.length} stage specifications`);
 
     // Load print specifications
-    const { data: printSpecsData } = await supabase
+    const { data: printSpecsData, error: printSpecsError } = await supabase
       .from('print_specifications')
       .select('*')
       .eq('is_active', true);
     
+    if (printSpecsError) {
+      this.logger.addDebugInfo(`❌ Error loading print specifications: ${printSpecsError.message}`);
+    }
     this.printSpecifications = printSpecsData || [];
 
     // Load Excel import mappings - CRITICAL for exact matching
-    const { data: mappingsData } = await supabase
+    const { data: mappingsData, error: mappingsError } = await supabase
       .from('excel_import_mappings')
       .select('*')
       .order('confidence_score', { ascending: false });
     
+    if (mappingsError) {
+      this.logger.addDebugInfo(`❌ Error loading excel mappings: ${mappingsError.message}`);
+    }
     this.excelMappings = mappingsData || [];
     
     this.logger.addDebugInfo(`🗂️ EnhancedStageMapper initialized with ${this.productionStages.length} stages, ${this.excelMappings.length} mappings`);
@@ -63,7 +77,7 @@ export class EnhancedStageMapper {
     );
 
     if (exactMapping) {
-      this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> Stage: ${exactMapping.production_stage_id}`);
+      this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> Stage: ${exactMapping.production_stage_id}, Spec: ${exactMapping.stage_specification_id}`);
       return exactMapping;
     }
 
@@ -72,7 +86,7 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * UPDATED: Extract combined paper specifications (Type + Weight) for production grouping
+   * FIXED: Extract paper specifications in correct format: "Bond 080gsm", "Matt 250gsm", "Gloss 300gsm"
    */
   private extractPaperSpecFromText(text: string): string | null {
     if (!text) return null;
@@ -133,12 +147,28 @@ export class EnhancedStageMapper {
     
     const standardType = typeMapping[paperType] || paperType.charAt(0).toUpperCase() + paperType.slice(1);
     
-    // Format: TypeWeightgsm (e.g., "Bond080gsm", "Matt250gsm")
+    // FIXED FORMAT: "Type 000gsm" (e.g., "Bond 080gsm", "Matt 250gsm", "Gloss 300gsm")
     const formattedWeight = weight.padStart(3, '0');
-    const result = `${standardType}${formattedWeight}gsm`;
+    const result = `${standardType} ${formattedWeight}gsm`;
     
     this.logger.addDebugInfo(`✅ PAPER SPEC FORMATTED: "${text}" -> "${result}" (Type: ${standardType}, Weight: ${formattedWeight}gsm)`);
     return result;
+  }
+
+  /**
+   * FIXED: Get stage specification name from database
+   */
+  private getStageSpecificationName(stageSpecId: string | null): string | null {
+    if (!stageSpecId) return null;
+    
+    const spec = this.stageSpecifications.find(s => s.id === stageSpecId);
+    if (spec) {
+      this.logger.addDebugInfo(`🔧 Found stage specification: ${spec.name} (${spec.id})`);
+      return spec.name;
+    }
+    
+    this.logger.addDebugInfo(`❌ Stage specification not found: ${stageSpecId}`);
+    return null;
   }
 
   /**
@@ -203,26 +233,31 @@ export class EnhancedStageMapper {
       // Find exact mapping for printing stage (STRICT DATABASE ONLY)
       const printingMapping = this.findExactMappingFromDatabase(component.printing.description);
       
-      // PHASE 3: Extract and map paper specification with new format
+      // PHASE 3: Extract and map paper specification with FIXED format
       let paperSpec = null;
       if (component.paper) {
         paperSpec = this.extractPaperSpecFromText(component.paper.description);
       }
 
       if (printingMapping) {
+        // FIXED: Proper stage name resolution with fallback
         const stage = this.productionStages.find(s => s.id === printingMapping.production_stage_id);
+        const stageName = stage?.name || `Stage-${printingMapping.production_stage_id}`;
+        
+        // FIXED: Get sub-specification name
+        const stageSpecName = this.getStageSpecificationName(printingMapping.stage_specification_id);
         
         results.push({
           excelRowIndex: 0,
           excelData: [],
           groupName: 'printing',
-          description: `${stage?.name || 'Printing'} (${component.type})`,
+          description: `${stageName} (${component.type})${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty: component.printing.qty,
           woQty: component.printing.wo_qty,
           mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || null,
+          mappedStageName: stageName,
           mappedStageSpecId: printingMapping.stage_specification_id || null,
-          mappedStageSpecName: null,
+          mappedStageSpecName: stageSpecName,
           confidence: printingMapping.confidence_score || 100,
           category: 'printing',
           isUnmapped: false,
@@ -232,7 +267,7 @@ export class EnhancedStageMapper {
           paperSpecification: paperSpec
         });
 
-        this.logger.addDebugInfo(`✅ ${component.type.toUpperCase()} MAPPED: "${component.printing.description}" -> "${stage?.name}" with paper: ${paperSpec || 'none'}`);
+        this.logger.addDebugInfo(`✅ ${component.type.toUpperCase()} MAPPED: "${component.printing.description}" -> "${stageName}"${stageSpecName ? ` (${stageSpecName})` : ''} with paper: ${paperSpec || 'none'}`);
       } else {
         // No mapping found - mark for user selection (NO FALLBACK)
         results.push({
@@ -278,24 +313,31 @@ export class EnhancedStageMapper {
       const paperSpec = this.extractPaperSpecFromText(specData.description);
       
       if (mapping) {
+        // FIXED: Proper stage name resolution with fallback
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
+        
+        // FIXED: Get sub-specification name
+        const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
           excelRowIndex: 0,
           excelData: [],
           groupName: 'printing',
-          description: specData.description,
+          description: `${specData.description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty: specData.qty,
           woQty: specData.wo_qty,
           mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || 'Unknown Stage',
+          mappedStageName: stageName,
           mappedStageSpecId: mapping.stage_specification_id || null,
-          mappedStageSpecName: null,
+          mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
           category: 'printing',
           isUnmapped: false,
           paperSpecification: paperSpec
         });
+
+        this.logger.addDebugInfo(`✅ SINGLE STAGE MAPPED: "${specData.description}" -> "${stageName}"${stageSpecName ? ` (${stageSpecName})` : ''} with paper: ${paperSpec || 'none'}`);
       } else {
         // No mapping found - mark for user selection (NO FALLBACK)
         results.push({
@@ -314,6 +356,8 @@ export class EnhancedStageMapper {
           isUnmapped: true,
           paperSpecification: paperSpec
         });
+
+        this.logger.addDebugInfo(`⚠️ SINGLE STAGE UNMAPPED: "${specData.description}" - requires user selection (NO FALLBACK)`);
       }
     }
     
@@ -321,7 +365,7 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * UPDATED: Process other specification types with STRICT DATABASE MATCHING ONLY
+   * FIXED: Process other specification types with STRICT DATABASE MATCHING ONLY
    */
   private async processOtherSpecsStrictDatabaseOnly(specs: any, specType: string): Promise<RowMappingResult[]> {
     const results: RowMappingResult[] = [];
@@ -339,25 +383,30 @@ export class EnhancedStageMapper {
       const mapping = this.findExactMappingFromDatabase(specData.description);
       
       if (mapping) {
+        // FIXED: Proper stage name resolution with fallback
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
+        
+        // FIXED: Get sub-specification name
+        const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
           excelRowIndex: 0,
           excelData: [],
           groupName: category,
-          description: specData.description,
+          description: `${specData.description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty: specData.qty || 0,
           woQty: specData.wo_qty || 0,
           mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || 'Unknown Stage',
+          mappedStageName: stageName,
           mappedStageSpecId: mapping.stage_specification_id || null,
-          mappedStageSpecName: null,
+          mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
           category,
           isUnmapped: false
         });
 
-        this.logger.addDebugInfo(`   ✅ EXACT MATCH FOUND: "${specData.description}" -> "${stage?.name}"`);
+        this.logger.addDebugInfo(`   ✅ EXACT MATCH FOUND: "${specData.description}" -> "${stageName}"${stageSpecName ? ` (${stageSpecName})` : ''}`);
       } else {
         // NO FALLBACK - Mark for user selection
         results.push({
@@ -425,18 +474,20 @@ export class EnhancedStageMapper {
       
       if (mapping) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
+        const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
           excelRowIndex: index,
           excelData: row,
           groupName: 'printing',
-          description,
+          description: `${description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty,
           woQty,
           mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || null,
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
+          mappedStageName: stageName,
+          mappedStageSpecId: mapping.stage_specification_id || null,
+          mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
           category: 'printing',
           isUnmapped: false,
@@ -451,7 +502,7 @@ export class EnhancedStageMapper {
           qty,
           woQty,
           mappedStageId: null,
-          mappedStageName: null,
+          mappedStageName: 'Requires User Selection',
           mappedStageSpecId: null,
           mappedStageSpecName: null,
           confidence: 0,
@@ -492,18 +543,20 @@ export class EnhancedStageMapper {
       
       if (mapping) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        const stageName = stage?.name || `Stage-${mapping.production_stage_id}`;
+        const stageSpecName = this.getStageSpecificationName(mapping.stage_specification_id);
         
         results.push({
           excelRowIndex: index,
           excelData: row,
           groupName,
-          description,
+          description: `${description}${stageSpecName ? ` - ${stageSpecName}` : ''}`,
           qty,
           woQty,
           mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || null,
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
+          mappedStageName: stageName,
+          mappedStageSpecId: mapping.stage_specification_id || null,
+          mappedStageSpecName: stageSpecName,
           confidence: mapping.confidence_score || 100,
           category: this.determineCategory(groupName),
           isUnmapped: false
@@ -518,7 +571,7 @@ export class EnhancedStageMapper {
           qty,
           woQty,
           mappedStageId: null,
-          mappedStageName: null,
+          mappedStageName: 'Requires User Selection',
           mappedStageSpecId: null,
           mappedStageSpecName: null,
           confidence: 0,
