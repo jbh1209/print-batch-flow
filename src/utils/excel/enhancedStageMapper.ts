@@ -45,7 +45,7 @@ export class EnhancedStageMapper {
     const { data: mappingsData, error: mappingsError } = await supabase
       .from('excel_import_mappings')
       .select('*')
-      .order('production_stage_id', { ascending: false, nullsLast: true })
+      .order('production_stage_id', { ascending: false, nullsFirst: false })
       .order('confidence_score', { ascending: false });
     
     if (mappingsError) {
