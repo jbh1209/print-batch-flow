@@ -331,9 +331,10 @@ const extractGroupSpecifications = (
       specifications: group
     };
     
+    // Define specKey outside the category check so it's always available for logging
+    let specKey = description && description.trim() ? description.trim() : group;
+    
     if (category) {
-      let specKey = description && description.trim() ? description.trim() : group;
-      
       // For printing category, use unique keys if this is a book job
       if (category === 'printing' && coverTextDetection && coverTextDetection.isBookJob) {
         const lookupKey = `${specKey}_${qty}`;
@@ -353,9 +354,9 @@ const extractGroupSpecifications = (
           total_wo_qty: woQty
         };
       }
-      
-      logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
     }
+    
+    logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
   
   return {
