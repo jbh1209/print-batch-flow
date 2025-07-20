@@ -353,9 +353,9 @@ const extractGroupSpecifications = (
           total_wo_qty: woQty
         };
       }
+      
+      logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
     }
-    
-    logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
   
   return {
