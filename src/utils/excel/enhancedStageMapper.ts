@@ -51,86 +51,77 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * STEP 1: Find exact database mappings ONLY - no fuzzy matching
+   * Find exact database mapping - enhanced with better paper spec extraction
    */
   private findExactMappingFromDatabase(description: string): any {
-    if (!description) return [];
+    if (!description) return null;
 
     const cleanDesc = description.toLowerCase().trim();
     
-    // Find EXACT text matches only
-    const exactMappings = this.excelMappings.filter(mapping => 
+    // Find EXACT text matches first
+    const exactMapping = this.excelMappings.find(mapping => 
       mapping.excel_text.toLowerCase().trim() === cleanDesc
     );
 
-    if (exactMappings.length > 0) {
-      this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> ${exactMappings.length} mappings`);
-      return exactMappings[0]; // Return first exact mapping
+    if (exactMapping) {
+      this.logger.addDebugInfo(`💯 EXACT MAPPING FOUND: "${description}" -> Stage: ${exactMapping.production_stage_id}`);
+      return exactMapping;
     }
 
-    this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - marked for user selection`);
+    this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - will require user selection`);
     return null;
   }
 
   /**
-   * STEP 2: Detect multi-stage scenarios from exact database mappings
+   * Extract paper specifications from text with database mapping enhancement
    */
-  private detectMultiStageFromMappings(exactMappings: any[], description: string): { isCoverText: boolean, mappings: any[] } {
-    if (exactMappings.length <= 1) {
-      return { isCoverText: false, mappings: exactMappings };
-    }
+  private extractPaperSpecFromText(text: string): string | null {
+    if (!text) return null;
 
-    // Look for Cover/Text patterns in the mapping texts
-    const coverMappings = exactMappings.filter(mapping => 
-      mapping.excel_text.toLowerCase().includes('cover:') || 
-      mapping.excel_text.toLowerCase().includes('(cover')
-    );
+    const lowerText = text.toLowerCase();
     
-    const textMappings = exactMappings.filter(mapping => 
-      mapping.excel_text.toLowerCase().includes('text:') || 
-      mapping.excel_text.toLowerCase().includes('(text')
-    );
-
-    if (coverMappings.length > 0 && textMappings.length > 0) {
-      this.logger.addDebugInfo(`📖 MULTI-STAGE DETECTED: "${description}" -> Cover: ${coverMappings.length}, Text: ${textMappings.length}`);
-      return { isCoverText: true, mappings: [...coverMappings, ...textMappings] };
-    }
-
-    // Multiple mappings but not Cover/Text - use all mappings
-    this.logger.addDebugInfo(`🔀 MULTIPLE MAPPINGS: "${description}" -> ${exactMappings.length} stages`);
-    return { isCoverText: false, mappings: exactMappings };
-  }
-
-  /**
-   * STEP 3: Extract paper specifications from mapping text
-   */
-  private extractPaperSpecFromMapping(mappingText: string): string | null {
-    const text = mappingText.toLowerCase();
-    
-    // Extract paper spec patterns like "fbb 230gsm", "bond 080gsm"
+    // Enhanced paper spec patterns
     const paperPatterns = [
-      /([a-z]+)\s+(\d+)gsm/i,
-      /([a-z]+)\s+(\d+)\s*mic/i,
-      /(fbb|bond|matt|gloss|silk)\s+(\d+)/i
+      /([a-z\s]+)\s*,?\s*(\d+)\s*gsm/i,
+      /([a-z\s]+)\s*(\d+)\s*gsm/i,
+      /(bond|fbb|matt|gloss|silk)\s*[+\s]*(\d+)\s*gsm/i,
+      /(\d+)\s*gsm\s*([a-z\s]+)/i
     ];
 
     for (const pattern of paperPatterns) {
       const match = text.match(pattern);
       if (match) {
-        const paperSpec = `${match[1]} ${match[2]}${text.includes('gsm') ? 'gsm' : text.includes('mic') ? 'mic' : 'gsm'}`;
+        let paperType = '';
+        let weight = '';
         
-        // Find clean display name from print_specifications
-        const cleanSpec = this.printSpecifications.find(spec => 
-          spec.category === 'paper_type' && 
-          spec.name.toLowerCase().includes(match[1].toLowerCase())
-        );
-        
-        if (cleanSpec) {
-          this.logger.addDebugInfo(`📄 PAPER SPEC EXTRACTED: "${mappingText}" -> "${cleanSpec.display_name}"`);
-          return cleanSpec.display_name;
+        if (pattern.source.includes('\\d+.*gsm.*[a-z')) {
+          // Weight first pattern
+          weight = match[1];
+          paperType = match[2];
+        } else {
+          // Type first pattern
+          paperType = match[1];
+          weight = match[2];
         }
         
-        return paperSpec;
+        // Clean up type and find database equivalent
+        paperType = paperType.trim().toLowerCase();
+        
+        // Map common paper types to database names
+        const typeMapping: Record<string, string> = {
+          'sappi laser pre print': 'Bond',
+          'bond': 'Bond',
+          'fbb': 'FBS',
+          'matt': 'Matt Art',
+          'gloss': 'Gloss Art',
+          'silk': 'Silk'
+        };
+        
+        const cleanType = typeMapping[paperType] || paperType;
+        const result = `${cleanType} + ${weight.padStart(3, '0')}gsm`;
+        
+        this.logger.addDebugInfo(`📄 PAPER SPEC EXTRACTED: "${text}" -> "${result}"`);
+        return result;
       }
     }
 
@@ -138,100 +129,314 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * STEP 4: Generate multi-row mappings for Cover/Text scenarios
+   * Process job specifications and map to stages - RESTORED FUNCTIONALITY
    */
-  private generateMultiRowMappings(
-    mappings: any[], 
-    description: string, 
-    qty: number, 
-    woQty: number, 
-    excelRowIndex: number, 
-    excelData: any[],
-    isCoverText: boolean
-  ): RowMappingResult[] {
+  async mapJobToStages(job: any, headers: string[], excelRows: any[][]): Promise<RowMappingResult[]> {
+    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH ENHANCED LOGIC`);
+    
     const results: RowMappingResult[] = [];
-    const dependencyGroupId = `dependency-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Process printing specifications with multi-stage detection
+    if (job.printing_specifications) {
+      const printingResults = await this.processPrintingSpecsWithMultiStage(job.printing_specifications, job);
+      results.push(...printingResults);
+    }
+    
+    // Process other specification types
+    const otherSpecTypes = ['finishing_specifications', 'delivery_specifications', 'prepress_specifications', 'packaging_specifications'];
+    for (const specType of otherSpecTypes) {
+      if (job[specType]) {
+        const otherResults = await this.processOtherSpecs(job[specType], specType);
+        results.push(...otherResults);
+      }
+    }
+    
+    this.logger.addDebugInfo(`🎯 JOB MAPPING COMPLETE: ${results.length} stage mappings generated`);
+    return results;
+  }
 
-    if (isCoverText && mappings.length >= 2) {
-      // Generate separate rows for Cover and Text
-      const coverMappings = mappings.filter(m => 
-        m.excel_text.toLowerCase().includes('cover:') || 
-        m.excel_text.toLowerCase().includes('(cover')
-      );
+  /**
+   * Process printing specifications with multi-stage detection - RESTORED
+   */
+  private async processPrintingSpecsWithMultiStage(printingSpecs: any, job: any): Promise<RowMappingResult[]> {
+    const results: RowMappingResult[] = [];
+    const printingRows: Array<{
+      key: string;
+      description: string;
+      qty: number;
+      wo_qty: number;
+      specData: any;
+    }> = [];
+    
+    // Collect all printing specifications with quantities
+    for (const [key, spec] of Object.entries(printingSpecs)) {
+      const specData = spec as any;
+      if (!specData.description) continue;
       
-      const textMappings = mappings.filter(m => 
-        m.excel_text.toLowerCase().includes('text:') || 
-        m.excel_text.toLowerCase().includes('(text')
-      );
-
-      let stageInstanceIndex = 0;
-
-      // Create Cover row
-      if (coverMappings.length > 0) {
-        const coverMapping = coverMappings[0];
-        const stage = this.productionStages.find(s => s.id === coverMapping.production_stage_id);
-        const paperSpec = this.extractPaperSpecFromMapping(coverMapping.excel_text);
-        
-        results.push({
-          excelRowIndex,
-          excelData,
-          groupName: 'printing',
-          description: `${stage?.name || 'Printing'} (Cover)`,
-          qty: Math.floor(qty / 4), // Assume Cover is 1/4 of total for books
-          woQty,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || null,
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: coverMapping.confidence_score || 100,
-          category: 'printing',
-          isUnmapped: false,
-          partType: 'cover',
-          stageInstanceIndex: stageInstanceIndex++,
-          dependencyGroupId,
-          paperSpecification: paperSpec
-        });
+      printingRows.push({
+        key,
+        description: specData.description,
+        qty: specData.qty || 0,
+        wo_qty: specData.wo_qty || 0,
+        specData
+      });
+      
+      this.logger.addDebugInfo(`📝 PRINTING ROW: "${specData.description}" - Qty: ${specData.qty}, WO_Qty: ${specData.wo_qty}`);
+    }
+    
+    // Check for multi-stage scenario (Cover/Text)
+    if (printingRows.length >= 2) {
+      const isMultiStage = this.detectMultiStageScenario(printingRows);
+      
+      if (isMultiStage) {
+        this.logger.addDebugInfo(`📖 MULTI-STAGE BOOK JOB DETECTED for ${job.wo_no}`);
+        return this.generateMultiStageRows(printingRows, job);
       }
-
-      // Create Text row
-      if (textMappings.length > 0) {
-        const textMapping = textMappings[0];
-        const stage = this.productionStages.find(s => s.id === textMapping.production_stage_id);
-        const paperSpec = this.extractPaperSpecFromMapping(textMapping.excel_text);
-        
-        results.push({
-          excelRowIndex,
-          excelData,
-          groupName: 'printing',
-          description: `${stage?.name || 'Printing'} (Text)`,
-          qty: qty - Math.floor(qty / 4), // Text gets remaining quantity
-          woQty,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || null,
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: textMapping.confidence_score || 100,
-          category: 'printing',
-          isUnmapped: false,
-          partType: 'text',
-          stageInstanceIndex: stageInstanceIndex++,
-          dependencyGroupId,
-          paperSpecification: paperSpec
-        });
-      }
-
-      this.logger.addDebugInfo(`📖 MULTI-ROW GENERATED: "${description}" -> ${results.length} rows (Cover: ${results[0]?.qty}, Text: ${results[1]?.qty})`);
-    } else if (mappings.length > 0) {
-      // Single mapping or multiple non-Cover/Text mappings
-      mappings.forEach((mapping, index) => {
+    }
+    
+    // Single stage processing
+    for (const row of printingRows) {
+      const mapping = this.findExactMappingFromDatabase(row.description);
+      const paperSpec = this.extractPaperSpecFromText(row.description);
+      
+      if (mapping) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
-        const paperSpec = this.extractPaperSpecFromMapping(mapping.excel_text);
         
         results.push({
-          excelRowIndex,
-          excelData,
+          excelRowIndex: 0,
+          excelData: [],
           groupName: 'printing',
-          description: stage?.name || description,
+          description: row.description,
+          qty: row.qty,
+          woQty: row.wo_qty,
+          mappedStageId: stage?.id || null,
+          mappedStageName: stage?.name || 'Unknown Stage',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: mapping.confidence_score || 100,
+          category: 'printing',
+          isUnmapped: false,
+          paperSpecification: paperSpec
+        });
+      } else {
+        // No mapping found - mark for user selection
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: 'printing',
+          description: row.description,
+          qty: row.qty,
+          woQty: row.wo_qty,
+          mappedStageId: null,
+          mappedStageName: 'Requires User Selection',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: 0,
+          category: 'printing',
+          isUnmapped: true,
+          paperSpecification: paperSpec
+        });
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Detect multi-stage scenario (Cover/Text) based on quantity differences
+   */
+  private detectMultiStageScenario(printingRows: any[]): boolean {
+    if (printingRows.length < 2) return false;
+    
+    // Sort by quantity to identify potential cover/text split
+    const sortedRows = [...printingRows].sort((a, b) => a.qty - b.qty);
+    const minQty = sortedRows[0].qty;
+    const maxQty = sortedRows[sortedRows.length - 1].qty;
+    
+    // Consider it multi-stage if there's a significant quantity difference
+    const qtyRatio = maxQty > 0 ? minQty / maxQty : 0;
+    const isMultiStage = qtyRatio < 0.8 && (maxQty - minQty) > 50; // 20% difference and at least 50 units
+    
+    this.logger.addDebugInfo(`🔍 MULTI-STAGE CHECK: Min: ${minQty}, Max: ${maxQty}, Ratio: ${qtyRatio.toFixed(2)}, IsMulti: ${isMultiStage}`);
+    
+    return isMultiStage;
+  }
+
+  /**
+   * Generate multi-stage rows for Cover/Text scenarios
+   */
+  private generateMultiStageRows(printingRows: any[], job: any): RowMappingResult[] {
+    const results: RowMappingResult[] = [];
+    const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Sort by quantity - cover (lower) and text (higher)
+    const sortedRows = [...printingRows].sort((a, b) => a.qty - b.qty);
+    const coverRow = sortedRows[0];
+    const textRow = sortedRows[sortedRows.length - 1];
+    
+    // Process Cover
+    const coverMapping = this.findExactMappingFromDatabase(coverRow.description);
+    const coverPaperSpec = this.extractPaperSpecFromText(coverRow.description);
+    
+    if (coverMapping) {
+      const coverStage = this.productionStages.find(s => s.id === coverMapping.production_stage_id);
+      
+      results.push({
+        excelRowIndex: 0,
+        excelData: [],
+        groupName: 'printing',
+        description: `${coverStage?.name || 'Printing'} (Cover)`,
+        qty: coverRow.qty,
+        woQty: coverRow.wo_qty,
+        mappedStageId: coverStage?.id || null,
+        mappedStageName: coverStage?.name || null,
+        mappedStageSpecId: null,
+        mappedStageSpecName: null,
+        confidence: coverMapping.confidence_score || 100,
+        category: 'printing',
+        isUnmapped: false,
+        partType: 'cover',
+        stageInstanceIndex: 0,
+        dependencyGroupId,
+        paperSpecification: coverPaperSpec
+      });
+    }
+    
+    // Process Text
+    const textMapping = this.findExactMappingFromDatabase(textRow.description);
+    const textPaperSpec = this.extractPaperSpecFromText(textRow.description);
+    
+    if (textMapping) {
+      const textStage = this.productionStages.find(s => s.id === textMapping.production_stage_id);
+      
+      results.push({
+        excelRowIndex: 0,
+        excelData: [],
+        groupName: 'printing',
+        description: `${textStage?.name || 'Printing'} (Text)`,
+        qty: textRow.qty,
+        woQty: textRow.wo_qty,
+        mappedStageId: textStage?.id || null,
+        mappedStageName: textStage?.name || null,
+        mappedStageSpecId: null,
+        mappedStageSpecName: null,
+        confidence: textMapping.confidence_score || 100,
+        category: 'printing',
+        isUnmapped: false,
+        partType: 'text',
+        stageInstanceIndex: 1,
+        dependencyGroupId,
+        paperSpecification: textPaperSpec
+      });
+    }
+    
+    this.logger.addDebugInfo(`📖 MULTI-STAGE GENERATED: Cover(${coverRow.qty}) + Text(${textRow.qty}) with dependency: ${dependencyGroupId}`);
+    
+    return results;
+  }
+
+  /**
+   * Process other specification types (finishing, delivery, etc.)
+   */
+  private async processOtherSpecs(specs: any, specType: string): Promise<RowMappingResult[]> {
+    const results: RowMappingResult[] = [];
+    const category = this.determineCategory(specType);
+    
+    for (const [key, spec] of Object.entries(specs)) {
+      const specData = spec as any;
+      if (!specData.description) continue;
+      
+      const mapping = this.findExactMappingFromDatabase(specData.description);
+      
+      if (mapping) {
+        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: category,
+          description: specData.description,
+          qty: specData.qty || 0,
+          woQty: specData.wo_qty || 0,
+          mappedStageId: stage?.id || null,
+          mappedStageName: stage?.name || 'Unknown Stage',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: mapping.confidence_score || 100,
+          category,
+          isUnmapped: false
+        });
+      } else {
+        // No mapping found - mark for user selection
+        results.push({
+          excelRowIndex: 0,
+          excelData: [],
+          groupName: category,
+          description: specData.description,
+          qty: specData.qty || 0,
+          woQty: specData.wo_qty || 0,
+          mappedStageId: null,
+          mappedStageName: 'Requires User Selection',
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: 0,
+          category,
+          isUnmapped: true
+        });
+      }
+    }
+    
+    return results;
+  }
+
+  private determineCategory(specType: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'paper' | 'unknown' {
+    const name = specType.toLowerCase();
+    if (name.includes('finish')) return 'finishing';
+    if (name.includes('delivery') || name.includes('collect')) return 'delivery';
+    if (name.includes('prepress') || name.includes('pre-press')) return 'prepress';
+    if (name.includes('packaging') || name.includes('pack')) return 'packaging';
+    if (name.includes('paper')) return 'paper';
+    return 'unknown';
+  }
+
+  /**
+   * Legacy methods for compatibility - restored with enhanced logic
+   */
+  async processPrintingSpecificationsWithExactMapping(
+    matrixRows: any[][],
+    groupColumn: number,
+    descriptionColumn: number,
+    qtyColumn: number,
+    woQtyColumn: number
+  ): Promise<RowMappingResult[]> {
+    this.logger.addDebugInfo('🖨️ PROCESSING PRINTING WITH ENHANCED MAPPING');
+    
+    const results: RowMappingResult[] = [];
+
+    matrixRows.forEach((row, index) => {
+      const groupName = String(row[groupColumn] || '').toLowerCase();
+      
+      if (!groupName.includes('printing') && !groupName.includes('print')) {
+        return;
+      }
+
+      const description = String(row[descriptionColumn] || '').trim();
+      const qty = parseInt(String(row[qtyColumn] || '0')) || 0;
+      const woQty = parseInt(String(row[woQtyColumn] || '0')) || 0;
+
+      if (!description) return;
+
+      const mapping = this.findExactMappingFromDatabase(description);
+      const paperSpec = this.extractPaperSpecFromText(description);
+      
+      if (mapping) {
+        const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+        
+        results.push({
+          excelRowIndex: index,
+          excelData: row,
+          groupName: 'printing',
+          description,
           qty,
           woQty,
           mappedStageId: stage?.id || null,
@@ -241,51 +446,9 @@ export class EnhancedStageMapper {
           confidence: mapping.confidence_score || 100,
           category: 'printing',
           isUnmapped: false,
-          stageInstanceIndex: index,
           paperSpecification: paperSpec
         });
-      });
-    }
-
-    return results;
-  }
-
-  /**
-   * MAIN METHOD: Process printing specifications with exact mapping only
-   */
-  async processPrintingSpecificationsWithExactMapping(
-    matrixRows: any[][],
-    groupColumn: number,
-    descriptionColumn: number,
-    qtyColumn: number,
-    woQtyColumn: number
-  ): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo('🖨️ PROCESSING PRINTING WITH EXACT MAPPINGS ONLY');
-    
-    const results: RowMappingResult[] = [];
-
-    matrixRows.forEach((row, index) => {
-      const groupName = String(row[groupColumn] || '').toLowerCase();
-      
-      // Only process printing rows
-      if (!groupName.includes('printing') && !groupName.includes('print')) {
-        return;
-      }
-
-      const description = String(row[descriptionColumn] || '').trim();
-      const qty = parseInt(String(row[qtyColumn] || '0')) || 0;
-      const woQty = parseInt(String(row[woQtyColumn] || '0')) || 0;
-
-      if (!description) {
-        this.logger.addDebugInfo(`⚠️ Skipping row ${index}: Empty description`);
-        return;
-      }
-
-      // STEP 1: Find exact mappings only
-      const exactMappings = this.findExactMappingFromDatabase(description);
-      
-      if (exactMappings.length === 0) {
-        // No exact mapping - mark as unmapped for user selection
+      } else {
         results.push({
           excelRowIndex: index,
           excelData: row,
@@ -299,35 +462,15 @@ export class EnhancedStageMapper {
           mappedStageSpecName: null,
           confidence: 0,
           category: 'printing',
-          isUnmapped: true
+          isUnmapped: true,
+          paperSpecification: paperSpec
         });
-        return;
       }
-
-      // STEP 2: Detect multi-stage scenarios
-      const { isCoverText, mappings } = this.detectMultiStageFromMappings(exactMappings, description);
-      
-      // STEP 4: Generate row mappings
-      const rowMappings = this.generateMultiRowMappings(
-        mappings, 
-        description, 
-        qty, 
-        woQty, 
-        index, 
-        row, 
-        isCoverText
-      );
-      
-      results.push(...rowMappings);
     });
 
-    this.logger.addDebugInfo(`🎯 PRINTING PROCESSING COMPLETE: ${results.length} row mappings generated`);
     return results;
   }
 
-  /**
-   * Process other specification types (finishing, delivery, etc.) with exact mapping
-   */
   async processOtherSpecificationsWithExactMapping(
     matrixRows: any[][],
     groupColumn: number,
@@ -335,14 +478,11 @@ export class EnhancedStageMapper {
     qtyColumn: number,
     woQtyColumn: number
   ): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo('🔧 PROCESSING OTHER SPECS WITH EXACT MAPPINGS ONLY');
-    
     const results: RowMappingResult[] = [];
 
     matrixRows.forEach((row, index) => {
       const groupName = String(row[groupColumn] || '').toLowerCase();
       
-      // Skip printing rows (handled separately)
       if (groupName.includes('printing') || groupName.includes('print')) {
         return;
       }
@@ -353,29 +493,9 @@ export class EnhancedStageMapper {
 
       if (!description) return;
 
-      // Find exact mappings only
-      const exactMappings = this.findExactMappingFromDatabase(description);
+      const mapping = this.findExactMappingFromDatabase(description);
       
-      if (exactMappings.length === 0) {
-        // No exact mapping - mark as unmapped
-        results.push({
-          excelRowIndex: index,
-          excelData: row,
-          groupName,
-          description,
-          qty,
-          woQty,
-          mappedStageId: null,
-          mappedStageName: null,
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: 0,
-          category: this.determineCategory(groupName),
-          isUnmapped: true
-        });
-      } else {
-        // Use first exact mapping
-        const mapping = exactMappings[0];
+      if (mapping) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
         
         results.push({
@@ -393,171 +513,28 @@ export class EnhancedStageMapper {
           category: this.determineCategory(groupName),
           isUnmapped: false
         });
+      } else {
+        results.push({
+          excelRowIndex: index,
+          excelData: row,
+          groupName,
+          description,
+          qty,
+          woQty,
+          mappedStageId: null,
+          mappedStageName: null,
+          mappedStageSpecId: null,
+          mappedStageSpecName: null,
+          confidence: 0,
+          category: this.determineCategory(groupName),
+          isUnmapped: true
+        });
       }
     });
 
     return results;
   }
 
-  private determineCategory(groupName: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging' | 'paper' | 'unknown' {
-    const name = groupName.toLowerCase();
-    if (name.includes('finish')) return 'finishing';
-    if (name.includes('delivery') || name.includes('collect')) return 'delivery';
-    if (name.includes('prepress') || name.includes('pre-press')) return 'prepress';
-    if (name.includes('packaging') || name.includes('pack')) return 'packaging';
-    if (name.includes('paper')) return 'paper';
-    return 'unknown';
-  }
-
-  /**
-   * Map job to stages - main method called by enhancedJobCreator
-   */
-  async mapJobToStages(job: any, headers: string[], excelRows: any[][]): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH EXACT MAPPINGS`);
-    
-    const results: RowMappingResult[] = [];
-    
-    // Process printing specifications if they exist
-    if (job.printing_specifications) {
-      const printingResults = await this.processJobPrintingSpecs(job.printing_specifications);
-      results.push(...printingResults);
-    }
-    
-    // Process other specifications
-    const specTypes = ['finishing_specifications', 'delivery_specifications', 'prepress_specifications', 'packaging_specifications'];
-    for (const specType of specTypes) {
-      if (job[specType]) {
-        const otherResults = await this.processJobOtherSpecs(job[specType], specType);
-        results.push(...otherResults);
-      }
-    }
-    
-    this.logger.addDebugInfo(`🎯 JOB MAPPING COMPLETE: ${results.length} stage mappings generated`);
-    return results;
-  }
-
-  /**
-   * Process job printing specifications specifically
-   */
-  private async processJobPrintingSpecs(printingSpecs: any): Promise<RowMappingResult[]> {
-    const results: RowMappingResult[] = [];
-    
-    for (const [key, spec] of Object.entries(printingSpecs)) {
-      const specData = spec as any;
-      if (!specData.description) continue;
-      
-      // Find exact mapping from database
-      const exactMapping = this.findExactMappingFromDatabase(specData.description);
-      
-      if (exactMapping) {
-        // Extract paper specification from mapping
-        const paperSpec = this.extractPaperSpecFromMapping(exactMapping.excel_text);
-        
-        // Find the production stage
-        const stage = this.productionStages.find(s => s.id === exactMapping.production_stage_id);
-        
-        // Single row mapping
-        results.push({
-          excelRowIndex: 0,
-          excelData: [],
-          groupName: 'printing',
-          description: specData.description,
-          qty: specData.quantity || 0,
-          woQty: specData.quantity || 0,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || 'Unknown Stage',
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: exactMapping.confidence_score || 100,
-          category: 'printing',
-          isUnmapped: false,
-          paperSpecification: paperSpec
-        });
-      } else {
-        // No exact mapping found - mark as unmapped
-        results.push({
-          excelRowIndex: 0,
-          excelData: [],
-          groupName: 'printing',
-          description: specData.description,
-          qty: specData.quantity || 0,
-          woQty: specData.quantity || 0,
-          mappedStageId: null,
-          mappedStageName: 'Requires User Selection',
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: 0,
-          category: 'printing',
-          isUnmapped: true,
-          paperSpecification: null
-        });
-      }
-    }
-    
-    return results;
-  }
-
-  /**
-   * Process job other specifications (finishing, delivery, etc.)
-   */
-  private async processJobOtherSpecs(specs: any, specType: string): Promise<RowMappingResult[]> {
-    const results: RowMappingResult[] = [];
-    const category = this.determineCategory(specType);
-    
-    for (const [key, spec] of Object.entries(specs)) {
-      const specData = spec as any;
-      if (!specData.description) continue;
-      
-      // Find exact mapping from database
-      const exactMapping = this.findExactMappingFromDatabase(specData.description);
-      
-      if (exactMapping) {
-        // Find the production stage
-        const stage = this.productionStages.find(s => s.id === exactMapping.production_stage_id);
-        
-        results.push({
-          excelRowIndex: 0,
-          excelData: [],
-          groupName: category,
-          description: specData.description,
-          qty: specData.quantity || 0,
-          woQty: specData.quantity || 0,
-          mappedStageId: stage?.id || null,
-          mappedStageName: stage?.name || 'Unknown Stage',
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: exactMapping.confidence_score || 100,
-          category,
-          isUnmapped: false,
-          paperSpecification: null
-        });
-      } else {
-        // No exact mapping found - mark as unmapped
-        results.push({
-          excelRowIndex: 0,
-          excelData: [],
-          groupName: category,
-          description: specData.description,
-          qty: specData.quantity || 0,
-          woQty: specData.quantity || 0,
-          mappedStageId: null,
-          mappedStageName: 'Requires User Selection',
-          mappedStageSpecId: null,
-          mappedStageSpecName: null,
-          confidence: 0,
-          category,
-          isUnmapped: true,
-          paperSpecification: null
-        });
-      }
-    }
-    
-    return results;
-  }
-
-  /**
-   * Main processing method - combines all specifications
-   */
   async processAllSpecifications(
     matrixRows: any[][],
     groupColumn: number,
@@ -565,23 +542,14 @@ export class EnhancedStageMapper {
     qtyColumn: number,
     woQtyColumn: number
   ): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo('🚀 STARTING ENHANCED EXACT MAPPING PROCESSING');
-    
-    // Process printing with multi-stage detection
     const printingResults = await this.processPrintingSpecificationsWithExactMapping(
       matrixRows, groupColumn, descriptionColumn, qtyColumn, woQtyColumn
     );
     
-    // Process other specifications
     const otherResults = await this.processOtherSpecificationsWithExactMapping(
       matrixRows, groupColumn, descriptionColumn, qtyColumn, woQtyColumn
     );
     
-    const allResults = [...printingResults, ...otherResults];
-    
-    this.logger.addDebugInfo(`✅ EXACT MAPPING COMPLETE: ${allResults.length} total mappings (${printingResults.length} printing, ${otherResults.length} other)`);
-    this.logger.addDebugInfo(`📊 Unmapped items: ${allResults.filter(r => r.isUnmapped).length} require user selection`);
-    
-    return allResults;
+    return [...printingResults, ...otherResults];
   }
 }
