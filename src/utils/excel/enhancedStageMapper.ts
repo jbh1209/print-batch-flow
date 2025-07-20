@@ -29,6 +29,13 @@ interface ExcelImportMapping {
   paper_weight_specification_id?: string;
 }
 
+interface PrintSpecification {
+  id: string;
+  name: string;
+  display_name: string;
+  category: string;
+}
+
 export interface EnhancedStageMapping {
   stageId: string;
   stageName: string;
@@ -45,15 +52,12 @@ export interface EnhancedStageMapping {
   dependencyGroupId?: string;
 }
 
-interface PrintingStageGroup {
-  stageId: string;
-  stageName: string;
-  specifications: Array<{
-    key: string;
-    spec: any;
-    confidence: number;
-    paperSpec?: string;
-  }>;
+interface PrintingSpecGroup {
+  [key: string]: {
+    specs: Array<{ key: string; spec: any; stageMatch: any }>;
+    stageId: string;
+    stageName: string;
+  };
 }
 
 export class EnhancedStageMapper {
@@ -61,6 +65,7 @@ export class EnhancedStageMapper {
   private categories: any[] = [];
   private categoryStages: any[] = [];
   private excelImportMappings: ExcelImportMapping[] = [];
+  private printSpecifications: PrintSpecification[] = [];
   private logger: ExcelImportDebugger;
   
   constructor(logger: ExcelImportDebugger) {
@@ -86,14 +91,26 @@ export class EnhancedStageMapper {
       // Load excel import mappings
       const { data: mappingsData, error: mappingsError } = await supabase
         .from('excel_import_mappings')
-        .select('*')
-        .eq('mapping_type', 'production_stage');
+        .select('*');
       
       if (mappingsError) {
         throw new Error(`Failed to load excel import mappings: ${mappingsError.message}`);
       }
       
       this.excelImportMappings = mappingsData || [];
+      
+      // Load print specifications for paper mapping
+      const { data: specsData, error: specsError } = await supabase
+        .from('print_specifications')
+        .select('id, name, display_name, category')
+        .eq('is_active', true)
+        .in('category', ['paper_type', 'paper_weight']);
+      
+      if (specsError) {
+        throw new Error(`Failed to load print specifications: ${specsError.message}`);
+      }
+      
+      this.printSpecifications = specsData || [];
       
       // Load categories
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -120,7 +137,7 @@ export class EnhancedStageMapper {
       
       this.categoryStages = categoryStagesData || [];
       
-      this.logger.addDebugInfo(`✅ Loaded ${this.productionStages.length} stages, ${this.excelImportMappings.length} mappings, ${this.categories.length} categories, ${this.categoryStages.length} relationships`);
+      this.logger.addDebugInfo(`✅ Loaded ${this.productionStages.length} stages, ${this.excelImportMappings.length} mappings, ${this.printSpecifications.length} print specs`);
     } catch (error) {
       this.logger.addDebugInfo(`❌ Failed to initialize EnhancedStageMapper: ${error}`);
       throw error;
@@ -158,13 +175,11 @@ export class EnhancedStageMapper {
     specCategories.forEach(({ specs, category }) => {
       if (specs) {
         Object.entries(specs).forEach(([key, spec]) => {
-          // Apply same quantity resolution logic
           const actualQty = spec.qty || spec.wo_qty || 0;
           const actualWoQty = spec.wo_qty || spec.qty || 0;
           
           this.logger.addDebugInfo(`📍 ASSIGNED ROW INDEX: ${sequentialRowIndex} for "${key}" [${category}]`);
           
-          // Use database mapping for this specification
           const stageMatch = this.findBestStageMatchFromDatabase(key, spec.description || '', category);
           
           const mapping: RowMappingResult = {
@@ -190,16 +205,16 @@ export class EnhancedStageMapper {
       }
     });
     
-    this.logger.addDebugInfo(`🏁 ENHANCED STAGE MAPPING COMPLETE: ${rowMappings.length} row mappings created with sequential indices 0-${sequentialRowIndex - 1}`);
+    this.logger.addDebugInfo(`🏁 ENHANCED STAGE MAPPING COMPLETE: ${rowMappings.length} row mappings created`);
     rowMappings.forEach((mapping, i) => {
-      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, WO_Qty: ${mapping.woQty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), rowIndex: ${mapping.excelRowIndex}, paper: ${mapping.paperSpecification || 'none'}`);
+      this.logger.addDebugInfo(`   ${i + 1}. "${mapping.description}" [${mapping.category}] - Qty: ${mapping.qty}, Stage: "${mapping.mappedStageName || 'UNMAPPED'}" (confidence: ${mapping.confidence}), paper: ${mapping.paperSpecification || 'none'}`);
     });
     
     return rowMappings;
   }
 
   /**
-   * Process printing specifications with multi-stage detection and paper mapping
+   * Process printing specifications with multi-stage detection and proper Cover/Text logic
    */
   private async processPrintingSpecificationsWithMultiStage(
     printingSpecs: any,
@@ -209,47 +224,45 @@ export class EnhancedStageMapper {
   ): Promise<RowMappingResult[]> {
     const mappings: RowMappingResult[] = [];
     
-    // First, map all printing specs to their stages
-    const printingStageGroups = new Map<string, PrintingStageGroup>();
+    // First, map all printing specs to their stages and group by stage
+    const printingGroups: PrintingSpecGroup = {};
     
-    // Process each printing spec sequentially to handle async paper mapping
     for (const [key, spec] of Object.entries(printingSpecs)) {
       const stageMatch = this.findBestStageMatchFromDatabase(key, (spec as any)?.description || '', 'printing');
       
       if (stageMatch) {
-        const stageKey = `${stageMatch.stageId}-${stageMatch.stageName}`;
+        const groupKey = `${stageMatch.stageId}-${stageMatch.stageName}`;
         
-        if (!printingStageGroups.has(stageKey)) {
-          printingStageGroups.set(stageKey, {
+        if (!printingGroups[groupKey]) {
+          printingGroups[groupKey] = {
+            specs: [],
             stageId: stageMatch.stageId,
-            stageName: stageMatch.stageName,
-            specifications: []
-          });
+            stageName: stageMatch.stageName
+          };
         }
         
-        // Find matching paper specification (await since it's now async)
-        const paperSpec = await this.findMatchingPaperSpec(spec, paperSpecs);
-        
-        printingStageGroups.get(stageKey)!.specifications.push({
+        printingGroups[groupKey].specs.push({
           key,
           spec,
-          confidence: stageMatch.confidence,
-          paperSpec
+          stageMatch
         });
       }
     }
     
-    // Now process each stage group
+    // Process each stage group with proper Cover/Text detection
     let currentIndex = startingIndex;
     
-    for (const [stageKey, group] of printingStageGroups.entries()) {
-      if (group.specifications.length === 1) {
+    for (const [groupKey, group] of Object.entries(printingGroups)) {
+      if (group.specs.length === 1) {
         // Single printing spec for this stage
-        const { key, spec, confidence, paperSpec } = group.specifications[0];
+        const { key, spec, stageMatch } = group.specs[0];
         const actualQty = spec.qty || spec.wo_qty || 0;
         const actualWoQty = spec.wo_qty || spec.qty || 0;
         
-        this.logger.addDebugInfo(`   📍 SINGLE PRINTING STAGE: "${key}" -> "${group.stageName}" (qty: ${actualQty})`);
+        // Find matching paper specification using database mappings
+        const paperSpec = await this.findMatchingPaperSpecFromDatabase(spec, paperSpecs);
+        
+        this.logger.addDebugInfo(`   📍 SINGLE PRINTING STAGE: "${key}" -> "${group.stageName}" (qty: ${actualQty}) with paper: ${paperSpec || 'none'}`);
         
         mappings.push({
           excelRowIndex: currentIndex,
@@ -262,37 +275,41 @@ export class EnhancedStageMapper {
           mappedStageName: group.stageName,
           mappedStageSpecId: null,
           mappedStageSpecName: null,
-          confidence,
+          confidence: stageMatch.confidence,
           category: 'printing',
           isUnmapped: false,
           instanceId: `printing-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-          paperSpecification: paperSpec
+          paperSpecification: paperSpec,
+          stageInstanceIndex: 0
         });
         
         currentIndex++;
-      } else if (group.specifications.length > 1) {
-        // Multiple printing specs for same stage - apply cover/text logic
-        this.logger.addDebugInfo(`   🔄 MULTIPLE PRINTING SPECS FOR STAGE: "${group.stageName}" (${group.specifications.length} specs)`);
+      } else if (group.specs.length > 1) {
+        // Multiple printing specs for same stage - apply Cover/Text logic
+        this.logger.addDebugInfo(`   🔄 MULTIPLE PRINTING SPECS FOR STAGE: "${group.stageName}" (${group.specs.length} specs)`);
         
         // Generate dependency group ID for book job synchronization
         const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         this.logger.addDebugInfo(`   📚 BOOK JOB DETECTED - dependency group: ${dependencyGroupId}`);
         
         // Sort by quantity: smallest = cover, largest = text
-        const sortedSpecs = [...group.specifications].sort((a, b) => {
+        const sortedSpecs = [...group.specs].sort((a, b) => {
           const qtyA = a.spec.qty || a.spec.wo_qty || 0;
           const qtyB = b.spec.qty || b.spec.wo_qty || 0;
           return qtyA - qtyB;
         });
         
-        sortedSpecs.forEach((specData, index) => {
-          const { key, spec, confidence, paperSpec } = specData;
+        for (let index = 0; index < sortedSpecs.length; index++) {
+          const { key, spec, stageMatch } = sortedSpecs[index];
           const actualQty = spec.qty || spec.wo_qty || 0;
           const actualWoQty = spec.wo_qty || spec.qty || 0;
           
           const isCover = index === 0; // Smallest quantity = Cover
           const isText = index === sortedSpecs.length - 1; // Largest quantity = Text
           const partType = isCover ? 'Cover' : isText ? 'Text' : `Part ${index + 1}`;
+          
+          // Find matching paper specification using database mappings
+          const paperSpec = await this.findMatchingPaperSpecFromDatabase(spec, paperSpecs);
           
           this.logger.addDebugInfo(`     📄 PART: "${partType}" - "${key}" (qty: ${actualQty}) with paper: ${paperSpec || 'none'}`);
           
@@ -307,7 +324,7 @@ export class EnhancedStageMapper {
             mappedStageName: `${group.stageName} (${partType})`,
             mappedStageSpecId: null,
             mappedStageSpecName: null,
-            confidence,
+            confidence: stageMatch.confidence,
             category: 'printing',
             isUnmapped: false,
             instanceId: `printing-${partType.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -318,7 +335,7 @@ export class EnhancedStageMapper {
           });
           
           currentIndex++;
-        });
+        }
       }
     }
     
@@ -326,9 +343,9 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find matching paper specification from database and map to clean specs like "Matt 250gsm"
+   * Find matching paper specification using database mappings first, then fallback
    */
-  private async findMatchingPaperSpec(printingSpec: any, paperSpecs: any): Promise<string | undefined> {
+  private async findMatchingPaperSpecFromDatabase(printingSpec: any, paperSpecs: any): Promise<string | undefined> {
     if (!paperSpecs) return undefined;
     
     const printingQty = printingSpec.qty || printingSpec.wo_qty || 0;
@@ -351,64 +368,110 @@ export class EnhancedStageMapper {
     
     const rawPaperDescription = (paperSpecs as any)[bestPaperKey].description || bestPaperKey;
     
-    // Query database for clean paper specifications
-    try {
-      const { data: paperTypeSpecs } = await supabase
-        .from('print_specifications')
-        .select('display_name')
-        .eq('category', 'paper_type')
-        .eq('is_active', true);
-        
-      const { data: paperWeightSpecs } = await supabase
-        .from('print_specifications')
-        .select('display_name')
-        .eq('category', 'paper_weight') 
-        .eq('is_active', true);
+    this.logger.addDebugInfo(`🔍 PAPER MAPPING: Looking for database mapping for "${rawPaperDescription}"`);
+    
+    // First, try to find exact database mapping for paper specification
+    const exactMapping = this.excelImportMappings.find(mapping => 
+      mapping.mapping_type === 'paper_specification' && 
+      mapping.excel_text.toLowerCase() === rawPaperDescription.toLowerCase()
+    );
+    
+    if (exactMapping && exactMapping.print_specification_id) {
+      // Get the clean specification from database
+      const paperTypeSpec = this.printSpecifications.find(spec => 
+        spec.id === exactMapping.print_specification_id && spec.category === 'paper_type'
+      );
       
-      // Try to match paper type (Matt, Gloss, Bond, etc.)
-      const paperTypes = paperTypeSpecs?.map(spec => spec.display_name) || [];
-      const paperWeights = paperWeightSpecs?.map(spec => spec.display_name) || [];
+      const paperWeightSpec = this.printSpecifications.find(spec => 
+        spec.id === exactMapping.print_specification_id && spec.category === 'paper_weight'
+      );
       
-      const lowerDescription = rawPaperDescription.toLowerCase();
-      
-      let matchedType = '';
-      let matchedWeight = '';
-      
-      // Find matching paper type
-      for (const type of paperTypes) {
-        if (lowerDescription.includes(type.toLowerCase())) {
-          matchedType = type;
+      if (paperTypeSpec || paperWeightSpec) {
+        const cleanSpec = paperTypeSpec ? paperTypeSpec.display_name : paperWeightSpec?.display_name;
+        this.logger.addDebugInfo(`💯 EXACT PAPER MAPPING: "${rawPaperDescription}" -> "${cleanSpec}"`);
+        return cleanSpec;
+      }
+    }
+    
+    // Try to find separate type and weight mappings
+    const lowerDescription = rawPaperDescription.toLowerCase();
+    
+    let matchedType = '';
+    let matchedWeight = '';
+    
+    // Look for paper type mapping
+    const typeMapping = this.excelImportMappings.find(mapping => 
+      mapping.mapping_type === 'paper_specification' && 
+      lowerDescription.includes(mapping.excel_text.toLowerCase()) &&
+      mapping.paper_type_specification_id
+    );
+    
+    if (typeMapping && typeMapping.paper_type_specification_id) {
+      const typeSpec = this.printSpecifications.find(spec => 
+        spec.id === typeMapping.paper_type_specification_id && spec.category === 'paper_type'
+      );
+      if (typeSpec) {
+        matchedType = typeSpec.display_name;
+      }
+    }
+    
+    // Look for paper weight mapping
+    const weightMapping = this.excelImportMappings.find(mapping => 
+      mapping.mapping_type === 'paper_specification' && 
+      lowerDescription.includes(mapping.excel_text.toLowerCase()) &&
+      mapping.paper_weight_specification_id
+    );
+    
+    if (weightMapping && weightMapping.paper_weight_specification_id) {
+      const weightSpec = this.printSpecifications.find(spec => 
+        spec.id === weightMapping.paper_weight_specification_id && spec.category === 'paper_weight'
+      );
+      if (weightSpec) {
+        matchedWeight = weightSpec.display_name;
+      }
+    }
+    
+    // Fallback to pattern matching if no database mappings found
+    if (!matchedType && !matchedWeight) {
+      // Find matching paper type from specifications
+      for (const spec of this.printSpecifications.filter(s => s.category === 'paper_type')) {
+        if (lowerDescription.includes(spec.name.toLowerCase()) || 
+            lowerDescription.includes(spec.display_name.toLowerCase())) {
+          matchedType = spec.display_name;
           break;
         }
       }
       
-      // Find matching paper weight
-      for (const weight of paperWeights) {
-        if (lowerDescription.includes(weight.toLowerCase().replace('gsm', ''))) {
-          matchedWeight = weight;
+      // Find matching paper weight from specifications
+      for (const spec of this.printSpecifications.filter(s => s.category === 'paper_weight')) {
+        if (lowerDescription.includes(spec.name.toLowerCase().replace('gsm', '')) ||
+            lowerDescription.includes(spec.display_name.toLowerCase().replace('gsm', ''))) {
+          matchedWeight = spec.display_name;
           break;
         }
       }
-      
-      // Construct clean specification
-      if (matchedType && matchedWeight) {
-        return `${matchedType} ${matchedWeight}`;
-      } else if (matchedType) {
-        return matchedType;
-      } else if (matchedWeight) {
-        return matchedWeight;
-      }
-      
-    } catch (error) {
-      this.logger.addDebugInfo(`⚠️ Error querying paper specifications: ${error}`);
+    }
+    
+    // Construct clean specification
+    if (matchedType && matchedWeight) {
+      const cleanSpec = `${matchedType} ${matchedWeight}`;
+      this.logger.addDebugInfo(`🔄 PAPER MAPPING: "${rawPaperDescription}" -> "${cleanSpec}"`);
+      return cleanSpec;
+    } else if (matchedType) {
+      this.logger.addDebugInfo(`🔄 PAPER MAPPING: "${rawPaperDescription}" -> "${matchedType}"`);
+      return matchedType;
+    } else if (matchedWeight) {
+      this.logger.addDebugInfo(`🔄 PAPER MAPPING: "${rawPaperDescription}" -> "${matchedWeight}"`);
+      return matchedWeight;
     }
     
     // Fallback to raw description if no clean match found
+    this.logger.addDebugInfo(`⚠️ NO PAPER MAPPING: "${rawPaperDescription}" - using raw description`);
     return rawPaperDescription;
   }
   
   /**
-   * Find the best matching production stage using database mappings first, then fallback to patterns
+   * Find the best matching production stage using database mappings with enhanced priority
    */
   private findBestStageMatchFromDatabase(
     groupName: string,
@@ -419,16 +482,18 @@ export class EnhancedStageMapper {
     
     this.logger.addDebugInfo(`🔍 SEARCHING DATABASE MAPPINGS for: "${searchText}"`);
     
-    // Sort mappings by confidence score and verified status for priority
-    const sortedMappings = [...this.excelImportMappings].sort((a, b) => {
-      // Prioritize verified mappings
-      if (a.is_verified && !b.is_verified) return -1;
-      if (!a.is_verified && b.is_verified) return 1;
-      // Then by confidence score
-      return b.confidence_score - a.confidence_score;
-    });
+    // Sort mappings by priority: verified first, then by confidence score
+    const sortedMappings = [...this.excelImportMappings]
+      .filter(m => m.mapping_type === 'production_stage')
+      .sort((a, b) => {
+        // Prioritize verified mappings
+        if (a.is_verified && !b.is_verified) return -1;
+        if (!a.is_verified && b.is_verified) return 1;
+        // Then by confidence score
+        return b.confidence_score - a.confidence_score;
+      });
     
-    // First, try exact matches in database mappings (highest priority)
+    // 1. Try exact text matches first (highest priority)
     for (const mapping of sortedMappings) {
       if (mapping.excel_text.toLowerCase() === searchText) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
@@ -444,7 +509,7 @@ export class EnhancedStageMapper {
       }
     }
     
-    // Second, try exact key matches (e.g., "perfect bound" matches key exactly)
+    // 2. Try exact key matches (e.g., "perfect bound" matches key exactly)
     for (const mapping of sortedMappings) {
       if (groupName.toLowerCase() === mapping.excel_text.toLowerCase()) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
@@ -460,7 +525,25 @@ export class EnhancedStageMapper {
       }
     }
     
-    // Third, try partial matches in database mappings
+    // 3. Try description-only matches
+    if (description) {
+      for (const mapping of sortedMappings) {
+        if (description.toLowerCase() === mapping.excel_text.toLowerCase()) {
+          const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
+          if (stage) {
+            const confidence = mapping.is_verified ? Math.min(90, mapping.confidence_score + 10) : Math.max(75, mapping.confidence_score - 15);
+            this.logger.addDebugInfo(`📝 DESCRIPTION MATCH: "${description}" -> "${stage.name}" (confidence: ${confidence}, verified: ${mapping.is_verified})`);
+            return {
+              stageId: stage.id,
+              stageName: stage.name,
+              confidence
+            };
+          }
+        }
+      }
+    }
+    
+    // 4. Try partial matches (lower priority)
     for (const mapping of sortedMappings) {
       if (searchText.includes(mapping.excel_text.toLowerCase()) || mapping.excel_text.toLowerCase().includes(searchText)) {
         const stage = this.productionStages.find(s => s.id === mapping.production_stage_id);
@@ -558,13 +641,11 @@ export class EnhancedStageMapper {
   }
   
   private findRowDataInExcel(description: string, excelRows: any[][]): any[] {
-    // Keep the row data finding logic for now, but row index is now sequential
     const rowIndex = this.findRowIndexInExcel(description, excelRows);
     return rowIndex !== -1 ? excelRows[rowIndex] : [];
   }
   
   private findRowIndexInExcel(description: string, excelRows: any[][]): number {
-    // Keep this method for finding row data, but it's no longer used for excelRowIndex assignment
     for (let i = 0; i < excelRows.length; i++) {
       const rowText = excelRows[i].join(' ').toLowerCase();
       if (rowText.includes(description.toLowerCase())) {
