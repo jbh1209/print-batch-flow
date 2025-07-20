@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { ExcelImportDebugger } from './debugger';
 import type { RowMappingResult, StageMapping } from './types';
@@ -51,14 +50,14 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find exact database mapping - enhanced with better paper spec extraction
+   * Find exact database mapping - STRICT MATCHING ONLY (NO FALLBACK)
    */
   private findExactMappingFromDatabase(description: string): any {
     if (!description) return null;
 
     const cleanDesc = description.toLowerCase().trim();
     
-    // Find EXACT text matches first
+    // Find EXACT text matches ONLY
     const exactMapping = this.excelMappings.find(mapping => 
       mapping.excel_text.toLowerCase().trim() === cleanDesc
     );
@@ -68,71 +67,85 @@ export class EnhancedStageMapper {
       return exactMapping;
     }
 
-    this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - will require user selection`);
+    this.logger.addDebugInfo(`❌ NO EXACT MAPPING: "${description}" - will require user selection (NO FALLBACK)`);
     return null;
   }
 
   /**
-   * Extract paper specifications from text with database mapping enhancement
+   * UPDATED: Extract combined paper specifications (Type + Weight) for production grouping
    */
   private extractPaperSpecFromText(text: string): string | null {
     if (!text) return null;
 
     const lowerText = text.toLowerCase();
+    this.logger.addDebugInfo(`📄 EXTRACTING PAPER SPEC: "${text}"`);
     
-    // Enhanced paper spec patterns
+    // Enhanced paper spec patterns to capture both type and weight
     const paperPatterns = [
-      /([a-z\s]+)\s*,?\s*(\d+)\s*gsm/i,
-      /([a-z\s]+)\s*(\d+)\s*gsm/i,
-      /(bond|fbb|matt|gloss|silk)\s*[+\s]*(\d+)\s*gsm/i,
-      /(\d+)\s*gsm\s*([a-z\s]+)/i
+      // Pattern: "Type, Weight gsm" or "Type Weight gsm"
+      /([a-z\s]+?)\s*,?\s*(\d+)\s*gsm/i,
+      // Pattern: "Weight gsm Type"
+      /(\d+)\s*gsm\s*([a-z\s]+)/i,
+      // Pattern: Specific types with weight
+      /(bond|fbb|matt|gloss|silk|art|laser|pre\s*print)\s*[,\s]*(\d+)\s*gsm/i
     ];
+
+    let paperType = '';
+    let weight = '';
 
     for (const pattern of paperPatterns) {
       const match = text.match(pattern);
       if (match) {
-        let paperType = '';
-        let weight = '';
-        
         if (pattern.source.includes('\\d+.*gsm.*[a-z')) {
-          // Weight first pattern
+          // Weight first pattern: "250gsm Matt"
           weight = match[1];
           paperType = match[2];
         } else {
-          // Type first pattern
+          // Type first pattern: "Matt 250gsm" or "Matt, 250gsm"
           paperType = match[1];
           weight = match[2];
         }
-        
-        // Clean up type and find database equivalent
-        paperType = paperType.trim().toLowerCase();
-        
-        // Map common paper types to database names
-        const typeMapping: Record<string, string> = {
-          'sappi laser pre print': 'Bond',
-          'bond': 'Bond',
-          'fbb': 'FBS',
-          'matt': 'Matt Art',
-          'gloss': 'Gloss Art',
-          'silk': 'Silk'
-        };
-        
-        const cleanType = typeMapping[paperType] || paperType;
-        const result = `${cleanType} + ${weight.padStart(3, '0')}gsm`;
-        
-        this.logger.addDebugInfo(`📄 PAPER SPEC EXTRACTED: "${text}" -> "${result}"`);
-        return result;
+        break;
       }
     }
 
-    return null;
+    if (!paperType || !weight) {
+      this.logger.addDebugInfo(`❌ PAPER SPEC INCOMPLETE: type="${paperType}", weight="${weight}"`);
+      return null;
+    }
+
+    // Clean up and standardize paper type
+    paperType = paperType.trim().toLowerCase();
+    
+    // Map common paper types to standardized names
+    const typeMapping: Record<string, string> = {
+      'sappi laser pre print': 'Bond',
+      'laser pre print': 'Bond',
+      'pre print': 'Bond',
+      'bond': 'Bond',
+      'fbb': 'FBS',
+      'matt art': 'Matt',
+      'matt': 'Matt',
+      'gloss art': 'Gloss',
+      'gloss': 'Gloss',
+      'silk': 'Silk'
+    };
+    
+    const standardType = typeMapping[paperType] || paperType.charAt(0).toUpperCase() + paperType.slice(1);
+    
+    // Format: TypeWeightgsm (e.g., "Bond080gsm", "Matt250gsm")
+    const formattedWeight = weight.padStart(3, '0');
+    const result = `${standardType}${formattedWeight}gsm`;
+    
+    this.logger.addDebugInfo(`✅ PAPER SPEC FORMATTED: "${text}" -> "${result}" (Type: ${standardType}, Weight: ${formattedWeight}gsm)`);
+    return result;
   }
 
   /**
    * RESTORED: Process job specifications and map to stages using cover_text_detection
    */
   async mapJobToStages(job: any, headers: string[], excelRows: any[][]): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH RESTORED INTEGRATION`);
+    this.logger.addDebugInfo(`🎯 MAPPING JOB ${job.wo_no} TO STAGES WITH STRICT DATABASE MATCHING`);
     
     const results: RowMappingResult[] = [];
     
@@ -148,16 +161,16 @@ export class EnhancedStageMapper {
       results.push(...printingResults);
     }
     
-    // Process other specification types
+    // Process other specification types with STRICT DATABASE MATCHING ONLY
     const otherSpecTypes = ['finishing_specifications', 'delivery_specifications', 'prepress_specifications', 'packaging_specifications'];
     for (const specType of otherSpecTypes) {
       if (job[specType]) {
-        const otherResults = await this.processOtherSpecs(job[specType], specType);
+        const otherResults = await this.processOtherSpecsStrictDatabaseOnly(job[specType], specType);
         results.push(...otherResults);
       }
     }
     
-    this.logger.addDebugInfo(`🎯 JOB MAPPING COMPLETE: ${results.length} stage mappings generated`);
+    this.logger.addDebugInfo(`🎯 JOB MAPPING COMPLETE: ${results.length} stage mappings generated (STRICT DATABASE MATCHING)`);
     return results;
   }
 
@@ -187,10 +200,10 @@ export class EnhancedStageMapper {
         this.logger.addDebugInfo(`   Paper: "${component.paper.description}" - Qty: ${component.paper.qty}, WO_Qty: ${component.paper.wo_qty}`);
       }
 
-      // Find exact mapping for printing stage
+      // Find exact mapping for printing stage (STRICT DATABASE ONLY)
       const printingMapping = this.findExactMappingFromDatabase(component.printing.description);
       
-      // PHASE 3: Extract and map paper specification
+      // PHASE 3: Extract and map paper specification with new format
       let paperSpec = null;
       if (component.paper) {
         paperSpec = this.extractPaperSpecFromText(component.paper.description);
@@ -208,7 +221,7 @@ export class EnhancedStageMapper {
           woQty: component.printing.wo_qty,
           mappedStageId: stage?.id || null,
           mappedStageName: stage?.name || null,
-          mappedStageSpecId: null,
+          mappedStageSpecId: printingMapping.stage_specification_id || null,
           mappedStageSpecName: null,
           confidence: printingMapping.confidence_score || 100,
           category: 'printing',
@@ -221,7 +234,7 @@ export class EnhancedStageMapper {
 
         this.logger.addDebugInfo(`✅ ${component.type.toUpperCase()} MAPPED: "${component.printing.description}" -> "${stage?.name}" with paper: ${paperSpec || 'none'}`);
       } else {
-        // No mapping found - mark for user selection
+        // No mapping found - mark for user selection (NO FALLBACK)
         results.push({
           excelRowIndex: 0,
           excelData: [],
@@ -242,7 +255,7 @@ export class EnhancedStageMapper {
           paperSpecification: paperSpec
         });
 
-        this.logger.addDebugInfo(`⚠️ ${component.type.toUpperCase()} UNMAPPED: "${component.printing.description}" - requires user selection`);
+        this.logger.addDebugInfo(`⚠️ ${component.type.toUpperCase()} UNMAPPED: "${component.printing.description}" - requires user selection (NO FALLBACK)`);
       }
     }
 
@@ -276,7 +289,7 @@ export class EnhancedStageMapper {
           woQty: specData.wo_qty,
           mappedStageId: stage?.id || null,
           mappedStageName: stage?.name || 'Unknown Stage',
-          mappedStageSpecId: null,
+          mappedStageSpecId: mapping.stage_specification_id || null,
           mappedStageSpecName: null,
           confidence: mapping.confidence_score || 100,
           category: 'printing',
@@ -284,7 +297,7 @@ export class EnhancedStageMapper {
           paperSpecification: paperSpec
         });
       } else {
-        // No mapping found - mark for user selection
+        // No mapping found - mark for user selection (NO FALLBACK)
         results.push({
           excelRowIndex: 0,
           excelData: [],
@@ -308,16 +321,21 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Process other specification types (finishing, delivery, etc.)
+   * UPDATED: Process other specification types with STRICT DATABASE MATCHING ONLY
    */
-  private async processOtherSpecs(specs: any, specType: string): Promise<RowMappingResult[]> {
+  private async processOtherSpecsStrictDatabaseOnly(specs: any, specType: string): Promise<RowMappingResult[]> {
     const results: RowMappingResult[] = [];
     const category = this.determineCategory(specType);
+    
+    this.logger.addDebugInfo(`🔍 PROCESSING ${specType.toUpperCase()} WITH STRICT DATABASE MATCHING ONLY`);
     
     for (const [key, spec] of Object.entries(specs)) {
       const specData = spec as any;
       if (!specData.description) continue;
       
+      this.logger.addDebugInfo(`   Checking: "${specData.description}"`);
+      
+      // STRICT DATABASE MATCHING ONLY - NO FALLBACK
       const mapping = this.findExactMappingFromDatabase(specData.description);
       
       if (mapping) {
@@ -332,14 +350,16 @@ export class EnhancedStageMapper {
           woQty: specData.wo_qty || 0,
           mappedStageId: stage?.id || null,
           mappedStageName: stage?.name || 'Unknown Stage',
-          mappedStageSpecId: null,
+          mappedStageSpecId: mapping.stage_specification_id || null,
           mappedStageSpecName: null,
           confidence: mapping.confidence_score || 100,
           category,
           isUnmapped: false
         });
+
+        this.logger.addDebugInfo(`   ✅ EXACT MATCH FOUND: "${specData.description}" -> "${stage?.name}"`);
       } else {
-        // No mapping found - mark for user selection
+        // NO FALLBACK - Mark for user selection
         results.push({
           excelRowIndex: 0,
           excelData: [],
@@ -355,6 +375,8 @@ export class EnhancedStageMapper {
           category,
           isUnmapped: true
         });
+
+        this.logger.addDebugInfo(`   ❌ NO EXACT MATCH: "${specData.description}" - REQUIRES USER SELECTION`);
       }
     }
     
@@ -465,6 +487,7 @@ export class EnhancedStageMapper {
 
       if (!description) return;
 
+      // STRICT DATABASE MATCHING ONLY
       const mapping = this.findExactMappingFromDatabase(description);
       
       if (mapping) {
@@ -486,6 +509,7 @@ export class EnhancedStageMapper {
           isUnmapped: false
         });
       } else {
+        // NO FALLBACK - Mark for user selection
         results.push({
           excelRowIndex: index,
           excelData: row,

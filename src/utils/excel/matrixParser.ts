@@ -262,8 +262,13 @@ const extractGroupSpecifications = (
     const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     
-    // CRITICAL FIX: Log the actual quantities being extracted
-    logger.addDebugInfo(`🔢 QUANTITY EXTRACTION - Row ${index}: Group="${group}", Desc="${description}", Qty=${qty}, WO_Qty=${woQty}`);
+    // ENHANCED: Log the actual quantities being extracted WITH sub-specification details
+    logger.addDebugInfo(`🔢 SPECIFICATION EXTRACTION - Row ${index}: Group="${group}", Desc="${description}", Qty=${qty}, WO_Qty=${woQty}`);
+    
+    // Log potential sub-specifications within the description
+    if (description && description.trim()) {
+      logger.addDebugInfo(`📋 SUB-SPEC ANALYSIS: "${description}" - checking for stage specifications and details`);
+    }
     
     // Categorize group
     const category = categorizeGroup(group);
@@ -288,6 +293,7 @@ const extractGroupSpecifications = (
         rawRow: row,
         rowIndex: index
       });
+      logger.addDebugInfo(`📄 PAPER ROW COLLECTED: "${description}" - Qty: ${qty}, WO_Qty: ${woQty}`);
     }
     
     // CRITICAL FIX: Ensure quantities are properly assigned to specs
@@ -315,8 +321,8 @@ const extractGroupSpecifications = (
     }
   });
   
-  // Detect cover/text scenario if multiple printing rows exist
-  const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
+  // ENHANCED: Detect cover/text scenario with enhanced sub-specification logging
+  const coverTextDetection = detectCoverTextScenarioWithSubSpecs(printingRows, paperRows, logger);
   
   // CRITICAL FIX: Log the final printing specifications
   if (Object.keys(specs.printing).length > 0) {
@@ -351,7 +357,10 @@ const categorizeGroup = (group: string): string | null => {
   return null;
 };
 
-const detectCoverTextScenario = (
+/**
+ * ENHANCED: Detect cover/text scenario with enhanced sub-specification logging
+ */
+const detectCoverTextScenarioWithSubSpecs = (
   printingRows: Array<{
     description: string;
     qty: number;
@@ -378,6 +387,14 @@ const detectCoverTextScenario = (
   logger.addDebugInfo(`📚 BOOK JOB DETECTION - ${printingRows.length} printing rows found:`);
   printingRows.forEach((row, i) => {
     logger.addDebugInfo(`   ${i + 1}. "${row.description}" - Qty: ${row.qty}, WO_Qty: ${row.wo_qty}`);
+    
+    // ENHANCED: Log potential sub-specifications within each printing description
+    if (row.description && row.description.includes('gsm')) {
+      logger.addDebugInfo(`      📋 CONTAINS PAPER SPEC: "${row.description}"`);
+    }
+    if (row.description && (row.description.toLowerCase().includes('matt') || row.description.toLowerCase().includes('gloss') || row.description.toLowerCase().includes('bond'))) {
+      logger.addDebugInfo(`      📋 CONTAINS PAPER TYPE: "${row.description}"`);
+    }
   });
   
   // Sort printing rows by quantity (ascending) - cover will have lower quantity
@@ -395,9 +412,21 @@ const detectCoverTextScenario = (
   logger.addDebugInfo(`📖 COVER IDENTIFIED: "${coverPrinting.description}" - Qty: ${coverPrinting.qty}, WO_Qty: ${coverPrinting.wo_qty}`);
   logger.addDebugInfo(`📄 TEXT IDENTIFIED: "${textPrinting.description}" - Qty: ${textPrinting.qty}, WO_Qty: ${textPrinting.wo_qty}`);
   
+  // ENHANCED: Log sub-specifications for each component
+  logger.addDebugInfo(`🔍 COVER SUB-SPEC ANALYSIS: "${coverPrinting.description}"`);
+  logger.addDebugInfo(`🔍 TEXT SUB-SPEC ANALYSIS: "${textPrinting.description}"`);
+  
   // Match paper to printing by quantity logic
   const sortedPaperRows = [...paperRows].sort((a, b) => a.qty - b.qty);
   
+  // ENHANCED: Log paper matching logic
+  if (sortedPaperRows.length > 0) {
+    logger.addDebugInfo(`📄 PAPER MATCHING - ${sortedPaperRows.length} paper rows found:`);
+    sortedPaperRows.forEach((paper, i) => {
+      logger.addDebugInfo(`   ${i + 1}. "${paper.description}" - Qty: ${paper.qty}, WO_Qty: ${paper.wo_qty}`);
+    });
+  }
+
   const components: CoverTextComponent[] = [
     {
       type: 'cover',
@@ -435,6 +464,8 @@ const detectCoverTextScenario = (
   const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   logger.addDebugInfo(`📋 BOOK JOB CREATED with dependency group: ${dependencyGroupId}`);
+  logger.addDebugInfo(`   COVER: Print="${coverPrinting.description}", Paper="${components[0].paper?.description || 'none'}"`);
+  logger.addDebugInfo(`   TEXT: Print="${textPrinting.description}", Paper="${components[1].paper?.description || 'none'}"`);
   
   return {
     isBookJob: true,
