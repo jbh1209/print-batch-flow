@@ -81,9 +81,13 @@ export class ProductionStageMapper {
     excelRows?: any[][],
     userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): StageMapping[] {
-    // For now, return basic stage mappings - enhanced mapping will be done via mapJobToStages
-    this.logger.addDebugInfo(`Basic stage mapping fallback`);
-    return [];
+    // Use enhanced mapper for intelligent stage mapping
+    return this.enhancedMapper.mapGroupsToStagesIntelligent(
+      printingSpecs,
+      finishingSpecs,
+      prepressSpecs,
+      userApprovedMappings
+    );
   }
 
   /**
@@ -96,18 +100,15 @@ export class ProductionStageMapper {
     excelRows: any[][],
     headers: string[]
   ): RowMappingResult[] {
-    // Create a mock job to use with the enhanced mapper
-    const mockJob: any = {
-      wo_no: 'TEMP',
-      printing_specifications: printingSpecs,
-      finishing_specifications: finishingSpecs,
-      prepress_specifications: prepressSpecs
-    };
-    
-    // Use the enhanced mapper's mapJobToStages method asynchronously
-    // For now, return empty array as this method should be called via the enhanced job creator
-    this.logger.addDebugInfo(`Using enhanced mapper for row mappings`);
-    return [];
+    // Use enhanced mapper for intelligent mapping
+    return this.enhancedMapper.createIntelligentRowMappings(
+      printingSpecs,
+      finishingSpecs,
+      prepressSpecs,
+      excelRows,
+      headers,
+      null // Paper specs not available at this level
+    );
   }
 
   /**

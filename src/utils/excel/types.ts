@@ -96,14 +96,12 @@ export interface CoverTextComponent {
     qty: number;
     wo_qty: number;
     row: any[];
-    subSpecifications?: any[];
   };
   paper?: {
     description: string;
     qty: number;
     wo_qty: number;
     row: any[];
-    subSpecifications?: any[];
   };
 }
 
@@ -131,8 +129,6 @@ export interface RowMappingResult {
   instanceId?: string;
   paperSpecification?: string;
   partType?: string;
-  stageInstanceIndex?: number;
-  dependencyGroupId?: string;
   // Enhanced row management
   ignored?: boolean;
   isCustomRow?: boolean;
