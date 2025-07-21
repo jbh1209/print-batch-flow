@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { ParsedJob } from '@/utils/excel/types';
-import type { ExcelImportDebugger } from '@/utils/excel/debugger';
-import { DirectJobCreator } from './DirectJobCreator';
+import type { ParsedJob, RowMappingResult, GroupSpecifications, StageMapping } from './types';
+import type { ExcelImportDebugger } from './debugger';
 import { stringSimilarity } from 'string-similarity-js';
 
 export interface StageMappingResult {
@@ -17,220 +16,299 @@ export interface StageMappingResult {
 }
 
 export class EnhancedStageMapper {
-  constructor(
-    private logger: ExcelImportDebugger,
-    private userId: string,
-    private excelData: any,
-    private columnMapping: any,
-    private allProductionStages: any[],
-    private allPaperSpecs: any[]
-  ) {}
+  private stages: any[] = [];
+  private stageSpecs: any[] = [];
+  private printSpecs: any[] = [];
+  private verifiedMappings: any[] = [];
+  private categories: any[] = [];
+  private categoryStages: any[] = [];
 
-  /**
-   * Map Excel rows to production stages and extract relevant data
-   */
-  async mapExcelDataToStages(jobs: ParsedJob[]): Promise<StageMappingResult> {
-    const result: StageMappingResult = {
-      success: true,
-      rowMappings: {},
-      categoryAssignments: {},
-      unmappedRows: [],
-      stats: {
-        total: 0,
-        successful: 0,
-        failed: 0
-      }
-    };
+  constructor(private logger: ExcelImportDebugger) {}
 
-    this.logger.addDebugInfo(`Starting enhanced stage mapping for ${jobs.length} jobs`);
-
-    for (const job of jobs) {
-      try {
-        const jobMappings = await this.mapJobToStages(job);
-        result.rowMappings[job.wo_no] = jobMappings.rowMappings;
-        result.categoryAssignments[job.wo_no] = jobMappings.categoryAssignments;
-        result.stats.total += jobMappings.rowMappings.length;
-        result.stats.successful += jobMappings.rowMappings.length;
-      } catch (error) {
-        this.logger.addDebugInfo(`Failed to map stages for job ${job.wo_no}: ${error}`);
-        result.success = false;
-        result.stats.failed++;
-        result.unmappedRows.push({ job, error: error instanceof Error ? error.message : String(error) });
-      }
-    }
-
-    this.logger.addDebugInfo(`Enhanced stage mapping completed: ${result.stats.successful}/${result.stats.total} successful`);
-    return result;
-  }
-
-  /**
-   * Map a single job's Excel rows to production stages
-   */
-  private async mapJobToStages(job: ParsedJob): Promise<any> {
-    const rowMappings: any[] = [];
-    const categoryAssignments: any = {
-      originalJob: job
-    };
-
-    this.logger.addDebugInfo(`Mapping stages for job ${job.wo_no} with qty=${job.qty}`);
-
-    // Iterate through each row in the Excel data
-    for (let i = 0; i < this.excelData.rows.length; i++) {
-      const row = this.excelData.rows[i];
-
-      // Extract stage name from the row
-      const stageName = this.extractStageNameFromRow(row);
-      if (!stageName) {
-        this.logger.addDebugInfo(`Skipping row ${i}: No stage name found`);
-        continue;
-      }
-
-      // Extract quantity from job specifications
-      const qty = this.extractQuantityFromJobSpecs(job, stageName);
-      this.logger.addDebugInfo(`Extracted quantity ${qty} for stage ${stageName}`);
-
-      // Map stage name to a production stage
-      const mappedStage = await this.mapStageNameToProductionStage(stageName);
-      if (!mappedStage) {
-        this.logger.addDebugInfo(`No production stage mapping found for ${stageName}`);
-        continue;
-      }
-
-      // Create row mapping object
-      const rowMapping = {
-        excelRowIndex: i,
-        excelRow: row,
-        stageName: stageName,
-        mappedStageId: mappedStage.id,
-        mappedStageName: mappedStage.name,
-        confidenceScore: mappedStage.confidence,
-        isVerified: mappedStage.isVerified,
-        qty: qty,
-        paperSpecification: this.extractPaperSpecification(row)
-      };
-
-      rowMappings.push(rowMapping);
-      this.logger.addDebugInfo(`Mapped stage ${stageName} to ${mappedStage.name} (ID: ${mappedStage.id})`);
-    }
-
-    return { rowMappings, categoryAssignments };
-  }
-
-  /**
-   * Extract stage name from an Excel row
-   */
-  private extractStageNameFromRow(row: any): string | null {
-    const stageColumn = this.excelData.groupColumn;
-    if (stageColumn === -1) return null;
-
-    const stageName = row[stageColumn];
-    if (!stageName || typeof stageName !== 'string') return null;
-
-    return stageName.trim();
-  }
-
-  /**
-   * Extract paper specification from an Excel row
-   */
-  private extractPaperSpecification(row: any): string | null {
-    const descriptionColumn = this.excelData.descriptionColumn;
-    if (descriptionColumn === -1) return null;
-
-    const description = row[descriptionColumn];
-    if (!description || typeof description !== 'string') return null;
-
-    return description.trim();
-  }
-
-  /**
-   * Map a stage name to a production stage using fuzzy matching
-   */
-  private async mapStageNameToProductionStage(stageName: string): Promise<any | null> {
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const stage of this.allProductionStages) {
-      const similarity = this.fuzzyMatch(stageName, stage.name);
-
-      if (similarity > bestScore) {
-        bestScore = similarity;
-        bestMatch = {
-          id: stage.id,
-          name: stage.name,
-          confidence: similarity,
-          isVerified: similarity > 0.8
-        };
-      }
-    }
-
-    return bestMatch;
-  }
-
-  /**
-   * Extract quantity from job specifications for a given group
-   * Enhanced to handle both Cover/Text AND paper specification suffixes
-   */
-  private extractQuantityFromJobSpecs(job: any, groupName: string): number | null {
-    this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
+  async initialize(): Promise<void> {
+    this.logger.addDebugInfo("Initializing enhanced stage mapper...");
     
-    // Create base name by removing both Cover/Text AND paper specification suffixes
-    const baseName = groupName.replace(/\s*-\s*((Cover|Text|cover|text).*|(Gloss|Bond|Matt|Silk|Satin).*gsm.*)$/i, '').trim();
+    // Load stage specifications
+    const { data: stageSpecsData, error: stageSpecsError } = await supabase
+      .from('stage_specifications')
+      .select('*');
     
-    this.logger.addDebugInfo(`🔍 Base name after suffix removal: "${baseName}"`);
+    if (stageSpecsError) {
+      throw new Error(`Failed to load stage specifications: ${stageSpecsError.message}`);
+    }
     
-    // Check all specification categories for matching keys
-    const specCategories = [
-      { name: 'printing', specs: job.printing_specifications },
-      { name: 'finishing', specs: job.finishing_specifications },
-      { name: 'prepress', specs: job.prepress_specifications },
-      { name: 'delivery', specs: job.delivery_specifications },
-      { name: 'packaging', specs: job.packaging_specifications }
-    ];
+    this.stageSpecs = stageSpecsData || [];
+    this.logger.addDebugInfo(`Loaded ${this.stageSpecs.length} stage specifications`);
+    
+    // Load print specifications
+    const { data: printSpecsData, error: printSpecsError } = await supabase
+      .from('print_specifications')
+      .select('*');
+    
+    if (printSpecsError) {
+      throw new Error(`Failed to load print specifications: ${printSpecsError.message}`);
+    }
+    
+    this.printSpecs = printSpecsData || [];
+    this.logger.addDebugInfo(`Loaded ${this.printSpecs.length} print specifications`);
+    
+    // Load verified mappings
+    const { data: mappingsData, error: mappingsError } = await supabase
+      .from('excel_import_mappings')
+      .select('*')
+      .eq('is_verified', true);
+    
+    if (mappingsError) {
+      throw new Error(`Failed to load verified mappings: ${mappingsError.message}`);
+    }
+    
+    this.verifiedMappings = mappingsData || [];
+    this.logger.addDebugInfo(`Loaded ${this.verifiedMappings.length} verified mappings`);
+    
+    // Load production stages
+    const { data: stagesData, error: stagesError } = await supabase
+      .from('production_stages')
+      .select('*')
+      .eq('is_active', true);
+    
+    if (stagesError) {
+      throw new Error(`Failed to load production stages: ${stagesError.message}`);
+    }
+    
+    this.stages = stagesData || [];
+    
+    // Load categories
+    const { data: categoriesData, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*');
+    
+    if (categoriesError) {
+      throw new Error(`Failed to load categories: ${categoriesError.message}`);
+    }
+    
+    this.categories = categoriesData || [];
+    
+    // Load category-stage relationships
+    const { data: categoryStagesData, error: categoryStagesError } = await supabase
+      .from('category_production_stages')
+      .select('*');
+    
+    if (categoryStagesError) {
+      throw new Error(`Failed to load category stages: ${categoryStagesError.message}`);
+    }
+    
+    this.categoryStages = categoryStagesData || [];
+    
+    this.logger.addDebugInfo(`Loaded ${this.stages.length} stages, ${this.categories.length} categories, ${this.categoryStages.length} relationships`);
+  }
 
-    for (const category of specCategories) {
-      if (!category.specs) continue;
+  /**
+   * Map group specifications to production stages with intelligent mapping
+   */
+  mapGroupsToStagesIntelligent(
+    printingSpecs: GroupSpecifications | null,
+    finishingSpecs: GroupSpecifications | null,
+    prepressSpecs: GroupSpecifications | null,
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
+    paperSpecs?: GroupSpecifications | null,
+    packagingSpecs?: GroupSpecifications | null,
+    deliverySpecs?: GroupSpecifications | null
+  ): StageMapping[] {
+    const mappings: StageMapping[] = [];
+    
+    // Process each specification category
+    if (printingSpecs) {
+      mappings.push(...this.mapSpecCategory(printingSpecs, 'printing', userApprovedMappings));
+    }
+    
+    if (finishingSpecs) {
+      mappings.push(...this.mapSpecCategory(finishingSpecs, 'finishing', userApprovedMappings));
+    }
+    
+    if (prepressSpecs) {
+      mappings.push(...this.mapSpecCategory(prepressSpecs, 'prepress', userApprovedMappings));
+    }
+    
+    if (packagingSpecs) {
+      mappings.push(...this.mapSpecCategory(packagingSpecs, 'packaging', userApprovedMappings));
+    }
+    
+    if (deliverySpecs) {
+      mappings.push(...this.mapSpecCategory(deliverySpecs, 'delivery', userApprovedMappings));
+    }
+    
+    return mappings;
+  }
+
+  /**
+   * Create intelligent row mappings for UI display
+   */
+  createIntelligentRowMappings(
+    printingSpecs: GroupSpecifications | null,
+    finishingSpecs: GroupSpecifications | null,
+    prepressSpecs: GroupSpecifications | null,
+    excelRows: any[][],
+    headers: string[],
+    paperSpecs?: GroupSpecifications | null,
+    packagingSpecs?: GroupSpecifications | null,
+    deliverySpecs?: GroupSpecifications | null
+  ): RowMappingResult[] {
+    const mappings: RowMappingResult[] = [];
+    let rowIndex = 0;
+    
+    // Create mappings for printing specifications
+    if (printingSpecs) {
+      mappings.push(...this.createRowMappingsForCategory(printingSpecs, 'printing', rowIndex));
+      rowIndex += Object.keys(printingSpecs).length;
+    }
+    
+    // Create mappings for finishing specifications
+    if (finishingSpecs) {
+      mappings.push(...this.createRowMappingsForCategory(finishingSpecs, 'finishing', rowIndex));
+      rowIndex += Object.keys(finishingSpecs).length;
+    }
+    
+    // Create mappings for prepress specifications
+    if (prepressSpecs) {
+      mappings.push(...this.createRowMappingsForCategory(prepressSpecs, 'prepress', rowIndex));
+      rowIndex += Object.keys(prepressSpecs).length;
+    }
+    
+    // Create mappings for packaging specifications
+    if (packagingSpecs) {
+      mappings.push(...this.createRowMappingsForCategory(packagingSpecs, 'packaging', rowIndex));
+      rowIndex += Object.keys(packagingSpecs).length;
+    }
+    
+    // Create mappings for delivery specifications
+    if (deliverySpecs) {
+      mappings.push(...this.createRowMappingsForCategory(deliverySpecs, 'delivery', rowIndex));
+      rowIndex += Object.keys(deliverySpecs).length;
+    }
+    
+    return mappings;
+  }
+
+  /**
+   * Map specifications for a specific category
+   */
+  private mapSpecCategory(
+    specs: GroupSpecifications,
+    category: 'printing' | 'finishing' | 'prepress' | 'packaging' | 'delivery',
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
+  ): StageMapping[] {
+    const mappings: StageMapping[] = [];
+    
+    for (const [groupName, spec] of Object.entries(specs)) {
+      // Check for user-approved mapping first
+      const userMapping = userApprovedMappings?.find(
+        m => m.groupName === groupName && m.category === category
+      );
       
-      const availableKeys = Object.keys(category.specs);
-      this.logger.addDebugInfo(`🔍 Available ${category.name} specs: ${availableKeys.join(', ')}`);
-      
-      // Try exact match first with original group name
-      if (category.specs[groupName]) {
-        const qty = category.specs[groupName].qty || null;
-        this.logger.addDebugInfo(`✅ Found exact match for ${groupName} in ${category.name}: qty=${qty}`);
-        return qty;
-      }
-      
-      // Try exact match with base name (after removing suffixes)
-      if (category.specs[baseName]) {
-        const qty = category.specs[baseName].qty || null;
-        this.logger.addDebugInfo(`✅ Found exact match for ${baseName} in ${category.name}: qty=${qty}`);
-        return qty;
-      }
-      
-      // Try fuzzy/substring matching with available keys
-      for (const key of availableKeys) {
-        // Remove suffixes from the stored key as well for comparison
-        const keyBaseName = key.replace(/\s*-\s*((Cover|Text|cover|text).*|(Gloss|Bond|Matt|Silk|Satin).*gsm.*)$/i, '').trim();
-        
-        // Calculate similarity scores
-        const baseNameSimilarity = this.calculateSimilarity(baseName, keyBaseName);
-        const originalSimilarity = this.calculateSimilarity(groupName, key);
-        const baseToKeySimilarity = this.calculateSimilarity(baseName, key);
-        
-        this.logger.addDebugInfo(`🔍 Similarity scores for "${groupName}" vs "${key}": base=${baseNameSimilarity.toFixed(3)}, original=${originalSimilarity.toFixed(3)}, baseToKey=${baseToKeySimilarity.toFixed(3)}`);
-        
-        // Check if any similarity score meets our threshold (0.8) or if it's a substring match
-        if (baseNameSimilarity >= 0.8 || originalSimilarity >= 0.8 || baseToKeySimilarity >= 0.8 || 
-            key.includes(baseName) || baseName.includes(keyBaseName)) {
-          const qty = category.specs[key].qty || null;
-          this.logger.addDebugInfo(`✅ Found match for ${groupName} -> ${key} in ${category.name}: qty=${qty}`);
-          return qty;
+      if (userMapping) {
+        mappings.push({
+          stageId: userMapping.mappedStageId,
+          stageName: userMapping.mappedStageName,
+          confidence: 100,
+          category,
+          specifications: [groupName]
+        });
+      } else {
+        // Use intelligent mapping
+        const mapping = this.findBestStageMatch(groupName, spec.description || '', category);
+        if (mapping) {
+          mappings.push({
+            ...mapping,
+            specifications: [groupName]
+          });
         }
       }
     }
     
-    this.logger.addDebugInfo(`⚠️ No quantity found for group ${groupName}, using job default: ${job.qty}`);
-    return null;
+    return mappings;
+  }
+
+  /**
+   * Create row mappings for a specific category
+   */
+  private createRowMappingsForCategory(
+    specs: GroupSpecifications,
+    category: 'printing' | 'finishing' | 'prepress' | 'packaging' | 'delivery',
+    startRowIndex: number
+  ): RowMappingResult[] {
+    const mappings: RowMappingResult[] = [];
+    let currentRowIndex = startRowIndex;
+
+    for (const [groupName, spec] of Object.entries(specs)) {
+      const stageMapping = this.findBestStageMatch(groupName, spec.description || '', category);
+      
+      mappings.push({
+        excelRowIndex: currentRowIndex,
+        excelData: [],
+        groupName,
+        description: spec.description || '',
+        qty: spec.qty || 0,
+        woQty: spec.wo_qty || 0,
+        mappedStageId: stageMapping?.stageId || null,
+        mappedStageName: stageMapping?.stageName || null,
+        mappedStageSpecId: null,
+        mappedStageSpecName: null,
+        confidence: stageMapping?.confidence || 0,
+        category: stageMapping?.category || 'unknown',
+        isUnmapped: !stageMapping,
+        manualOverride: false
+      });
+
+      currentRowIndex++;
+    }
+
+    return mappings;
+  }
+
+  /**
+   * Find the best matching production stage for a specification
+   */
+  private findBestStageMatch(
+    groupName: string,
+    description: string,
+    category: 'printing' | 'finishing' | 'prepress' | 'packaging' | 'delivery'
+  ): Omit<StageMapping, 'specifications'> | null {
+    const searchText = `${groupName} ${description}`.toLowerCase();
+    
+    // Check verified mappings first
+    for (const mapping of this.verifiedMappings) {
+      if (mapping.excel_text.toLowerCase() === searchText.toLowerCase()) {
+        const stage = this.stages.find(s => s.id === mapping.production_stage_id);
+        if (stage) {
+          return {
+            stageId: stage.id,
+            stageName: stage.name,
+            confidence: 100,
+            category
+          };
+        }
+      }
+    }
+    
+    // Fallback to fuzzy matching
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const stage of this.stages) {
+      const similarity = this.calculateSimilarity(searchText, stage.name);
+
+      if (similarity > bestScore) {
+        bestScore = similarity;
+        bestMatch = {
+          stageId: stage.id,
+          stageName: stage.name,
+          confidence: similarity * 100,
+          category
+        };
+      }
+    }
+
+    return bestScore > 0.5 ? bestMatch : null;
   }
 
   /**
@@ -246,124 +324,5 @@ export class EnhancedStageMapper {
     if (cleanStr1 === cleanStr2) return 1.0;
     
     return stringSimilarity(cleanStr1, cleanStr2);
-  }
-
-  /**
-   * Perform fuzzy matching between two strings (legacy method)
-   */
-  private fuzzyMatch(str1: string, str2: string): number {
-    return this.calculateSimilarity(str1, str2);
-  }
-
-  /**
-   * Create printing row mappings with intelligent paper matching for multi-part jobs
-   */
-  private createPrintingRowMappingsWithPaper(
-    printingSpecs: any,
-    paperMappings: any[],
-    stageMappings: any[],
-    excelData: any,
-    logger: ExcelImportDebugger
-  ): RowMappingResult[] {
-    const mappings: RowMappingResult[] = [];
-    let rowIndex = 0;
-
-    // Convert printing specs to operations array with detailed logging
-    const printingOps = Object.entries(printingSpecs).map(([key, spec]: [string, any]) => {
-      logger.addDebugInfo(`🔍 PRINTING OP DEBUG: Key="${key}", Spec qty=${spec.qty}, Spec wo_qty=${spec.wo_qty}, Description="${spec.description}"`);
-      return {
-        key,
-        spec,
-        stageMapping: stageMappings.find(sm => sm.specifications.includes(key))
-      };
-    });
-
-    logger.addDebugInfo(`🔍 PRINTING OPS ARRAY: ${JSON.stringify(printingOps.map(op => ({key: op.key, qty: op.spec.qty, wo_qty: op.spec.wo_qty})))}`);
-
-    // If we have multiple papers and printing operations - CREATE EXACTLY 2 PRINTING STAGES
-    if (printingOps.length > 0 && paperMappings.length >= 2) {
-      // Sort papers by quantity to identify Cover (smallest qty) and Text (largest qty)
-      const sortedPapers = [...paperMappings].sort((a, b) => a.qty - b.qty);
-      const coverPaper = sortedPapers[0];  // Smallest paper quantity = Cover
-      const textPaper = sortedPapers[sortedPapers.length - 1];  // Largest paper quantity = Text
-      
-      logger.addDebugInfo(`🔍 PAPER MATCHING: Cover=${coverPaper.mappedSpec} (paper qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (paper qty: ${textPaper.qty})`);
-      
-      // Sort printing operations by quantity to match with paper components
-      const sortedPrintingOps = [...printingOps].sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
-      const coverPrintingOp = sortedPrintingOps[0];  // Smallest printing qty = Cover printing
-      const textPrintingOp = sortedPrintingOps.length > 1 ? sortedPrintingOps[sortedPrintingOps.length - 1] : sortedPrintingOps[0];
-      
-      logger.addDebugInfo(`🔍 PRINTING OP MATCHING: Cover printing qty=${coverPrintingOp.spec.qty}, Text printing qty=${textPrintingOp.spec.qty}`);
-      
-      // Create Cover printing stage - USE PRINTING QUANTITY, NOT PAPER QUANTITY
-      const coverMapping: RowMappingResult = {
-        excelRowIndex: rowIndex++,
-        excelData: [],
-        groupName: coverPrintingOp.key,
-        description: coverPrintingOp.spec.description || coverPrintingOp.key,
-        qty: coverPrintingOp.spec.qty || 0,  // USE PRINTING QUANTITY
-        woQty: coverPrintingOp.spec.wo_qty || 0,
-        mappedStageId: coverPrintingOp.stageMapping?.stageId || null,
-        mappedStageName: coverPrintingOp.stageMapping?.stageName || null,
-        mappedStageSpecId: coverPrintingOp.stageMapping?.stageSpecId || null,
-        mappedStageSpecName: coverPrintingOp.stageMapping?.stageSpecName || null,
-        confidence: coverPrintingOp.stageMapping?.confidence || 0,
-        category: 'printing',
-        isUnmapped: !coverPrintingOp.stageMapping,
-        paperSpecification: coverPaper.mappedSpec,
-        partType: 'Cover'
-      };
-
-      // Create Text printing stage - USE PRINTING QUANTITY, NOT PAPER QUANTITY
-      const textMapping: RowMappingResult = {
-        excelRowIndex: rowIndex++,
-        excelData: [],
-        groupName: textPrintingOp.key,
-        description: textPrintingOp.spec.description || textPrintingOp.key,
-        qty: textPrintingOp.spec.qty || 0,  // USE PRINTING QUANTITY
-        woQty: textPrintingOp.spec.wo_qty || 0,
-        mappedStageId: textPrintingOp.stageMapping?.stageId || null,
-        mappedStageName: textPrintingOp.stageMapping?.stageName || null,
-        mappedStageSpecId: textPrintingOp.stageMapping?.stageSpecId || null,
-        mappedStageSpecName: textPrintingOp.stageMapping?.stageSpecName || null,
-        confidence: textPrintingOp.stageMapping?.confidence || 0,
-        category: 'printing',
-        isUnmapped: !textPrintingOp.stageMapping,
-        paperSpecification: textPaper.mappedSpec,
-        partType: 'Text'
-      };
-
-      logger.addDebugInfo(`🎯 FINAL PRINTING MAPPINGS: Cover qty=${coverMapping.qty} (${coverMapping.partType}), Text qty=${textMapping.qty} (${textMapping.partType})`);
-      
-      mappings.push(coverMapping, textMapping);
-      
-      logger.addDebugInfo(`Created 2 printing mappings: Cover (qty: ${coverMapping.qty}) and Text (qty: ${textMapping.qty})`);
-    } else {
-      // Single printing operation or insufficient papers - create standard mappings
-      printingOps.forEach((op) => {
-        const mapping: RowMappingResult = {
-          excelRowIndex: rowIndex++,
-          excelData: [],
-          groupName: op.key,
-          description: op.spec.description || op.key,
-          qty: op.spec.qty || 0,  // USE PRINTING QUANTITY
-          woQty: op.spec.wo_qty || 0,
-          mappedStageId: op.stageMapping?.stageId || null,
-          mappedStageName: op.stageMapping?.stageName || null,
-          mappedStageSpecId: op.stageMapping?.stageSpecId || null,
-          mappedStageSpecName: op.stageMapping?.stageSpecName || null,
-          confidence: op.stageMapping?.confidence || 0,
-          category: 'printing',
-          isUnmapped: !op.stageMapping,
-          paperSpecification: paperMappings[0]?.mappedSpec || null
-        };
-        
-        mappings.push(mapping);
-        logger.addDebugInfo(`Created single printing mapping: ${op.key} (qty: ${mapping.qty})`);
-      });
-    }
-
-    return mappings;
   }
 }
