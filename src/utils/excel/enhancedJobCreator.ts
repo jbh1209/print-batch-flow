@@ -916,7 +916,7 @@ private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
     }
     
     // 2. Extract base name from composite group names (e.g., "HP 12000 - Cover" -> "HP 12000")
-    const baseName = groupName.replace(/\s*-\s*.+$/i, '').trim();
+    const baseName = groupName.replace(/\s*-\s*[^_]+$/i, '').trim();
     console.log(`[Excel Import] [QUANTITY FIX] Group: "${groupName}" -> Base: "${baseName}"`);
     
     // 3. Look for keys that start with the base name
