@@ -798,7 +798,7 @@ private async calculateTimingForJob(
     // Fetch all stage instances for this job
     const { data: stageInstances, error } = await supabase
       .from('job_stage_instances')
-      .select('id, production_stage_id, stage_specification_id, quantity, part_name')
+      .select('id, production_stage_id, stage_specification_id, quantity, part_name, unique_stage_key')
       .eq('job_id', jobId)
       .eq('job_table_name', 'production_jobs');
     
