@@ -815,24 +815,36 @@ private async calculateTimingForJob(
     // Create a map of stage IDs to quantities from user mappings and original job
     const quantityMap = new Map<string, number>();
     
+    // Create a map of stage IDs to quantities from user mappings and original job
+    const quantityMap = new Map<string, number>();
+
+    // Track stage ID usage to handle duplicates (same logic as jobWorkflowInitializer.ts)
+    const stageIdCounts = new Map<string, number>();
+
     // Add quantities from user mappings - these should contain the parsed Excel quantities
     if (userApprovedMappings) {
-      userApprovedMappings.forEach(mapping => {
-        this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
-        
-        // First try to extract quantity from job specifications based on groupName
-        let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
-        
-        // If no quantity found from specs, check if this is a user mapping that might have quantity info
-        // For now, we'll rely on the job specifications to contain the quantities
-        this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
-        
-        if (qty > 0) {
-          quantityMap.set(mapping.mappedStageId, qty);
-          this.logger.addDebugInfo(`✅ Set quantity ${qty} for stage ${mapping.mappedStageId} (${mapping.mappedStageName})`);
-        }
-      });
+    userApprovedMappings.forEach(mapping => {
+    this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
+    
+    // Generate unique stage ID using same logic as jobWorkflowInitializer.ts
+    const currentCount = stageIdCounts.get(mapping.mappedStageId) || 0;
+    stageIdCounts.set(mapping.mappedStageId, currentCount + 1);
+    
+    let uniqueStageId = mapping.mappedStageId;
+    if (currentCount > 0) {
+      uniqueStageId = `${mapping.mappedStageId}-${currentCount + 1}`;
     }
+    
+    // Extract quantity for this mapping
+    let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+    this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
+    
+    if (qty > 0) {
+      quantityMap.set(uniqueStageId, qty); // Use unique ID instead of original ID
+      this.logger.addDebugInfo(`✅ Set quantity ${qty} for unique stage ${uniqueStageId} (${mapping.mappedStageName})`);
+    }
+  });
+}
     
     // Fallback to job qty if no specific quantities found
     const defaultQty = originalJob.qty || 1;
