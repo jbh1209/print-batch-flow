@@ -231,7 +231,8 @@ async function calculateTimingForCreatedStages(
       .from('job_stage_instances')
       .select('id, production_stage_id, stage_specification_id, quantity')
       .eq('job_id', jobId)
-      .eq('job_table_name', 'production_jobs');
+      .eq('job_table_name', 'production_jobs')
+      .order('stage_order');
     
     if (error) {
       logger.addDebugInfo(`❌ Failed to fetch stage instances for timing calculation: ${error.message}`);
@@ -243,7 +244,7 @@ async function calculateTimingForCreatedStages(
       return;
     }
     
-    // Create a map of stage IDs to quantities from user mappings
+    // Create a map of unique stage keys to quantities from user mappings
     const quantityMap = new Map<string, number>();
     userApprovedMappings.forEach(mapping => {
       if (mapping.qty && mapping.qty > 0) {
@@ -251,20 +252,41 @@ async function calculateTimingForCreatedStages(
       }
     });
     
-    logger.addDebugInfo(`📊 Found ${quantityMap.size} stage quantities from user mappings`);
+    // Track stage ID usage to create unique keys matching the initialization logic
+    const stageIdCounts = new Map<string, number>();
     
-    // Calculate timing for each stage instance
-    const timingPromises = stageInstances.map(async (stageInstance) => {
-      const quantity = quantityMap.get(stageInstance.production_stage_id) || stageInstance.quantity || 1;
+    // Build lookup from stage instances to their unique keys
+    const instanceToUniqueKey = new Map<string, string>();
+    
+    stageInstances.forEach(instance => {
+      const currentCount = stageIdCounts.get(instance.production_stage_id) || 0;
+      stageIdCounts.set(instance.production_stage_id, currentCount + 1);
       
-      logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
+      // Create unique key matching the initialization logic
+      let uniqueKey = instance.production_stage_id;
+      if (currentCount > 0) {
+        uniqueKey = `${instance.production_stage_id}-${currentCount + 1}`;
+      }
+      
+      instanceToUniqueKey.set(instance.id, uniqueKey);
+    });
+    
+    logger.addDebugInfo(`📊 Created ${instanceToUniqueKey.size} unique key mappings for stage instances`);
+    
+    // Calculate timing for each stage instance using its unique key
+    const timingPromises = stageInstances.map(async (stageInstance) => {
+      const uniqueKey = instanceToUniqueKey.get(stageInstance.id);
+      const quantity = uniqueKey ? quantityMap.get(uniqueKey) : null;
+      const finalQuantity = quantity || stageInstance.quantity || 1;
+      
+      logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} (key: ${uniqueKey}) with quantity ${finalQuantity}`);
       
       try {
         // Update the stage instance with quantity and calculated timing
         const { error: updateError } = await supabase
           .from('job_stage_instances')
           .update({
-            quantity,
+            quantity: finalQuantity,
             updated_at: new Date().toISOString()
           })
           .eq('id', stageInstance.id);
@@ -276,7 +298,7 @@ async function calculateTimingForCreatedStages(
         
         // Now calculate timing using the service
         const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
-          quantity,
+          quantity: finalQuantity,
           stageId: stageInstance.production_stage_id,
           specificationId: stageInstance.stage_specification_id
         });
