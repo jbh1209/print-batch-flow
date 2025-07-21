@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { ParsedJob } from '@/utils/excel/types';
 import type { ExcelImportDebugger } from '@/utils/excel/debugger';
@@ -174,7 +175,6 @@ export class EnhancedStageMapper {
     this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
     
     // Create base name by removing both Cover/Text AND paper specification suffixes
-    // Updated regex to handle: "- Cover", "- Text", "- Gloss 300gsm", "- Bond 080gsm", etc.
     const baseName = groupName.replace(/\s*-\s*((Cover|Text|cover|text).*|(Gloss|Bond|Matt|Silk|Satin).*gsm.*)$/i, '').trim();
     
     this.logger.addDebugInfo(`🔍 Base name after suffix removal: "${baseName}"`);
@@ -197,30 +197,34 @@ export class EnhancedStageMapper {
       // Try exact match first with original group name
       if (category.specs[groupName]) {
         const qty = category.specs[groupName].qty || null;
-        this.logger.addDebugInfo(`✅ Found exact match for ${groupName} in ${category.name}`);
-        this.logger.addDebugInfo(`🎨 Found ${category.name} spec for ${groupName} via key ${groupName}: qty=${qty}`);
+        this.logger.addDebugInfo(`✅ Found exact match for ${groupName} in ${category.name}: qty=${qty}`);
         return qty;
       }
       
       // Try exact match with base name (after removing suffixes)
       if (category.specs[baseName]) {
         const qty = category.specs[baseName].qty || null;
-        this.logger.addDebugInfo(`✅ Found exact match for ${baseName} in ${category.name}`);
-        this.logger.addDebugInfo(`🎨 Found ${category.name} spec for ${groupName} via key ${baseName}: qty=${qty}`);
+        this.logger.addDebugInfo(`✅ Found exact match for ${baseName} in ${category.name}: qty=${qty}`);
         return qty;
       }
       
-      // Try fuzzy matching with available keys
+      // Try fuzzy/substring matching with available keys
       for (const key of availableKeys) {
         // Remove suffixes from the stored key as well for comparison
         const keyBaseName = key.replace(/\s*-\s*((Cover|Text|cover|text).*|(Gloss|Bond|Matt|Silk|Satin).*gsm.*)$/i, '').trim();
         
-        if (this.fuzzyMatch(baseName, keyBaseName) || 
-            this.fuzzyMatch(groupName, key) ||
-            this.fuzzyMatch(baseName, key)) {
+        // Calculate similarity scores
+        const baseNameSimilarity = this.calculateSimilarity(baseName, keyBaseName);
+        const originalSimilarity = this.calculateSimilarity(groupName, key);
+        const baseToKeySimilarity = this.calculateSimilarity(baseName, key);
+        
+        this.logger.addDebugInfo(`🔍 Similarity scores for "${groupName}" vs "${key}": base=${baseNameSimilarity.toFixed(3)}, original=${originalSimilarity.toFixed(3)}, baseToKey=${baseToKeySimilarity.toFixed(3)}`);
+        
+        // Check if any similarity score meets our threshold (0.8) or if it's a substring match
+        if (baseNameSimilarity >= 0.8 || originalSimilarity >= 0.8 || baseToKeySimilarity >= 0.8 || 
+            key.includes(baseName) || baseName.includes(keyBaseName)) {
           const qty = category.specs[key].qty || null;
-          this.logger.addDebugInfo(`✅ Found fuzzy match for ${groupName} -> ${key} in ${category.name}`);
-          this.logger.addDebugInfo(`🎨 Found ${category.name} spec for ${groupName} via key ${key}: qty=${qty}`);
+          this.logger.addDebugInfo(`✅ Found match for ${groupName} -> ${key} in ${category.name}: qty=${qty}`);
           return qty;
         }
       }
@@ -231,11 +235,24 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Perform fuzzy matching between two strings
+   * Calculate similarity between two strings with better normalization
+   */
+  private calculateSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+    
+    const cleanStr1 = str1.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const cleanStr2 = str2.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    
+    // Return 1.0 for exact matches after cleaning
+    if (cleanStr1 === cleanStr2) return 1.0;
+    
+    return stringSimilarity(cleanStr1, cleanStr2);
+  }
+
+  /**
+   * Perform fuzzy matching between two strings (legacy method)
    */
   private fuzzyMatch(str1: string, str2: string): number {
-    const cleanStr1 = str1.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-    const cleanStr2 = str2.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-    return stringSimilarity(cleanStr1, cleanStr2);
+    return this.calculateSimilarity(str1, str2);
   }
 }
