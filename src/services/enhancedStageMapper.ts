@@ -172,7 +172,7 @@ export class EnhancedStageMapper {
    * Enhanced to handle paper specification suffixes like "- Gloss 250gsm"
    */
   private extractQuantityFromJobSpecs(job: any, groupName: string): number | null {
-    this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
+    this.logger.addDebugInfo(`🔍 Extracting quantity for group: "${groupName}"`);
     
     // Create base name by removing paper specification suffixes (everything after " - ")
     const baseName = groupName.replace(/\s*-\s*.+$/i, '').trim();
@@ -192,19 +192,28 @@ export class EnhancedStageMapper {
       if (!category.specs) continue;
       
       const availableKeys = Object.keys(category.specs);
-      this.logger.addDebugInfo(`🔍 Available ${category.name} specs: ${availableKeys.join(', ')}`);
+      this.logger.addDebugInfo(`🔍 Available ${category.name} specs: [${availableKeys.map(k => `"${k}"`).join(', ')}]`);
+      
+      // Debug: Show the exact characters in each key for printing specs
+      if (category.name === 'printing') {
+        availableKeys.forEach(key => {
+          this.logger.addDebugInfo(`🔍 PRINTING KEY: "${key}" (length: ${key.length}) chars: [${key.split('').map(c => c.charCodeAt(0)).join(', ')}]`);
+        });
+        this.logger.addDebugInfo(`🔍 GROUP NAME: "${groupName}" (length: ${groupName.length}) chars: [${groupName.split('').map(c => c.charCodeAt(0)).join(', ')}]`);
+        this.logger.addDebugInfo(`🔍 BASE NAME: "${baseName}" (length: ${baseName.length}) chars: [${baseName.split('').map(c => c.charCodeAt(0)).join(', ')}]`);
+      }
       
       // Try exact match first with original group name
       if (category.specs[groupName]) {
         const qty = category.specs[groupName].qty || null;
-        this.logger.addDebugInfo(`✅ Found exact match for ${groupName} in ${category.name}: qty=${qty}`);
+        this.logger.addDebugInfo(`✅ Found exact match for "${groupName}" in ${category.name}: qty=${qty}`);
         return qty;
       }
       
       // Try exact match with base name (after removing paper suffix)
       if (category.specs[baseName]) {
         const qty = category.specs[baseName].qty || null;
-        this.logger.addDebugInfo(`✅ Found exact match for ${baseName} in ${category.name}: qty=${qty}`);
+        this.logger.addDebugInfo(`✅ Found exact match for "${baseName}" in ${category.name}: qty=${qty}`);
         return qty;
       }
       
