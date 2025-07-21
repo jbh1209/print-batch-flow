@@ -841,7 +841,7 @@ private async calculateTimingForJob(
     
     // Calculate timing for each stage instance
     const timingPromises = stageInstances.map(async (stageInstance) => {
-      const quantity = quantityMap.get(stageInstance.production_stage_id) || defaultQty;
+      const quantity = quantityMap.get(stageInstance.unique_stage_key || stageInstance.production_stage_id) || defaultQty;
       
       this.logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
       
