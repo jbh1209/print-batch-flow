@@ -404,18 +404,17 @@ export class EnhancedStageMapper {
 
     // If we have multiple papers and printing operations - CREATE EXACTLY 2 PRINTING STAGES
     if (printingOps.length > 0 && paperMappings.length >= 2) {
-      // Sort papers by quantity to identify Cover (largest quantity) and Text (smallest quantity)
-      // This is because in printing, Cover typically uses heavier/thicker paper (higher GSM) but lower quantity
-      // Text uses lighter paper (lower GSM) but higher quantity for the inner pages
-      const sortedPapers = [...paperMappings].sort((a, b) => b.qty - a.qty);
-      const textPaper = sortedPapers[0];   // Largest quantity = Text (inner pages)
-      const coverPaper = sortedPapers[sortedPapers.length - 1];  // Smallest quantity = Cover
+      // Sort papers by quantity to identify Cover (smallest) and Text (largest)
+      const sortedPapers = [...paperMappings].sort((a, b) => a.qty - b.qty);
+      const coverPaper = sortedPapers[0];  // Smallest quantity = Cover
+      const textPaper = sortedPapers[sortedPapers.length - 1];  // Largest quantity = Text
       
-      this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaper.mappedSpec} (paper qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (paper qty: ${textPaper.qty})`);
+      this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaper.mappedSpec} (qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (qty: ${textPaper.qty})`);
       
-      // Sort printing operations by quantity to match with paper components
+      // Match printing operations to paper components by quantity
+      // Sort printing operations by quantity to match with sorted papers
       const sortedPrintingOps = [...printingOps].sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
-      const coverPrintingOp = sortedPrintingOps[0];  // Smallest printing qty = Cover printing
+      const coverPrintingOp = sortedPrintingOps[0];  // Smallest quantity = Cover printing
       const textPrintingOp = sortedPrintingOps.length > 1 ? sortedPrintingOps[sortedPrintingOps.length - 1] : sortedPrintingOps[0];
       
       // Create Cover printing stage
