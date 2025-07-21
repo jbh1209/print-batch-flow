@@ -857,6 +857,7 @@ export type Database = {
           started_at: string | null
           started_by: string | null
           status: string
+          unique_stage_key: string | null
           updated_at: string
         }
         Insert: {
@@ -893,6 +894,7 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
+          unique_stage_key?: string | null
           updated_at?: string
         }
         Update: {
@@ -929,6 +931,7 @@ export type Database = {
           started_at?: string | null
           started_by?: string | null
           status?: string
+          unique_stage_key?: string | null
           updated_at?: string
         }
         Relationships: [

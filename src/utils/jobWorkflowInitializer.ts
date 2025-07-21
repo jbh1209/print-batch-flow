@@ -229,7 +229,7 @@ async function calculateTimingForCreatedStages(
     // Fetch all stage instances for this job
     const { data: stageInstances, error } = await supabase
       .from('job_stage_instances')
-      .select('id, production_stage_id, stage_specification_id, quantity')
+      .select('id, production_stage_id, stage_specification_id, quantity, unique_stage_key')
       .eq('job_id', jobId)
       .eq('job_table_name', 'production_jobs')
       .order('stage_order');
@@ -252,30 +252,11 @@ async function calculateTimingForCreatedStages(
       }
     });
     
-    // Track stage ID usage to create unique keys matching the initialization logic
-    const stageIdCounts = new Map<string, number>();
+    logger.addDebugInfo(`📊 Found ${quantityMap.size} stage quantities from user mappings`);
     
-    // Build lookup from stage instances to their unique keys
-    const instanceToUniqueKey = new Map<string, string>();
-    
-    stageInstances.forEach(instance => {
-      const currentCount = stageIdCounts.get(instance.production_stage_id) || 0;
-      stageIdCounts.set(instance.production_stage_id, currentCount + 1);
-      
-      // Create unique key matching the initialization logic
-      let uniqueKey = instance.production_stage_id;
-      if (currentCount > 0) {
-        uniqueKey = `${instance.production_stage_id}-${currentCount + 1}`;
-      }
-      
-      instanceToUniqueKey.set(instance.id, uniqueKey);
-    });
-    
-    logger.addDebugInfo(`📊 Created ${instanceToUniqueKey.size} unique key mappings for stage instances`);
-    
-    // Calculate timing for each stage instance using its unique key
+    // Calculate timing for each stage instance using its stored unique key
     const timingPromises = stageInstances.map(async (stageInstance) => {
-      const uniqueKey = instanceToUniqueKey.get(stageInstance.id);
+      const uniqueKey = stageInstance.unique_stage_key;
       const quantity = uniqueKey ? quantityMap.get(uniqueKey) : null;
       const finalQuantity = quantity || stageInstance.quantity || 1;
       
