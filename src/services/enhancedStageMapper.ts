@@ -169,13 +169,13 @@ export class EnhancedStageMapper {
 
   /**
    * Extract quantity from job specifications for a given group
-   * Enhanced to handle both Cover/Text AND paper specification suffixes
+   * Enhanced to handle paper specification suffixes like "- Gloss 250gsm"
    */
   private extractQuantityFromJobSpecs(job: any, groupName: string): number | null {
     this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
     
-    // Create base name by removing both Cover/Text AND paper specification suffixes
-    const baseName = groupName.replace(/\s*-\s*((Cover|Text|cover|text).*|(Gloss|Bond|Matt|Silk|Satin).*gsm.*)$/i, '').trim();
+    // Create base name by removing paper specification suffixes (everything after " - ")
+    const baseName = groupName.replace(/\s*-\s*.+$/i, '').trim();
     
     this.logger.addDebugInfo(`🔍 Base name after suffix removal: "${baseName}"`);
     
@@ -201,28 +201,21 @@ export class EnhancedStageMapper {
         return qty;
       }
       
-      // Try exact match with base name (after removing suffixes)
+      // Try exact match with base name (after removing paper suffix)
       if (category.specs[baseName]) {
         const qty = category.specs[baseName].qty || null;
         this.logger.addDebugInfo(`✅ Found exact match for ${baseName} in ${category.name}: qty=${qty}`);
         return qty;
       }
       
-      // Try fuzzy/substring matching with available keys
+      // Try fuzzy matching with available keys
       for (const key of availableKeys) {
-        // Remove suffixes from the stored key as well for comparison
-        const keyBaseName = key.replace(/\s*-\s*((Cover|Text|cover|text).*|(Gloss|Bond|Matt|Silk|Satin).*gsm.*)$/i, '').trim();
+        const similarity = this.calculateSimilarity(baseName, key);
         
-        // Calculate similarity scores
-        const baseNameSimilarity = this.calculateSimilarity(baseName, keyBaseName);
-        const originalSimilarity = this.calculateSimilarity(groupName, key);
-        const baseToKeySimilarity = this.calculateSimilarity(baseName, key);
+        this.logger.addDebugInfo(`🔍 Similarity score for "${baseName}" vs "${key}": ${similarity.toFixed(3)}`);
         
-        this.logger.addDebugInfo(`🔍 Similarity scores for "${groupName}" vs "${key}": base=${baseNameSimilarity.toFixed(3)}, original=${originalSimilarity.toFixed(3)}, baseToKey=${baseToKeySimilarity.toFixed(3)}`);
-        
-        // Check if any similarity score meets our threshold (0.8) or if it's a substring match
-        if (baseNameSimilarity >= 0.8 || originalSimilarity >= 0.8 || baseToKeySimilarity >= 0.8 || 
-            key.includes(baseName) || baseName.includes(keyBaseName)) {
+        // Check if similarity meets threshold or substring match
+        if (similarity >= 0.8 || key.includes(baseName) || baseName.includes(key)) {
           const qty = category.specs[key].qty || null;
           this.logger.addDebugInfo(`✅ Found match for ${groupName} -> ${key} in ${category.name}: qty=${qty}`);
           return qty;
