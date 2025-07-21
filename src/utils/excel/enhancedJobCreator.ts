@@ -1,3 +1,4 @@
+
 import type { ParsedJob } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { supabase } from '@/integrations/supabase/client';
@@ -151,13 +152,13 @@ export class EnhancedJobCreator {
         
         // Create the job record
         const { data: createdJob, error: jobError } = await supabase
-          .from('jobs')
+          .from('production_jobs')
           .insert({
             wo_no: job.wo_no,
             status: job.status || 'Pre-Press',
             date: job.date,
             rep: job.rep,
-            category: job.category,
+            category_id: job.category_id,
             customer: job.customer,
             reference: job.reference,
             qty: job.qty || extractedQty,
@@ -225,13 +226,13 @@ export class EnhancedJobCreator {
       try {
         // Create the job record
         const { data: createdJob, error: jobError } = await supabase
-          .from('jobs')
+          .from('production_jobs')
           .insert({
             wo_no: job.wo_no,
             status: job.status || 'Pre-Press',
             date: job.date,
             rep: job.rep,
-            category: job.category,
+            category_id: job.category_id,
             customer: job.customer,
             reference: job.reference,
             qty: job.qty,
@@ -300,7 +301,7 @@ export class EnhancedJobCreator {
     }));
 
     const { error } = await supabase
-      .from('job_workflow_stages')
+      .from('job_stage_instances')
       .insert(workflowStages);
 
     if (error) {
