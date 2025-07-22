@@ -53,7 +53,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onModalDataRefresh
 }) => {
   const { user } = useAuth();
-  const { startStage, completeStage, isProcessing } = useStageActions();
+  const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
 
   const handleStartProof = async () => {
     if (!job.current_stage_id) {
@@ -152,7 +152,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     try {
       console.log('🔄 Completing proof stage and sending to batch allocation');
       
-      // Complete the current proof stage using the working useStageActions hook
+      // Complete the current proof stage using the regular completeStage function
       const success = await completeStage(
         job.current_stage_id,
         notes || 'Proof approved - sending to batch allocation'
@@ -190,19 +190,20 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
 
     try {
-      console.log('🔄 Completing proof stage and advancing to printing');
+      console.log('🔄 Completing proof stage and advancing to printing (skipping conditional stages)');
       
-      // Complete the current proof stage using the working useStageActions hook
-      const success = await completeStage(
+      // Complete the current proof stage and skip conditional stages to activate next production stage
+      const success = await completeStageAndSkipConditional(
+        job.job_id,
         job.current_stage_id,
-        notes || 'Proof approved - advancing to printing'
+        notes || 'Proof approved - advancing directly to printing'
       );
 
       if (!success) {
-        throw new Error('Failed to complete proof stage');
+        throw new Error('Failed to complete proof stage and advance');
       }
 
-      // Update job status to Ready to Print - let printing operators handle the rest
+      // Update job status to Ready to Print
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
