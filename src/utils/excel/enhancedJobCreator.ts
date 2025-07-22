@@ -817,22 +817,31 @@ private async calculateTimingForJob(
     
     // Add quantities from user mappings - these should contain the parsed Excel quantities
     if (userApprovedMappings) {
-      userApprovedMappings.forEach(mapping => {
-        this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
-        
-        // First try to extract quantity from job specifications based on groupName
-        let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
-        
-        // If no quantity found from specs, check if this is a user mapping that might have quantity info
-        // For now, we'll rely on the job specifications to contain the quantities
-        this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
-        
-        if (qty > 0) {
-          quantityMap.set(mapping.mappedStageId, qty);
-          this.logger.addDebugInfo(`✅ Set quantity ${qty} for stage ${mapping.mappedStageId} (${mapping.mappedStageName})`);
-        }
-      });
+    // Track stage ID occurrences to generate unique keys
+    const stageIdCounts = new Map<string, number>();
+  
+    userApprovedMappings.forEach(mapping => {
+    this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
+    
+    // First try to extract quantity from job specifications based on groupName
+    let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+    
+    this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
+    
+    if (qty > 0) {
+      // Generate unique key similar to jobWorkflowInitializer
+      const baseStageId = mapping.mappedStageId;
+      const currentCount = stageIdCounts.get(baseStageId) || 0;
+      stageIdCounts.set(baseStageId, currentCount + 1);
+      
+      const uniqueKey = currentCount === 0 ? baseStageId : `${baseStageId}-${currentCount + 1}`;
+      
+      quantityMap.set(uniqueKey, qty);
+      this.logger.addDebugInfo(`✅ Set quantity ${qty} for unique key ${uniqueKey} (${mapping.mappedStageName})`);
     }
+  });
+}
+
     
     // Fallback to job qty if no specific quantities found
     const defaultQty = originalJob.qty || 1;
