@@ -1,8 +1,6 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
@@ -29,8 +27,6 @@ interface ProofStageActionsProps {
   stageInstance: StageInstance | null;
   proofApprovalFlow: ProofApprovalFlow;
   selectedBatchCategory: string;
-  selectedPrintingStage: string;
-  allPrintingStages: any[];
   notes: string;
   isLoading: boolean;
   onRefresh?: () => void;
@@ -38,7 +34,6 @@ interface ProofStageActionsProps {
   onJobStatusUpdate: (status: string, stageStatus: string) => void;
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
-  onPrintingStageChange: (stageId: string) => void;
   onModalDataRefresh?: () => void;
 }
 
@@ -48,8 +43,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   stageInstance,
   proofApprovalFlow,
   selectedBatchCategory,
-  selectedPrintingStage,
-  allPrintingStages,
   notes,
   isLoading,
   onRefresh,
@@ -57,7 +50,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onPrintingStageChange,
   onModalDataRefresh
 }) => {
   const { user } = useAuth();
@@ -315,13 +307,13 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
               </Button>
               
               <Button 
-                onClick={() => onProofApprovalFlowChange('direct_printing')}
+                onClick={handleAdvanceToPrintingStage}
                 disabled={isLoading || isStageInstancesLoading}
                 className="w-full bg-blue-600 hover:bg-blue-700"
                 variant="outline"
               >
                 <Printer className="h-4 w-4 mr-2" />
-                {isStageInstancesLoading ? 'Processing...' : 'Send Directly to Printing'}
+                {isLoading || isStageInstancesLoading ? 'Processing...' : 'Send Directly to Printing'}
               </Button>
             </div>
           </div>
@@ -361,50 +353,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
             </div>
           );
         }
-      }
-
-      if (proofApprovalFlow === 'direct_printing') {
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
-              <Printer className="h-4 w-4" />
-              <span className="text-sm font-medium">Select Printing Stage</span>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="printing-stage">Printing Stage</Label>
-              <Select value={selectedPrintingStage} onValueChange={onPrintingStageChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select printing stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allPrintingStages.map((stage) => (
-                    <SelectItem key={stage.id} value={stage.id}>
-                      {stage.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleAdvanceToPrintingStage}
-                disabled={isLoading || isStageInstancesLoading || !selectedPrintingStage}
-                className="flex-1"
-              >
-                <ArrowRight className="h-4 w-4 mr-2" />
-                {isLoading || isStageInstancesLoading ? 'Processing...' : 'Advance to Printing'}
-              </Button>
-              <Button 
-                onClick={() => onProofApprovalFlowChange('choosing_allocation')}
-                variant="outline"
-              >
-                Back
-              </Button>
-            </div>
-          </div>
-        );
       }
     }
   }

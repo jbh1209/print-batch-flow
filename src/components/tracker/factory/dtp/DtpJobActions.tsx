@@ -23,8 +23,6 @@ interface DtpJobActionsProps {
   stageInstance: StageInstance | null;
   proofApprovalFlow: ProofApprovalFlow;
   selectedBatchCategory: string;
-  selectedPrintingStage: string;
-  allPrintingStages: any[];
   notes: string;
   isLoading: boolean;
   onStart?: (jobId: string, stageId: string) => Promise<boolean>;
@@ -34,8 +32,7 @@ interface DtpJobActionsProps {
   onJobStatusUpdate: (status: string, stageStatus: string) => void;
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
-  onPrintingStageChange: (stageId: string) => void;
-  onModalDataRefresh?: () => void; // Add this prop
+  onModalDataRefresh?: () => void;
 }
 
 export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
@@ -45,8 +42,6 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
   stageInstance,
   proofApprovalFlow,
   selectedBatchCategory,
-  selectedPrintingStage,
-  allPrintingStages,
   notes,
   isLoading,
   onStart,
@@ -56,7 +51,6 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onPrintingStageChange,
   onModalDataRefresh
 }) => {
   if (currentStage === 'dtp') {
@@ -83,8 +77,6 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         stageInstance={stageInstance}
         proofApprovalFlow={proofApprovalFlow}
         selectedBatchCategory={selectedBatchCategory}
-        selectedPrintingStage={selectedPrintingStage}
-        allPrintingStages={allPrintingStages}
         notes={notes}
         isLoading={isLoading}
         onRefresh={onRefresh}
@@ -92,8 +84,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onJobStatusUpdate={onJobStatusUpdate}
         onProofApprovalFlowChange={onProofApprovalFlowChange}
         onBatchCategoryChange={onBatchCategoryChange}
-        onPrintingStageChange={onPrintingStageChange}
-        onModalDataRefresh={onModalDataRefresh} // Pass it through
+        onModalDataRefresh={onModalDataRefresh}
       />
     );
   }

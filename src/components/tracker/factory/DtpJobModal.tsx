@@ -47,15 +47,12 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     stageInstance,
     proofApprovalFlow,
     selectedBatchCategory,
-    selectedPrintingStage,
-    allPrintingStages,
     isLoading,
     getCurrentStage,
     getStageStatus,
     loadModalData,
     setProofApprovalFlow,
-    setSelectedBatchCategory,
-    setSelectedPrintingStage
+    setSelectedBatchCategory
   } = useDtpJobModal(job, isOpen);
 
   // Reset local state when modal opens
@@ -155,8 +152,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             stageInstance={stageInstance}
             proofApprovalFlow={proofApprovalFlow}
             selectedBatchCategory={selectedBatchCategory}
-            selectedPrintingStage={selectedPrintingStage}
-            allPrintingStages={allPrintingStages}
             notes={notes}
             isLoading={isLoading}
             onStart={onStart}
@@ -166,8 +161,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             onJobStatusUpdate={handleJobStatusUpdate}
             onProofApprovalFlowChange={setProofApprovalFlow}
             onBatchCategoryChange={setSelectedBatchCategory}
-            onPrintingStageChange={setSelectedPrintingStage}
-            onModalDataRefresh={handleModalDataRefresh} // Pass the refresh function
+            onModalDataRefresh={handleModalDataRefresh}
           />
         </div>
 
