@@ -841,7 +841,8 @@ private async calculateTimingForJob(
     
     // Calculate timing for each stage instance
     const timingPromises = stageInstances.map(async (stageInstance) => {
-      const quantity = quantityMap.get(stageInstance.unique_stage_key || stageInstance.production_stage_id) || defaultQty;
+      const quantity = this.getQuantityForStageInstance(stageInstance, quantityMap, defaultQty);
+
       
       this.logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
       
@@ -995,5 +996,33 @@ private async addWorkingDays(startDate: Date, daysToAdd: number): Promise<Date> 
   }
 
   return currentDate;
+}
+/**
+ * Get quantity for a stage instance with fallback logic
+ */
+private getQuantityForStageInstance(stageInstance: any, quantityMap: Map<string, number>, defaultQty: number): number {
+  const uniqueKey = stageInstance.unique_stage_key;
+  
+  // Try exact unique key first
+  if (uniqueKey && quantityMap.has(uniqueKey)) {
+    return quantityMap.get(uniqueKey)!;
+  }
+  
+  // Try base stage ID (remove suffix like -2, -3)
+  const baseStageId = this.extractBaseStageId(uniqueKey || stageInstance.production_stage_id);
+  if (quantityMap.has(baseStageId)) {
+    return quantityMap.get(baseStageId)!;
+  }
+  
+  // Fallback to default
+  return defaultQty;
+}
+
+/**
+ * Extract base stage ID by removing suffixes like -2, -3
+ */
+private extractBaseStageId(stageId: string): string {
+  if (!stageId) return stageId;
+  return stageId.replace(/-\d+$/, '');
 }
 }
