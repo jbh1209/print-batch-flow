@@ -80,7 +80,21 @@ export const useStageActions = () => {
         notes 
       });
 
-      // First, complete the current stage
+      // First, get the current stage details to ensure we have the right stage
+      const { data: currentStageInfo, error: currentStageInfoError } = await supabase
+        .from('job_stage_instances')
+        .select('stage_order, job_table_name, status, production_stage_id')
+        .eq('id', currentStageId)
+        .single();
+
+      if (currentStageInfoError || !currentStageInfo) {
+        throw new Error(`Could not find stage with ID ${currentStageId}: ${currentStageInfoError?.message}`);
+      }
+
+      console.log('🔍 Current stage info:', currentStageInfo);
+
+      // Complete the current stage regardless of its current status (pending or active)
+      // This handles the case where UI shows stage as current but DB has it as pending
       const { error: completeError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -90,19 +104,13 @@ export const useStageActions = () => {
           notes: notes || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', currentStageId)
-        .eq('status', 'active');
+        .eq('id', currentStageId);
 
-      if (completeError) throw completeError;
+      if (completeError) {
+        throw new Error(`Failed to complete current stage: ${completeError.message}`);
+      }
 
-      // Get the current stage order and job table name
-      const { data: currentStageData, error: currentStageError } = await supabase
-        .from('job_stage_instances')
-        .select('stage_order, job_table_name')
-        .eq('id', currentStageId)
-        .single();
-
-      if (currentStageError) throw currentStageError;
+      console.log('✅ Current stage completed successfully');
 
       // Get all pending stages after the current one, ordered by stage_order
       const { data: pendingStages, error: pendingStagesError } = await supabase
@@ -113,9 +121,9 @@ export const useStageActions = () => {
           stage_order
         `)
         .eq('job_id', jobId)
-        .eq('job_table_name', currentStageData.job_table_name)
+        .eq('job_table_name', currentStageInfo.job_table_name)
         .eq('status', 'pending')
-        .gt('stage_order', currentStageData.stage_order)
+        .gt('stage_order', currentStageInfo.stage_order)
         .order('stage_order', { ascending: true });
 
       if (pendingStagesError) throw pendingStagesError;
@@ -125,6 +133,8 @@ export const useStageActions = () => {
         toast.success("Stage completed - no more stages to activate");
         return true;
       }
+
+      console.log('🔍 Found pending stages:', pendingStages.map(s => ({ id: s.id, order: s.stage_order })));
 
       // Get production stage details to check which stages are conditional
       const stageIds = pendingStages.map(stage => stage.production_stage_id);
@@ -189,7 +199,7 @@ export const useStageActions = () => {
       return true;
     } catch (err) {
       console.error('❌ Error completing stage and advancing:', err);
-      toast.error("Failed to complete stage and advance workflow");
+      toast.error(`Failed to complete stage and advance workflow: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return false;
     } finally {
       setIsProcessing(false);
