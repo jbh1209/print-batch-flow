@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight } from "lucide-react";
@@ -54,6 +53,30 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
+
+  // Get the current stage instance ID from the job stage instances
+  const getCurrentStageInstanceId = async (): Promise<string | null> => {
+    if (stageInstance?.id) {
+      return stageInstance.id;
+    }
+
+    // Fallback: query for the current active proof stage instance
+    const { data, error } = await supabase
+      .from('job_stage_instances')
+      .select('id')
+      .eq('job_id', job.job_id)
+      .eq('job_table_name', 'production_jobs')
+      .eq('production_stage_id', job.current_stage_id)
+      .eq('status', 'active')
+      .single();
+
+    if (error || !data) {
+      console.error('❌ Could not find current stage instance:', error);
+      return null;
+    }
+
+    return data.id;
+  };
 
   const handleStartProof = async () => {
     if (!job.current_stage_id) {
@@ -144,17 +167,18 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   };
 
   const handleSendToBatchAllocation = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage found");
+    const currentStageInstanceId = await getCurrentStageInstanceId();
+    if (!currentStageInstanceId) {
+      toast.error("No current stage instance found");
       return;
     }
 
     try {
       console.log('🔄 Completing proof stage and sending to batch allocation');
       
-      // Complete the current proof stage using the regular completeStage function
+      // Complete the current proof stage using the stage instance ID
       const success = await completeStage(
-        job.current_stage_id,
+        currentStageInstanceId,
         notes || 'Proof approved - sending to batch allocation'
       );
 
@@ -184,18 +208,19 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   };
 
   const handleAdvanceToPrintingStage = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage found");
+    const currentStageInstanceId = await getCurrentStageInstanceId();
+    if (!currentStageInstanceId) {
+      toast.error("No current stage instance found");
       return;
     }
 
     try {
       console.log('🔄 Completing proof stage and advancing to printing (skipping conditional stages)');
       
-      // Complete the current proof stage and skip conditional stages to activate next production stage
+      // Complete the current proof stage and skip conditional stages using the correct stage instance ID
       const success = await completeStageAndSkipConditional(
         job.job_id,
-        job.current_stage_id,
+        currentStageInstanceId,
         notes || 'Proof approved - advancing directly to printing'
       );
 

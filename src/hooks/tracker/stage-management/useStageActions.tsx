@@ -69,35 +69,31 @@ export const useStageActions = () => {
 
   const completeStageAndSkipConditional = useCallback(async (
     jobId: string, 
-    currentStageId: string, 
+    currentStageInstanceId: string, 
     notes?: string
   ) => {
     setIsProcessing(true);
     try {
       console.log('🔄 Completing stage and skipping conditional stages...', { 
         jobId, 
-        currentStageId, 
+        currentStageInstanceId, 
         notes 
       });
 
-      // First, get the current stage details and job category
-      const { data: currentStageInfo, error: currentStageInfoError } = await supabase
+      // First, get the current stage instance details
+      const { data: currentStageInstance, error: currentStageError } = await supabase
         .from('job_stage_instances')
         .select('stage_order, job_table_name, status, production_stage_id, category_id')
-        .eq('id', currentStageId)
+        .eq('id', currentStageInstanceId)
         .single();
 
-      if (currentStageInfoError || !currentStageInfo) {
-        throw new Error(`Could not find stage with ID ${currentStageId}: ${currentStageInfoError?.message}`);
+      if (currentStageError || !currentStageInstance) {
+        throw new Error(`Could not find stage instance with ID ${currentStageInstanceId}: ${currentStageError?.message}`);
       }
 
-      console.log('🔍 Current stage info:', currentStageInfo);
+      console.log('🔍 Current stage instance info:', currentStageInstance);
 
-      // Check if job has a category (for conditional logic)
-      const hasCategory = currentStageInfo.category_id !== null;
-      console.log('🔍 Job has category:', hasCategory, 'Category ID:', currentStageInfo.category_id);
-
-      // Complete the current stage regardless of its current status
+      // Complete the current stage
       const { error: completeError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -107,7 +103,7 @@ export const useStageActions = () => {
           notes: notes || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', currentStageId);
+        .eq('id', currentStageInstanceId);
 
       if (completeError) {
         throw new Error(`Failed to complete current stage: ${completeError.message}`);
@@ -125,9 +121,9 @@ export const useStageActions = () => {
           production_stages!inner(name)
         `)
         .eq('job_id', jobId)
-        .eq('job_table_name', currentStageInfo.job_table_name)
+        .eq('job_table_name', currentStageInstance.job_table_name)
         .eq('status', 'pending')
-        .gt('stage_order', currentStageInfo.stage_order)
+        .gt('stage_order', currentStageInstance.stage_order)
         .order('stage_order', { ascending: true });
 
       if (pendingStagesError) throw pendingStagesError;
@@ -144,54 +140,20 @@ export const useStageActions = () => {
         name: s.production_stages?.name 
       })));
 
-      // Find the first non-conditional stage
+      // Find the first non-conditional stage using simple pattern matching
       let nextStageToActivate = null;
       
-      if (hasCategory) {
-        // Use category-based conditional logic
-        console.log('🔍 Using category-based conditional logic');
+      for (const stage of pendingStages) {
+        const stageName = stage.production_stages?.name || '';
+        // Skip stages that appear to be conditional based on naming patterns
+        const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
+                                     stageName.toLowerCase().includes('allocation');
         
-        const stageIds = pendingStages.map(stage => stage.production_stage_id);
-        const { data: stageDetails, error: stageDetailsError } = await supabase
-          .from('category_production_stages')
-          .select(`
-            production_stage_id,
-            is_conditional
-          `)
-          .in('production_stage_id', stageIds);
-
-        if (stageDetailsError) {
-          console.warn('⚠️ Could not get stage conditional info, using fallback logic');
-        } else {
-          // Find the first non-conditional stage using category data
-          for (const stage of pendingStages) {
-            const stageDetail = stageDetails?.find(detail => detail.production_stage_id === stage.production_stage_id);
-            const isConditional = stageDetail?.is_conditional || false;
-            
-            console.log(`🔍 Checking stage ${stage.production_stages?.name}: conditional=${isConditional}`);
-            
-            if (!isConditional) {
-              nextStageToActivate = stage;
-              break;
-            }
-          }
-        }
-      } else {
-        // Use pattern-matching fallback for jobs without categories
-        console.log('🔍 Using pattern-matching fallback (no category)');
+        console.log(`🔍 Checking stage ${stageName}: conditional by pattern=${isConditionalByPattern}`);
         
-        for (const stage of pendingStages) {
-          const stageName = stage.production_stages?.name || '';
-          // Skip stages that appear to be conditional based on naming patterns
-          const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
-                                       stageName.toLowerCase().includes('allocation');
-          
-          console.log(`🔍 Checking stage ${stageName}: conditional by pattern=${isConditionalByPattern}`);
-          
-          if (!isConditionalByPattern) {
-            nextStageToActivate = stage;
-            break;
-          }
+        if (!isConditionalByPattern) {
+          nextStageToActivate = stage;
+          break;
         }
       }
 
@@ -215,7 +177,7 @@ export const useStageActions = () => {
         if (activateError) throw activateError;
 
         console.log('✅ Stage completed and next stage activated:', {
-          completedStage: currentStageId,
+          completedStage: currentStageInstanceId,
           activatedStage: nextStageToActivate.id,
           activatedStageName: nextStageToActivate.production_stages?.name,
           stageOrder: nextStageToActivate.stage_order
