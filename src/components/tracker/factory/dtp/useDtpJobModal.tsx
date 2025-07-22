@@ -2,8 +2,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { useJobPrintingStages } from "@/hooks/tracker/useJobPrintingStages";
-import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
 
 interface StageInstance {
   id: string;
@@ -20,12 +18,7 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
   const [stageInstance, setStageInstance] = useState<StageInstance | null>(null);
   const [proofApprovalFlow, setProofApprovalFlow] = useState<ProofApprovalFlow>('pending');
   const [selectedBatchCategory, setSelectedBatchCategory] = useState<string>("");
-  const [selectedPrintingStage, setSelectedPrintingStage] = useState<string>("");
-  const [allPrintingStages, setAllPrintingStages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  const { printingStages: existingPrintingStages } = useJobPrintingStages(job.job_id);
-  const { getJobParts } = usePartPrintingAssignment();
 
   const getCurrentStage = useCallback(() => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
@@ -67,36 +60,12 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
       setStageInstance(null);
       setProofApprovalFlow('pending');
     }
-
-    // Load all available printing stages
-    const { data: stages } = await supabase
-      .from('production_stages')
-      .select('id, name, color')
-      .ilike('name', '%printing%')
-      .eq('is_active', true)
-      .order('name');
-
-    if (stages) {
-      setAllPrintingStages(stages);
-
-      // Pre-select first available printing stage
-      if (existingPrintingStages.length > 0) {
-        setSelectedPrintingStage(existingPrintingStages[0].id);
-      } else if (stages.length > 0) {
-        setSelectedPrintingStage(stages[0].id);
-      }
-    } else {
-      setAllPrintingStages([]);
-      setSelectedPrintingStage("");
-    }
-  }, [isOpen, job.current_stage_id, job.job_id, existingPrintingStages]);
+  }, [isOpen, job.current_stage_id, job.job_id]);
 
   return {
     stageInstance,
     proofApprovalFlow,
     selectedBatchCategory,
-    selectedPrintingStage,
-    allPrintingStages,
     isLoading,
     getCurrentStage,
     getStageStatus,
@@ -104,7 +73,6 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
     setStageInstance,
     setProofApprovalFlow,
     setSelectedBatchCategory,
-    setSelectedPrintingStage,
     setIsLoading
   };
 };
