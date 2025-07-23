@@ -34,6 +34,7 @@ import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
 import { EnhancedJobCreationDialog } from "@/components/admin/upload/EnhancedJobCreationDialog";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
@@ -66,6 +67,10 @@ export const ExcelUpload = () => {
   const [enhancedResult, setEnhancedResult] = useState<EnhancedJobCreationResult | null>(null);
   const [showEnhancedDialog, setShowEnhancedDialog] = useState(false);
   const [isCreatingJobs, setIsCreatingJobs] = useState(false);
+
+  // Part Assignment Modal state (additive only)
+  const [showPartAssignment, setShowPartAssignment] = useState(false);
+  const [partAssignmentJob, setPartAssignmentJob] = useState<{ id: string; wo_no: string } | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -325,6 +330,13 @@ export const ExcelUpload = () => {
       
       toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
       
+      // Auto-open part assignment for newly created jobs (additive functionality)
+      if (finalResult.createdJobs && finalResult.createdJobs.length > 0) {
+        const firstJob = finalResult.createdJobs[0];
+        setPartAssignmentJob({ id: firstJob.id, wo_no: firstJob.wo_no });
+        setShowPartAssignment(true);
+      }
+      
       // Clean up
       setEnhancedResult(null);
       setShowEnhancedDialog(false);
@@ -503,6 +515,19 @@ export const ExcelUpload = () => {
         isProcessing={isCreatingJobs}
         onConfirm={handleEnhancedJobsConfirmed}
       />
+
+      {/* Part Assignment Modal (additive) */}
+      {partAssignmentJob && (
+        <JobPartAssignmentManager
+          jobId={partAssignmentJob.id}
+          jobTableName="production_jobs"
+          open={showPartAssignment}
+          onClose={() => {
+            setShowPartAssignment(false);
+            setPartAssignmentJob(null);
+          }}
+        />
+      )}
 
       {parsedJobs.length > 0 && (
         <Card>

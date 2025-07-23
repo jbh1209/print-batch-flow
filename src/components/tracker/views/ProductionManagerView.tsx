@@ -33,6 +33,10 @@ export const ProductionManagerView = () => {
   const [showCustomWorkflow, setShowCustomWorkflow] = useState(false);
   const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
   const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
+  
+  // Part Assignment Modal state (additive)
+  const [showPartAssignment, setShowPartAssignment] = useState(false);
+  const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
 
   // Normalize jobs to ensure consistent structure
   const normalizedJobs = React.useMemo(() => {
@@ -297,6 +301,10 @@ export const ProductionManagerView = () => {
             setSelectedJobsForBarcodes(selectedJobs);
             setShowBarcodeLabels(true);
           }}
+          onAssignParts={(job) => {
+            setPartAssignmentJob(job);
+            setShowPartAssignment(true);
+          }}
           isAdmin={isAdmin}
           searchQuery={searchQuery}
         />
@@ -328,6 +336,11 @@ export const ProductionManagerView = () => {
         setSelectedJobsForBarcodes={setSelectedJobsForBarcodes}
         categories={categories}
         onRefresh={handleRefresh} // Use our enhanced refresh
+        // Part Assignment Modal props (additive)
+        showPartAssignment={showPartAssignment}
+        setShowPartAssignment={setShowPartAssignment}
+        partAssignmentJob={partAssignmentJob}
+        setPartAssignmentJob={setPartAssignmentJob}
       />
     </div>
   );

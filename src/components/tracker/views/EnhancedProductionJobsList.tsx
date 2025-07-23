@@ -21,6 +21,7 @@ interface EnhancedProductionJobsListProps {
   onBulkDelete: (selectedJobs: AccessibleJob[]) => void;
   onGenerateBarcodes: (selectedJobs: AccessibleJob[]) => void;
   onBulkMarkCompleted?: (selectedJobs: AccessibleJob[]) => void;
+  onAssignParts?: (job: AccessibleJob) => void; // Added for part assignment functionality
   isAdmin?: boolean;
   searchQuery?: string;
 }
@@ -38,6 +39,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   onBulkDelete,
   onGenerateBarcodes,
   onBulkMarkCompleted,
+  onAssignParts, // Added for part assignment functionality
   isAdmin = false,
   searchQuery = ''
 }) => {
@@ -143,6 +145,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                 onCategoryAssign={onCategoryAssign}
                 onCustomWorkflow={onCustomWorkflow}
                 onDeleteJob={onDeleteJob}
+                onAssignParts={onAssignParts} // Added for part assignment functionality
               />
             ))}
           </div>

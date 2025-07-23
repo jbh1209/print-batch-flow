@@ -15,7 +15,8 @@ import {
   Edit, 
   Tags, 
   Settings, 
-  Trash2
+  Trash2,
+  Package
 } from "lucide-react";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
@@ -32,6 +33,7 @@ interface JobRowProps {
   onCategoryAssign: (job: AccessibleJob) => void;
   onCustomWorkflow: (job: AccessibleJob) => void;
   onDeleteJob: (jobId: string) => void;
+  onAssignParts?: (job: AccessibleJob) => void; // Added for part assignment functionality
 }
 
 export const JobRow: React.FC<JobRowProps> = ({
@@ -45,7 +47,8 @@ export const JobRow: React.FC<JobRowProps> = ({
   onEditJob,
   onCategoryAssign,
   onCustomWorkflow,
-  onDeleteJob
+  onDeleteJob,
+  onAssignParts // Added for part assignment functionality
 }) => {
   return (
     <div 
@@ -132,6 +135,13 @@ export const JobRow: React.FC<JobRowProps> = ({
               <Settings className="h-4 w-4 mr-2" />
               Custom Workflow
             </DropdownMenuItem>
+            
+            {onAssignParts && (
+              <DropdownMenuItem onClick={() => onAssignParts(job)}>
+                <Package className="h-4 w-4 mr-2" />
+                Assign Parts
+              </DropdownMenuItem>
+            )}
             
             <DropdownMenuSeparator />
             

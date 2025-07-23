@@ -4,6 +4,7 @@ import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
 import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
 import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
 import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionManagerModalsProps {
@@ -21,6 +22,11 @@ interface ProductionManagerModalsProps {
   setSelectedJobsForBarcodes: (jobs: AccessibleJob[]) => void;
   categories: any[];
   onRefresh: () => void;
+  // Part Assignment Modal props (additive)
+  showPartAssignment?: boolean;
+  setShowPartAssignment?: (show: boolean) => void;
+  partAssignmentJob?: AccessibleJob | null;
+  setPartAssignmentJob?: (job: AccessibleJob | null) => void;
 }
 
 export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = ({
@@ -37,7 +43,12 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
   selectedJobsForBarcodes,
   setSelectedJobsForBarcodes,
   categories,
-  onRefresh
+  onRefresh,
+  // Part Assignment Modal props (additive)
+  showPartAssignment = false,
+  setShowPartAssignment,
+  partAssignmentJob,
+  setPartAssignmentJob
 }) => {
   return (
     <>
@@ -86,6 +97,20 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
           onClose={() => {
             setShowBarcodeLabels(false);
             setSelectedJobsForBarcodes([]);
+          }}
+        />
+      )}
+
+      {/* Part Assignment Modal (additive) */}
+      {partAssignmentJob && setShowPartAssignment && setPartAssignmentJob && (
+        <JobPartAssignmentManager
+          jobId={partAssignmentJob.job_id}
+          jobTableName="production_jobs"
+          open={showPartAssignment}
+          onClose={() => {
+            setShowPartAssignment(false);
+            setPartAssignmentJob(null);
+            onRefresh();
           }}
         />
       )}
