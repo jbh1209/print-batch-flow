@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
 import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
@@ -13,6 +13,7 @@ import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProduction
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
 import { useJobModalHandlers } from "./hooks/useJobModalHandlers";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface ResponsiveJobsTableProps {
   filters?: {
@@ -24,6 +25,7 @@ interface ResponsiveJobsTableProps {
 export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({ 
   filters = {} 
 }) => {
+  const [partAssignmentJob, setPartAssignmentJob] = useState<any>(null);
   const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useCategories();
   
@@ -77,6 +79,10 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
     selectedJobs,
     setSelectedJobs
   );
+
+  const handlePartAssignment = (job: any) => {
+    setPartAssignmentJob(job);
+  };
 
   // Initialize search from props
   React.useEffect(() => {
@@ -164,6 +170,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
         onCategoryAssign={handleCategoryAssign}
         onWorkflowInit={handleWorkflowInit}
         onDeleteJob={handleDeleteJob}
+        onPartAssignment={handlePartAssignment}
       />
 
       {/* Modals */}
@@ -188,6 +195,16 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
           refreshJobs();
         }}
       />
+
+      {/* Part Assignment Modal */}
+      {partAssignmentJob && (
+        <JobPartAssignmentManager
+          jobId={partAssignmentJob.id}
+          jobTableName="production_jobs"
+          open={true}
+          onClose={() => setPartAssignmentJob(null)}
+        />
+      )}
     </div>
   );
 };

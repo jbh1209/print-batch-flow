@@ -17,6 +17,7 @@ interface ResponsiveJobsTableContentProps {
   onCategoryAssign: (job?: any) => void;
   onWorkflowInit: (job: any) => void;
   onDeleteJob: (jobId: string) => void;
+  onPartAssignment?: (job: any) => void;
 }
 
 export const ResponsiveJobsTableContent: React.FC<ResponsiveJobsTableContentProps> = ({
@@ -30,7 +31,8 @@ export const ResponsiveJobsTableContent: React.FC<ResponsiveJobsTableContentProp
   onEditJob,
   onCategoryAssign,
   onWorkflowInit,
-  onDeleteJob
+  onDeleteJob,
+  onPartAssignment
 }) => {
   return (
     <Card>
@@ -56,6 +58,7 @@ export const ResponsiveJobsTableContent: React.FC<ResponsiveJobsTableContentProp
                   onCategoryAssign={onCategoryAssign}
                   onWorkflowInit={onWorkflowInit}
                   onDeleteJob={onDeleteJob}
+                  onPartAssignment={onPartAssignment}
                 />
               ))}
             </TableBody>

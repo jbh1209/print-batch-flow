@@ -10,7 +10,8 @@ import {
   FolderOpen,
   Play,
   Trash2,
-  Settings
+  Settings,
+  Package
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ interface ResponsiveJobTableRowProps {
   onCategoryAssign: (job: any) => void;
   onWorkflowInit: (job: any) => void;
   onDeleteJob: (jobId: string) => void;
+  onPartAssignment?: (job: any) => void;
 }
 
 export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
@@ -38,7 +40,8 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
   onEditJob,
   onCategoryAssign,
   onWorkflowInit,
-  onDeleteJob
+  onDeleteJob,
+  onPartAssignment
 }) => {
   const getStatusBadge = (status: string) => {
     const statusLower = status?.toLowerCase() || 'unknown';
@@ -92,6 +95,9 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
 
   const handleDeleteClick = (e: React.MouseEvent) =>
     handleAction(() => onDeleteJob(job.id), e);
+
+  const handlePartAssignmentClick = (e: React.MouseEvent) =>
+    handleAction(() => onPartAssignment?.(job), e);
 
   const handleQRCodeClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -203,6 +209,13 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
               <QrCode className="h-3 w-3 mr-2" />
               QR Code
             </DropdownMenuItem>
+            
+            {onPartAssignment && (
+              <DropdownMenuItem onClick={handlePartAssignmentClick} className="text-xs cursor-pointer">
+                <Package className="h-3 w-3 mr-2" />
+                Assign Parts
+              </DropdownMenuItem>
+            )}
             
             {!job.category && (
               <DropdownMenuItem onClick={handleCategoryAssignClick} className="text-xs cursor-pointer">
