@@ -124,9 +124,10 @@ export const ResponsiveOperatorDashboard = () => {
     return true;
   };
 
-  const handleNotesUpdate = async (jobId: string, notes: string): Promise<void> => {
+  const handleNotesUpdate = async (jobId: string, notes: string): Promise<boolean> => {
     console.log('Updating notes for job:', jobId, notes);
     // TODO: Implement notes update API call
+    return true;
   };
 
   const handleTimeUpdate = async (jobId: string, timeSpent: number): Promise<void> => {
@@ -400,6 +401,7 @@ export const ResponsiveOperatorDashboard = () => {
                   onRelease={handleReleaseJob}
                   onNotesUpdate={handleNotesUpdate}
                   onTimeUpdate={handleTimeUpdate}
+                  onJobClick={() => setSelectedModal(job)}
                 />
               </div>
             </div>

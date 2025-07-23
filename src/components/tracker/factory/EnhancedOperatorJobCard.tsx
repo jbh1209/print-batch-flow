@@ -38,6 +38,10 @@ interface EnhancedOperatorJobCardProps {
   onJobClick: (job: AccessibleJob) => void;
   onRefresh?: () => void;
   currentStageInstance?: StageInstanceData;
+  onHold?: (jobId: string, reason: string) => Promise<boolean>;
+  onRelease?: (jobId: string) => Promise<boolean>;
+  onNotesUpdate?: (jobId: string, notes: string) => Promise<boolean>;
+  onTimeUpdate?: (jobId: string, timeSpent: number) => Promise<void>;
 }
 
 export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = ({

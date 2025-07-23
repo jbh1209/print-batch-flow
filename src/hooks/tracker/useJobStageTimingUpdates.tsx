@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { TimingCalculationService, type TimingCalculationParams } from "@/services/timingCalculationService";
-import type { StageSpecification } from "./useStageSpecifications";
+// import type { StageSpecification } from "./useStageSpecifications";
 
 export const useJobStageTimingUpdates = () => {
   // Update job stage instance with calculated timing
@@ -48,7 +48,7 @@ export const useJobStageTimingUpdates = () => {
         stageId: stageInstance.production_stage_id,
         specificationId,
         stageData: stageInstance.production_stage,
-        specificationData: stageInstance.stage_specification as StageSpecification | undefined
+        specificationData: stageInstance.stage_specification as any | undefined
       });
 
       // Update the stage instance

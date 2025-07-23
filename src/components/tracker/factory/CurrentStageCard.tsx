@@ -62,7 +62,7 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
 
     const fetchStageInfo = async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('job_stage_instances')
           .select(`
             estimated_duration_minutes, 
@@ -71,15 +71,14 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
             quantity,
             notes,
             stage_specification_id,
-            production_stage:production_stages(name),
-            stage_specifications:stage_specifications(name, display_name)
+            production_stage:production_stages(name)
           `)
           .eq('job_id', job.job_id)
           .eq('production_stage_id', job.current_stage_id)
           .eq('status', 'active')
-          .single();
+          .maybeSingle();
 
-        if (data) {
+        if (data && !error) {
           const estimatedDuration = data.estimated_duration_minutes;
           let estimatedCompletion = null;
           
@@ -92,7 +91,15 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
           setCurrentStageInfo({
             estimatedDuration,
             estimatedCompletion,
-            stageInstance: data
+            stageInstance: {
+              estimated_duration_minutes: data.estimated_duration_minutes,
+              started_at: data.started_at,
+              part_name: data.part_name,
+              quantity: data.quantity,
+              notes: data.notes,
+              stage_specification_id: data.stage_specification_id,
+              production_stage: data.production_stage
+            }
           });
         }
       } catch (error) {

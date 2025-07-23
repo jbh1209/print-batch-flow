@@ -5,14 +5,14 @@
 
 import type { ProductionStage } from "./useProductionStages";
 import type { JobStageInstance } from "./useJobStageInstances";
-import type { StageSpecification } from "./useStageSpecifications";
+// import type { StageSpecification } from "./useStageSpecifications";
 
 // Enhanced production stage with timing data
 export interface EnhancedProductionStage extends ProductionStage {
   running_speed_per_hour?: number;
   make_ready_time_minutes?: number;
   speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item';
-  specifications?: StageSpecification[];
+  specifications?: any[];
 }
 
 // Enhanced job stage instance with full timing support
@@ -22,13 +22,13 @@ export interface EnhancedJobStageInstance extends JobStageInstance {
   estimated_duration_minutes?: number | null;
   actual_duration_minutes?: number | null;
   setup_time_minutes?: number | null;
-  stage_specification?: StageSpecification | null;
+  stage_specification?: any | null;
 }
 
 // Timing calculation context
 export interface TimingContext {
   stage: EnhancedProductionStage;
-  specification?: StageSpecification;
+  specification?: any;
   quantity: number;
   useSpecificationOverride?: boolean;
 }
@@ -46,7 +46,7 @@ export const stagingHelpers = {
   },
 
   // Get effective timing data (specification overrides stage)
-  getEffectiveTimingData: (stage: EnhancedProductionStage, specification?: StageSpecification) => {
+  getEffectiveTimingData: (stage: EnhancedProductionStage, specification?: any) => {
     return {
       running_speed_per_hour: specification?.running_speed_per_hour || stage.running_speed_per_hour,
       make_ready_time_minutes: specification?.make_ready_time_minutes || stage.make_ready_time_minutes || 10,

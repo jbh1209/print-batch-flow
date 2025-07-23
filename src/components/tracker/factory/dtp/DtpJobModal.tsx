@@ -181,6 +181,11 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                 {getCurrentStage() === 'dtp' && (
                   <DtpStageActions
                     job={job}
+                    stageStatus="active"
+                    notes=""
+                    isLoading={false}
+                    onClose={onClose}
+                    onJobStatusUpdate={() => {}}
                     onRefresh={onRefresh}
                   />
                 )}
@@ -192,10 +197,12 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     proofApprovalFlow={proofApprovalFlow}
                     selectedBatchCategory={selectedBatchCategory}
                     isLoading={isLoading}
-                    onStageInstanceUpdate={setStageInstance}
+                    stageStatus="active"
+                    notes=""
+                    onClose={onClose}
+                    onJobStatusUpdate={() => {}}
                     onProofApprovalFlowChange={setProofApprovalFlow}
                     onBatchCategoryChange={setSelectedBatchCategory}
-                    onLoadingChange={setIsLoading}
                     onRefresh={onRefresh}
                   />
                 )}

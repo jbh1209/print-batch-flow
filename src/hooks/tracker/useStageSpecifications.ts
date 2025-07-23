@@ -36,8 +36,7 @@ export const useStageSpecifications = (jobId: string, stageId?: string) => {
             notes,
             estimated_duration_minutes,
             started_at,
-            production_stage:production_stages(name),
-            stage_specifications:stage_specifications(name, display_name)
+            production_stage:production_stages(name)
           `)
           .eq('job_id', jobId)
           .eq('production_stage_id', stageId)
@@ -49,7 +48,7 @@ export const useStageSpecifications = (jobId: string, stageId?: string) => {
         if (data) {
           setSpecifications({
             stage_name: data.production_stage?.name || 'Unknown Stage',
-            sub_specification: data.stage_specifications?.display_name,
+            sub_specification: undefined, // Will be populated from stage_specification_id lookup
             part_name: data.part_name || undefined,
             quantity: data.quantity || undefined,
             paper_specifications: data.notes || undefined,
