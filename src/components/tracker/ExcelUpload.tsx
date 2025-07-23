@@ -3,11 +3,11 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDropZone } from "@/components/admin/upload/FileDropZone";
 import { ExcelDataAnalyzer } from "@/components/admin/ExcelDataAnalyzer";
-import { JobPartAssignmentManager } from "@/components/jobs/JobPartAssignmentManager";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 import { useToast } from "@/hooks/use-toast";
 import { parseMatrixExcelFile, parseMatrixDataToJobs } from "@/utils/excel/matrixParser";
 import { ExcelImportDebugger } from "@/utils/excel/debugger";
-import { finalizeProductionReadyJobs } from "@/services/tracker/jobCreationService";
+import { finalizeProductionReadyJobs } from "@/utils/excel/enhancedParser";
 
 interface ParsedExcelData {
   fileName: string;
@@ -116,7 +116,10 @@ export const ExcelUpload: React.FC = () => {
     try {
       console.log('🚀 Creating production jobs...', processedJobs.length);
       
-      const result = await finalizeProductionReadyJobs(processedJobs);
+      const logger = new ExcelImportDebugger();
+      // TODO: Get actual user ID from auth
+      const currentUserId = 'temp-user-id';
+      const result = await finalizeProductionReadyJobs(processedJobs, logger, currentUserId);
       
       if (result.success && result.createdJobs) {
         console.log('✅ Jobs created successfully, opening part assignment modal');
@@ -228,7 +231,7 @@ export const ExcelUpload: React.FC = () => {
         
         <ExcelDataAnalyzer 
           data={parsedData} 
-          onJobsConfirmed={handleEnhancedJobsConfirmed}
+          onMappingCreated={() => {}}
         />
       </div>
     );
