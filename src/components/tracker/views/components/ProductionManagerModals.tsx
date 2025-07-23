@@ -4,6 +4,7 @@ import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
 import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
 import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
 import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
+import { JobPartAssignmentManager } from "@/components/jobs/JobPartAssignmentManager";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionManagerModalsProps {
@@ -19,6 +20,10 @@ interface ProductionManagerModalsProps {
   setShowBarcodeLabels: (show: boolean) => void;
   selectedJobsForBarcodes: AccessibleJob[];
   setSelectedJobsForBarcodes: (jobs: AccessibleJob[]) => void;
+  showPartAssignment: boolean;
+  setShowPartAssignment: (show: boolean) => void;
+  partAssignmentJob: AccessibleJob | null;
+  setPartAssignmentJob: (job: AccessibleJob | null) => void;
   categories: any[];
   onRefresh: () => void;
 }
@@ -36,6 +41,10 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
   setShowBarcodeLabels,
   selectedJobsForBarcodes,
   setSelectedJobsForBarcodes,
+  showPartAssignment,
+  setShowPartAssignment,
+  partAssignmentJob,
+  setPartAssignmentJob,
   categories,
   onRefresh
 }) => {
@@ -86,6 +95,19 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
           onClose={() => {
             setShowBarcodeLabels(false);
             setSelectedJobsForBarcodes([]);
+          }}
+        />
+      )}
+
+      {showPartAssignment && partAssignmentJob && (
+        <JobPartAssignmentManager
+          jobId={partAssignmentJob.job_id}
+          jobTableName="production_jobs"
+          open={showPartAssignment}
+          onClose={() => {
+            setShowPartAssignment(false);
+            setPartAssignmentJob(null);
+            onRefresh();
           }}
         />
       )}
