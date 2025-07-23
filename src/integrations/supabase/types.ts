@@ -839,6 +839,7 @@ export type Database = {
           job_order_in_stage: number
           job_table_name: string
           notes: string | null
+          part_assignment: string | null
           part_name: string | null
           part_type: string | null
           previous_stage_id: string | null
@@ -876,6 +877,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name: string
           notes?: string | null
+          part_assignment?: string | null
           part_name?: string | null
           part_type?: string | null
           previous_stage_id?: string | null
@@ -913,6 +915,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name?: string
           notes?: string | null
+          part_assignment?: string | null
           part_name?: string | null
           part_type?: string | null
           previous_stage_id?: string | null
@@ -1572,6 +1575,7 @@ export type Database = {
           order_index: number
           running_speed_per_hour: number | null
           speed_unit: string | null
+          stage_group_id: string | null
           supports_parts: boolean
           updated_at: string
         }
@@ -1587,6 +1591,7 @@ export type Database = {
           order_index?: number
           running_speed_per_hour?: number | null
           speed_unit?: string | null
+          stage_group_id?: string | null
           supports_parts?: boolean
           updated_at?: string
         }
@@ -1602,10 +1607,19 @@ export type Database = {
           order_index?: number
           running_speed_per_hour?: number | null
           speed_unit?: string | null
+          stage_group_id?: string | null
           supports_parts?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "production_stages_stage_group_id_fkey"
+            columns: ["stage_group_id"]
+            isOneToOne: false
+            referencedRelation: "stage_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1784,6 +1798,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stage_groups: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          parallel_processing_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          parallel_processing_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          parallel_processing_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       stage_specifications: {
         Row: {
@@ -2099,6 +2143,16 @@ export type Database = {
             }
         Returns: boolean
       }
+      advance_job_stage_with_groups: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_completed_by?: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
       advance_job_stage_with_parts: {
         Args: {
           p_job_id: string
@@ -2264,6 +2318,17 @@ export type Database = {
           role: string
           created_at: string
           last_sign_in_at: string
+        }[]
+      }
+      get_available_stages_for_activation: {
+        Args: { p_job_id: string; p_job_table_name: string }
+        Returns: {
+          stage_id: string
+          stage_name: string
+          stage_order: number
+          part_assignment: string
+          can_activate: boolean
+          blocking_reason: string
         }[]
       }
       get_category_usage_stats: {

@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Database, Users, FileSpreadsheet, Settings } from "lucide-react";
+import { Database, Users, FileSpreadsheet, Settings, Package, GitBranch } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import StageGroupManagement from "@/components/admin/StageGroupManagement";
 
 const AdminDashboard = () => {
   const { isAdmin, isLoading } = useAdminAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'stage-groups'>('overview');
 
   if (isLoading) {
     return (
@@ -42,7 +44,57 @@ const AdminDashboard = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Navigation Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-border">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'overview'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('stage-groups')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'stage-groups'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+              }`}
+            >
+              Stage Groups
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5" />
+              Stage Groups
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              Manage stage groups and parallel processing settings for production workflows.
+            </p>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => setActiveTab('stage-groups')}
+            >
+              Manage Stage Groups
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -118,7 +170,12 @@ const AdminDashboard = () => {
             </Button>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
+
+      {activeTab === 'stage-groups' && (
+        <StageGroupManagement />
+      )}
     </div>
   );
 };

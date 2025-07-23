@@ -17,6 +17,7 @@ import {
   Trash2, 
   Settings,
   Package2,
+  Package,
   Users,
   ExternalLink,
   Split
@@ -60,6 +61,7 @@ interface BatchAwareJobTableRowProps {
   onDelete: (jobId: string) => void;
   onBatchSplit?: (job: any) => void;
   onViewBatch?: (batchName: string) => void;
+  onPartAssignment?: (job: any) => void;
   showBatchActions?: boolean;
 }
 
@@ -77,6 +79,7 @@ export const BatchAwareJobTableRow: React.FC<BatchAwareJobTableRowProps> = ({
   onDelete,
   onBatchSplit,
   onViewBatch,
+  onPartAssignment,
   showBatchActions = true
 }) => {
   const handleCheckboxChange = (checked: boolean) => {
@@ -277,6 +280,13 @@ export const BatchAwareJobTableRow: React.FC<BatchAwareJobTableRowProps> = ({
               <Edit className="h-4 w-4 mr-2" />
               Edit Job
             </DropdownMenuItem>
+
+            {onPartAssignment && (
+              <DropdownMenuItem onClick={handleMenuItemClick(() => onPartAssignment(job))}>
+                <Package className="h-4 w-4 mr-2" />
+                Assign Parts
+              </DropdownMenuItem>
+            )}
             
             {hasCustomWorkflow ? (
               <DropdownMenuItem onClick={handleMenuItemClick(() => onCustomWorkflow(job))}>

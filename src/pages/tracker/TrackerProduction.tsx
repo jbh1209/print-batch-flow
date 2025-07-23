@@ -13,6 +13,7 @@ import { MasterOrderModal } from "@/components/tracker/modals/MasterOrderModal";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface TrackerProductionContext {
@@ -45,6 +46,7 @@ const TrackerProduction = () => {
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
+  const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
   // Enhanced filtering to handle batch processing jobs
@@ -320,6 +322,15 @@ const TrackerProduction = () => {
           onClose={handleCloseModal}
           job={selectedJob}
           onRefresh={handleModalRefresh}
+        />
+      )}
+
+      {partAssignmentJob && (
+        <JobPartAssignmentManager
+          jobId={partAssignmentJob.id}
+          jobTableName="production_jobs"
+          open={true}
+          onClose={() => setPartAssignmentJob(null)}
         />
       )}
     </>
