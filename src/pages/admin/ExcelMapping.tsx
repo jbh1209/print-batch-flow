@@ -4,7 +4,7 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Upload, Database, Map } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ExcelUpload } from "@/components/tracker/ExcelUpload";
+import ExcelUpload from "@/components/tracker/ExcelUpload";
 import { MappingLibrary } from "@/components/admin/MappingLibrary";
 import { MappingExcelUpload } from "@/components/admin/mapping/MappingExcelUpload";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
