@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,10 +33,6 @@ export const ProductionManagerView = () => {
   const [showCustomWorkflow, setShowCustomWorkflow] = useState(false);
   const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
   const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
-  
-  // Part assignment modal states
-  const [showPartAssignment, setShowPartAssignment] = useState(false);
-  const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
 
   // Normalize jobs to ensure consistent structure
   const normalizedJobs = React.useMemo(() => {
@@ -128,16 +125,6 @@ export const ProductionManagerView = () => {
       console.error('Error marking jobs as completed:', err);
       toast.error('Failed to mark jobs as completed');
     }
-  };
-
-  const handlePartAssignmentOpen = (job: AccessibleJob) => {
-    setPartAssignmentJob(job);
-    setShowPartAssignment(true);
-  };
-
-  const handlePartAssignmentClose = () => {
-    setShowPartAssignment(false);
-    setPartAssignmentJob(null);
   };
 
   if (isLoading) {
@@ -243,7 +230,6 @@ export const ProductionManagerView = () => {
             setCustomWorkflowJob(job);
             setShowCustomWorkflow(true);
           }}
-          onPartAssignment={handlePartAssignmentOpen}
           onDeleteJob={async (jobId) => {
             // Use the actual job_id for database operations
             const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
@@ -338,14 +324,10 @@ export const ProductionManagerView = () => {
         setCustomWorkflowJob={setCustomWorkflowJob}
         showBarcodeLabels={showBarcodeLabels}
         setShowBarcodeLabels={setShowBarcodeLabels}
-        showPartAssignment={showPartAssignment}
-        setShowPartAssignment={setShowPartAssignment}
-        partAssignmentJob={partAssignmentJob}
-        setPartAssignmentJob={setPartAssignmentJob}
         selectedJobsForBarcodes={selectedJobsForBarcodes}
         setSelectedJobsForBarcodes={setSelectedJobsForBarcodes}
         categories={categories}
-        onRefresh={handleRefresh}
+        onRefresh={handleRefresh} // Use our enhanced refresh
       />
     </div>
   );
