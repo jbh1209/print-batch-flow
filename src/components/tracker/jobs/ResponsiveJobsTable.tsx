@@ -13,19 +13,19 @@ import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProduction
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
 import { useJobModalHandlers } from "./hooks/useJobModalHandlers";
-import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface ResponsiveJobsTableProps {
   filters?: {
     search?: string;
     filters?: string[];
   };
+  onPartAssignment?: (job: any) => void;
 }
 
 export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({ 
-  filters = {} 
+  filters = {},
+  onPartAssignment 
 }) => {
-  const [partAssignmentJob, setPartAssignmentJob] = useState<any>(null);
   const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useCategories();
   
@@ -81,7 +81,9 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
   );
 
   const handlePartAssignment = (job: any) => {
-    setPartAssignmentJob(job);
+    if (onPartAssignment) {
+      onPartAssignment(job);
+    }
   };
 
   // Initialize search from props
@@ -195,16 +197,6 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
           refreshJobs();
         }}
       />
-
-      {/* Part Assignment Modal */}
-      {partAssignmentJob && (
-        <JobPartAssignmentManager
-          jobId={partAssignmentJob.id}
-          jobTableName="production_jobs"
-          open={true}
-          onClose={() => setPartAssignmentJob(null)}
-        />
-      )}
     </div>
   );
 };

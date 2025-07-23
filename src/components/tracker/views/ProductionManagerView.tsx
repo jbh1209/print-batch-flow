@@ -1,316 +1,146 @@
 
-import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useState, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertTriangle, Package } from "lucide-react";
-import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { useCategories } from "@/hooks/tracker/useCategories";
-import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
-import { ProductionManagerHeader } from "./components/ProductionManagerHeader";
-import { ProductionManagerStats } from "./components/ProductionManagerStats";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Filter, RefreshCw, Plus, BarChart3, Settings } from "lucide-react";
 import { ProductionManagerModals } from "./components/ProductionManagerModals";
-import { LostJobRecovery } from "../diagnostics/LostJobRecovery";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useCategories } from "@/hooks/tracker/useCategories";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { ResponsiveJobsTable } from "@/components/tracker/jobs/ResponsiveJobsTable";
 
-export const ProductionManagerView = () => {
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const { jobs, isLoading, error, startJob, completeJob, refreshJobs, invalidateCache } = useAccessibleJobs({
-    permissionType: 'manage',
-    statusFilter
-  });
-  const { categories } = useCategories();
-  const { isAdmin } = useUserRole();
-  const [refreshing, setRefreshing] = useState(false);
-  const [showLostJobRecovery, setShowLostJobRecovery] = useState(false);
-
-  // Modal states
+const ProductionManagerView: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedView, setSelectedView] = useState("all");
   const [editingJob, setEditingJob] = useState<AccessibleJob | null>(null);
-  const [categoryAssignJob, setCategoryAssignJob] = useState<AccessibleJob | null>(null);
-  const [customWorkflowJob, setCustomWorkflowJob] = useState<AccessibleJob | null>(null);
+  const [categoryAssignJob, setCategoryAssignJob] = useState<any>(null);
   const [showCustomWorkflow, setShowCustomWorkflow] = useState(false);
+  const [customWorkflowJob, setCustomWorkflowJob] = useState<AccessibleJob | null>(null);
   const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
   const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
+  const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
 
-  // Normalize jobs to ensure consistent structure
-  const normalizedJobs = React.useMemo(() => {
-    return jobs.map(job => ({
-      ...job,
-      // Ensure all required fields are present
-      id: job.job_id,
-      has_custom_workflow: job.has_custom_workflow || false,
-      manual_due_date: job.manual_due_date || null,
-      is_in_batch_processing: job.is_in_batch_processing || false
-    }));
-  }, [jobs]);
+  const { jobs, isLoading, refreshJobs } = useAccessibleJobs({
+    permissionType: 'manage'
+  });
 
-  // Filter jobs based on search query
-  const filteredJobs = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return normalizedJobs;
-    }
-    
-    const query = searchQuery.toLowerCase();
-    return normalizedJobs.filter(job => 
-      job.reference?.toLowerCase().includes(query) ||
-      job.customer?.toLowerCase().includes(query) ||
-      job.wo_no?.toLowerCase().includes(query)
-    );
-  }, [normalizedJobs, searchQuery]);
+  const { categories } = useCategories();
 
-  // Count jobs in batch processing
-  const batchProcessingJobs = React.useMemo(() => {
-    return jobs.filter(job => job.status === 'In Batch Processing').length;
-  }, [jobs]);
+  const handlePartAssignment = useCallback((job: AccessibleJob) => {
+    setPartAssignmentJob(job);
+  }, []);
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log("📊 ProductionManagerView state:", {
-      isLoading,
-      error,
-      jobsCount: jobs.length,
-      normalizedJobsCount: normalizedJobs.length,
-      filteredJobsCount: filteredJobs.length,
-      batchProcessingJobs,
-      statusFilter,
-      searchQuery
-    });
-  }, [isLoading, error, jobs, normalizedJobs, filteredJobs, statusFilter, searchQuery, batchProcessingJobs]);
+  const filteredJobs = jobs.filter(job => 
+    job.wo_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    job.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    job.reference.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    console.log("🔄 Manual refresh triggered");
-    // Invalidate cache first to ensure fresh data
-    invalidateCache();
-    await refreshJobs();
-    setTimeout(() => setRefreshing(false), 1000);
-  };
-
-  const handleBulkMarkCompleted = async (selectedJobs: AccessibleJob[]) => {
-    if (!isAdmin) {
-      toast.error('Only administrators can mark jobs as completed');
-      return;
-    }
-
-    try {
-      // Update job status to completed
-      const { error: jobError } = await supabase
-        .from('production_jobs')
-        .update({ 
-          status: 'Completed',
-          updated_at: new Date().toISOString()
-        })
-        .in('id', selectedJobs.map(j => j.job_id));
-
-      if (jobError) throw jobError;
-
-      // Complete any active stage instances
-      const { error: stageError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .in('job_id', selectedJobs.map(j => j.job_id))
-        .in('status', ['active', 'pending']);
-
-      if (stageError) throw stageError;
-
-      toast.success(`Marked ${selectedJobs.length} job(s) as completed`);
-      await handleRefresh(); // Use our enhanced refresh
-    } catch (err) {
-      console.error('Error marking jobs as completed:', err);
-      toast.error('Failed to mark jobs as completed');
+  const getJobsByStatus = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return filteredJobs.filter(job => job.status === 'pending');
+      case 'active':
+        return filteredJobs.filter(job => job.status === 'active');
+      case 'completed':
+        return filteredJobs.filter(job => job.status === 'completed');
+      case 'on_hold':
+        return filteredJobs.filter(job => job.status === 'on_hold');
+      default:
+        return filteredJobs;
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8 h-full">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <span className="text-lg">Loading production overview...</span>
-          <p className="text-sm text-gray-500 mt-2">
-            Fetching jobs and permissions...
+  const viewJobs = getJobsByStatus(selectedView);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Production Manager</h1>
+          <p className="text-muted-foreground">
+            Manage production jobs and workflow
           </p>
-          <Button 
-            onClick={handleRefresh} 
-            variant="outline" 
-            size="sm"
-            className="mt-4"
-          >
-            Try Again
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={refreshJobs} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Job
           </Button>
         </div>
       </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold mb-2 text-red-700">Error Loading Production Data</h2>
-            <p className="text-red-600 text-center mb-4">{error}</p>
-            <Button onClick={handleRefresh} variant="outline">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const uniqueStatuses = Array.from(new Set(jobs.map(job => job.status))).filter(Boolean);
-
-  return (
-    <div className="p-6 space-y-6 h-full overflow-y-auto">
-      {/* Header */}
-      <ProductionManagerHeader
-        jobCount={jobs.length}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        uniqueStatuses={uniqueStatuses}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        filteredJobCount={filteredJobs.length}
-      />
-
-      {/* Production Statistics */}
-      <ProductionManagerStats jobs={jobs} />
-
-      {/* Batch Processing Alert */}
-      {batchProcessingJobs > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <Package className="h-5 w-5 text-orange-600" />
-              <div>
-                <h3 className="font-medium text-orange-800">
-                  {batchProcessingJobs} Job{batchProcessingJobs !== 1 ? 's' : ''} in Batch Processing
-                </h3>
-                <p className="text-sm text-orange-700">
-                  These jobs are currently being processed in BatchFlow
-                </p>
-              </div>
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search jobs by WO, customer, or reference..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <Button
-              onClick={() => setShowLostJobRecovery(!showLostJobRecovery)}
-              variant="outline"
-              size="sm"
-              className="bg-white"
-            >
-              {showLostJobRecovery ? 'Hide' : 'Show'} Recovery Tools
+            <Button variant="outline" size="sm">
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Lost Job Recovery Tool */}
-      {showLostJobRecovery && (
-        <LostJobRecovery />
-      )}
+      {/* Status Tabs */}
+      <Tabs value={selectedView} onValueChange={setSelectedView}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all">
+            All Jobs
+            <Badge variant="secondary" className="ml-2">
+              {filteredJobs.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending
+            <Badge variant="secondary" className="ml-2">
+              {getJobsByStatus('pending').length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="active">
+            Active
+            <Badge variant="secondary" className="ml-2">
+              {getJobsByStatus('active').length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="completed">
+            Completed
+            <Badge variant="secondary" className="ml-2">
+              {getJobsByStatus('completed').length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="on_hold">
+            On Hold
+            <Badge variant="secondary" className="ml-2">
+              {getJobsByStatus('on_hold').length}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Enhanced Jobs List */}
-      {jobs.length > 0 ? (
-        <EnhancedProductionJobsList
-          jobs={filteredJobs}
-          onStartJob={startJob}
-          onCompleteJob={completeJob}
-          onEditJob={setEditingJob}
-          onCategoryAssign={setCategoryAssignJob}
-          onCustomWorkflow={(job) => {
-            setCustomWorkflowJob(job);
-            setShowCustomWorkflow(true);
-          }}
-          onDeleteJob={async (jobId) => {
-            // Use the actual job_id for database operations
-            const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
-            
-            try {
-              const { error } = await supabase
-                .from('production_jobs')
-                .delete()
-                .eq('id', actualJobId);
-
-              if (error) throw error;
-
-              toast.success('Job deleted successfully');
-              await handleRefresh(); // Use our enhanced refresh
-            } catch (err) {
-              console.error('Error deleting job:', err);
-              toast.error('Failed to delete job');
-            }
-          }}
-          onBulkCategoryAssign={(selectedJobs) => {
-            if (selectedJobs.length > 0) {
-              const firstJob = {
-                ...selectedJobs[0],
-                id: selectedJobs[0].job_id, // Map job_id to id for UI consistency
-                isMultiple: true,
-                selectedIds: selectedJobs.map(j => j.job_id)
-              };
-              setCategoryAssignJob(firstJob as any);
-            }
-          }}
-          onBulkStatusUpdate={async (selectedJobs, status) => {
-            try {
-              const { error } = await supabase
-                .from('production_jobs')
-                .update({ status })
-                .in('id', selectedJobs.map(j => j.job_id));
-
-              if (error) throw error;
-
-              toast.success(`Updated ${selectedJobs.length} job(s) to ${status} status`);
-              await handleRefresh(); // Use our enhanced refresh
-            } catch (err) {
-              console.error('Error updating job status:', err);
-              toast.error('Failed to update job status');
-            }
-          }}
-          onBulkMarkCompleted={handleBulkMarkCompleted}
-          onBulkDelete={async (selectedJobs) => {
-            try {
-              const { error } = await supabase
-                .from('production_jobs')
-                .delete()
-                .in('id', selectedJobs.map(j => j.job_id));
-
-              if (error) throw error;
-
-              toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
-              await handleRefresh(); // Use our enhanced refresh
-            } catch (err) {
-              console.error('Error deleting jobs:', err);
-              toast.error('Failed to delete jobs');
-            }
-          }}
-          onGenerateBarcodes={(selectedJobs) => {
-            setSelectedJobsForBarcodes(selectedJobs);
-            setShowBarcodeLabels(true);
-          }}
-          isAdmin={isAdmin}
-          searchQuery={searchQuery}
-        />
-      ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center p-12">
-            <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Production Jobs</h3>
-            <p className="text-gray-600 text-center">
-              No production jobs found with the current filters.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value={selectedView} className="space-y-4">
+          <ResponsiveJobsTable 
+            filters={{ search: searchQuery }}
+            onPartAssignment={handlePartAssignment}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       <ProductionManagerModals
@@ -326,9 +156,13 @@ export const ProductionManagerView = () => {
         setShowBarcodeLabels={setShowBarcodeLabels}
         selectedJobsForBarcodes={selectedJobsForBarcodes}
         setSelectedJobsForBarcodes={setSelectedJobsForBarcodes}
+        partAssignmentJob={partAssignmentJob}
+        setPartAssignmentJob={setPartAssignmentJob}
         categories={categories}
-        onRefresh={handleRefresh} // Use our enhanced refresh
+        onRefresh={refreshJobs}
       />
     </div>
   );
 };
+
+export default ProductionManagerView;
