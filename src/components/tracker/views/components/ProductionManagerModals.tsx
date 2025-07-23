@@ -4,7 +4,7 @@ import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
 import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
 import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
 import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
-import { JobPartAssignmentManager } from "@/components/jobs/JobPartAssignmentManager";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionManagerModalsProps {

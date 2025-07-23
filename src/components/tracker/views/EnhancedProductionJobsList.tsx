@@ -191,7 +191,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                     {job.current_stage_status === 'active' ? (
                       <Button 
                         variant="secondary" 
-                        size="xs"
+                        size="sm"
                         onClick={async () => {
                           const success = await onCompleteJob(job.job_id, job.current_stage_id || '');
                           if (success) {
@@ -211,7 +211,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                     {job.current_stage_status === 'pending' && (
                       <Button 
                         variant="secondary" 
-                        size="xs"
+                        size="sm"
                         onClick={async () => {
                           const success = await onStartJob(job.job_id, job.current_stage_id || '');
                           if (success) {

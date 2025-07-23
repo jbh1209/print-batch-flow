@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ExcelUpload as ExcelUploadComponent } from "@/components/tracker/ExcelUpload";
-import { JobPartAssignmentManager } from "@/components/jobs/JobPartAssignmentManager";
+import { EnhancedJobCreationDialog } from "@/components/admin/upload/EnhancedJobCreationDialog";
+import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 const ExcelUpload = () => {
   const [showPartAssignment, setShowPartAssignment] = useState(false);
@@ -36,7 +36,7 @@ const ExcelUpload = () => {
         <p className="text-gray-600">Import production jobs from Excel files</p>
       </div>
 
-      <ExcelUploadComponent onEnhancedJobsConfirmed={handleEnhancedJobsConfirmed} />
+      {/* Add your Excel upload component here that triggers EnhancedJobCreationDialog */}
 
       {/* Part Assignment Modal for newly imported jobs */}
       {showPartAssignment && importedJobIds.length > 0 && (
