@@ -1,12 +1,26 @@
-
 import React from "react";
-import { TableRow, TableCell } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Play, Package, Settings } from "lucide-react";
-import { format } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  MoreHorizontal, 
+  Edit, 
+  QrCode, 
+  FolderOpen,
+  Play,
+  Trash2,
+  Settings,
+  Package
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ResponsiveJobTableRowProps {
   job: any;
@@ -29,124 +43,203 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
   onDeleteJob,
   onPartAssignment
 }) => {
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch {
-      return '-';
-    }
-  };
-
   const getStatusBadge = (status: string) => {
-    const statusColors = {
-      'pending': 'bg-yellow-100 text-yellow-800',
-      'active': 'bg-blue-100 text-blue-800',
-      'completed': 'bg-green-100 text-green-800',
-      'on_hold': 'bg-red-100 text-red-800'
+    const statusLower = status?.toLowerCase() || 'unknown';
+    const variants = {
+      'completed': 'default' as const,
+      'in-progress': 'secondary' as const,
+      'printing': 'secondary' as const,
+      'finishing': 'secondary' as const,
+      'on-hold': 'outline' as const,
+      'pending': 'outline' as const,
+      'overdue': 'destructive' as const
     };
-    return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
+    
+    return (
+      <Badge variant={variants[statusLower] || 'outline'} className="text-xs">
+        {status}
+      </Badge>
+    );
   };
 
-  const getStageBadge = (stageName: string, stageColor: string) => {
-    return {
-      backgroundColor: stageColor || '#e5e7eb',
-      color: '#1f2937'
-    };
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'No date';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const isOverdue = job.due_date && new Date(job.due_date) < new Date();
+  const isDueSoon = job.due_date && !isOverdue && 
+    new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+  const [actionPending, setActionPending] = React.useState(false);
+
+  const handleAction = (action: () => void, e: React.MouseEvent) => {
+    if (actionPending) return;
+    setActionPending(true);
+    e.preventDefault();
+    e.stopPropagation();
+    setTimeout(() => {
+      setActionPending(false);
+      action();
+    }, 200);
+  };
+
+  const handleEditClick = (e: React.MouseEvent) =>
+    handleAction(() => onEditJob(job), e);
+
+  const handleCategoryAssignClick = (e: React.MouseEvent) =>
+    handleAction(() => onCategoryAssign(job), e);
+
+  const handleWorkflowInitClick = (e: React.MouseEvent) =>
+    handleAction(() => onWorkflowInit(job), e);
+
+  const handleDeleteClick = (e: React.MouseEvent) =>
+    handleAction(() => onDeleteJob(job.id), e);
+
+  const handlePartAssignmentClick = (e: React.MouseEvent) =>
+    handleAction(() => onPartAssignment?.(job), e);
+
+  const handleQRCodeClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('QR Code action for job:', job.id);
+    // TODO: Implement QR code functionality
   };
 
   return (
-    <TableRow>
-      <TableCell>
+    <TableRow className={`
+      ${isOverdue ? 'bg-red-50 border-red-100' : ''}
+      ${isDueSoon ? 'bg-orange-50 border-orange-100' : ''}
+      hover:bg-gray-50 transition-colors
+    `}>
+      <TableCell className="px-2">
         <Checkbox
           checked={isSelected}
           onCheckedChange={(checked) => onSelectJob(job, checked as boolean)}
         />
       </TableCell>
-      <TableCell className="font-medium">{job.wo_no}</TableCell>
-      <TableCell>{job.customer}</TableCell>
-      <TableCell>{job.reference}</TableCell>
+      
+      <TableCell className="font-medium text-sm">{job.wo_no}</TableCell>
+      
+      <TableCell className="text-sm">{job.customer || 'No customer'}</TableCell>
+      
+      <TableCell className="text-sm">{job.reference || '-'}</TableCell>
+      
+      <TableCell className="text-sm">{job.qty || '-'}</TableCell>
+      
       <TableCell>
-        <Badge className={getStatusBadge(job.status)}>
-          {job.status}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        {job.category_name && (
-          <Badge 
-            variant="outline"
-            style={{ backgroundColor: job.category_color, color: '#1f2937' }}
-          >
-            {job.category_name}
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell>
-        {job.current_stage_name && (
-          <Badge 
-            variant="outline"
-            style={getStageBadge(job.current_stage_name, job.current_stage_color)}
-          >
-            {job.current_stage_name}
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell>{formatDate(job.due_date)}</TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {job.completed_stages}/{job.total_stages}
-          </span>
-          <div className="w-16 bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full"
-              style={{ width: `${job.workflow_progress}%` }}
-            />
+        {job.category ? (
+          <div className="flex items-center space-x-1">
+            <Badge variant="outline" className="text-xs">{job.category}</Badge>
+            {job.has_custom_workflow && (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                <Settings className="h-3 w-3 mr-1" />
+                Custom
+              </Badge>
+            )}
           </div>
-        </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleCategoryAssignClick}
+            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+          >
+            Assign
+          </Button>
+        )}
       </TableCell>
+      
+      <TableCell>{getStatusBadge(job.status)}</TableCell>
+      
       <TableCell>
-        <DropdownMenu>
+        <span className={`text-sm ${
+          isOverdue ? 'text-red-600 font-medium' : 
+          isDueSoon ? 'text-orange-600 font-medium' : 
+          'text-gray-600'
+        }`}>
+          {formatDate(job.due_date)}
+        </span>
+      </TableCell>
+      
+      <TableCell>
+        {job.current_stage ? (
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs">
+              {job.current_stage}
+            </Badge>
+            {job.workflow_progress && (
+              <span className="text-xs text-gray-500">
+                {job.workflow_progress.completed}/{job.workflow_progress.total}
+              </span>
+            )}
+          </div>
+        ) : job.has_workflow ? (
+          <span className="text-xs text-gray-500">No active stage</span>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleWorkflowInitClick}
+            className="h-6 px-2 text-xs text-green-600 hover:text-green-700"
+          >
+            <Play className="h-3 w-3 mr-1" />
+            Init
+          </Button>
+        )}
+      </TableCell>
+      
+      <TableCell>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <MoreHorizontal className="h-3 w-3" />
+              <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEditJob(job)}>
-              <Edit className="h-4 w-4 mr-2" />
+          <DropdownMenuContent align="end" className="w-48" sideOffset={5}>
+            <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
+            
+            <DropdownMenuItem onClick={handleEditClick} className="text-xs cursor-pointer">
+              <Edit className="h-3 w-3 mr-2" />
               Edit Job
             </DropdownMenuItem>
             
-            {!job.category_id && (
-              <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
-                <Play className="h-4 w-4 mr-2" />
+            <DropdownMenuItem onClick={handleQRCodeClick} className="text-xs cursor-pointer">
+              <QrCode className="h-3 w-3 mr-2" />
+              QR Code
+            </DropdownMenuItem>
+            
+            {onPartAssignment && (
+              <DropdownMenuItem onClick={handlePartAssignmentClick} className="text-xs cursor-pointer">
+                <Package className="h-3 w-3 mr-2" />
+                Assign Parts
+              </DropdownMenuItem>
+            )}
+            
+            {!job.category && (
+              <DropdownMenuItem onClick={handleCategoryAssignClick} className="text-xs cursor-pointer">
+                <FolderOpen className="h-3 w-3 mr-2" />
                 Assign Category
               </DropdownMenuItem>
             )}
             
-            {!job.category_id && (
-              <DropdownMenuItem onClick={() => onWorkflowInit(job)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Initialize Workflow
-              </DropdownMenuItem>
-            )}
-            
-            {job.category_id && onPartAssignment && (
-              <DropdownMenuItem onClick={() => onPartAssignment(job)}>
-                <Package className="h-4 w-4 mr-2" />
-                Assign Parts
+            {!job.has_workflow && (
+              <DropdownMenuItem onClick={handleWorkflowInitClick} className="text-xs cursor-pointer">
+                <Play className="h-3 w-3 mr-2" />
+                {job.category ? 'Initialize Workflow' : 'Create Workflow'}
               </DropdownMenuItem>
             )}
             
             <DropdownMenuSeparator />
             
             <DropdownMenuItem 
-              onClick={() => onDeleteJob(job.id)}
-              className="text-red-600 hover:text-red-700"
+              onClick={handleDeleteClick} 
+              onSelect={(e) => e.preventDefault()}
+              className="text-xs text-red-600 hover:text-red-700 cursor-pointer"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Job
+              <Trash2 className="h-3 w-3 mr-2" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
