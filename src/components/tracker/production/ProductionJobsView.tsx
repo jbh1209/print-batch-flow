@@ -1,11 +1,11 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Play, CheckCircle, Package, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { BatchAllocationIndicator } from "./BatchAllocationIndicator";
+import { EnhancedProductionJobCard } from "./EnhancedProductionJobCard";
+import { SpecificationFilter, SpecificationFilters } from "../common/SpecificationFilter";
 import { useUnifiedBatchWorkflow } from "@/hooks/batch/useUnifiedBatchWorkflow";
 
 interface ProductionJobsViewProps {
@@ -14,6 +14,7 @@ interface ProductionJobsViewProps {
   isLoading: boolean;
   onJobClick: (job: AccessibleJob) => void;
   onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
+  onAssignParts?: (job: AccessibleJob) => void;
 }
 
 export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
@@ -21,39 +22,38 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   selectedStage,
   isLoading,
   onJobClick,
-  onStageAction
+  onStageAction,
+  onAssignParts
 }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [specFilters, setSpecFilters] = useState<SpecificationFilters>({});
   const { completeBatchProcessing, isProcessing } = useUnifiedBatchWorkflow();
 
-  const handleAdvanceToPrinting = async (jobId: string) => {
-    const success = await completeBatchProcessing(jobId);
-    if (success) {
-      // This will trigger a refresh of the jobs list
-      window.location.reload();
-    }
+  // Extract available specifications for filtering
+  const availableSpecs = {
+    sizes: Array.from(new Set(jobs.map(j => j.size).filter(Boolean))),
+    paperTypes: [],
+    paperWeights: [],
+    laminations: []
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'batch allocation':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'in batch processing':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'ready to print':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'in progress':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'batch complete':
-        return 'bg-purple-100 text-purple-800 border-purple-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+  // Filter jobs based on search and specifications
+  const filteredJobs = jobs.filter(job => {
+    // Search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        job.wo_no?.toLowerCase().includes(searchLower) ||
+        job.customer?.toLowerCase().includes(searchLower) ||
+        job.reference?.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
     }
-  };
 
-  const isBatchRelatedStatus = (status: string) => {
-    const batchStatuses = ['batch allocation', 'in batch processing', 'batch complete'];
-    return batchStatuses.includes(status.toLowerCase());
-  };
+    // Specification filters would go here
+    // For now, just return true as we'd need to integrate with job specifications
+
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -64,125 +64,65 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
     );
   }
 
-  if (jobs.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        {selectedStage ? `No jobs found for ${selectedStage} stage` : 'No jobs found'}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-1">
-      {jobs.map((job) => {
-        const isBatchStatus = isBatchRelatedStatus(job.status);
+    <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search jobs, customers, references..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
         
-        return (
-          <div
-            key={job.job_id}
-            className="flex gap-4 items-center p-2 hover:bg-gray-50 border-b cursor-pointer"
-            onClick={() => onJobClick(job)}
-          >
-            {/* Due Date Indicator */}
-            <div className="w-8 text-center">
-              {job.due_date && (
-                <div className="text-xs">
-                  {new Date(job.due_date) < new Date() ? (
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                  ) : (
-                    <div className="text-gray-400">
-                      {Math.ceil((new Date(job.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}d
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+        <SpecificationFilter
+          onFilterChange={setSpecFilters}
+          availableSpecs={availableSpecs}
+        />
+      </div>
 
-            {/* Job Info */}
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate">
-                {job.wo_no} - {job.customer || 'Unknown Customer'}
-              </div>
-              <div className="text-xs text-gray-500 truncate">
-                {job.reference || 'No reference'}
-              </div>
-            </div>
+      {/* Jobs Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">
+          {selectedStage ? `${selectedStage} Stage` : 'All Jobs'} ({filteredJobs.length})
+        </h3>
+        {selectedStage && (
+          <p className="text-sm text-gray-600">
+            Jobs currently in the {selectedStage} production stage
+          </p>
+        )}
+      </div>
 
-            {/* Due Date */}
-            <div className="w-32 text-xs text-gray-600">
-              {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'No due date'}
-            </div>
-
-            {/* Current Stage / Batch Status */}
-            <div className="w-40">
-              {isBatchStatus ? (
-                <BatchAllocationIndicator
-                  jobId={job.job_id}
-                  woNo={job.wo_no}
-                  batchCategory={job.batch_category}
-                  status={job.status}
-                  onAdvanceToPrinting={handleAdvanceToPrinting}
-                  isProcessing={isProcessing}
-                />
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant="outline" 
-                    className={getStatusBadgeColor(job.status)}
-                  >
-                    {job.display_stage_name || job.current_stage_name || job.status || 'Unknown Stage'}
-                  </Badge>
-                  {job.status === 'In Batch Processing' && (
-                    <div className="relative">
-                      <Package className="h-4 w-4 text-blue-600" />
-                      <span className="sr-only">In Batch Processing</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Progress */}
-            <div className="w-24 text-xs text-center">
-              {job.workflow_progress ? `${job.workflow_progress}%` : 'N/A'}
-            </div>
-
-            {/* Actions */}
-            <div className="w-24 flex justify-end">
-              {!isBatchStatus && job.current_stage_id && (
-                <div className="flex gap-1">
-                  {job.current_stage_status === 'pending' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onStageAction(job.job_id, job.current_stage_id!, 'start');
-                      }}
-                      className="h-6 px-2 text-xs"
-                    >
-                      <Play className="h-3 w-3" />
-                    </Button>
-                  )}
-                  {job.current_stage_status === 'active' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onStageAction(job.job_id, job.current_stage_id!, 'complete');
-                      }}
-                      className="h-6 px-2 text-xs"
-                    >
-                      <CheckCircle className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {/* Jobs Grid */}
+      {filteredJobs.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <p className="text-lg font-medium mb-2">No jobs found</p>
+          <p className="text-sm">
+            {searchTerm || Object.keys(specFilters).length > 0 
+              ? 'Try adjusting your search terms or filters.' 
+              : selectedStage 
+                ? `No jobs found for ${selectedStage} stage` 
+                : 'No jobs found'
+            }
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredJobs.map((job) => (
+            <EnhancedProductionJobCard
+              key={job.job_id}
+              job={job}
+              onJobClick={onJobClick}
+              onStageAction={onStageAction}
+              onAssignParts={onAssignParts}
+              showDetails={true}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

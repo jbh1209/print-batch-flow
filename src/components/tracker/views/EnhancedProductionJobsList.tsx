@@ -2,11 +2,14 @@
 import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCustomWorkflowStatus } from "@/hooks/tracker/useCustomWorkflowStatus";
 import { useJobRowColors } from "@/hooks/tracker/useJobRowColors";
 import { BulkActionsBar } from "./components/BulkActionsBar";
 import { JobRow } from "./components/JobRow";
+import { SpecificationFilter, SpecificationFilters } from "../common/SpecificationFilter";
 
 interface EnhancedProductionJobsListProps {
   jobs: AccessibleJob[];
@@ -21,7 +24,7 @@ interface EnhancedProductionJobsListProps {
   onBulkDelete: (selectedJobs: AccessibleJob[]) => void;
   onGenerateBarcodes: (selectedJobs: AccessibleJob[]) => void;
   onBulkMarkCompleted?: (selectedJobs: AccessibleJob[]) => void;
-  onAssignParts?: (job: AccessibleJob) => void; // Added for part assignment functionality
+  onAssignParts?: (job: AccessibleJob) => void;
   isAdmin?: boolean;
   searchQuery?: string;
 }
@@ -39,11 +42,13 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   onBulkDelete,
   onGenerateBarcodes,
   onBulkMarkCompleted,
-  onAssignParts, // Added for part assignment functionality
+  onAssignParts,
   isAdmin = false,
-  searchQuery = ''
+  searchQuery: initialSearchQuery = ''
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [specFilters, setSpecFilters] = useState<SpecificationFilters>({});
 
   // Get job IDs that might need custom workflow status check
   const jobIdsForCustomWorkflowCheck = useMemo(() => {
@@ -58,6 +63,43 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   // Use the custom hook to get row colors
   const jobRowColors = useJobRowColors(jobs);
 
+  // Extract available specifications for filtering
+  const availableSpecs = useMemo(() => {
+    return {
+      sizes: Array.from(new Set(jobs.map(j => j.size).filter(Boolean))),
+      paperTypes: [],
+      paperWeights: [],
+      laminations: []
+    };
+  }, [jobs]);
+
+  // Filter jobs based on search and specifications
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(job => {
+      // Search filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch = 
+          job.wo_no?.toLowerCase().includes(searchLower) ||
+          job.customer?.toLowerCase().includes(searchLower) ||
+          job.reference?.toLowerCase().includes(searchLower) ||
+          job.category_name?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Specification filters
+      if (specFilters.searchTerm) {
+        const searchLower = specFilters.searchTerm.toLowerCase();
+        const matchesSpecSearch = 
+          job.wo_no?.toLowerCase().includes(searchLower) ||
+          job.customer?.toLowerCase().includes(searchLower);
+        if (!matchesSpecSearch) return false;
+      }
+
+      return true;
+    });
+  }, [jobs, searchQuery, specFilters]);
+
   const handleSelectJob = (job: AccessibleJob, checked: boolean) => {
     if (checked) {
       setSelectedJobs(prev => [...prev, job]);
@@ -68,7 +110,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedJobs(jobs);
+      setSelectedJobs(filteredJobs);
     } else {
       setSelectedJobs([]);
     }
@@ -98,6 +140,24 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   return (
     <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search jobs, customers, references..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <SpecificationFilter
+          onFilterChange={setSpecFilters}
+          availableSpecs={availableSpecs}
+        />
+      </div>
+
       {/* Bulk Actions Bar */}
       <BulkActionsBar
         selectedJobs={selectedJobs}
@@ -109,7 +169,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
         onBulkDelete={onBulkDelete}
         onClearSelection={clearSelection}
         isAdmin={isAdmin}
-        allVisibleJobs={jobs}
+        allVisibleJobs={filteredJobs}
         searchQuery={searchQuery}
         onSelectAllVisible={handleSelectAllVisible}
       />
@@ -118,37 +178,49 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Production Jobs Overview</CardTitle>
+            <CardTitle>Production Jobs Overview ({filteredJobs.length})</CardTitle>
             <div className="flex items-center gap-2">
               <Checkbox
-                checked={selectedJobs.length === jobs.length && jobs.length > 0}
+                checked={selectedJobs.length === filteredJobs.length && filteredJobs.length > 0}
                 onCheckedChange={handleSelectAll}
-                disabled={jobs.length === 0}
+                disabled={filteredJobs.length === 0}
               />
               <span className="text-sm text-gray-600">Select All</span>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {jobs.map((job) => (
-              <JobRow
-                key={job.job_id}
-                job={job}
-                isSelected={isSelected(job)}
-                hasCustomWorkflow={hasCustomWorkflow(job)}
-                rowColorClass={jobRowColors[job.job_id] || ''}
-                onSelectJob={handleSelectJob}
-                onStartJob={onStartJob}
-                onCompleteJob={onCompleteJob}
-                onEditJob={onEditJob}
-                onCategoryAssign={onCategoryAssign}
-                onCustomWorkflow={onCustomWorkflow}
-                onDeleteJob={onDeleteJob}
-                onAssignParts={onAssignParts} // Added for part assignment functionality
-              />
-            ))}
-          </div>
+          {filteredJobs.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="text-lg font-medium mb-2">No jobs found</p>
+              <p className="text-sm">
+                {searchQuery || Object.keys(specFilters).length > 0
+                  ? 'Try adjusting your search terms or filters.'
+                  : 'No jobs match the current criteria.'
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredJobs.map((job) => (
+                <JobRow
+                  key={job.job_id}
+                  job={job}
+                  isSelected={isSelected(job)}
+                  hasCustomWorkflow={hasCustomWorkflow(job)}
+                  rowColorClass={jobRowColors[job.job_id] || ''}
+                  onSelectJob={handleSelectJob}
+                  onStartJob={onStartJob}
+                  onCompleteJob={onCompleteJob}
+                  onEditJob={onEditJob}
+                  onCategoryAssign={onCategoryAssign}
+                  onCustomWorkflow={onCustomWorkflow}
+                  onDeleteJob={onDeleteJob}
+                  onAssignParts={onAssignParts}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
