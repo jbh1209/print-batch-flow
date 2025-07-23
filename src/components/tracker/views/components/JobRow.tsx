@@ -13,13 +13,11 @@ import {
 import { 
   MoreHorizontal, 
   Edit, 
-  Tag, 
+  Tags, 
   Settings, 
-  Trash2, 
-  Play, 
-  CheckCircle,
-  Package
+  Trash2
 } from "lucide-react";
+import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface JobRowProps {
@@ -33,7 +31,6 @@ interface JobRowProps {
   onEditJob: (job: AccessibleJob) => void;
   onCategoryAssign: (job: AccessibleJob) => void;
   onCustomWorkflow: (job: AccessibleJob) => void;
-  onAssignParts: (job: AccessibleJob) => void;
   onDeleteJob: (jobId: string) => void;
 }
 
@@ -48,129 +45,105 @@ export const JobRow: React.FC<JobRowProps> = ({
   onEditJob,
   onCategoryAssign,
   onCustomWorkflow,
-  onAssignParts,
   onDeleteJob
 }) => {
-  const handleStartJob = async () => {
-    if (job.current_stage_id) {
-      await onStartJob(job.job_id, job.current_stage_id);
-    }
-  };
-
-  const handleCompleteJob = async () => {
-    if (job.current_stage_id) {
-      await onCompleteJob(job.job_id, job.current_stage_id);
-    }
-  };
-
   return (
-    <div className={`border rounded-lg p-4 hover:bg-gray-50 ${rowColorClass}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={(checked) => onSelectJob(job, checked as boolean)}
-          />
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium">{job.wo_no}</span>
-              <Badge variant="outline" className="text-xs">
-                {job.customer}
+    <div 
+      className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors ${
+        isSelected ? 'bg-blue-50 border-blue-200' : rowColorClass
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(checked) => onSelectJob(job, checked as boolean)}
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h4 className="font-medium text-lg">{job.wo_no}</h4>
+            {hasCustomWorkflow ? (
+              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                <Settings className="h-3 w-3 mr-1" />
+                Custom Workflow
               </Badge>
-              {hasCustomWorkflow && (
-                <Badge variant="secondary" className="text-xs">
-                  Custom Workflow
-                </Badge>
-              )}
-            </div>
-            
-            <div className="text-sm text-gray-600 mb-2">
-              {job.reference} • Qty: {job.qty}
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm">
-              <Badge 
-                style={{ backgroundColor: job.category_color }}
-                className="text-white"
-              >
+            ) : job.category_name && job.category_name !== 'No Category' ? (
+              <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
                 {job.category_name}
               </Badge>
-              <Badge 
-                variant="outline" 
-                style={{ borderColor: job.current_stage_color }}
-              >
-                {job.display_stage_name}
+            ) : (
+              <Badge variant="outline" className="text-gray-600">
+                No Category
               </Badge>
-              <span className="text-gray-500">
-                Progress: {job.completed_stages}/{job.total_stages}
-              </span>
-            </div>
+            )}
+            {job.current_stage_name && (
+              <Badge 
+                variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
+                style={{ 
+                  backgroundColor: job.current_stage_status === 'active' ? job.current_stage_color || '#22C55E' : 'transparent',
+                  borderColor: job.current_stage_color || '#6B7280',
+                  color: job.current_stage_status === 'active' ? 'white' : job.current_stage_color || '#6B7280'
+                }}
+              >
+                {job.current_stage_name}
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-xs">
+              {job.workflow_progress}% Complete
+            </Badge>
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            <span>Customer: {job.customer || 'Unknown'}</span>
+            {job.due_date && (
+              <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
+            )}
+            {job.reference && (
+              <span> • Reference: {job.reference}</span>
+            )}
+            <span> • Stages: {job.completed_stages}/{job.total_stages}</span>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          {job.current_stage_status === 'pending' && job.user_can_work && (
-            <Button
-              size="sm"
-              onClick={handleStartJob}
-              className="flex items-center gap-1"
-            >
-              <Play className="h-3 w-3" />
-              Start
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <JobActionButtons
+          job={job}
+          onStart={onStartJob}
+          onComplete={onCompleteJob}
+        />
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          
-          {job.current_stage_status === 'active' && job.user_can_work && (
-            <Button
-              size="sm"
-              onClick={handleCompleteJob}
-              className="flex items-center gap-1"
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => onEditJob(job)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Job
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
+              <Tags className="h-4 w-4 mr-2" />
+              Assign Category
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => onCustomWorkflow(job)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Custom Workflow
+            </DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            
+            <DropdownMenuItem 
+              onClick={() => onDeleteJob(job.job_id)}
+              className="text-red-600 focus:text-red-600"
             >
-              <CheckCircle className="h-3 w-3" />
-              Complete
-            </Button>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEditJob(job)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Job
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
-                <Tag className="h-4 w-4 mr-2" />
-                Assign Category
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => onCustomWorkflow(job)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Custom Workflow
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => onAssignParts(job)}>
-                <Package className="h-4 w-4 mr-2" />
-                Assign Parts
-              </DropdownMenuItem>
-              
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem 
-                onClick={() => onDeleteJob(job.job_id)}
-                className="text-red-600"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Job
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

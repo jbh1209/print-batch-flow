@@ -15,7 +15,6 @@ interface EnhancedProductionJobsListProps {
   onEditJob: (job: AccessibleJob) => void;
   onCategoryAssign: (job: AccessibleJob) => void;
   onCustomWorkflow: (job: AccessibleJob) => void;
-  onAssignParts: (job: AccessibleJob) => void;
   onDeleteJob: (jobId: string) => void;
   onBulkCategoryAssign: (selectedJobs: AccessibleJob[]) => void;
   onBulkStatusUpdate: (selectedJobs: AccessibleJob[], status: string) => void;
@@ -33,7 +32,6 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   onEditJob,
   onCategoryAssign,
   onCustomWorkflow,
-  onAssignParts,
   onDeleteJob,
   onBulkCategoryAssign,
   onBulkStatusUpdate,
@@ -144,7 +142,6 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                 onEditJob={onEditJob}
                 onCategoryAssign={onCategoryAssign}
                 onCustomWorkflow={onCustomWorkflow}
-                onAssignParts={onAssignParts}
                 onDeleteJob={onDeleteJob}
               />
             ))}

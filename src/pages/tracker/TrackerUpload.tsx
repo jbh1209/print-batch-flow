@@ -3,7 +3,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import ExcelUpload from "@/components/tracker/ExcelUpload";
+import { ExcelUpload } from "@/components/tracker/ExcelUpload";
 
 const TrackerUpload = () => {
   return (
