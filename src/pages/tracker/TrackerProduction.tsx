@@ -49,20 +49,25 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Enhanced filtering to handle batch processing jobs
+  // Enhanced filtering to handle batch processing jobs and parallel stages
   const filteredJobs = useMemo(() => {
     if (!selectedStageName) {
       return jobs;
     }
 
     return jobs.filter(job => {
-      const currentStage = job.current_stage_name || job.display_stage_name;
-      
       // Special handling for batch processing
       if (selectedStageName === 'In Batch Processing') {
         return job.status === 'In Batch Processing';
       }
       
+      // Check if job should appear in this stage based on parallel stages
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        return job.parallel_stages.some(stage => stage.stage_name === selectedStageName);
+      }
+      
+      // Fallback to original logic for jobs without parallel stage data
+      const currentStage = job.current_stage_name || job.display_stage_name;
       return currentStage === selectedStageName;
     });
   }, [jobs, selectedStageName]);
@@ -91,12 +96,22 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Enhanced stages to include batch processing
+  // Enhanced stages to include batch processing and parallel stages
   const consolidatedStages = useMemo(() => {
     const stageMap = new Map();
     
     jobs.forEach(job => {
-      if (job.current_stage_id && job.current_stage_name) {
+      // Add parallel stages from each job
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        job.parallel_stages.forEach(stage => {
+          stageMap.set(stage.stage_id, {
+            stage_id: stage.stage_id,
+            stage_name: stage.stage_name,
+            stage_color: stage.stage_color || '#6B7280'
+          });
+        });
+      } else if (job.current_stage_id && job.current_stage_name) {
+        // Fallback for jobs without parallel stage data
         stageMap.set(job.current_stage_id, {
           stage_id: job.current_stage_id,
           stage_name: job.current_stage_name,

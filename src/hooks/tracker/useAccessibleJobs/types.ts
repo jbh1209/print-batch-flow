@@ -1,5 +1,13 @@
 
 
+export interface ParallelStageInfo {
+  stage_id: string;
+  stage_name: string;
+  stage_color: string;
+  stage_status: string;
+  stage_order: number;
+}
+
 export interface AccessibleJob {
   job_id: string;
   id: string;
@@ -36,6 +44,9 @@ export interface AccessibleJob {
   is_batch_master?: boolean;
   batch_name?: string | null;
   constituent_job_count?: number;
+  // Parallel stages support
+  parallel_stages?: ParallelStageInfo[];
+  current_stage_order?: number;
 }
 
 export interface UseAccessibleJobsOptions {
