@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
+import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 
 interface OperatorJobCardProps {
   job: AccessibleJob;
@@ -67,7 +68,14 @@ export const OperatorJobCard: React.FC<OperatorJobCardProps> = ({
                 <h3 className="font-semibold text-lg truncate">{job.wo_no}</h3>
               </div>
               {job.current_stage_name && (
-                <p className="text-sm text-gray-600 mt-1">{job.current_stage_name}</p>
+                <div className="mt-1">
+                  <p className="text-sm text-gray-600 mb-1">{job.current_stage_name}</p>
+                  <SubSpecificationBadge 
+                    jobId={job.job_id}
+                    stageId={job.current_stage_id}
+                    compact={true}
+                  />
+                </div>
               )}
             </div>
             <div className="flex-shrink-0">

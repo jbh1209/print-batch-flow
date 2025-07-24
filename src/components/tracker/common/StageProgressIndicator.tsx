@@ -3,6 +3,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Clock, Play, AlertCircle } from "lucide-react";
+import { SubSpecificationBadge } from "./SubSpecificationBadge";
 
 interface StageInfo {
   id: string;
@@ -18,6 +19,7 @@ interface StageProgressIndicatorProps {
   workflowProgress?: number;
   compact?: boolean;
   showPartInfo?: boolean;
+  jobId?: string;
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export const StageProgressIndicator: React.FC<StageProgressIndicatorProps> = ({
   workflowProgress = 0,
   compact = false,
   showPartInfo = true,
+  jobId,
   className = ""
 }) => {
   const getStageIcon = (status: string, isCurrent: boolean) => {
@@ -101,22 +104,34 @@ export const StageProgressIndicator: React.FC<StageProgressIndicatorProps> = ({
           const isCurrent = stage.id === currentStageId || stage.status === 'active';
           
           return (
-            <div key={stage.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {getStageIcon(stage.status, isCurrent)}
-                <span className="text-sm">{stage.name}</span>
-                {showPartInfo && stage.part_name && (
-                  <Badge variant="outline" className="text-xs">
-                    {stage.part_name}
-                  </Badge>
-                )}
+            <div key={stage.id} className="space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getStageIcon(stage.status, isCurrent)}
+                  <span className="text-sm">{stage.name}</span>
+                  {showPartInfo && stage.part_name && (
+                    <Badge variant="outline" className="text-xs">
+                      {stage.part_name}
+                    </Badge>
+                  )}
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${getStageColor(stage.status, isCurrent)}`}
+                >
+                  {stage.status}
+                </Badge>
               </div>
-              <Badge 
-                variant="outline" 
-                className={`text-xs ${getStageColor(stage.status, isCurrent)}`}
-              >
-                {stage.status}
-              </Badge>
+              {jobId && (
+                <div className="ml-5">
+                  <SubSpecificationBadge 
+                    jobId={jobId}
+                    stageId={stage.id}
+                    compact={true}
+                    className="text-xs"
+                  />
+                </div>
+              )}
             </div>
           );
         })}

@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
+import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 
 interface MasterOrderModalProps {
   isOpen: boolean;
@@ -380,23 +381,31 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                           onClick={() => setSelectedStageId(selectedStageId === stage.id ? null : stage.id)}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {getStageStatusIcon(stage.status)}
-                              <div>
-                                <h4 className="font-medium">{stage.production_stage.name}</h4>
-                                {stage.part_name && (
-                                  <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
-                                )}
-                                {stage.quantity && (
-                                  <p className="text-sm text-gray-600">Qty: {stage.quantity.toLocaleString()}</p>
-                                )}
-                                {stage.estimated_duration_minutes && (
-                                  <p className="text-xs text-blue-600 font-medium">
-                                    Est. {Math.floor(stage.estimated_duration_minutes / 60)}h {stage.estimated_duration_minutes % 60}m
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                             <div className="flex items-center gap-3">
+                               {getStageStatusIcon(stage.status)}
+                               <div className="flex-1">
+                                 <div className="flex items-center gap-2 mb-1">
+                                   <h4 className="font-medium">{stage.production_stage.name}</h4>
+                                   <SubSpecificationBadge 
+                                     jobId={job.job_id}
+                                     stageId={stage.production_stage_id}
+                                     compact={true}
+                                     className="ml-2"
+                                   />
+                                 </div>
+                                 {stage.part_name && (
+                                   <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
+                                 )}
+                                 {stage.quantity && (
+                                   <p className="text-sm text-gray-600">Qty: {stage.quantity.toLocaleString()}</p>
+                                 )}
+                                 {stage.estimated_duration_minutes && (
+                                   <p className="text-xs text-blue-600 font-medium">
+                                     Est. {Math.floor(stage.estimated_duration_minutes / 60)}h {stage.estimated_duration_minutes % 60}m
+                                   </p>
+                                 )}
+                               </div>
+                             </div>
                             <div className="flex items-center gap-3">
                               <Badge className={getStageStatusColor(stage.status)}>
                                 {stage.status}

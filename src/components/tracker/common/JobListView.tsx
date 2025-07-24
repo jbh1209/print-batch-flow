@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Play, CheckCircle, Clock, User, Calendar, Package } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
+import { SubSpecificationBadge } from "./SubSpecificationBadge";
 
 interface JobListViewProps {
   jobs: AccessibleJob[];
@@ -45,21 +46,26 @@ export const JobListView: React.FC<JobListViewProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3">
-                    <h4 className="font-medium text-sm">{job.wo_no}</h4>
-                    <Badge 
-                      variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
-                      className="text-xs px-1.5 py-0.5"
-                    >
-                      {job.current_stage_name}
-                    </Badge>
-                    <Badge 
-                      variant={job.current_stage_status === 'active' ? 'success' : 'outline'}
-                      className="text-xs px-1.5 py-0.5"
-                    >
-                      {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
-                    </Badge>
-                  </div>
+                   <div className="flex items-center gap-3 flex-wrap">
+                     <h4 className="font-medium text-sm">{job.wo_no}</h4>
+                     <Badge 
+                       variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+                       className="text-xs px-1.5 py-0.5"
+                     >
+                       {job.current_stage_name}
+                     </Badge>
+                     <Badge 
+                       variant={job.current_stage_status === 'active' ? 'success' : 'outline'}
+                       className="text-xs px-1.5 py-0.5"
+                     >
+                       {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
+                     </Badge>
+                     <SubSpecificationBadge 
+                       jobId={job.job_id}
+                       stageId={job.current_stage_id}
+                       compact={true}
+                     />
+                   </div>
                   
                   <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
                     <div className="flex items-center gap-1">

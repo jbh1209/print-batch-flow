@@ -10,6 +10,7 @@ import {
   Hash
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 
 interface JobOverviewCardProps {
   job: AccessibleJob;
@@ -85,6 +86,21 @@ export const JobOverviewCard: React.FC<JobOverviewCardProps> = ({ job }) => {
             </div>
           </div>
         </div>
+
+        {/* Current Stage Specifications */}
+        {job.current_stage_name && job.current_stage_id && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium">Current Stage:</span>
+              <span className="font-bold">{job.current_stage_name}</span>
+            </div>
+            <SubSpecificationBadge 
+              jobId={job.job_id}
+              stageId={job.current_stage_id}
+              compact={false}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

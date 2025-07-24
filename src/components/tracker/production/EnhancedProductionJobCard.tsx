@@ -130,6 +130,7 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
           workflowProgress={job.workflow_progress}
           compact={true}
           showPartInfo={true}
+          jobId={job.job_id}
         />
 
         {/* Current Stage Sub-Specifications */}
