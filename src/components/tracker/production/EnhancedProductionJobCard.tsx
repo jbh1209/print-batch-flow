@@ -24,9 +24,11 @@ import { PartAssignmentIndicator } from "../common/PartAssignmentIndicator";
 import { StageProgressIndicator } from "../common/StageProgressIndicator";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { getStageContextForJob, canStartContextStage, canCompleteContextStage } from "@/utils/stageContextUtils";
 
 interface EnhancedProductionJobCardProps {
   job: AccessibleJob;
+  contextStageName?: string | null;
   onJobClick?: (job: AccessibleJob) => void;
   onStageAction?: (jobId: string, stageId: string, action: 'start' | 'complete') => void;
   onAssignParts?: (job: AccessibleJob) => void;
@@ -35,6 +37,7 @@ interface EnhancedProductionJobCardProps {
 
 export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps> = ({
   job,
+  contextStageName,
   onJobClick,
   onStageAction,
   onAssignParts,
@@ -44,8 +47,10 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
-  const canStart = job.user_can_work && job.current_stage_status === 'pending';
-  const canComplete = job.user_can_work && job.current_stage_status === 'active';
+  // Get stage context for this job
+  const stageContext = getStageContextForJob(job, contextStageName);
+  const canStart = canStartContextStage(job, stageContext);
+  const canComplete = canCompleteContextStage(job, stageContext);
 
   return (
     <Card 
@@ -60,8 +65,8 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <Badge 
-                variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+            <Badge 
+                variant={stageContext.stageStatus === 'active' ? 'default' : 'secondary'}
                 className="font-semibold"
               >
                 {job.wo_no}
@@ -126,7 +131,7 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
         {/* Stage Progress */}
         <StageProgressIndicator
           stages={[]} // Would need to pass actual stage data
-          currentStageId={job.current_stage_id}
+          currentStageId={stageContext.stageId}
           workflowProgress={job.workflow_progress}
           compact={true}
           showPartInfo={true}
@@ -135,10 +140,12 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
 
         {/* Current Stage Sub-Specifications */}
         <div className="space-y-2">
-          <div className="text-xs font-medium text-gray-600">Current Stage Details:</div>
+          <div className="text-xs font-medium text-gray-600">
+            {stageContext.stageName} Details:
+          </div>
           <SubSpecificationBadge 
             jobId={job.job_id}
-            stageId={job.current_stage_id}
+            stageId={stageContext.stageId}
             compact={false}
           />
         </div>
@@ -160,12 +167,12 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2 border-t">
-          {canStart && job.current_stage_id && (
+          {canStart && stageContext.stageId && (
             <Button 
               size="sm" 
               onClick={(e) => {
                 e.stopPropagation();
-                onStageAction?.(job.job_id, job.current_stage_id!, 'start');
+                onStageAction?.(job.job_id, stageContext.stageId, 'start');
               }}
               className="flex-1"
             >
@@ -174,12 +181,12 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
             </Button>
           )}
           
-          {canComplete && job.current_stage_id && (
+          {canComplete && stageContext.stageId && (
             <Button 
               size="sm" 
               onClick={(e) => {
                 e.stopPropagation();
-                onStageAction?.(job.job_id, job.current_stage_id!, 'complete');
+                onStageAction?.(job.job_id, stageContext.stageId, 'complete');
               }}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
@@ -190,7 +197,7 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
           
           {!canStart && !canComplete && (
             <div className="text-xs text-gray-500 text-center flex-1 py-2">
-              {job.current_stage_status === 'completed' ? 'Stage Completed' : 'Waiting'}
+              {stageContext.stageStatus === 'completed' ? 'Stage Completed' : 'Waiting'}
             </div>
           )}
         </div>

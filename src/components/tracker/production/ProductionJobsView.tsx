@@ -121,6 +121,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
             <EnhancedProductionJobCard
               key={job.job_id}
               job={job}
+              contextStageName={selectedStage}
               onJobClick={onJobClick}
               onStageAction={onStageAction}
               onAssignParts={onAssignParts}
@@ -131,6 +132,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
       ) : (
         <ProductionJobsList
           jobs={filteredJobs}
+          contextStageName={selectedStage}
           onJobClick={onJobClick}
           onStageAction={onStageAction}
           onAssignParts={onAssignParts}

@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
+import { getStageContextForJob, canStartContextStage, canCompleteContextStage } from "@/utils/stageContextUtils";
 
 interface ProductionJobsListProps {
   jobs: AccessibleJob[];
+  contextStageName?: string | null;
   onJobClick: (job: AccessibleJob) => void;
   onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
   onAssignParts?: (job: AccessibleJob) => void;
@@ -27,6 +29,7 @@ interface ProductionJobsListProps {
 
 export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
   jobs,
+  contextStageName,
   onJobClick,
   onStageAction,
   onAssignParts
@@ -52,8 +55,11 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
           const isOverdue = job.due_date && new Date(job.due_date) < new Date();
           const isDueSoon = job.due_date && !isOverdue && 
             new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-          const canStart = job.user_can_work && job.current_stage_status === 'pending';
-          const canComplete = job.user_can_work && job.current_stage_status === 'active';
+          
+          // Get stage context for this job
+          const stageContext = getStageContextForJob(job, contextStageName);
+          const canStart = canStartContextStage(job, stageContext);
+          const canComplete = canCompleteContextStage(job, stageContext);
 
           return (
             <div 
@@ -68,7 +74,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
               <div className="col-span-2">
                 <div className="flex items-center gap-2">
                   <Badge 
-                    variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+                    variant={stageContext.stageStatus === 'active' ? 'default' : 'secondary'}
                     className="font-semibold"
                   >
                     {job.wo_no}
@@ -118,7 +124,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
               {/* Current Stage */}
               <div className="col-span-2">
                 <Badge variant="outline" className="text-xs">
-                  {job.current_stage_name || job.display_stage_name || 'Unknown Stage'}
+                  {stageContext.stageName || 'Unknown Stage'}
                 </Badge>
               </div>
 
@@ -126,7 +132,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
               <div className="col-span-3">
                 <SubSpecificationBadge 
                   jobId={job.job_id}
-                  stageId={job.current_stage_id}
+                  stageId={stageContext.stageId}
                   compact={true}
                 />
               </div>
@@ -134,25 +140,25 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
               {/* Actions */}
               <div className="col-span-1">
                 <div className="flex items-center gap-1">
-                  {canStart && job.current_stage_id && (
+                  {canStart && stageContext.stageId && (
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onStageAction(job.job_id, job.current_stage_id!, 'start');
+                        onStageAction(job.job_id, stageContext.stageId, 'start');
                       }}
                     >
                       <Play className="h-3 w-3" />
                     </Button>
                   )}
                   
-                  {canComplete && job.current_stage_id && (
+                  {canComplete && stageContext.stageId && (
                     <Button 
                       size="sm" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onStageAction(job.job_id, job.current_stage_id!, 'complete');
+                        onStageAction(job.job_id, stageContext.stageId, 'complete');
                       }}
                       className="bg-green-600 hover:bg-green-700"
                     >
