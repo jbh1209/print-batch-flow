@@ -32,7 +32,18 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
   const getJobCountForStage = (stageName: string) => {
     return jobs.filter(job => {
       const currentStage = job.current_stage_name || job.display_stage_name;
-      return currentStage === stageName;
+      
+      // Check if job's current stage matches
+      if (currentStage === stageName) {
+        return true;
+      }
+      
+      // Check if job has parallel stages that match
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        return job.parallel_stages.some(stage => stage.stage_name === stageName);
+      }
+      
+      return false;
     }).length;
   };
 
