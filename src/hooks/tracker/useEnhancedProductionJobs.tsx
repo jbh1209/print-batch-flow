@@ -71,7 +71,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
               name,
               description,
               color,
-              is_multi_part
+              supports_parts
             )
           `)
           .in('job_id', jobIds)

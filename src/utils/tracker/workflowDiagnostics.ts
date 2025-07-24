@@ -14,7 +14,7 @@ export interface WorkflowDiagnostic {
     stage_id: string;
     stage_name: string;
     stage_order: number;
-    is_multi_part: boolean;
+    supports_parts: boolean;
     expected_parts?: string[];
   }>;
   orphaned_stages: Array<{
@@ -86,8 +86,7 @@ export const runComprehensiveWorkflowDiagnostics = async (): Promise<{
               id,
               name,
               is_active,
-              is_multi_part,
-              part_definitions
+              supports_parts
             )
           )
         )
@@ -109,8 +108,7 @@ export const runComprehensiveWorkflowDiagnostics = async (): Promise<{
         production_stages (
           id,
           name,
-          is_multi_part,
-          part_definitions
+          supports_parts
         )
       `)
       .eq('job_table_name', 'production_jobs');
@@ -262,9 +260,8 @@ const analyzeCategoryWorkflowJob = (diagnostic: WorkflowDiagnostic, job: any, jo
         stage_id: expectedStage.production_stage_id,
         stage_name: stage.name,
         stage_order: expectedStage.stage_order,
-        is_multi_part: stage.is_multi_part,
-        expected_parts: stage.is_multi_part ? 
-          (Array.isArray(stage.part_definitions) ? stage.part_definitions : []) : undefined
+        supports_parts: stage.supports_parts,
+        expected_parts: stage.supports_parts ? [] : undefined
       });
     }
   });

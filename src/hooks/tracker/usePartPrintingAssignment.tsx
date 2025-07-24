@@ -91,21 +91,26 @@ export const usePartPrintingAssignment = () => {
           production_stage_id,
           production_stages!inner(
             name,
-            is_multi_part,
-            part_definitions
+            supports_parts
           )
         `)
         .eq('category_id', categoryId)
-        .eq('production_stages.is_multi_part', true);
+        .eq('production_stages.supports_parts', true);
 
       if (error) throw error;
 
-      // Extract all unique parts from multi-part stages
+      // For stages that support parts, get actual parts from job_stage_instances
+      const { data: jobStages } = await supabase
+        .from('job_stage_instances')
+        .select('part_name')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .not('part_name', 'is', null);
+
       const allParts = new Set<string>();
-      categoryStages?.forEach(stage => {
-        const stage_data = stage.production_stages as any;
-        if (stage_data.part_definitions && Array.isArray(stage_data.part_definitions)) {
-          stage_data.part_definitions.forEach((part: string) => allParts.add(part));
+      jobStages?.forEach(stage => {
+        if (stage.part_name) {
+          allParts.add(stage.part_name);
         }
       });
 

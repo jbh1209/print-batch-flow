@@ -77,8 +77,6 @@ export const MultiStageKanban = () => {
         description: 'Jobs currently being processed in BatchFlow',
         is_active: true,
         is_virtual: true,
-        is_multi_part: false,
-        part_definitions: [],
         master_queue_id: null,
         supports_parts: false,
         created_at: new Date().toISOString(),

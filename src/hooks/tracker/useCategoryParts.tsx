@@ -46,8 +46,7 @@ export const useCategoryParts = (categoryId: string | null) => {
               id,
               name,
               color,
-              is_multi_part,
-              part_definitions
+              supports_parts
             )
           `)
           .eq('category_id', categoryId);
@@ -65,40 +64,19 @@ export const useCategoryParts = (categoryId: string | null) => {
           const stageData = stage.production_stages as any;
           
           console.log(`🔧 Processing category stage "${stageData.name}":`, {
-            is_multi_part: stageData.is_multi_part,
-            part_definitions: stageData.part_definitions,
-            part_definitions_type: typeof stageData.part_definitions
+            supports_parts: stageData.supports_parts
           });
           
-          if (stageData.is_multi_part && stageData.part_definitions) {
+          if (stageData.supports_parts) {
             hasMultiPartStages = true;
             
-            let parts: string[] = [];
-            
-            // Handle different possible formats of part_definitions
-            if (Array.isArray(stageData.part_definitions)) {
-              parts = stageData.part_definitions.map((p: any) => String(p));
-            } else if (typeof stageData.part_definitions === 'string') {
-              try {
-                const parsed = JSON.parse(stageData.part_definitions);
-                if (Array.isArray(parsed)) {
-                  parts = parsed.map((p: any) => String(p));
-                }
-              } catch {
-                parts = [];
-              }
-            }
-            
-            console.log(`✅ Processed parts for "${stageData.name}":`, parts);
-            
-            parts.forEach(part => allParts.add(part));
-
-            // Add all multi-part stages, not just printing ones
+            // For stages that support parts, we'll get actual parts from job_stage_instances
+            // For now, just mark that this stage supports parts
             multiPartStages.push({
               stage_id: stageData.id,
               stage_name: stageData.name,
               stage_color: stageData.color,
-              part_types: parts
+              part_types: [] // Parts will be determined at job level
             });
           }
         });

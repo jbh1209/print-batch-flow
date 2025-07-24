@@ -5,8 +5,7 @@ export interface MasterQueueStage {
   color: string;
   order_index: number;
   is_active: boolean;
-  is_multi_part: boolean;
-  part_definitions: string[];
+  supports_parts: boolean;
   master_queue_id?: string;
   subsidiaryStages?: MasterQueueStage[];
 }
