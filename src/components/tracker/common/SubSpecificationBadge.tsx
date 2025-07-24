@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
 import { supabase } from "@/integrations/supabase/client";
+import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
@@ -74,10 +75,19 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
-  // Get paper details for display
+  // Get paper details for display - first try from job_print_specifications, then from notes
   const paperType = paperSpecs.find(spec => spec.category === 'paper_type')?.display_name;
   const paperWeight = paperSpecs.find(spec => spec.category === 'paper_weight')?.display_name;
-  const paperDisplay = [paperWeight, paperType].filter(Boolean).join(' ');
+  let paperDisplay = [paperWeight, paperType].filter(Boolean).join(' ');
+  
+  // If no paper specs from job_print_specifications, try to extract from notes
+  if (!paperDisplay && specifications.length > 0) {
+    const notesWithPaper = specifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
+    if (notesWithPaper) {
+      const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
+      paperDisplay = formatPaperDisplay(parsedPaper) || '';
+    }
+  }
 
   if (compact) {
     // Show stage + sub-spec + paper in compact mode

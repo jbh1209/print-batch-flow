@@ -8,6 +8,7 @@ interface EnhancedStageSpecificationData {
   quantity?: number;
   stage_id: string;
   specification_details?: any;
+  notes?: string;
 }
 
 export const useEnhancedStageSpecifications = (jobId: string, stageId?: string | null) => {
@@ -64,7 +65,8 @@ export const useEnhancedStageSpecifications = (jobId: string, stageId?: string |
                               (item.notes ? `Custom: ${item.notes}` : undefined),
             part_name: item.part_name || undefined,
             quantity: item.quantity || undefined,
-            specification_details: item.stage_specifications?.properties
+            specification_details: item.stage_specifications?.properties,
+            notes: item.notes || undefined
           }));
 
           setSpecifications(specs);
