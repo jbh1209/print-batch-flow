@@ -33,7 +33,7 @@ import type { MatrixExcelData } from "@/utils/excel/types";
 import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
-import { EnhancedJobCreationDialog } from "@/components/admin/upload/EnhancedJobCreationDialog";
+import { PaginatedJobCreationDialog } from "@/components/admin/upload/PaginatedJobCreationDialog";
 import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface JobDataWithQR extends ParsedJob {
@@ -319,6 +319,52 @@ export const ExcelUpload = () => {
     }
   };
 
+  // Single job processing for paginated dialog
+  const handleSingleJobConfirm = async (woNo: string, userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>) => {
+    if (!enhancedResult || !user) return;
+    
+    try {
+      // Create a single-job result for processing
+      const singleJobResult = {
+        ...enhancedResult,
+        categoryAssignments: { [woNo]: enhancedResult.categoryAssignments[woNo] },
+        rowMappings: { [woNo]: enhancedResult.rowMappings[woNo] || [] },
+        stats: {
+          total: 1,
+          successful: 0,
+          failed: 0,
+          newCategories: 0,
+          workflowsInitialized: 0
+        }
+      };
+      
+      // Process the single job
+      const finalResult = await finalizeProductionReadyJobs(singleJobResult, debugLogger, user.id, userApprovedMappings);
+      
+      if (finalResult.stats.successful > 0) {
+        // Auto-open part assignment for newly created job (additive functionality)
+        if (finalResult.createdJobs && finalResult.createdJobs.length > 0) {
+          const createdJob = finalResult.createdJobs[0];
+          setPartAssignmentJob({ id: createdJob.id, wo_no: createdJob.wo_no });
+          setShowPartAssignment(true);
+        }
+      } else {
+        throw new Error(finalResult.failedJobs[0]?.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error(`Error processing job ${woNo}:`, error);
+      throw error; // Re-throw so the dialog can handle it
+    }
+  };
+
+  // Complete handler for paginated dialog
+  const handlePaginatedComplete = () => {
+    setEnhancedResult(null);
+    setShowEnhancedDialog(false);
+    handleClearPreview();
+    toast.success("Job import process completed!");
+  };
+
   const handleEnhancedJobsConfirmed = async (userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>) => {
     if (!enhancedResult || !user) return;
     
@@ -507,13 +553,14 @@ export const ExcelUpload = () => {
         onMappingConfirmed={handleMatrixMappingConfirmed}
       />
 
-      {/* Phase 4: Enhanced Job Creation Dialog */}
-      <EnhancedJobCreationDialog
+      {/* Phase 4: Paginated Job Creation Dialog */}
+      <PaginatedJobCreationDialog
         open={showEnhancedDialog}
         onOpenChange={setShowEnhancedDialog}
         result={enhancedResult}
         isProcessing={isCreatingJobs}
-        onConfirm={handleEnhancedJobsConfirmed}
+        onSingleJobConfirm={handleSingleJobConfirm}
+        onComplete={handlePaginatedComplete}
       />
 
       {/* Part Assignment Modal (additive) */}
