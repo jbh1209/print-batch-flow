@@ -7,6 +7,8 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { EnhancedProductionJobCard } from "./EnhancedProductionJobCard";
 import { SpecificationFilter, SpecificationFilters } from "../common/SpecificationFilter";
 import { useUnifiedBatchWorkflow } from "@/hooks/batch/useUnifiedBatchWorkflow";
+import ColumnViewToggle from "@/components/tracker/multistage-kanban/ColumnViewToggle";
+import { ProductionJobsList } from "./ProductionJobsList";
 
 interface ProductionJobsViewProps {
   jobs: AccessibleJob[];
@@ -27,6 +29,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [specFilters, setSpecFilters] = useState<SpecificationFilters>({});
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const { completeBatchProcessing, isProcessing } = useUnifiedBatchWorkflow();
 
   // Extract available specifications for filtering
@@ -89,11 +92,14 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
         <h3 className="text-lg font-medium">
           {selectedStage ? `${selectedStage} Stage` : 'All Jobs'} ({filteredJobs.length})
         </h3>
-        {selectedStage && (
-          <p className="text-sm text-gray-600">
-            Jobs currently in the {selectedStage} production stage
-          </p>
-        )}
+        <div className="flex items-center gap-4">
+          {selectedStage && (
+            <p className="text-sm text-gray-600">
+              Jobs currently in the {selectedStage} production stage
+            </p>
+          )}
+          <ColumnViewToggle viewMode={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Jobs Grid */}
@@ -109,7 +115,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
             }
           </p>
         </div>
-      ) : (
+      ) : viewMode === "card" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredJobs.map((job) => (
             <EnhancedProductionJobCard
@@ -122,6 +128,13 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
             />
           ))}
         </div>
+      ) : (
+        <ProductionJobsList
+          jobs={filteredJobs}
+          onJobClick={onJobClick}
+          onStageAction={onStageAction}
+          onAssignParts={onAssignParts}
+        />
       )}
     </div>
   );

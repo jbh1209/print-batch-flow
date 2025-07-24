@@ -22,6 +22,7 @@ import {
 import { JobSpecificationCard } from "../common/JobSpecificationCard";
 import { PartAssignmentIndicator } from "../common/PartAssignmentIndicator";
 import { StageProgressIndicator } from "../common/StageProgressIndicator";
+import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface EnhancedProductionJobCardProps {
@@ -130,6 +131,16 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
           compact={true}
           showPartInfo={true}
         />
+
+        {/* Current Stage Sub-Specifications */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-gray-600">Current Stage Details:</div>
+          <SubSpecificationBadge 
+            jobId={job.job_id}
+            stageId={job.current_stage_id}
+            compact={false}
+          />
+        </div>
 
         {/* Job Specifications */}
         {showDetails && (
