@@ -70,11 +70,6 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
                   Overdue
                 </Badge>
               )}
-              {job.is_expedited && (
-                <Badge variant="destructive" className="text-xs">
-                  Expedited
-                </Badge>
-              )}
             </div>
             
             <div className="space-y-1">

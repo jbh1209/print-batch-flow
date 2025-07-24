@@ -31,7 +31,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
 
   // Extract available specifications for filtering
   const availableSpecs = {
-    sizes: Array.from(new Set(jobs.map(j => j.size).filter(Boolean))),
+    sizes: [],
     paperTypes: [],
     paperWeights: [],
     laminations: []

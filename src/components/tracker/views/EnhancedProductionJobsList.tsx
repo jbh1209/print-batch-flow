@@ -66,7 +66,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   // Extract available specifications for filtering
   const availableSpecs = useMemo(() => {
     return {
-      sizes: Array.from(new Set(jobs.map(j => j.size).filter(Boolean))),
+      sizes: [],
       paperTypes: [],
       paperWeights: [],
       laminations: []
