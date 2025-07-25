@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Plus, Edit, Trash2, Settings, Clock, Gauge, AlertCircle } from "lucide-react";
-import { useStageSpecifications } from "@/hooks/tracker/useStageSpecifications";
+import { useStageSpecifications } from "@/hooks/tracker/useStageSpecifications.tsx";
 import { stagingHelpers } from "@/hooks/tracker/stagingSystemUtils";
 import type { ProductionStage } from "@/hooks/tracker/useProductionStages";
 
@@ -24,7 +24,14 @@ export const StageSpecificationsManager: React.FC<StageSpecificationsManagerProp
   stage,
   onUpdate
 }) => {
-  const { specifications, isLoading, error } = useStageSpecifications('', stage.id);
+  const { 
+    specifications, 
+    isLoading, 
+    error, 
+    createSpecification, 
+    updateSpecification, 
+    deleteSpecification 
+  } = useStageSpecifications(stage.id);
   const [selectedSpec, setSelectedSpec] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -39,14 +46,18 @@ export const StageSpecificationsManager: React.FC<StageSpecificationsManagerProp
   };
 
   const handleSaveSpec = async (specData: any) => {
-    // TODO: Implement save functionality
+    if (selectedSpec) {
+      await updateSpecification(selectedSpec.id, specData);
+    } else {
+      await createSpecification(specData);
+    }
     setIsDialogOpen(false);
     setSelectedSpec(null);
-    // Don't call onUpdate to avoid navigating away from the modal
+    onUpdate?.();
   };
 
   const handleDeleteSpec = async (specId: string) => {
-    // TODO: Implement delete functionality
+    await deleteSpecification(specId);
     onUpdate?.();
   };
 
@@ -98,7 +109,7 @@ export const StageSpecificationsManager: React.FC<StageSpecificationsManagerProp
         </Button>
       </CardHeader>
       <CardContent>
-        {!specifications ? (
+        {specifications.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
             <Settings className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
             <p className="text-sm">No specifications defined for this stage</p>
@@ -106,7 +117,15 @@ export const StageSpecificationsManager: React.FC<StageSpecificationsManagerProp
           </div>
         ) : (
           <div className="space-y-3">
-            {/* TODO: Implement specifications list */}
+            {specifications.map((spec) => (
+              <SpecificationCard
+                key={spec.id}
+                specification={spec}
+                stage={stage}
+                onEdit={handleEditSpec}
+                onDelete={handleDeleteSpec}
+              />
+            ))}
           </div>
         )}
 
