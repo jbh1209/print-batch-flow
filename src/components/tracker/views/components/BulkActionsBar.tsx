@@ -49,7 +49,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   if (selectedJobs.length === 0 && !showSelectAllSearchResults) return null;
 
   return (
-    <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b pb-4">
+    <div className="fixed top-16 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b pb-4 px-4">
       <Card className="border-blue-200 bg-blue-50 shadow-lg">
         <CardContent className="py-3">
           <div className="flex items-center justify-between">
