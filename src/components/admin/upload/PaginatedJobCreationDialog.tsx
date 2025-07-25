@@ -329,6 +329,8 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
 
     try {
       const userApprovedMappings = extractUserApprovedMappings(currentOrder);
+      console.log(`🔄 Processing order ${currentOrder} with ${userApprovedMappings.length} mappings`);
+      
       await onSingleJobConfirm(currentOrder, userApprovedMappings);
       
       setOrderStatuses(prev => ({ ...prev, [currentOrder]: { status: 'completed' } }));
@@ -337,14 +339,25 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
       // Auto-advance to next order if not the last one
       if (currentOrderIndex < totalOrders - 1) {
         setCurrentOrderIndex(prev => prev + 1);
+        setSelectedTab("mapping"); // Reset to mapping tab for next order
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ Failed to process order ${currentOrder}:`, error);
+      
+      // Provide more specific error messaging for common issues
+      let displayMessage = errorMessage;
+      if (errorMessage.includes('unique constraint') || errorMessage.includes('duplicate key')) {
+        displayMessage = `Duplicate data conflict for ${currentOrder}. This order may have already been processed.`;
+      } else if (errorMessage.includes('initialize_custom_job_stages_with_specs')) {
+        displayMessage = `Workflow setup failed for ${currentOrder}. Please check stage mappings and try again.`;
+      }
+      
       setOrderStatuses(prev => ({ 
         ...prev, 
-        [currentOrder]: { status: 'failed', error: errorMessage } 
+        [currentOrder]: { status: 'failed', error: displayMessage } 
       }));
-      toast.error(`Failed to process order ${currentOrder}: ${errorMessage}`);
+      toast.error(`Failed to process order ${currentOrder}: ${displayMessage}`);
     } finally {
       setIsProcessingSingle(false);
     }

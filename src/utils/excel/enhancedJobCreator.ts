@@ -117,10 +117,10 @@ export class EnhancedJobCreator {
   }
 
   /**
-   * Finalize prepared jobs by saving them to the database
+   * Finalize prepared jobs by saving them to the database - SERIALIZED VERSION
    */
   async finalizeJobs(preparedResult: EnhancedJobCreationResult, userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>): Promise<EnhancedJobCreationResult> {
-    this.logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs`);
+    this.logger.addDebugInfo(`🔄 Finalizing ${preparedResult.stats.total} prepared jobs SERIALLY to avoid concurrency issues`);
 
     const finalResult: EnhancedJobCreationResult = {
       ...preparedResult,
@@ -133,8 +133,13 @@ export class EnhancedJobCreator {
       }
     };
 
-    // Now actually save each job to database
-    for (const [woNo, assignment] of Object.entries(preparedResult.categoryAssignments)) {
+    // CRITICAL: Process jobs ONE AT A TIME to avoid constraint violations
+    const jobEntries = Object.entries(preparedResult.categoryAssignments);
+    for (let i = 0; i < jobEntries.length; i++) {
+      const [woNo, assignment] = jobEntries[i];
+      
+      this.logger.addDebugInfo(`📋 Processing job ${i + 1}/${jobEntries.length}: ${woNo}`);
+      
       try {
         // Use the original job stored in the assignment
         if (assignment.originalJob) {
@@ -142,17 +147,32 @@ export class EnhancedJobCreator {
           await this.finalizeIndividualJob(woNo, assignment, preparedResult, finalResult, userApprovedMappings);
           finalResult.stats.successful++;
           finalResult.stats.workflowsInitialized++;
+          this.logger.addDebugInfo(`✅ Successfully processed job ${woNo}`);
         } else {
-          this.logger.addDebugInfo(`No original job data found for ${woNo}, skipping`);
+          this.logger.addDebugInfo(`❌ No original job data found for ${woNo}, skipping`);
           finalResult.stats.failed++;
+          finalResult.failedJobs.push({
+            job: assignment.originalJob || { wo_no: woNo } as any,
+            error: 'No original job data found'
+          });
         }
       } catch (error) {
-        this.logger.addDebugInfo(`Failed to finalize job ${woNo}: ${error}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.addDebugInfo(`❌ Failed to finalize job ${woNo}: ${errorMessage}`);
         finalResult.stats.failed++;
+        finalResult.failedJobs.push({
+          job: assignment.originalJob || { wo_no: woNo } as any,
+          error: errorMessage
+        });
+      }
+      
+      // Add small delay between jobs to reduce database load
+      if (i < jobEntries.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
-    this.logger.addDebugInfo(`Job finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
+    this.logger.addDebugInfo(`🏁 Job finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
 
     return finalResult;
   }
@@ -322,7 +342,53 @@ export class EnhancedJobCreator {
     return Object.keys(converted).length > 0 ? converted : null;
   }
 
+
   private async finalizeIndividualJob(
+    woNo: string, 
+    assignment: any, 
+    preparedResult: EnhancedJobCreationResult, 
+    finalResult: EnhancedJobCreationResult,
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
+    maxRetries: number = 3
+  ): Promise<void> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.addDebugInfo(`🔄 Attempt ${attempt}/${maxRetries} for job ${woNo}`);
+        
+        await this.processIndividualJobInDatabase(woNo, assignment, preparedResult, finalResult, userApprovedMappings);
+        
+        this.logger.addDebugInfo(`✅ Successfully processed job ${woNo} on attempt ${attempt}`);
+        return; // Success - exit retry loop
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.addDebugInfo(`❌ Attempt ${attempt}/${maxRetries} failed for job ${woNo}: ${lastError.message}`);
+        
+        // Check if it's a constraint violation that might resolve with retry
+        if (lastError.message.includes('unique constraint') || 
+            lastError.message.includes('duplicate key')) {
+          
+          if (attempt < maxRetries) {
+            // Wait with exponential backoff before retrying
+            const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            this.logger.addDebugInfo(`⏱️ Waiting ${delayMs}ms before retry ${attempt + 1}`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
+        } else {
+          // Non-retryable error - throw immediately
+          throw lastError;
+        }
+      }
+    }
+    
+    // All retries exhausted
+    throw new Error(`Failed to process job ${woNo} after ${maxRetries} attempts: ${lastError?.message}`);
+  }
+
+  private async processIndividualJobInDatabase(
     woNo: string, 
     assignment: any, 
     preparedResult: EnhancedJobCreationResult, 
