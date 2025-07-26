@@ -23,6 +23,7 @@ import { categorizeJobs, calculateJobCounts } from "@/utils/tracker/jobProcessin
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 import { ProductionCalendar } from "@/components/production/ProductionCalendar";
+import { ProductionAdminDashboard } from "@/components/production/ProductionAdminDashboard";
 import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
@@ -323,10 +324,10 @@ export const EnhancedOperatorDashboard = () => {
           </Card>
         </div>
 
-        {/* Production Schedule Calendar - Show for admin users */}
+        {/* Production Admin Dashboard - Show for admin users */}
         {userRole === 'admin' && (
           <div className="mt-6">
-            <ProductionCalendar />
+            <ProductionAdminDashboard />
           </div>
         )}
 
