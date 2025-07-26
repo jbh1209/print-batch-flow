@@ -520,7 +520,7 @@ export class EnhancedStageMapper {
   /**
    * Intelligent stage matching using multiple strategies
    */
-  private findIntelligentStageMatch(
+  public findIntelligentStageMatch(
     groupName: string,
     description: string,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'

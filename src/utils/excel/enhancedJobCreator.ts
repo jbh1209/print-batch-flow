@@ -522,6 +522,10 @@ export class EnhancedJobCreator {
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
 
+    // CRITICAL FIX: Store the resolved mapping data back into job specifications
+    // This ensures that extractUserApprovedMappings can find the stage specification IDs
+    this.storeMappingDataInJobSpecifications(job, mappedStages);
+
     // 2. Create detailed row mappings for UI display 
     let rowMappings: any[] = [];
     
@@ -657,6 +661,19 @@ export class EnhancedJobCreator {
             mappedStageSpecName: spec.mappedStageSpecName || null,
             category: 'printing'
           });
+        } else if (spec && spec.description) {
+          // FALLBACK: Try to resolve mapping from database if not already stored
+          const resolvedMapping = this.resolveMappingFromDatabase(spec.description, 'printing');
+          if (resolvedMapping) {
+            mappings.push({
+              groupName,
+              mappedStageId: resolvedMapping.stageId,
+              mappedStageName: resolvedMapping.stageName,
+              mappedStageSpecId: resolvedMapping.stageSpecId || null,
+              mappedStageSpecName: resolvedMapping.stageSpecName || null,
+              category: 'printing'
+            });
+          }
         }
       });
     }
@@ -1107,5 +1124,87 @@ private getQuantityForStageInstance(stageInstance: any, quantityMap: Map<string,
 private extractBaseStageId(stageId: string): string {
   if (!stageId) return stageId;
   return stageId.replace(/-\d+$/, '');
+}
+
+/**
+ * Store resolved mapping data back into job specifications
+ * This ensures that extractUserApprovedMappings can find the stage specification IDs
+ */
+private storeMappingDataInJobSpecifications(job: ParsedJob, mappedStages: any[]): void {
+  this.logger.addDebugInfo(`📝 Storing mapping data for ${mappedStages.length} stages back into job specifications`);
+  
+  mappedStages.forEach(stage => {
+    const category = stage.category || 'printing';
+    const groupName = stage.groupName || stage.originalSpec || 'Unknown';
+    
+    // Get the appropriate specifications object
+    let specificationsObj = null;
+    switch (category) {
+      case 'printing':
+        if (!job.printing_specifications) job.printing_specifications = {};
+        specificationsObj = job.printing_specifications;
+        break;
+      case 'finishing':
+        if (!job.finishing_specifications) job.finishing_specifications = {};
+        specificationsObj = job.finishing_specifications;
+        break;
+      case 'prepress':
+        if (!job.prepress_specifications) job.prepress_specifications = {};
+        specificationsObj = job.prepress_specifications;
+        break;
+      case 'packaging':
+        if (!job.packaging_specifications) job.packaging_specifications = {};
+        specificationsObj = job.packaging_specifications;
+        break;
+      default:
+        this.logger.addDebugInfo(`⚠️ Unknown category ${category}, defaulting to printing specifications`);
+        if (!job.printing_specifications) job.printing_specifications = {};
+        specificationsObj = job.printing_specifications;
+    }
+    
+    // Store the mapping data in the existing spec or create new one
+    if (specificationsObj[groupName]) {
+      // Update existing specification with mapping data
+      specificationsObj[groupName].mappedStageId = stage.stageId;
+      specificationsObj[groupName].mappedStageName = stage.stageName;
+      specificationsObj[groupName].mappedStageSpecId = stage.stageSpecId;
+      specificationsObj[groupName].mappedStageSpecName = stage.stageSpecName;
+      
+      this.logger.addDebugInfo(`✅ Updated existing spec "${groupName}" with mapping data: ${stage.stageName}${stage.stageSpecName ? ` (${stage.stageSpecName})` : ''}`);
+    } else {
+      // Create new specification entry with mapping data
+      specificationsObj[groupName] = {
+        description: stage.originalSpec || groupName,
+        qty: stage.qty || 1,
+        mappedStageId: stage.stageId,
+        mappedStageName: stage.stageName,
+        mappedStageSpecId: stage.stageSpecId,
+        mappedStageSpecName: stage.stageSpecName
+      };
+      
+      this.logger.addDebugInfo(`🆕 Created new spec "${groupName}" with mapping data: ${stage.stageName}${stage.stageSpecName ? ` (${stage.stageSpecName})` : ''}`);
+    }
+  });
+}
+
+/**
+ * Resolve mapping from database for fallback when job data lacks mapping information
+ */
+private resolveMappingFromDatabase(description: string, category: string): {stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string} | null {
+  // Use the enhancedStageMapper's public method directly
+  const match = this.enhancedStageMapper.findIntelligentStageMatch(description, description, category as any);
+  
+  if (match) {
+    this.logger.addDebugInfo(`🔍 Resolved mapping from database: "${description}" -> ${match.stageName}${match.stageSpecName ? ` (${match.stageSpecName})` : ''}`);
+    return {
+      stageId: match.stageId,
+      stageName: match.stageName,
+      stageSpecId: match.stageSpecId,
+      stageSpecName: match.stageSpecName
+    };
+  }
+  
+  this.logger.addDebugInfo(`❌ No database mapping found for: "${description}"`);
+  return null;
 }
 }
