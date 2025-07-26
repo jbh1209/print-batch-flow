@@ -846,7 +846,7 @@ export class EnhancedStageMapper {
     printingSpecs: GroupSpecifications | null,
     finishingSpecs: GroupSpecifications | null,
     prepressSpecs: GroupSpecifications | null,
-    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>,
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}>,
     paperSpecs?: GroupSpecifications | null,  // Add optional paper specs parameter
     packagingSpecs?: GroupSpecifications | null,  // Add optional packaging specs parameter
     deliverySpecs?: GroupSpecifications | null  // Add optional delivery specs parameter
@@ -917,7 +917,7 @@ export class EnhancedStageMapper {
   private mapSpecificationsToStagesIntelligent(
     specs: GroupSpecifications,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging',
-    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}>
   ): StageMapping[] {
     const mappings: StageMapping[] = [];
     
@@ -936,10 +936,12 @@ export class EnhancedStageMapper {
       );
       
       if (userMapping) {
-        this.logger.addDebugInfo(`  ✅ USING USER-APPROVED MAPPING: ${groupName} -> ${userMapping.mappedStageName} (${userMapping.mappedStageId})`);
+        this.logger.addDebugInfo(`  ✅ USING USER-APPROVED MAPPING: ${groupName} -> ${userMapping.mappedStageName} (${userMapping.mappedStageId})${userMapping.mappedStageSpecId ? ` with spec: ${userMapping.mappedStageSpecName}` : ''}`);
         mappings.push({
           stageId: userMapping.mappedStageId,
           stageName: userMapping.mappedStageName,
+          stageSpecId: userMapping.mappedStageSpecId, // ✅ FIXED: Include specification ID from user mapping
+          stageSpecName: userMapping.mappedStageSpecName, // ✅ FIXED: Include specification name from user mapping
           confidence: 100, // User-approved mappings have highest confidence
           category: userMapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery',
           specifications: [groupName, spec.description || ''].filter(Boolean)

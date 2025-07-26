@@ -642,8 +642,8 @@ export class EnhancedJobCreator {
     result.createdJobs.push(insertedJob);
   }
 
-  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> {
-    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> {
+    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> = [];
     
     // Extract from printing specifications
     if (job.printing_specifications) {
@@ -653,6 +653,8 @@ export class EnhancedJobCreator {
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
+            mappedStageSpecId: spec.mappedStageSpecId || null,
+            mappedStageSpecName: spec.mappedStageSpecName || null,
             category: 'printing'
           });
         }
@@ -667,6 +669,8 @@ export class EnhancedJobCreator {
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
+            mappedStageSpecId: spec.mappedStageSpecId || null,
+            mappedStageSpecName: spec.mappedStageSpecName || null,
             category: 'finishing'
           });
         }
@@ -681,6 +685,8 @@ export class EnhancedJobCreator {
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
+            mappedStageSpecId: spec.mappedStageSpecId || null,
+            mappedStageSpecName: spec.mappedStageSpecName || null,
             category: 'prepress'
           });
         }
@@ -695,6 +701,8 @@ export class EnhancedJobCreator {
             groupName,
             mappedStageId: spec.mappedStageId,
             mappedStageName: spec.mappedStageName,
+            mappedStageSpecId: spec.mappedStageSpecId || null,
+            mappedStageSpecName: spec.mappedStageSpecName || null,
             category: 'packaging'
           });
         }
@@ -854,7 +862,7 @@ export class EnhancedJobCreator {
  */
 private async calculateTimingForJob(
   jobId: string,
-  userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> | undefined,
+  userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> | undefined,
   originalJob: ParsedJob,
   woNo: string
 ): Promise<void> {

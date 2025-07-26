@@ -86,7 +86,7 @@ export const initializeJobWorkflowFromMappings = async (
         stage_id: mapping.mappedStageId, // Keep original for production_stage_id reference
         unique_stage_id: uniqueStageId, // For uniqueness tracking
         stage_order: stageOrderMap.get(mapping.mappedStageId) || 999, // Use actual production stage order_index
-        stage_specification_id: mapping.mappedStageSpecId || null,
+        stage_specification_id: mapping.mappedStageSpecId || null, // ✅ FIXED: Ensure specification ID is preserved
         part_name: mapping.partType || null,
         quantity: mapping.qty || null,
         paper_specification: mapping.paperSpecification || null
