@@ -1,7 +1,7 @@
 
 import React from "react";
-import TrackerDashboard from "./tracker/TrackerDashboard";
+import { ProductionAdminDashboard } from "@/components/production/ProductionAdminDashboard";
 
 export default function Dashboard() {
-  return <TrackerDashboard />;
+  return <ProductionAdminDashboard />;
 }
