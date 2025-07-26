@@ -135,6 +135,12 @@ export interface RowMappingResult {
   customRowId?: string;
 }
 
+export interface MatrixParsingResult {
+  jobs: ParsedJob[];
+  duplicatesFound: string[];
+  duplicatesSkipped: number;
+}
+
 export interface StageMapping {
   stageId: string;
   stageName: string;
