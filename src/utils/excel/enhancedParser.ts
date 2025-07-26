@@ -73,8 +73,8 @@ export const parseMatrixExcelFileWithMapping = async (
     woQtyColumn: mapping.woQtyColumn
   };
   
-  const parsingResult = parseMatrixDataToJobs(updatedMatrixData, columnMapping, logger);
-  const jobs = parsingResult.jobs;
+  // Parse using matrix parser
+  const jobs = parseMatrixDataToJobs(updatedMatrixData, columnMapping, logger);
   
   // Apply enhanced mapping for paper and delivery specifications
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);

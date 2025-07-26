@@ -95,42 +95,18 @@ const detectGroups = (rows: any[][], groupColumn: number, logger: ExcelImportDeb
   return groups;
 };
 
-export interface MatrixParsingResult {
-  jobs: ParsedJob[];
-  duplicatesFound: string[];
-  duplicatesSkipped: number;
-}
-
 export const parseMatrixDataToJobs = (
   matrixData: MatrixExcelData,
   columnMapping: any,
   logger: ExcelImportDebugger
-): MatrixParsingResult => {
+): ParsedJob[] => {
   logger.addDebugInfo("Starting matrix data to jobs conversion...");
   
   const jobs: ParsedJob[] = [];
-  const duplicatesFound: string[] = [];
+  const jobMap = new Map<string, ParsedJob>();
   
-  // Group rows by work order (handles duplicates internally)
+  // Group rows by work order
   const workOrderGroups = groupRowsByWorkOrder(matrixData, logger);
-  
-  // Detect duplicates by comparing original row count vs grouped count
-  const originalWorkOrders = new Set<string>();
-  matrixData.rows.forEach(row => {
-    const woValue = row[matrixData.workOrderColumn!];
-    const woNo = formatWONumber(woValue, logger);
-    if (woNo) {
-      if (originalWorkOrders.has(woNo)) {
-        if (!duplicatesFound.includes(woNo)) {
-          duplicatesFound.push(woNo);
-        }
-      } else {
-        originalWorkOrders.add(woNo);
-      }
-    }
-  });
-  
-  const duplicatesSkipped = Math.max(0, matrixData.rows.length - workOrderGroups.size);
   
   for (const [woNo, woRows] of workOrderGroups.entries()) {
     logger.addDebugInfo(`Processing work order: ${woNo} with ${woRows.length} rows`);
@@ -159,20 +135,11 @@ export const parseMatrixDataToJobs = (
   }
   
   logger.addDebugInfo(`Matrix parsing completed. Generated ${jobs.length} jobs.`);
-  if (duplicatesFound.length > 0) {
-    logger.addDebugInfo(`🔄 Duplicate work orders handled: ${duplicatesFound.join(', ')} (${duplicatesSkipped} rows skipped)`);
-  }
-  
-  return {
-    jobs,
-    duplicatesFound,
-    duplicatesSkipped
-  };
+  return jobs;
 };
 
 const groupRowsByWorkOrder = (matrixData: MatrixExcelData, logger: ExcelImportDebugger): Map<string, any[]> => {
   const groups = new Map<string, any[]>();
-  const duplicates = new Set<string>();
   
   if (matrixData.workOrderColumn === -1) {
     logger.addDebugInfo("No work order column detected, treating as single job");
@@ -180,28 +147,6 @@ const groupRowsByWorkOrder = (matrixData: MatrixExcelData, logger: ExcelImportDe
     return groups;
   }
   
-  // First pass: detect duplicates
-  const workOrderCounts = new Map<string, number>();
-  matrixData.rows.forEach(row => {
-    const woValue = row[matrixData.workOrderColumn!];
-    const woNo = formatWONumber(woValue, logger);
-    
-    if (woNo) {
-      const count = workOrderCounts.get(woNo) || 0;
-      workOrderCounts.set(woNo, count + 1);
-      if (count > 0) {
-        duplicates.add(woNo);
-      }
-    }
-  });
-  
-  // Log duplicates found
-  if (duplicates.size > 0) {
-    logger.addDebugInfo(`⚠️ DUPLICATE WORK ORDERS DETECTED: ${Array.from(duplicates).join(', ')}`);
-    logger.addDebugInfo(`Duplicate handling: Taking first occurrence of each work order`);
-  }
-  
-  // Second pass: group rows, skipping duplicates
   matrixData.rows.forEach(row => {
     const woValue = row[matrixData.workOrderColumn!];
     const woNo = formatWONumber(woValue, logger);
@@ -209,16 +154,8 @@ const groupRowsByWorkOrder = (matrixData: MatrixExcelData, logger: ExcelImportDe
     if (woNo) {
       if (!groups.has(woNo)) {
         groups.set(woNo, []);
-        groups.get(woNo)!.push(row);
-        
-        // Log if this is a duplicate work order (first occurrence being processed)
-        if (duplicates.has(woNo)) {
-          logger.addDebugInfo(`📝 Processing first occurrence of duplicate work order: ${woNo}`);
-        }
-      } else {
-        // Skip subsequent occurrences of duplicate work orders
-        logger.addDebugInfo(`⏭️ Skipping duplicate occurrence of work order: ${woNo}`);
       }
+      groups.get(woNo)!.push(row);
     }
   });
   
