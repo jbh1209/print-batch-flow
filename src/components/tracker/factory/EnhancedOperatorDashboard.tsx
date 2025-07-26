@@ -22,6 +22,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { categorizeJobs, calculateJobCounts } from "@/utils/tracker/jobProcessing";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
+import { ProductionCalendar } from "@/components/production/ProductionCalendar";
 import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
@@ -321,6 +322,13 @@ export const EnhancedOperatorDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Production Schedule Calendar - Show for admin users */}
+        {userRole === 'admin' && (
+          <div className="mt-6">
+            <ProductionCalendar />
+          </div>
+        )}
 
         {/* No Jobs State */}
         {jobs.length === 0 && (

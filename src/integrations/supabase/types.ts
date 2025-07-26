@@ -541,6 +541,33 @@ export type Database = {
           },
         ]
       }
+      daily_workload: {
+        Row: {
+          capacity_utilization: number | null
+          date: string
+          id: string
+          total_estimated_hours: number
+          total_jobs: number
+          updated_at: string
+        }
+        Insert: {
+          capacity_utilization?: number | null
+          date: string
+          id?: string
+          total_estimated_hours?: number
+          total_jobs?: number
+          updated_at?: string
+        }
+        Update: {
+          capacity_utilization?: number | null
+          date?: string
+          id?: string
+          total_estimated_hours?: number
+          total_jobs?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           allows_concurrent_jobs: boolean | null
@@ -822,6 +849,54 @@ export type Database = {
           },
         ]
       }
+      job_scheduling: {
+        Row: {
+          actual_total_hours: number | null
+          created_at: string
+          created_by: string | null
+          estimated_total_hours: number | null
+          id: string
+          is_expedited: boolean
+          job_id: string
+          job_table_name: string
+          schedule_notes: string | null
+          schedule_priority: number
+          scheduled_completion_date: string | null
+          scheduled_start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_total_hours?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_total_hours?: number | null
+          id?: string
+          is_expedited?: boolean
+          job_id: string
+          job_table_name: string
+          schedule_notes?: string | null
+          schedule_priority?: number
+          scheduled_completion_date?: string | null
+          scheduled_start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_total_hours?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_total_hours?: number | null
+          id?: string
+          is_expedited?: boolean
+          job_id?: string
+          job_table_name?: string
+          schedule_notes?: string | null
+          schedule_priority?: number
+          scheduled_completion_date?: string | null
+          scheduled_start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
@@ -967,6 +1042,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      machine_availability: {
+        Row: {
+          capacity_hours: number
+          created_at: string
+          date: string
+          downtime_end: string | null
+          downtime_start: string | null
+          id: string
+          machine_name: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          capacity_hours?: number
+          created_at?: string
+          date: string
+          downtime_end?: string | null
+          downtime_start?: string | null
+          id?: string
+          machine_name: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          capacity_hours?: number
+          created_at?: string
+          date?: string
+          downtime_end?: string | null
+          downtime_start?: string | null
+          id?: string
+          machine_name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       postcard_jobs: {
         Row: {
@@ -1561,6 +1675,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      production_schedule: {
+        Row: {
+          available_hours: number | null
+          created_at: string
+          date: string
+          id: string
+          is_working_day: boolean
+          notes: string | null
+          scheduled_hours: number
+          total_capacity_hours: number
+          updated_at: string
+        }
+        Insert: {
+          available_hours?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          is_working_day?: boolean
+          notes?: string | null
+          scheduled_hours?: number
+          total_capacity_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          available_hours?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          is_working_day?: boolean
+          notes?: string | null
+          scheduled_hours?: number
+          total_capacity_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       production_stages: {
         Row: {
@@ -2174,6 +2324,10 @@ export type Database = {
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      calculate_smart_due_date: {
+        Args: { p_estimated_hours: number; p_priority?: number }
+        Returns: string
       }
       calculate_stage_duration: {
         Args: {

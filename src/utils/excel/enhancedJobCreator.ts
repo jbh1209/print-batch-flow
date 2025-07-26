@@ -7,6 +7,7 @@ import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator
 import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
 import { TimingCalculationService } from '@/services/timingCalculationService';
 import { initializeJobWorkflow } from '@/utils/jobWorkflowInitializer';
+import { ProductionScheduler } from '@/services/productionScheduler';
 
 export interface EnhancedJobCreationResult {
   success: boolean;
@@ -466,6 +467,9 @@ export class EnhancedJobCreator {
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
       
+      // 🚀 SMART SCHEDULING: Calculate workload-aware due dates
+      await this.scheduleJobWithWorkloadAwareness(insertedJob.id, originalJob);
+      
       // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
       await this.calculateTimingForJob(insertedJob.id, userApprovedMappings, originalJob, woNo);
       
@@ -630,6 +634,13 @@ export class EnhancedJobCreator {
 
       result.stats.workflowsInitialized++;
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${job.wo_no}`);
+      
+      // 🚀 SMART SCHEDULING: Calculate workload-aware due dates
+      await this.scheduleJobWithWorkloadAwareness(insertedJob.id, job);
+      
+      // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
+      await this.calculateTimingForJob(insertedJob.id, result.userApprovedStageMappings, job, job.wo_no);
+      
     } catch (error) {
       this.logger.addDebugInfo(`Workflow initialization error for ${job.wo_no}: ${error}`);
       throw error;
@@ -1187,6 +1198,34 @@ private storeMappingDataInJobSpecifications(job: ParsedJob, mappedStages: any[])
       this.logger.addDebugInfo(`🆕 Created new spec "${groupName}" with mapping data: ${stage.stageName}${stage.stageSpecName ? ` (${stage.stageSpecName})` : ''}`);
     }
   });
+}
+
+/**
+ * Schedule job with workload-aware due dates
+ */
+private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): Promise<void> {
+  try {
+    this.logger.addDebugInfo(`📅 Starting smart scheduling for job ${job.wo_no} (${jobId})`);
+    
+    // Calculate total estimated hours for the job
+    const estimatedHours = await ProductionScheduler.calculateJobTotalHours(jobId, 'production_jobs');
+    
+    // Schedule the job with workload awareness
+    const success = await ProductionScheduler.scheduleJob({
+      jobId,
+      jobTableName: 'production_jobs',
+      estimatedTotalHours: estimatedHours,
+      priority: 100 // Default priority
+    });
+    
+    if (success) {
+      this.logger.addDebugInfo(`✅ Smart scheduling completed for job ${job.wo_no}: ${estimatedHours} hours estimated`);
+    } else {
+      this.logger.addDebugInfo(`⚠️ Smart scheduling failed for job ${job.wo_no}, using fallback`);
+    }
+  } catch (error) {
+    this.logger.addDebugInfo(`❌ Error in smart scheduling for job ${job.wo_no}: ${error}`);
+  }
 }
 
 /**
