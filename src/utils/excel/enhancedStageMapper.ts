@@ -525,7 +525,10 @@ export class EnhancedStageMapper {
     description: string,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
-    const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    // Avoid duplication when groupName and description are identical
+    const searchText = groupName.toLowerCase() === description.toLowerCase() 
+      ? groupName.toLowerCase().trim()
+      : `${groupName} ${description}`.toLowerCase().trim();
     this.logger.addDebugInfo(`Searching for stage match: "${searchText}" in category: ${category}`);
     
     // Strategy 1: Database mapping lookup (highest confidence)
