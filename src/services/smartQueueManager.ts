@@ -50,7 +50,7 @@ export class SmartQueueManager {
     try {
       console.log('🔄 Fetching smart queues...');
       
-      // Get all production jobs
+      // Get all production jobs with their current stage instances
       const { data: jobs, error } = await supabase
         .from('production_jobs')
         .select(`
@@ -61,15 +61,34 @@ export class SmartQueueManager {
           due_date,
           reference,
           category_id,
-          created_at,
-          updated_at
+          categories:category_id (name, color)
         `)
         .neq('status', 'completed');
 
       if (error) throw error;
 
+      // Get current stage for each job
+      const jobsWithStages = await Promise.all((jobs || []).map(async (job: any) => {
+        const { data: currentStage } = await supabase
+          .from('job_stage_instances')
+          .select(`
+            production_stage_id,
+            status,
+            production_stages:production_stage_id (id, name, color)
+          `)
+          .eq('job_id', job.id)
+          .eq('job_table_name', 'production_jobs')
+          .eq('status', 'active')
+          .single();
+
+        return {
+          ...job,
+          current_stage: currentStage
+        };
+      }));
+
       // Convert to AccessibleJobWithMasterQueue format
-      const formattedJobs = (jobs || []).map((job: ProductionJobBase) => ({
+      const formattedJobs = jobsWithStages.map((job: any) => ({
         job_id: job.id,
         wo_no: job.wo_no,
         customer: job.customer,
@@ -77,12 +96,12 @@ export class SmartQueueManager {
         due_date: job.due_date,
         reference: job.reference || '',
         category_id: job.category_id || '',
-        category_name: 'Production',
-        category_color: '#3B82F6',
-        current_stage_id: 'pre-press',
-        current_stage_name: 'Pre-Press',
-        current_stage_color: '#3B82F6',
-        current_stage_status: 'active',
+        category_name: job.categories?.name || 'Production',
+        category_color: job.categories?.color || '#3B82F6',
+        current_stage_id: job.current_stage?.production_stages?.id || 'pre-press',
+        current_stage_name: job.current_stage?.production_stages?.name || 'Pre-Press',
+        current_stage_color: job.current_stage?.production_stages?.color || '#3B82F6',
+        current_stage_status: job.current_stage?.status || 'pending',
         user_can_view: true,
         user_can_edit: true,
         user_can_work: true,
@@ -91,7 +110,7 @@ export class SmartQueueManager {
         total_stages: 5,
         completed_stages: 0,
         master_queue_id: job.category_id || '',
-        display_stage_name: 'Pre-Press'
+        display_stage_name: job.current_stage?.production_stages?.name || 'Pre-Press'
       })) as AccessibleJobWithMasterQueue[];
 
       const stageGroups = this.groupJobsByStage(formattedJobs);

@@ -59,26 +59,24 @@ export const ProductionPlanningCalendar: React.FC = () => {
       const schedulePromises = weekDays.map(async (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         
-        // Get scheduled jobs for this day
+        // Get production jobs due on this day or nearby
         const { data: jobs, error: jobsError } = await supabase
-          .from('job_scheduling')
+          .from('production_jobs')
           .select(`
-            job_id,
-            estimated_total_hours,
-            schedule_priority,
-            production_jobs:job_id (
-              wo_no,
-              customer,
-              status,
-              is_expedited,
-              categories:category_id (
-                name
-              )
+            id,
+            wo_no,
+            customer,
+            status,
+            is_expedited,
+            qty,
+            due_date,
+            categories:category_id (
+              name
             )
           `)
-          .eq('job_table_name', 'production_jobs')
-          .eq('scheduled_start_date', dateStr)
-          .order('schedule_priority');
+          .eq('due_date', dateStr)
+          .neq('status', 'completed')
+          .order('wo_no');
 
         if (jobsError) {
           console.error('Error loading jobs:', jobsError);
@@ -92,25 +90,38 @@ export const ProductionPlanningCalendar: React.FC = () => {
           };
         }
 
-        const scheduledJobs: ScheduledJob[] = (jobs || []).map((job: any) => ({
-          id: job.job_id,
-          wo_no: job.production_jobs?.wo_no || 'Unknown',
-          customer: job.production_jobs?.customer || 'Unknown',
-          status: job.production_jobs?.status || 'Unknown',
-          estimated_hours: job.estimated_total_hours || 0,
-          scheduled_date: dateStr,
-          priority: job.schedule_priority || 100,
-          category_name: job.production_jobs?.categories?.name,
-          is_expedited: job.production_jobs?.is_expedited || false,
-          current_stage: 'Pre-Press' // TODO: Get actual current stage
+        // Get current stage for each job
+        const jobsWithStages = await Promise.all((jobs || []).map(async (job: any) => {
+          const { data: currentStage } = await supabase
+            .from('job_stage_instances')
+            .select(`
+              production_stages:production_stage_id (name)
+            `)
+            .eq('job_id', job.id)
+            .eq('job_table_name', 'production_jobs')
+            .eq('status', 'active')
+            .single();
+
+          return {
+            id: job.id,
+            wo_no: job.wo_no || 'Unknown',
+            customer: job.customer || 'Unknown',
+            status: job.status || 'Unknown',
+            estimated_hours: Math.max(8, (job.qty || 100) / 50), // Rough estimate based on quantity
+            scheduled_date: dateStr,
+            priority: job.is_expedited ? 1 : 100,
+            category_name: job.categories?.name,
+            is_expedited: job.is_expedited || false,
+            current_stage: currentStage?.production_stages?.name || 'Pre-Press'
+          };
         }));
 
-        const total_hours = scheduledJobs.reduce((sum, job) => sum + job.estimated_hours, 0);
+        const total_hours = jobsWithStages.reduce((sum, job) => sum + job.estimated_hours, 0);
         const utilization = Math.round((total_hours / 8) * 100);
 
         return {
           date: dateStr,
-          jobs: scheduledJobs,
+          jobs: jobsWithStages,
           total_hours,
           capacity_hours: 8,
           utilization,
@@ -158,16 +169,14 @@ export const ProductionPlanningCalendar: React.FC = () => {
 
     if (newDate !== oldDate) {
       try {
-        // Update job scheduling in database
+        // Update job due date in production_jobs table
         const { error } = await supabase
-          .from('job_scheduling')
+          .from('production_jobs')
           .update({
-            scheduled_start_date: newDate,
-            scheduled_completion_date: newDate,
+            due_date: newDate,
             updated_at: new Date().toISOString()
           })
-          .eq('job_id', draggedJob.id)
-          .eq('job_table_name', 'production_jobs');
+          .eq('id', draggedJob.id);
 
         if (error) {
           throw error;

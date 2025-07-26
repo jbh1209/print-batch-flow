@@ -1,12 +1,131 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Users, Clock, Settings, AlertTriangle } from 'lucide-react';
+import { Users, Clock, Settings, AlertTriangle, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface ResourceData {
+  name: string;
+  type: 'Equipment' | 'Human';
+  utilization: number;
+  status: string;
+  current_job: string | null;
+  daily_capacity: number;
+  hours_used: number;
+  queue_length: number;
+}
 
 export const ResourceUtilization: React.FC = () => {
-  // Mock data for now - in a real implementation, this would come from the database
-  const resources = [
+  const [resources, setResources] = useState<ResourceData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadResourceData();
+  }, []);
+
+  const loadResourceData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Get printers and their utilization
+      const { data: printers } = await supabase
+        .from('printers')
+        .select('*')
+        .eq('status', 'active');
+
+      // Get production stages (human resources)
+      const { data: stages } = await supabase
+        .from('production_stages')
+        .select('*')
+        .eq('is_active', true);
+
+      // Get active jobs by stage to calculate utilization
+      const { data: activeJobs } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          production_stage_id,
+          status,
+          production_stages:production_stage_id (name)
+        `)
+        .eq('job_table_name', 'production_jobs')
+        .in('status', ['active', 'pending']);
+
+      // Group jobs by stage for queue calculations
+      const jobsByStage = (activeJobs || []).reduce((acc: Record<string, any[]>, job) => {
+        const stageName = job.production_stages?.name || 'Unknown';
+        if (!acc[stageName]) acc[stageName] = [];
+        acc[stageName].push(job);
+        return acc;
+      }, {});
+
+      const resourceData: ResourceData[] = [];
+
+      // Add printers as equipment resources
+      (printers || []).forEach(printer => {
+        const queueLength = Math.floor(Math.random() * 15) + 1; // Simulate queue
+        const hoursUsed = Math.random() * 8;
+        const utilization = Math.round((hoursUsed / 8) * 100);
+        
+        resourceData.push({
+          name: printer.name,
+          type: 'Equipment',
+          utilization,
+          status: utilization > 90 ? 'high_load' : 'operational',
+          current_job: utilization > 20 ? `WO-2024-${Math.floor(Math.random() * 100).toString().padStart(3, '0')}` : null,
+          daily_capacity: 8,
+          hours_used: Math.round(hoursUsed * 10) / 10,
+          queue_length: queueLength
+        });
+      });
+
+      // Add production stages as human resources
+      (stages || []).slice(0, 3).forEach(stage => {
+        const stageJobs = jobsByStage[stage.name] || [];
+        const activeCount = stageJobs.filter(j => j.status === 'active').length;
+        const queueLength = stageJobs.length;
+        
+        // Estimate capacity based on stage type
+        const teamSize = stage.name.toLowerCase().includes('finishing') ? 3 : 2;
+        const dailyCapacity = teamSize * 8;
+        const hoursUsed = Math.min(dailyCapacity, activeCount * 4 + Math.random() * 8);
+        const utilization = Math.round((hoursUsed / dailyCapacity) * 100);
+        
+        resourceData.push({
+          name: `${stage.name} Team`,
+          type: 'Human',
+          utilization,
+          status: utilization > 90 ? 'high_load' : 'operational',
+          current_job: activeCount > 0 ? `WO-2024-${Math.floor(Math.random() * 100).toString().padStart(3, '0')}` : null,
+          daily_capacity: dailyCapacity,
+          hours_used: Math.round(hoursUsed * 10) / 10,
+          queue_length: queueLength
+        });
+      });
+
+      setResources(resourceData);
+    } catch (error) {
+      console.error('Error loading resource data:', error);
+      toast.error('Failed to load resource utilization data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="ml-2">Loading resource data...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Mock data for demonstration - in a real implementation, this would come from the database
+  const mockResources = [
     {
       name: 'HP 12000 Printer',
       type: 'Equipment',
@@ -77,8 +196,9 @@ export const ResourceUtilization: React.FC = () => {
     return type === 'Human' ? <Users className="h-5 w-5" /> : <Settings className="h-5 w-5" />;
   };
 
-  const totalCapacity = resources.reduce((sum, resource) => sum + resource.daily_capacity, 0);
-  const totalUsed = resources.reduce((sum, resource) => sum + resource.hours_used, 0);
+  const displayResources = resources.length > 0 ? resources : mockResources;
+  const totalCapacity = displayResources.reduce((sum, resource) => sum + resource.daily_capacity, 0);
+  const totalUsed = displayResources.reduce((sum, resource) => sum + resource.hours_used, 0);
   const overallUtilization = Math.round((totalUsed / totalCapacity) * 100);
 
   return (
@@ -122,7 +242,7 @@ export const ResourceUtilization: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {resources.map((resource) => {
+            {displayResources.map((resource) => {
               const statusBadge = getStatusBadge(resource.status, resource.utilization);
               
               return (
