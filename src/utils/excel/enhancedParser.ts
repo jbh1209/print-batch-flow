@@ -74,7 +74,14 @@ export const parseMatrixExcelFileWithMapping = async (
   };
   
   // Parse using matrix parser
-  const jobs = parseMatrixDataToJobs(updatedMatrixData, columnMapping, logger);
+  const jobsResult = await parseMatrixDataToJobs(updatedMatrixData, columnMapping, logger);
+  const jobs = jobsResult.jobs;
+  
+  // Log duplicate information for user feedback
+  if (jobsResult.duplicatesSkipped > 0) {
+    logger.addWarning(`⚠️ ${jobsResult.duplicatesSkipped} duplicate work orders were automatically skipped`);
+    logger.addInfo(`Duplicate WO numbers: ${jobsResult.duplicateJobs.map(j => j.wo_no).join(', ')}`);
+  }
   
   // Apply enhanced mapping for paper and delivery specifications
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
@@ -121,7 +128,12 @@ export const parseMatrixExcelFileWithMapping = async (
   logger.addDebugInfo(`Enhanced matrix parsing completed: ${enhancedResult.jobs.length} jobs processed`);
   logger.addDebugInfo(`Paper specs mapped: ${enhancedResult.stats.paperSpecsMapped}, Delivery specs mapped: ${enhancedResult.stats.deliverySpecsMapped}`);
   
-  return { jobs: enhancedResult.jobs, stats };
+  return { 
+    jobs: enhancedResult.jobs, 
+    stats,
+    duplicatesSkipped: jobsResult.duplicatesSkipped,
+    duplicateJobs: jobsResult.duplicateJobs
+  };
 };
 
 export const getAutoDetectedMapping = (headers: string[], logger: ExcelImportDebugger): ColumnMapping => {
@@ -474,7 +486,8 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   logger.addDebugInfo(`Starting Phase 4 enhanced matrix job preparation for file: ${file.name}`);
   
   // Step 1: Parse matrix Excel with enhanced mapping
-  const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
+  const parseResult = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
+  const jobs = parseResult.jobs;
   
   // Step 2: Create enhanced job creator with matrix data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
@@ -488,6 +501,10 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job preparation completed: ${result.stats.total} jobs prepared for review`);
+  
+  // Add duplicate information to the result
+  result.duplicatesSkipped = parseResult.duplicatesSkipped;
+  result.duplicateJobs = parseResult.duplicateJobs;
   
   return result;
 };

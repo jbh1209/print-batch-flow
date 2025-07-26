@@ -57,9 +57,10 @@ export const MappingExcelUpload: React.FC = () => {
 
       // Convert matrix data to jobs using a simplified column mapping
       const defaultColumnMapping = {};
-      const jobs = parseMatrixDataToJobs(matrixData, defaultColumnMapping, logger);
+      const jobsResult = await parseMatrixDataToJobs(matrixData, defaultColumnMapping, logger);
+      const jobs = jobsResult.jobs;
       
-      logger.addDebugInfo(`Matrix parsing completed. Generated ${jobs.length} jobs for pattern analysis.`);
+      logger.addDebugInfo(`Matrix parsing completed. Generated ${jobs.length} jobs for pattern analysis. ${jobsResult.duplicatesSkipped} duplicates skipped.`);
 
       setUploadProgress(100);
 

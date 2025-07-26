@@ -171,7 +171,10 @@ export const ExcelUpload = () => {
       setEnhancedResult(result);
       setShowEnhancedDialog(true);
       
-      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped and ready for review.`);
+      const duplicateMessage = result.duplicatesSkipped > 0 
+        ? ` (${result.duplicatesSkipped} duplicates automatically skipped)`
+        : '';
+      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped and ready for review.${duplicateMessage}`);
     } catch (error) {
       console.error("Error in enhanced matrix job creation:", error);
       debugLogger.addDebugInfo(`Enhanced matrix creation error: ${error}`);

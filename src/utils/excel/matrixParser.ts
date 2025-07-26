@@ -4,6 +4,7 @@ import type { MatrixExcelData, GroupSpecifications, OperationQuantities, ParsedJ
 import type { ExcelImportDebugger } from './debugger';
 import { formatExcelDate } from './dateFormatter';
 import { formatWONumber } from './woNumberFormatter';
+import { checkParsedJobsForDuplicates } from '../jobDeduplication';
 
 // Known group categories we're looking for
 const GROUP_CATEGORIES = {
@@ -95,15 +96,14 @@ const detectGroups = (rows: any[][], groupColumn: number, logger: ExcelImportDeb
   return groups;
 };
 
-export const parseMatrixDataToJobs = (
+export const parseMatrixDataToJobs = async (
   matrixData: MatrixExcelData,
   columnMapping: any,
   logger: ExcelImportDebugger
-): ParsedJob[] => {
+): Promise<{ jobs: ParsedJob[]; duplicatesSkipped: number; duplicateJobs: ParsedJob[] }> => {
   logger.addDebugInfo("Starting matrix data to jobs conversion...");
   
-  const jobs: ParsedJob[] = [];
-  const jobMap = new Map<string, ParsedJob>();
+  const allJobs: ParsedJob[] = [];
   
   // Group rows by work order
   const workOrderGroups = groupRowsByWorkOrder(matrixData, logger);
@@ -131,11 +131,26 @@ export const parseMatrixDataToJobs = (
       cover_text_detection: groupSpecs.coverTextDetection
     };
     
-    jobs.push(job);
+    allJobs.push(job);
   }
   
-  logger.addDebugInfo(`Matrix parsing completed. Generated ${jobs.length} jobs.`);
-  return jobs;
+  logger.addDebugInfo(`Matrix parsing completed. Generated ${allJobs.length} jobs. Checking for duplicates...`);
+  
+  // Check for duplicates against existing database entries
+  const duplicateCheck = await checkParsedJobsForDuplicates(allJobs);
+  
+  logger.addWarning(`Duplicate check complete: ${duplicateCheck.newJobs.length} new jobs, ${duplicateCheck.duplicates.length} duplicates skipped`);
+  
+  if (duplicateCheck.duplicates.length > 0) {
+    const duplicateWONumbers = duplicateCheck.duplicates.map(job => job.wo_no).join(', ');
+    logger.addWarning(`Skipped duplicate WO numbers: ${duplicateWONumbers}`);
+  }
+  
+  return {
+    jobs: duplicateCheck.newJobs,
+    duplicatesSkipped: duplicateCheck.duplicates.length,
+    duplicateJobs: duplicateCheck.duplicates
+  };
 };
 
 const groupRowsByWorkOrder = (matrixData: MatrixExcelData, logger: ExcelImportDebugger): Map<string, any[]> => {

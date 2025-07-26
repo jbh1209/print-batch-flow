@@ -79,6 +79,8 @@ export interface ImportStats {
 export interface ParsedData {
   jobs: ParsedJob[];
   stats: ImportStats;
+  duplicatesSkipped?: number;
+  duplicateJobs?: ParsedJob[];
 }
 
 export interface DeliverySpecification {

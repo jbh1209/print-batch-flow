@@ -13,6 +13,8 @@ export interface EnhancedJobCreationResult {
   createdJobs: any[];
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
+  duplicatesSkipped?: number;
+  duplicateJobs?: any[];
   rowMappings: { [woNo: string]: RowMappingResult[] };
   userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
   userId?: string;

@@ -66,6 +66,47 @@ export const mergeDuplicateJobs = async (jobsToKeep: string[], jobsToRemove: str
   }
 };
 
+export const checkParsedJobsForDuplicates = async (parsedJobs: any[]): Promise<{ newJobs: typeof parsedJobs; duplicates: typeof parsedJobs; existingWONumbers: Set<string> }> => {
+  try {
+    // Get all existing WO numbers from database
+    const { data: existingJobs, error } = await supabase
+      .from('production_jobs')
+      .select('wo_no');
+
+    if (error) throw error;
+
+    // Create a set of normalized existing WO numbers for fast lookup
+    const existingWONumbers = new Set<string>();
+    existingJobs?.forEach(job => {
+      const normalized = formatWONumber(job.wo_no);
+      if (normalized) {
+        existingWONumbers.add(normalized);
+      }
+    });
+
+    // Separate new jobs from duplicates
+    const newJobs: typeof parsedJobs = [];
+    const duplicates: typeof parsedJobs = [];
+
+    parsedJobs.forEach(job => {
+      const normalizedWO = formatWONumber(job.wo_no);
+      if (normalizedWO && existingWONumbers.has(normalizedWO)) {
+        duplicates.push(job);
+      } else {
+        newJobs.push(job);
+      }
+    });
+
+    console.log(`Duplicate check complete: ${newJobs.length} new jobs, ${duplicates.length} duplicates found`);
+    
+    return { newJobs, duplicates, existingWONumbers };
+  } catch (error) {
+    console.error('Error checking for duplicates:', error);
+    // Return all jobs as new if check fails
+    return { newJobs: parsedJobs, duplicates: [], existingWONumbers: new Set() };
+  }
+};
+
 export const normalizeAllWONumbers = async (): Promise<boolean> => {
   try {
     console.log('Normalizing all WO numbers...');
