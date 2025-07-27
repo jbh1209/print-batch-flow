@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { stageQueueManager } from "./stageQueueManager";
 import { dependencyResolver } from "./dependencyResolver";
+import { advancedSchedulingEngine } from "./advancedSchedulingEngine";
 
 interface JobSchedulingRequest {
   jobId: string;
@@ -77,33 +78,42 @@ export class FlowBasedProductionScheduler {
       // Create flow dependencies in database first
       await dependencyResolver.createJobFlowDependencies(request.jobId, request.jobTableName);
 
-      // Analyze critical path and dependencies
-      const criticalPathAnalysis = await dependencyResolver.analyzeCriticalPath(request.jobId, request.jobTableName);
+      // Calculate advanced schedule with queue positions
+      const advancedSchedule = await advancedSchedulingEngine.calculateAdvancedSchedule(
+        request.jobId, 
+        request.jobTableName, 
+        request.priority
+      );
       
       // Calculate timeline through production flow with dependency awareness
       const timeline = await stageQueueManager.calculateJobTimeline(request.jobId, request.jobTableName);
 
-      // Update job with realistic due date
-      const finalCompletionDate = timeline.stages.length > 0 
-        ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
-        : new Date();
+      // Update job with realistic due date based on advanced scheduling
+      const finalCompletionDate = advancedSchedule.estimatedCompletionDate;
 
       await this.updateJobSchedule(request.jobId, request.jobTableName, {
-        estimatedStartDate: timeline.stages[0]?.estimatedStartDate || new Date(),
+        estimatedStartDate: advancedSchedule.estimatedStartDate,
         estimatedCompletionDate: finalCompletionDate,
-        totalEstimatedDays: timeline.totalEstimatedDays
+        totalEstimatedDays: advancedSchedule.totalEstimatedDays
       });
 
       return {
         jobId: request.jobId,
         success: true,
-        estimatedStartDate: timeline.stages[0]?.estimatedStartDate || new Date(),
+        estimatedStartDate: advancedSchedule.estimatedStartDate,
         estimatedCompletionDate: finalCompletionDate,
-        totalEstimatedDays: timeline.totalEstimatedDays,
-        stageTimeline: timeline.stages,
-        bottleneckStages: criticalPathAnalysis.bottleneckStages,
-        criticalPath: criticalPathAnalysis.path,
-        message: `Job scheduled through ${timeline.stages.length} stages, estimated completion in ${timeline.totalEstimatedDays} days`
+        totalEstimatedDays: advancedSchedule.totalEstimatedDays,
+        stageTimeline: advancedSchedule.queuePositions.map(pos => ({
+          stageId: pos.stageId,
+          stageName: pos.stageName,
+          estimatedStartDate: pos.estimatedStartDate,
+          estimatedCompletionDate: pos.estimatedCompletionDate,
+          queuePosition: pos.position,
+          isBottleneck: pos.isBottleneck
+        })),
+        bottleneckStages: advancedSchedule.bottleneckStages,
+        criticalPath: advancedSchedule.criticalPath,
+        message: `Job scheduled with ${advancedSchedule.scheduleConfidence} confidence, estimated completion in ${advancedSchedule.totalEstimatedDays} days`
       };
 
     } catch (error) {
