@@ -174,7 +174,7 @@ export class StageQueueManager {
         continue;
       }
 
-      const estimatedHours = (stage.estimated_duration_minutes || 60) / 60;
+      const estimatedHours = (stage.estimated_duration_minutes || 480) / 60; // Default to 8 hours if null
       const timing = await this.calculateJobStartTime(stage.production_stage_id, estimatedHours);
       const workload = await this.getStageWorkload(stage.production_stage_id);
 

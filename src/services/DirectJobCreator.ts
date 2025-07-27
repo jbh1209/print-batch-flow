@@ -388,6 +388,8 @@ export class DirectJobCreator {
 
     this.logger.addDebugInfo(`Creating ${sortedMappings.length} stage instances for job ${job.wo_no}`);
 
+    const createdStageIds = [];
+    
     for (let i = 0; i < sortedMappings.length; i++) {
       const mapping = sortedMappings[i];
       const stageId = mapping.originalStageId || mapping.mappedStageId;
@@ -401,7 +403,7 @@ export class DirectJobCreator {
         partType: mapping.partType
       })}`);
       
-      const { error } = await supabase
+      const { data: stageInstance, error } = await supabase
         .from('job_stage_instances')
         .insert({
           job_id: job.id,
@@ -413,13 +415,92 @@ export class DirectJobCreator {
           quantity: actualQuantity, // FIXED: Use actual quantity from mapping
           part_type: mapping.partType?.toLowerCase() || null,
           part_name: mapping.partType || null
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) {
         throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
       }
 
       this.logger.addDebugInfo(`[QUANTITY LOG] Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
+      
+      if (stageInstance?.id) {
+        createdStageIds.push(stageInstance.id);
+      }
+    }
+
+    // CRITICAL: Calculate timing for all created stage instances
+    await this.calculateTimingForStageInstances(job, createdStageIds);
+  }
+
+  /**
+   * Calculate timing estimates for stage instances after creation
+   */
+  private async calculateTimingForStageInstances(job: any, stageInstanceIds: string[]): Promise<void> {
+    this.logger.addDebugInfo(`Calculating timing for ${stageInstanceIds.length} stage instances`);
+    
+    try {
+      const { TimingCalculationService } = await import('@/services/timingCalculationService');
+      
+      for (const stageInstanceId of stageInstanceIds) {
+        // Get stage instance details
+        const { data: stageInstance, error } = await supabase
+          .from('job_stage_instances')
+          .select(`
+            id,
+            quantity,
+            production_stage_id,
+            production_stages!inner(
+              running_speed_per_hour,
+              make_ready_time_minutes,
+              speed_unit
+            )
+          `)
+          .eq('id', stageInstanceId)
+          .single();
+
+        if (error || !stageInstance) {
+          this.logger.addDebugInfo(`Failed to fetch stage instance ${stageInstanceId}: ${error?.message}`);
+          continue;
+        }
+
+        const quantity = stageInstance.quantity || 1000; // Default to 1000 if null
+        const stageData = (stageInstance as any).production_stages;
+        
+        if (!stageData.running_speed_per_hour) {
+          this.logger.addDebugInfo(`Stage ${stageInstanceId} has no timing data, skipping`);
+          continue;
+        }
+
+        // Calculate timing using TimingCalculationService
+        const timing = await TimingCalculationService.calculateStageTimingWithInheritance({
+          quantity,
+          stageId: stageInstance.production_stage_id,
+          stageData: {
+            running_speed_per_hour: stageData.running_speed_per_hour,
+            make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
+            speed_unit: stageData.speed_unit || 'sheets_per_hour'
+          }
+        });
+
+        // Update stage instance with calculated timing
+        const { error: updateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            estimated_duration_minutes: timing.estimatedDurationMinutes,
+            setup_time_minutes: timing.makeReadyMinutes
+          })
+          .eq('id', stageInstanceId);
+
+        if (updateError) {
+          this.logger.addDebugInfo(`Failed to update timing for stage instance ${stageInstanceId}: ${updateError.message}`);
+        } else {
+          this.logger.addDebugInfo(`Updated stage instance ${stageInstanceId} with ${timing.estimatedDurationMinutes} minutes duration`);
+        }
+      }
+    } catch (error) {
+      this.logger.addDebugInfo(`Timing calculation failed: ${error.message}`);
     }
   }
 

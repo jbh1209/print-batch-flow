@@ -20,24 +20,40 @@ export class DynamicDueDateService {
     dueDateWithBuffer: Date;
     bufferDays: number;
     totalWorkingDays: number;
-  }> {
-    const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
-    
-    // Get the realistic completion date based on current workload
-    const internalCompletionDate = timeline.stages.length > 0 
-      ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
-      : new Date();
-    
-    // Add 1 working day buffer (configurable per job)
-    const bufferDays = 1;
-    const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
-    
-    return {
-      internalCompletionDate,
-      dueDateWithBuffer,
-      bufferDays,
-      totalWorkingDays: timeline.totalEstimatedWorkingDays
-    };
+  } | null> {
+    try {
+      console.log(`[DUE DATE SERVICE] Calculating initial due date for job ${jobId}`);
+      
+      const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
+      
+      if (!timeline || !timeline.stages || timeline.stages.length === 0) {
+        console.error(`[DUE DATE SERVICE] No timeline data for job ${jobId}`);
+        return null;
+      }
+      
+      console.log(`[DUE DATE SERVICE] Job ${jobId} timeline: ${timeline.stages.length} stages, ${timeline.totalEstimatedWorkingDays} working days`);
+      
+      // Get the realistic completion date based on current workload
+      const internalCompletionDate = timeline.stages.length > 0 
+        ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
+        : new Date();
+      
+      // Add 1 working day buffer (configurable per job)
+      const bufferDays = 1;
+      const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
+      
+      console.log(`[DUE DATE SERVICE] Job ${jobId} completion: ${internalCompletionDate.toISOString()}, due date with buffer: ${dueDateWithBuffer.toISOString()}`);
+      
+      return {
+        internalCompletionDate,
+        dueDateWithBuffer,
+        bufferDays,
+        totalWorkingDays: timeline.totalEstimatedWorkingDays
+      };
+    } catch (error) {
+      console.error(`[DUE DATE SERVICE] Error calculating due date for job ${jobId}:`, error);
+      return null;
+    }
   }
 
   /**
