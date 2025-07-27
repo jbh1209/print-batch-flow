@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { calculateWorkingDays } from '@/utils/tracker/workingDayCalculations';
 
 interface StageWorkload {
   stageId: string;
@@ -204,7 +205,7 @@ export class StageQueueManager {
 
     // Calculate working days using the working day calculation utility
     const totalMinutes = timeline.reduce((total, stage) => total + (stage.estimatedDurationHours * 60), 0);
-    const workingDayBreakdown = require('@/utils/tracker/workingDayCalculations').calculateWorkingDays(totalMinutes);
+    const workingDayBreakdown = calculateWorkingDays(totalMinutes);
     
     const totalCalendarDays = Math.ceil((maxCompletionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     const criticalPath = timeline

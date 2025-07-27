@@ -1232,7 +1232,9 @@ private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): P
     this.logger.addDebugInfo(`   Total working days: ${dueDateResult.totalWorkingDays}`);
     
   } catch (error) {
+    console.error(`❌ Error in workload-aware scheduling for job ${job.wo_no}:`, error);
     this.logger.addDebugInfo(`❌ Error in workload-aware scheduling for job ${job.wo_no}: ${error}`);
+    this.logger.addDebugInfo(`   Error details: ${error instanceof Error ? error.message : String(error)}`);
     this.logger.addDebugInfo(`   Falling back to default due date calculation`);
     
     // Fallback: Set due date to 3 days from now
