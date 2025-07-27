@@ -1,12 +1,13 @@
 
 // --- STAGE COLUMN REFACTOR (organize by view mode and factor out subcomponents/utils) ---
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import JobStageCard from "./JobStageCard";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getDueInfo } from "./getDueInfo";
 import { StageColumnProps } from "./StageColumn.types";
 import SortableJobStageCard from "./SortableJobStageCard";
 import { sortJobStagesByOrder } from "@/utils/tracker/jobOrderingUtils";
+import { calculateAndFormatStageTime } from "@/utils/tracker/stageTimeCalculations";
 import type { DueInfo } from "./StageColumn.types";
 
 const StageColumn: React.FC<StageColumnProps> = ({
@@ -24,7 +25,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
   const [dueInfoMap, setDueInfoMap] = useState<Record<string, DueInfo>>({});
 
   // Filter jobs for this stage and apply consistent sorting
-  const stageJobStages = React.useMemo(() => {
+  const stageJobStages = useMemo(() => {
     const filtered = jobStages.filter(js =>
       js.production_stage_id === stage.id &&
       js.status !== "completed" &&
@@ -34,6 +35,11 @@ const StageColumn: React.FC<StageColumnProps> = ({
     // Use shared sorting utility for consistent ordering
     return sortJobStagesByOrder(filtered);
   }, [jobStages, stage.id]);
+
+  // Calculate total time for this stage
+  const totalTime = useMemo(() => {
+    return calculateAndFormatStageTime(stageJobStages);
+  }, [stageJobStages]);
 
   // Load due info for all job stages
   useEffect(() => {
@@ -78,6 +84,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
               <span className="font-medium text-[11px]">{stage.name}</span>
             </div>
             <div className="flex items-center gap-1">
+              <span className="bg-gray-200 text-[10px] px-1 rounded font-medium">{totalTime}</span>
               <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobStages.length}</span>
             </div>
           </div>
@@ -160,6 +167,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
           <span className="font-medium text-[11px]">{stage.name}</span>
         </div>
         <div className="flex items-center gap-1">
+          <span className="bg-gray-200 text-[10px] px-1 rounded font-medium">{totalTime}</span>
           <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobStages.length}</span>
         </div>
       </div>

@@ -1,8 +1,9 @@
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
+import { calculateAndFormatStageTime } from "@/utils/tracker/stageTimeCalculations";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface StageInstanceData {
@@ -43,6 +44,11 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
   onRefresh,
   getStageInstanceForJob
 }) => {
+  // Calculate total time for this stage
+  const totalTime = useMemo(() => {
+    return calculateAndFormatStageTime(jobs);
+  }, [jobs]);
+
   return (
     <Card className="h-full flex flex-col max-h-[calc(100vh-12rem)]">
       <CardHeader 
@@ -51,9 +57,14 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
       >
         <CardTitle className="flex items-center justify-between text-base sm:text-lg">
           <span className="truncate">{stage.stage_name}</span>
-          <Badge variant="secondary" className="bg-white/20 text-white ml-2 flex-shrink-0">
-            {jobs.length}
-          </Badge>
+          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+            <Badge variant="secondary" className="bg-white/30 text-white text-xs font-medium">
+              {totalTime}
+            </Badge>
+            <Badge variant="secondary" className="bg-white/20 text-white">
+              {jobs.length}
+            </Badge>
+          </div>
         </CardTitle>
       </CardHeader>
       
