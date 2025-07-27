@@ -774,19 +774,12 @@ export class EnhancedJobCreator {
   private async buildEnhancedJobData(job: ParsedJob, categoryId: string | null): Promise<any> {
     this.logger.addDebugInfo(`Building enhanced job data for ${job.wo_no}`);
 
-    // Calculate due date if not provided using SLA target days
+    // Calculate due date if not provided using default SLA
     let calculatedDueDate = job.due_date;
     if (!calculatedDueDate) {
       try {
-        // Get SLA target days from app settings (default to 3 days)
-        const { data: slaSettings } = await supabase
-          .from('app_settings')
-          .select('sla_target_days')
-          .eq('setting_type', 'default')
-          .eq('product_type', 'production_jobs')
-          .single();
-        
-        const slaTargetDays = slaSettings?.sla_target_days || 3;
+        // Use simple default SLA (3 working days) to avoid database queries during parsing
+        const slaTargetDays = 3;
         const today = new Date();
         const dueDate = await this.addWorkingDays(today, slaTargetDays);
         calculatedDueDate = dueDate.toISOString().split('T')[0];
