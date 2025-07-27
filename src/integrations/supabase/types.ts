@@ -2079,7 +2079,15 @@ export type Database = {
           updated_at?: string
           working_days_per_week?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_stage_capacity_profiles_production_stage_id"
+            columns: ["production_stage_id"]
+            isOneToOne: true
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stage_groups: {
         Row: {
