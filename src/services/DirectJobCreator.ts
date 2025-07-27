@@ -163,43 +163,18 @@ export class DirectJobCreator {
     // Initialize custom workflow from row mappings
     await this.initializeWorkflowFromMappings(finalJob, rowMappings);
 
-    // Schedule job using flow-based scheduling engine for workload-based due dates
-    try {
-      const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
+    // Simple due date calculation - add 3 days to current date if needed
+    if (!finalJob.due_date) {
+      const threeDaysFromNow = new Date();
+      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+      finalJob.due_date = threeDaysFromNow.toISOString().split('T')[0];
       
-      // Use scheduleJob method which properly calculates workload-based due dates
-      const schedulingResult = await flowBasedScheduler.scheduleJob({
-        jobId: finalJob.id,
-        jobTableName: 'production_jobs',
-        priority: 50
-      });
-      
-      if (schedulingResult.success) {
-        const originalDueDate = finalJob.due_date;
-        const calculatedDueDate = schedulingResult.estimatedCompletionDate.toISOString().split('T')[0];
-        const workingDaysNeeded = schedulingResult.totalEstimatedDays;
+      await supabase
+        .from('production_jobs')
+        .update({ due_date: finalJob.due_date })
+        .eq('id', finalJob.id);
         
-        // Calculate the difference in days for user feedback
-        const originalDate = new Date(originalDueDate);
-        const calculatedDate = new Date(calculatedDueDate);
-        const daysDifference = Math.ceil((calculatedDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Excel due date: ${originalDueDate}, Workload-based due date: ${calculatedDueDate} (${workingDaysNeeded} working days needed, ${daysDifference} days later than Excel)`);
-        
-        // The scheduleJob method already updates the database with realistic dates
-        finalJob.due_date = calculatedDueDate;
-        finalJob.manual_due_date = originalDueDate;
-        
-        if (daysDifference > 7) {
-          this.logger.addDebugInfo(`⚠️ Job ${finalJob.wo_no}: Excel due date ${originalDueDate} is unrealistic. Workload-based due date: ${calculatedDueDate} (${workingDaysNeeded} working days, ${daysDifference} days later)`);
-        } else {
-          this.logger.addDebugInfo(`✅ Job ${finalJob.wo_no} due date updated: ${calculatedDueDate} (realistic based on workload)`);
-        }
-      } else {
-        this.logger.addDebugInfo(`⚠️ Could not calculate realistic due date for ${originalJob.wo_no} - keeping Excel due date`);
-      }
-    } catch (dueDateError) {
-      this.logger.addDebugInfo(`❌ Due date calculation failed for ${originalJob.wo_no}: ${dueDateError}`);
+      this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Set simple due date: ${finalJob.due_date}`);
     }
 
     // Generate QR code image if enabled
@@ -437,72 +412,63 @@ export class DirectJobCreator {
   }
 
   /**
-   * Calculate timing estimates for stage instances after creation
+   * Calculate basic timing estimates for stage instances after creation
    */
   private async calculateTimingForStageInstances(job: any, stageInstanceIds: string[]): Promise<void> {
-    this.logger.addDebugInfo(`Calculating timing for ${stageInstanceIds.length} stage instances`);
+    this.logger.addDebugInfo(`Calculating basic timing for ${stageInstanceIds.length} stage instances`);
     
-    try {
-      const { TimingCalculationService } = await import('@/services/timingCalculationService');
-      
-      for (const stageInstanceId of stageInstanceIds) {
-        // Get stage instance details
-        const { data: stageInstance, error } = await supabase
-          .from('job_stage_instances')
-          .select(`
-            id,
-            quantity,
-            production_stage_id,
-            production_stages!inner(
-              running_speed_per_hour,
-              make_ready_time_minutes,
-              speed_unit
-            )
-          `)
-          .eq('id', stageInstanceId)
-          .single();
-
-        if (error || !stageInstance) {
-          this.logger.addDebugInfo(`Failed to fetch stage instance ${stageInstanceId}: ${error?.message}`);
-          continue;
-        }
-
-        const quantity = stageInstance.quantity || 1000; // Default to 1000 if null
-        const stageData = (stageInstance as any).production_stages;
-        
-        if (!stageData.running_speed_per_hour) {
-          this.logger.addDebugInfo(`Stage ${stageInstanceId} has no timing data, skipping`);
-          continue;
-        }
-
-        // Calculate timing using TimingCalculationService
-        const timing = await TimingCalculationService.calculateStageTimingWithInheritance({
+    for (const stageInstanceId of stageInstanceIds) {
+      // Get stage instance details
+      const { data: stageInstance, error } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          id,
           quantity,
-          stageId: stageInstance.production_stage_id,
-          stageData: {
-            running_speed_per_hour: stageData.running_speed_per_hour,
-            make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
-            speed_unit: stageData.speed_unit || 'sheets_per_hour'
-          }
-        });
+          production_stage_id,
+          production_stages!inner(
+            running_speed_per_hour,
+            make_ready_time_minutes,
+            speed_unit
+          )
+        `)
+        .eq('id', stageInstanceId)
+        .single();
 
-        // Update stage instance with calculated timing
-        const { error: updateError } = await supabase
-          .from('job_stage_instances')
-          .update({
-            estimated_duration_minutes: timing.estimatedDurationMinutes,
-            setup_time_minutes: timing.makeReadyMinutes
-          })
-          .eq('id', stageInstanceId);
-
-        if (updateError) {
-          this.logger.addDebugInfo(`Failed to update timing for stage instance ${stageInstanceId}: ${updateError.message}`);
-        } else {
-          this.logger.addDebugInfo(`Updated stage instance ${stageInstanceId} with ${timing.estimatedDurationMinutes} minutes duration`);
-        }
+      if (error || !stageInstance) {
+        this.logger.addDebugInfo(`Failed to fetch stage instance ${stageInstanceId}: ${error?.message}`);
+        continue;
       }
-    } catch (error) {
-      this.logger.addDebugInfo(`Timing calculation failed: ${error.message}`);
+
+      const quantity = stageInstance.quantity || 1000; // Default to 1000 if null
+      const stageData = (stageInstance as any).production_stages;
+      
+      // Simple timing calculation using database function
+      const { data: calculatedDuration, error: durationError } = await supabase.rpc('calculate_stage_duration', {
+        p_quantity: quantity,
+        p_running_speed_per_hour: stageData.running_speed_per_hour || 100,
+        p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
+        p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
+      });
+
+      if (durationError || !calculatedDuration) {
+        this.logger.addDebugInfo(`Failed to calculate timing for stage instance ${stageInstanceId}: ${durationError?.message}`);
+        continue;
+      }
+
+      // Update stage instance with calculated timing
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          estimated_duration_minutes: calculatedDuration,
+          setup_time_minutes: stageData.make_ready_time_minutes || 10
+        })
+        .eq('id', stageInstanceId);
+
+      if (updateError) {
+        this.logger.addDebugInfo(`Failed to update timing for stage instance ${stageInstanceId}: ${updateError.message}`);
+      } else {
+        this.logger.addDebugInfo(`Updated stage instance ${stageInstanceId} with ${calculatedDuration} minutes duration`);
+      }
     }
   }
 

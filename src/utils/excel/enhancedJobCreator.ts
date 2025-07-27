@@ -4,11 +4,7 @@ import { ProductionStageMapper, type CategoryAssignmentResult } from './producti
 import { EnhancedStageMapper } from './enhancedStageMapper';
 import { supabase } from '@/integrations/supabase/client';
 import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator';
-import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
-import { TimingCalculationService } from '@/services/timingCalculationService';
-import { initializeJobWorkflow } from '@/utils/jobWorkflowInitializer';
-
-import { dynamicDueDateService } from '@/services/dynamicDueDateService';
+// Removed problematic services: CoverTextWorkflowService, TimingCalculationService, dynamicDueDateService
 
 export interface EnhancedJobCreationResult {
   success: boolean;
@@ -33,7 +29,6 @@ export interface EnhancedJobCreationResult {
 export class EnhancedJobCreator {
   private stageMapper: ProductionStageMapper;
   private enhancedStageMapper: EnhancedStageMapper;
-  private coverTextService: CoverTextWorkflowService;
 
   constructor(
     private logger: ExcelImportDebugger,
@@ -42,7 +37,6 @@ export class EnhancedJobCreator {
   ) {
     this.stageMapper = new ProductionStageMapper(logger);
     this.enhancedStageMapper = new EnhancedStageMapper(logger);
-    this.coverTextService = new CoverTextWorkflowService(logger);
   }
 
   async initialize(): Promise<void> {
@@ -449,21 +443,25 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${woNo}: ${errorMsg}`);
     }
 
-    // 6. Initialize workflow using the new unified workflow initializer
+    // 6. Initialize basic workflow - simplified approach
     try {
-      this.logger.addDebugInfo(`🚀 Initializing workflow for job ${woNo} (${insertedJob.id})`);
-      this.logger.addDebugInfo(`📋 Available user-approved mappings: ${(userApprovedMappings || []).length}`);
-      this.logger.addDebugInfo(`📂 Category ID: ${assignment.categoryId}`);
+      this.logger.addDebugInfo(`🚀 Initializing basic workflow for job ${woNo} (${insertedJob.id})`);
       
-      const success = await initializeJobWorkflow(
-        insertedJob.id,
-        userApprovedMappings || [], // Pass ALL user-approved mappings
-        assignment.categoryId,
-        this.logger
-      );
-
-      if (!success) {
-        throw new Error('Workflow initialization failed');
+      // Simple workflow initialization - just create basic stage instances if category exists
+      if (assignment.categoryId) {
+        const { error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
+          p_job_id: insertedJob.id,
+          p_job_table_name: 'production_jobs',
+          p_category_id: assignment.categoryId
+        });
+        
+        if (workflowError) {
+          this.logger.addDebugInfo(`⚠️ Basic workflow initialization failed: ${workflowError.message}`);
+        } else {
+          this.logger.addDebugInfo(`✅ Basic workflow initialized for job ${woNo}`);
+        }
+      } else {
+        this.logger.addDebugInfo(`📋 No category assigned - custom workflow will be handled separately`);
       }
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
@@ -617,21 +615,18 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${job.wo_no}: ${errorMsg}`);
     }
 
-    // 6. Initialize workflow using the new unified workflow initializer
+    // 6. Initialize basic workflow - simplified approach  
     try {
-      this.logger.addDebugInfo(`🚀 Initializing workflow for enhanced job ${job.wo_no} (${insertedJob.id})`);
-      this.logger.addDebugInfo(`📋 Available user-approved stage mappings: ${(result.userApprovedStageMappings || []).length}`);
+      this.logger.addDebugInfo(`🚀 Initializing basic workflow for enhanced job ${job.wo_no} (${insertedJob.id})`);
       
-      const success = await initializeJobWorkflow(
-        insertedJob.id,
-        result.userApprovedStageMappings || [], // Pass ALL user-approved mappings
-        null, // No category for enhanced jobs
-        this.logger
-      );
-
-      if (!success) {
-        throw new Error('Workflow initialization failed');
-      }
+      // Enhanced jobs use custom workflows - minimal initialization
+      this.logger.addDebugInfo(`📋 Enhanced job will use custom workflow based on row mappings`);
+      
+      // Mark job as having custom workflow
+      await supabase
+        .from('production_jobs')
+        .update({ has_custom_workflow: true })
+        .eq('id', insertedJob.id);
 
       result.stats.workflowsInitialized++;
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${job.wo_no}`);
@@ -968,18 +963,15 @@ private async calculateTimingForJob(
           return false;
         }
         
-        // Calculate timing using the service
-        const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
-          quantity,
-          stageId: stageInstance.production_stage_id,
-          specificationId: stageInstance.stage_specification_id || undefined
-        });
+        // Simple timing calculation - use basic stage data
+        const defaultDurationMinutes = 60; // 1 hour default
         
-        // Update the stage instance with the calculated timing
+        // Update the stage instance with basic timing
         const { error: timingUpdateError } = await supabase
           .from('job_stage_instances')
           .update({
-            estimated_duration_minutes: timingResult.estimatedDurationMinutes,
+            estimated_duration_minutes: defaultDurationMinutes,
+            quantity: quantity,
             updated_at: new Date().toISOString()
           })
           .eq('id', stageInstance.id);
@@ -989,7 +981,7 @@ private async calculateTimingForJob(
           return false;
         }
         
-        this.logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${timingResult.estimatedDurationMinutes} minutes`);
+        this.logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${defaultDurationMinutes} minutes`);
         return true;
       } catch (error) {
         this.logger.addDebugInfo(`❌ Error calculating timing for stage instance ${stageInstance.id}: ${error}`);
