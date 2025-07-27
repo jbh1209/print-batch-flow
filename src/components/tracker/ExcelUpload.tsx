@@ -44,7 +44,7 @@ interface JobDataWithQR extends ParsedJob {
 }
 
 export const ExcelUpload = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [parsedJobs, setParsedJobs] = useState<ParsedJob[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -98,6 +98,17 @@ export const ExcelUpload = () => {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Prevent file upload if auth is still loading
+    if (authLoading) {
+      toast.error("Please wait for authentication to complete");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("You must be logged in to upload files");
+      return;
+    }
 
     setFileName(file.name);
     setUploadError(null);
@@ -534,6 +545,41 @@ export const ExcelUpload = () => {
     
     await getCapacityImpact(jobStageMapping);
   };
+
+  // Show loading state during auth
+  if (authLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <span>Loading authentication...</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">You must be logged in to upload files</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-6">

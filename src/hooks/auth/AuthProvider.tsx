@@ -61,10 +61,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             loading: false
           }));
           
-          // Defer user data loading to prevent auth deadlocks
+          // Defer user data loading with timeout to prevent auth deadlocks
           setTimeout(() => {
-            updateUserData(session.user.id);
-          }, 0);
+            updateUserData(session.user.id).catch(error => {
+              console.warn('Failed to load user data during sign in:', error);
+              // Don't block auth on user data failure
+            });
+          }, 100);
           return;
         }
         
@@ -78,8 +81,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    // THEN check for existing session with timeout
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session check timeout')), 10000)
+      )
+    ]).then(({ data: { session }, error }: any) => {
       if (error) {
         console.error('Session retrieval error:', error);
         // Clean up on session errors
@@ -97,10 +105,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }));
 
       if (session?.user) {
-        updateUserData(session.user.id);
+        updateUserData(session.user.id).catch(error => {
+          console.warn('Failed to load user data during session check:', error);
+          // Don't block auth on user data failure
+        });
       }
     }).catch((error) => {
-      console.error('Session check failed:', error);
+      console.error('Session check failed or timed out:', error);
       cleanupAuthState();
       setAuthState(prev => ({ ...prev, loading: false }));
     });
