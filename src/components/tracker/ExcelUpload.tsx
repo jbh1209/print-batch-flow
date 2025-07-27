@@ -146,6 +146,38 @@ export const ExcelUpload = () => {
     }
   };
 
+  const transformPreparedToEnhanced = (preparedResult: any): EnhancedJobCreationResult => {
+    const categoryAssignments: { [woNo: string]: any } = {};
+    const rowMappings: { [woNo: string]: any[] } = {};
+
+    if (preparedResult.enhancedJobAssignments) {
+      preparedResult.enhancedJobAssignments.forEach((assignment: any) => {
+        const woNo = assignment.originalJob.wo_no;
+        categoryAssignments[woNo] = assignment.originalJob;
+        rowMappings[woNo] = assignment.rowMappings;
+      });
+    }
+
+    return {
+      success: true,
+      createdJobs: [],
+      failedJobs: [],
+      categoryAssignments,
+      rowMappings,
+      duplicatesSkipped: preparedResult.duplicatesSkipped || 0,
+      duplicateJobs: preparedResult.duplicateJobs || [],
+      userApprovedStageMappings: preparedResult.userApprovedStageMappings,
+      generateQRCodes: preparedResult.generateQRCodes,
+      stats: {
+        total: preparedResult.stats?.total || 0,
+        successful: preparedResult.stats?.successful || 0,
+        failed: preparedResult.stats?.failed || 0,
+        newCategories: 0,
+        workflowsInitialized: 0
+      }
+    };
+  };
+
   const handleMappingConfirmed = async (mapping: ColumnMapping) => {
     if (!currentFile || !user?.id) return;
     
@@ -162,7 +194,8 @@ export const ExcelUpload = () => {
         generateQRCodes
       );
       
-      setEnhancedResult(result);
+      const transformedResult = transformPreparedToEnhanced(result);
+      setEnhancedResult(transformedResult);
       
       // Show enhanced dialog directly - skip workload preview
       setShowEnhancedDialog(true);
@@ -195,7 +228,8 @@ export const ExcelUpload = () => {
         generateQRCodes
       );
       
-      setEnhancedResult(result);
+      const transformedResult = transformPreparedToEnhanced(result);
+      setEnhancedResult(transformedResult);
       
       // Show enhanced dialog directly - skip workload preview
       setShowEnhancedDialog(true);
