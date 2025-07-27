@@ -37,9 +37,9 @@ export class StageQueueManager {
         max_parallel_jobs,
         is_bottleneck,
         efficiency_factor,
-        production_stages!inner(id, name, is_active)
+        production_stages(id, name, is_active)
       `)
-      .eq('production_stages.is_active', true);
+      .not('production_stages', 'is', null);
 
     if (capacityError) {
       console.error('Error fetching stage capacities:', capacityError);
