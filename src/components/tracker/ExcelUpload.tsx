@@ -18,6 +18,7 @@ import {
   ImportStats,
   validateAllJobs 
 } from "@/utils/excel";
+import { checkParsedJobsForDuplicates } from "@/utils/jobDeduplication";
 import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
 import { 
   parseExcelFileForPreview, 
@@ -31,7 +32,26 @@ import {
 } from "@/utils/excel/enhancedParser";
 import { finalizeJobsDirectly } from "@/utils/excel/directParser";
 import type { MatrixExcelData } from "@/utils/excel/types";
-import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
+// Define EnhancedJobCreationResult locally since the file was removed
+interface EnhancedJobCreationResult {
+  success: boolean;
+  createdJobs: any[];
+  failedJobs: { job: any; error: string }[];
+  categoryAssignments: { [woNo: string]: any };
+  duplicatesSkipped?: number;
+  duplicateJobs?: any[];
+  rowMappings: { [woNo: string]: any[] };
+  userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
+  userId?: string;
+  generateQRCodes?: boolean;
+  stats: {
+    total: number;
+    successful: number;
+    failed: number;
+    newCategories: number;
+    workflowsInitialized: number;
+  };
+}
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
 import { PaginatedJobCreationDialog } from "@/components/admin/upload/PaginatedJobCreationDialog";
@@ -277,12 +297,24 @@ export const ExcelUpload = () => {
       debugLogger.addDebugInfo(`Attempting to insert ${jobsWithUserId.length} jobs into database`);
       debugLogger.addDebugInfo(`Sample job data: ${JSON.stringify(jobsWithUserId[0], null, 2)}`);
 
+      // CRITICAL FIX: Check for duplicates BEFORE attempting database operations
+      debugLogger.addDebugInfo("Checking for duplicates before database insertion...");
+      
+      const duplicateCheck = await checkParsedJobsForDuplicates(jobsWithUserId.map(j => ({ wo_no: j.wo_no })));
+      const nonDuplicateJobs = duplicateCheck.newJobs.map(newJob => {
+        return jobsWithUserId.find(job => job.wo_no === newJob.wo_no);
+      }).filter(Boolean);
+
+      if (duplicateCheck.duplicates.length > 0) {
+        const duplicateWOs = duplicateCheck.duplicates.map(d => d.wo_no).join(', ');
+        debugLogger.addWarning(`Found ${duplicateCheck.duplicates.length} duplicates that will be skipped: ${duplicateWOs}`);
+      }
+
+      debugLogger.addDebugInfo(`Inserting ${nonDuplicateJobs.length} non-duplicate jobs (${duplicateCheck.duplicates.length} duplicates skipped)`);
+
       const { data, error } = await supabase
         .from('production_jobs')
-        .upsert(jobsWithUserId, { 
-          onConflict: 'wo_no,user_id',
-          ignoreDuplicates: true 
-        })
+        .insert(nonDuplicateJobs)
         .select();
 
       if (error) {
