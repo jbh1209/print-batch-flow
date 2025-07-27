@@ -427,7 +427,7 @@ export const parseAndPrepareProductionReadyJobs = async (
   );
   
   // CRITICAL: Preserve user-approved mappings in final result
-  result.userApprovedStageMappings = userApprovedStageMappings;
+  (result as any).userApprovedStageMappings = userApprovedStageMappings;
   
   logger.addDebugInfo(`Phase 4 enhanced job preparation completed: ${result.stats.total} jobs prepared for review`);
   
@@ -503,8 +503,8 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   logger.addDebugInfo(`Phase 4 enhanced matrix job preparation completed: ${result.stats.total} jobs prepared for review`);
   
   // Add duplicate information to the result
-  result.duplicatesSkipped = parseResult.duplicatesSkipped;
-  result.duplicateJobs = parseResult.duplicateJobs;
+  (result as any).duplicatesSkipped = parseResult.duplicatesSkipped;
+  (result as any).duplicateJobs = parseResult.duplicateJobs;
   
   return result;
 };

@@ -147,9 +147,9 @@ export const parseMatrixDataToJobs = async (
   }
   
   return {
-    jobs: duplicateCheck.newJobs,
+    jobs: duplicateCheck.newJobs as ParsedJob[],
     duplicatesSkipped: duplicateCheck.duplicates.length,
-    duplicateJobs: duplicateCheck.duplicates
+    duplicateJobs: duplicateCheck.duplicates as ParsedJob[]
   };
 };
 
