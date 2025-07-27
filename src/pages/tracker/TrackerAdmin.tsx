@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet } from "lucide-react";
+import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet, Clock } from "lucide-react";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
@@ -13,6 +13,7 @@ import PublicHolidaysManagement from "@/components/tracker/admin/PublicHolidaysM
 import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecificationsManagement";
 import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
+import { BulkJobRecalculation } from "@/components/tracker/BulkJobRecalculation";
 
 export default function TrackerAdmin() {
   const [activeTab, setActiveTab] = useState("workflow-diagnostics");
@@ -27,7 +28,11 @@ export default function TrackerAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-10">
+        <TabsList className="grid w-full grid-cols-11">
+          <TabsTrigger value="job-scheduling" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Job Scheduling
+          </TabsTrigger>
           <TabsTrigger value="excel-mapping" className="flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4" />
             Excel Mapping
@@ -69,6 +74,10 @@ export default function TrackerAdmin() {
             Printers
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="job-scheduling">
+          <BulkJobRecalculation />
+        </TabsContent>
 
         <TabsContent value="excel-mapping">
           <ExcelMapping />
