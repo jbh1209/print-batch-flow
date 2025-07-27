@@ -97,7 +97,7 @@ export class DirectJobCreator {
       customer: originalJob.customer || 'Imported Customer',
       reference: originalJob.reference || '',
       qty: originalJob.qty || 1,
-      due_date: originalJob.due_date,
+      due_date: originalJob.due_date, // Keep original Excel due date for now
       user_id: this.userId,
       status: 'Pre-Press',
       has_custom_workflow: true,
@@ -162,6 +162,43 @@ export class DirectJobCreator {
 
     // Initialize custom workflow from row mappings
     await this.initializeWorkflowFromMappings(finalJob, rowMappings);
+
+    // Calculate realistic due date using DynamicDueDateService
+    try {
+      const { DynamicDueDateService } = await import('@/services/dynamicDueDateService');
+      const dueDateService = new DynamicDueDateService();
+      
+      // Calculate initial due date based on working days and capacity
+      const dueDateResult = await dueDateService.calculateInitialDueDate(finalJob.id, 'production_jobs');
+      
+      if (dueDateResult?.dueDateWithBuffer) {
+        const originalDueDate = finalJob.due_date;
+        const calculatedDueDate = dueDateResult.dueDateWithBuffer.toISOString().split('T')[0];
+        
+        this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Excel due date: ${originalDueDate}, Calculated due date: ${calculatedDueDate}`);
+        
+        // Update job with realistic due date
+        await supabase
+          .from('production_jobs')
+          .update({
+            due_date: calculatedDueDate,
+            internal_completion_date: dueDateResult.internalCompletionDate?.toISOString().split('T')[0],
+            due_date_buffer_days: dueDateResult.bufferDays || 1,
+            due_date_warning_level: 'green',
+            due_date_locked: true, // Lock the due date once set
+            manual_due_date: originalDueDate // Keep original Excel date for reference
+          })
+          .eq('id', finalJob.id);
+        
+        finalJob.due_date = calculatedDueDate;
+        finalJob.manual_due_date = originalDueDate;
+        finalJob.due_date_locked = true;
+        
+        this.logger.addDebugInfo(`Updated job ${finalJob.wo_no} with realistic due date: ${calculatedDueDate} (was: ${originalDueDate})`);
+      }
+    } catch (dueDateError) {
+      this.logger.addDebugInfo(`Warning: Due date calculation failed for ${originalJob.wo_no}: ${dueDateError}`);
+    }
 
     // Generate QR code image if enabled
     if (this.generateQRCodes && finalJob.qr_code_data) {
