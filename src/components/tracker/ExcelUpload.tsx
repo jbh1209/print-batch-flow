@@ -32,29 +32,11 @@ import {
 } from "@/utils/excel/enhancedParser";
 import { finalizeJobsDirectly } from "@/utils/excel/directParser";
 import type { MatrixExcelData } from "@/utils/excel/types";
-// Define EnhancedJobCreationResult locally since the file was removed
-interface EnhancedJobCreationResult {
-  success: boolean;
-  createdJobs: any[];
-  failedJobs: { job: any; error: string }[];
-  categoryAssignments: { [woNo: string]: any };
-  duplicatesSkipped?: number;
-  duplicateJobs?: any[];
-  rowMappings: { [woNo: string]: any[] };
-  userApprovedStageMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
-  userId?: string;
-  generateQRCodes?: boolean;
-  stats: {
-    total: number;
-    successful: number;
-    failed: number;
-    newCategories: number;
-    workflowsInitialized: number;
-  };
-}
+import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
 import { PaginatedJobCreationDialog } from "@/components/admin/upload/PaginatedJobCreationDialog";
+import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface JobDataWithQR extends ParsedJob {
@@ -694,14 +676,16 @@ export const ExcelUpload = () => {
       />
 
       {/* Phase 4: Paginated Job Creation Dialog */}
-      <PaginatedJobCreationDialog
-        open={showEnhancedDialog}
-        onOpenChange={setShowEnhancedDialog}
-        result={enhancedResult}
-        isProcessing={isCreatingJobs}
-        onSingleJobConfirm={handleSingleJobConfirm}
-        onComplete={handlePaginatedComplete}
-      />
+      <TrackerErrorBoundary componentName="PaginatedJobCreationDialog">
+        <PaginatedJobCreationDialog
+          open={showEnhancedDialog}
+          onOpenChange={setShowEnhancedDialog}
+          result={enhancedResult}
+          isProcessing={isCreatingJobs}
+          onSingleJobConfirm={handleSingleJobConfirm}
+          onComplete={handlePaginatedComplete}
+        />
+      </TrackerErrorBoundary>
 
       {/* Part Assignment Modal (additive) */}
       {partAssignmentJob && (

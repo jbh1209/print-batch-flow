@@ -61,8 +61,8 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   const [selectedWoForAdd, setSelectedWoForAdd] = useState<string>("");
   const [isProcessingSingle, setIsProcessingSingle] = useState(false);
 
-  // Get order list from result
-  const orderList = result ? Object.keys(result.categoryAssignments) : [];
+  // Get order list from result with proper null checks
+  const orderList = result?.categoryAssignments ? Object.keys(result.categoryAssignments) : [];
   const currentOrder = orderList[currentOrderIndex];
   const totalOrders = orderList.length;
 
@@ -83,11 +83,13 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
       });
       setUpdatedRowMappings(initialMappings);
 
-      // Initialize order statuses
+      // Initialize order statuses with null checks
       const initialStatuses: { [woNo: string]: OrderProcessingStatus } = {};
-      Object.keys(result.categoryAssignments).forEach(woNo => {
-        initialStatuses[woNo] = { status: 'pending' };
-      });
+      if (result.categoryAssignments) {
+        Object.keys(result.categoryAssignments).forEach(woNo => {
+          initialStatuses[woNo] = { status: 'pending' };
+        });
+      }
       setOrderStatuses(initialStatuses);
     }
   }, [result]);
@@ -201,7 +203,7 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   };
 
   const handleUpdateCategory = (woNo: string, categoryId: string | null, categoryName: string | null) => {
-    if (result && result.categoryAssignments[woNo]) {
+    if (result?.categoryAssignments?.[woNo]) {
       result.categoryAssignments[woNo].categoryId = categoryId;
       result.categoryAssignments[woNo].categoryName = categoryName;
       result.categoryAssignments[woNo].requiresCustomWorkflow = !categoryId;
@@ -279,7 +281,7 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
 
   const getCurrentOrderMappings = () => {
     if (!currentOrder || !updatedRowMappings[currentOrder]) {
-      return [];
+      return result?.rowMappings?.[currentOrder] || [];
     }
     return updatedRowMappings[currentOrder];
   };
@@ -583,8 +585,8 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm font-medium">Category</label>
-                          <Select
-                            value={result.categoryAssignments[currentOrder]?.categoryId || ""}
+                           <Select
+                            value={result?.categoryAssignments?.[currentOrder]?.categoryId || ""}
                             onValueChange={(value) => {
                               const category = availableCategories.find(c => c.id === value);
                               handleUpdateCategory(currentOrder, value || null, category?.name || null);
