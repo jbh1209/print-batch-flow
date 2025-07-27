@@ -1274,26 +1274,9 @@ private storeMappingDataInJobSpecifications(job: ParsedJob, mappedStages: any[])
  */
 private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): Promise<void> {
   try {
-    this.logger.addDebugInfo(`📅 Starting smart scheduling for job ${job.wo_no} (${jobId})`);
+    this.logger.addDebugInfo(`📅 Starting workload-based scheduling for job ${job.wo_no} (${jobId})`);
     
-    // Calculate total estimated hours for the job
-    const estimatedHours = await ProductionScheduler.calculateJobTotalHours(jobId, 'production_jobs');
-    
-    // Schedule the job with workload awareness (stores in job_scheduling table)
-    const success = await ProductionScheduler.scheduleJob({
-      jobId,
-      jobTableName: 'production_jobs',
-      estimatedTotalHours: estimatedHours,
-      priority: 100 // Default priority
-    });
-    
-    if (success) {
-      this.logger.addDebugInfo(`✅ Smart scheduling completed for job ${job.wo_no}: ${estimatedHours} hours estimated`);
-    } else {
-      this.logger.addDebugInfo(`⚠️ Smart scheduling failed for job ${job.wo_no}, using fallback`);
-    }
-
-    // 🎯 FIX: Schedule job using flow-based scheduling for workload-based due dates
+    // 🎯 Use flow-based scheduling for workload-based due dates
     const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
     const schedulingResult = await flowBasedScheduler.scheduleJob({
       jobId: jobId,
@@ -1324,7 +1307,8 @@ private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): P
       }
     
   } catch (error) {
-    this.logger.addDebugInfo(`❌ Error in smart scheduling for job ${job.wo_no}: ${error}`);
+    this.logger.addDebugInfo(`❌ Error in workload-based scheduling for job ${job.wo_no}: ${error}`);
+    throw error;
   }
 }
 
