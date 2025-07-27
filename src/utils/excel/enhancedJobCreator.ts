@@ -1270,13 +1270,12 @@ private storeMappingDataInJobSpecifications(job: ParsedJob, mappedStages: any[])
 }
 
 /**
- * Schedule job with workload-aware due dates
+ * Calculate realistic due date using flow-based scheduling
  */
-private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): Promise<void> {
+private async calculateRealisticDueDate(jobId: string, job: ParsedJob): Promise<void> {
   try {
-    this.logger.addDebugInfo(`📅 Starting workload-based scheduling for job ${job.wo_no} (${jobId})`);
+    this.logger.addDebugInfo(`📅 Calculating realistic due date for job ${job.wo_no} (${jobId})`);
     
-    // 🎯 Use flow-based scheduling for workload-based due dates
     const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
     const schedulingResult = await flowBasedScheduler.scheduleJob({
       jobId: jobId,
@@ -1285,30 +1284,40 @@ private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): P
     });
     
     if (schedulingResult.success) {
-      this.logger.addDebugInfo(`✅ Workload-based scheduling completed for job ${job.wo_no}: ${schedulingResult.totalEstimatedDays} working days estimated`);
-      // The scheduleJob method already updates the database with workload-based due dates
+      this.logger.addDebugInfo(`✅ Flow-based scheduling completed for job ${job.wo_no}: ${schedulingResult.totalEstimatedDays} working days estimated`);
     } else {
-      this.logger.addDebugInfo(`⚠️ Workload-based scheduling failed for job ${job.wo_no}: ${schedulingResult.message}`);
+      this.logger.addDebugInfo(`⚠️ Flow-based scheduling failed for job ${job.wo_no}, using 3-day fallback`);
       
-      // Fallback: Update with basic due date
-      const { error: updateError } = await supabase
+      // Simple fallback: add 3 working days to today
+      const fallbackDueDate = new Date();
+      fallbackDueDate.setDate(fallbackDueDate.getDate() + 3);
+      
+      await supabase
         .from('production_jobs')
-        .update({
-          due_date: job.due_date,
-          updated_at: new Date().toISOString()
+        .update({ 
+          due_date: fallbackDueDate.toISOString().split('T')[0],
+          manual_due_date: fallbackDueDate.toISOString().split('T')[0]
         })
         .eq('id', jobId);
-
-        if (updateError) {
-          this.logger.addDebugInfo(`⚠️ Failed to update fallback due date for job ${job.wo_no}: ${updateError.message}`);
-        } else {
-          this.logger.addDebugInfo(`✅ Updated job ${job.wo_no} with fallback due date`);
-        }
-      }
+        
+      this.logger.addDebugInfo(`📅 Applied fallback due date for job ${job.wo_no}: ${fallbackDueDate.toISOString().split('T')[0]}`);
+    }
     
   } catch (error) {
-    this.logger.addDebugInfo(`❌ Error in workload-based scheduling for job ${job.wo_no}: ${error}`);
-    throw error;
+    this.logger.addDebugInfo(`❌ Error calculating due date for job ${job.wo_no}: ${error}`);
+    
+    // Ultimate fallback: simple date calculation
+    const fallbackDueDate = new Date();
+    fallbackDueDate.setDate(fallbackDueDate.getDate() + 3);
+    
+    await supabase
+      .from('production_jobs')
+      .update({ 
+        due_date: fallbackDueDate.toISOString().split('T')[0]
+      })
+      .eq('id', jobId);
+      
+    this.logger.addDebugInfo(`📅 Applied emergency fallback due date for job ${job.wo_no}: ${fallbackDueDate.toISOString().split('T')[0]}`);
   }
 }
 

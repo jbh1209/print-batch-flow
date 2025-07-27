@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Calendar, Clock, Users, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { ProductionScheduler } from '@/services/productionScheduler';
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DraggableJobCard } from './DraggableJobCard';

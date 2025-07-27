@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, TrendingUp } from 'lucide-react';
-import { ProductionScheduler } from '@/services/productionScheduler';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface DailyWorkload {
@@ -30,8 +30,20 @@ export const ProductionCalendar: React.FC = () => {
       endDate.setDate(endDate.getDate() + 10);
       const endDateStr = endDate.toISOString().split('T')[0];
       
-      const data = await ProductionScheduler.getScheduleOverview(startDate, endDateStr);
-      setWorkloadData(data);
+      const { data, error } = await supabase
+        .from('daily_workload')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDateStr)
+        .order('date');
+        
+      if (error) {
+        console.error('Error fetching workload data:', error);
+        setWorkloadData([]);
+        return;
+      }
+      
+      setWorkloadData(data || []);
     } catch (error) {
       console.error('Error loading schedule data:', error);
       toast.error('Failed to load production schedule');

@@ -924,54 +924,6 @@ export type Database = {
           },
         ]
       }
-      job_scheduling: {
-        Row: {
-          actual_total_hours: number | null
-          created_at: string
-          created_by: string | null
-          estimated_total_hours: number | null
-          id: string
-          is_expedited: boolean
-          job_id: string
-          job_table_name: string
-          schedule_notes: string | null
-          schedule_priority: number
-          scheduled_completion_date: string | null
-          scheduled_start_date: string | null
-          updated_at: string
-        }
-        Insert: {
-          actual_total_hours?: number | null
-          created_at?: string
-          created_by?: string | null
-          estimated_total_hours?: number | null
-          id?: string
-          is_expedited?: boolean
-          job_id: string
-          job_table_name: string
-          schedule_notes?: string | null
-          schedule_priority?: number
-          scheduled_completion_date?: string | null
-          scheduled_start_date?: string | null
-          updated_at?: string
-        }
-        Update: {
-          actual_total_hours?: number | null
-          created_at?: string
-          created_by?: string | null
-          estimated_total_hours?: number | null
-          id?: string
-          is_expedited?: boolean
-          job_id?: string
-          job_table_name?: string
-          schedule_notes?: string | null
-          schedule_priority?: number
-          scheduled_completion_date?: string | null
-          scheduled_start_date?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
