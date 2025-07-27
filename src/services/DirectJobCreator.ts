@@ -160,8 +160,14 @@ export class DirectJobCreator {
     // LOGGING: Track finalJob after database operation
     this.logger.addDebugInfo(`[QUANTITY LOG] createSingleJob - finalJob qty after DB operation: ${finalJob.qty}`);
 
-    // Initialize custom workflow from row mappings
-    await this.initializeWorkflowFromMappings(finalJob, rowMappings);
+    // Initialize custom workflow from row mappings (CORE FIX)
+    try {
+      await this.initializeWorkflowFromMappings(finalJob, rowMappings);
+      this.logger.addDebugInfo(`✅ Workflow initialized for job ${finalJob.wo_no}`);
+    } catch (workflowError) {
+      this.logger.addDebugInfo(`❌ Workflow initialization failed for job ${finalJob.wo_no}: ${workflowError}`);
+      // Don't fail the entire job creation for workflow issues
+    }
 
     // Simple due date calculation - add 3 days to current date if needed
     if (!finalJob.due_date) {

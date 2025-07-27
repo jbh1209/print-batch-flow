@@ -466,11 +466,22 @@ export class EnhancedJobCreator {
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
       
-      // 🚀 SMART SCHEDULING: Calculate realistic due dates using flow-based scheduling
-      await this.calculateRealisticDueDate(insertedJob.id, originalJob);
+      // 6. Create workflow stages from mappings (CORE FIX)
+      if (assignment.mappedStages && assignment.mappedStages.length > 0) {
+        await this.createWorkflowStagesFromMappings(insertedJob.id, assignment.mappedStages, originalJob);
+        this.logger.addDebugInfo(`✅ Custom workflow initialized for job ${woNo}`);
+      } else {
+        this.logger.addDebugInfo(`⚠️ No mapped stages found for job ${woNo}`);
+      }
       
-      // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
-      await this.calculateTimingForJob(insertedJob.id, userApprovedMappings, originalJob, woNo);
+      // 7. Simple due date calculation
+      const simpleDueDate = this.calculateSimpleDueDate(originalJob.due_date);
+      if (simpleDueDate) {
+        await supabase
+          .from('production_jobs')
+          .update({ due_date: simpleDueDate })
+          .eq('id', insertedJob.id);
+      }
       
     } catch (error) {
       this.logger.addDebugInfo(`Workflow initialization error for ${originalJob.wo_no}: ${error}`);
@@ -631,11 +642,14 @@ export class EnhancedJobCreator {
       result.stats.workflowsInitialized++;
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${job.wo_no}`);
       
-      // 🚀 SMART SCHEDULING: Calculate realistic due dates using flow-based scheduling  
-      await this.calculateRealisticDueDate(insertedJob.id, job);
-      
-      // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
-      await this.calculateTimingForJob(insertedJob.id, result.userApprovedStageMappings, job, job.wo_no);
+      // Simple due date calculation  
+      const simpleDueDate = this.calculateSimpleDueDate(job.due_date);
+      if (simpleDueDate) {
+        await supabase
+          .from('production_jobs')
+          .update({ due_date: simpleDueDate })
+          .eq('id', insertedJob.id);
+      }
       
     } catch (error) {
       this.logger.addDebugInfo(`Workflow initialization error for ${job.wo_no}: ${error}`);
@@ -877,130 +891,62 @@ export class EnhancedJobCreator {
 }
 
 /**
- * Calculate timing estimates for all stage instances of a job
+ * Create workflow stages from stage mappings (CORE FIX)
  */
-private async calculateTimingForJob(
-  jobId: string,
-  userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> | undefined,
-  originalJob: ParsedJob,
-  woNo: string
-): Promise<void> {
-  try {
-    this.logger.addDebugInfo(`🎯 Starting timing calculations for job ${woNo} (${jobId})`);
-    
-    // Fetch all stage instances for this job
-    const { data: stageInstances, error } = await supabase
-      .from('job_stage_instances')
-      .select('id, production_stage_id, stage_specification_id, quantity, part_name, unique_stage_key')
-      .eq('job_id', jobId)
-      .eq('job_table_name', 'production_jobs');
-    
-    if (error) {
-      this.logger.addDebugInfo(`❌ Failed to fetch stage instances for timing calculation: ${error.message}`);
-      return;
-    }
-    
-    if (!stageInstances || stageInstances.length === 0) {
-      this.logger.addDebugInfo(`⚠️ No stage instances found for job ${woNo}, skipping timing calculation`);
-      return;
-    }
-    
-    // Create a map of stage IDs to quantities from user mappings and original job
-    const quantityMap = new Map<string, number>();
-    
-    // Add quantities from user mappings - these should contain the parsed Excel quantities
-    if (userApprovedMappings) {
-    // Track stage ID occurrences to generate unique keys
-    const stageIdCounts = new Map<string, number>();
+private async createWorkflowStagesFromMappings(jobId: string, mappedStages: any[], originalJob: any): Promise<void> {
+  this.logger.addDebugInfo(`🔧 Creating workflow stages for job ${jobId} from ${mappedStages.length} mappings`);
   
-    userApprovedMappings.forEach(mapping => {
-    this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
-    
-    // First try to extract quantity from job specifications based on groupName
-    let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
-    
-    this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
-    
-    if (qty > 0) {
-      // Generate unique key similar to jobWorkflowInitializer
-      const baseStageId = mapping.mappedStageId;
-      const currentCount = stageIdCounts.get(baseStageId) || 0;
-      stageIdCounts.set(baseStageId, currentCount + 1);
-      
-      const uniqueKey = currentCount === 0 ? baseStageId : `${baseStageId}-${currentCount + 1}`;
-      
-      quantityMap.set(uniqueKey, qty);
-      this.logger.addDebugInfo(`✅ Set quantity ${qty} for unique key ${uniqueKey} (${mapping.mappedStageName})`);
-    }
-  });
-}
-
-    
-    // Fallback to job qty if no specific quantities found
-    const defaultQty = originalJob.qty || 1;
-    
-    this.logger.addDebugInfo(`📊 Found ${quantityMap.size} specific stage quantities, using default ${defaultQty} for others`);
-    
-    // Calculate timing for each stage instance
-    const timingPromises = stageInstances.map(async (stageInstance) => {
-      const quantity = this.getQuantityForStageInstance(stageInstance, quantityMap, defaultQty);
-
-      
-      this.logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
-      
-      try {
-        // Update the stage instance with quantity first
-        const { error: updateError } = await supabase
-          .from('job_stage_instances')
-          .update({
-            quantity,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', stageInstance.id);
-        
-        if (updateError) {
-          this.logger.addDebugInfo(`❌ Failed to update stage instance ${stageInstance.id}: ${updateError.message}`);
-          return false;
-        }
-        
-        // Simple timing calculation - use basic stage data
-        const defaultDurationMinutes = 60; // 1 hour default
-        
-        // Update the stage instance with basic timing
-        const { error: timingUpdateError } = await supabase
-          .from('job_stage_instances')
-          .update({
-            estimated_duration_minutes: defaultDurationMinutes,
-            quantity: quantity,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', stageInstance.id);
-        
-        if (timingUpdateError) {
-          this.logger.addDebugInfo(`❌ Failed to update timing for stage instance ${stageInstance.id}: ${timingUpdateError.message}`);
-          return false;
-        }
-        
-        this.logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${defaultDurationMinutes} minutes`);
-        return true;
-      } catch (error) {
-        this.logger.addDebugInfo(`❌ Error calculating timing for stage instance ${stageInstance.id}: ${error}`);
-        return false;
-      }
-    });
-    
-    const results = await Promise.all(timingPromises);
-    const successCount = results.filter(result => result === true).length;
-    
-    this.logger.addDebugInfo(`🎯 Timing calculation completed for job ${woNo}: ${successCount}/${stageInstances.length} successful`);
-    
-  } catch (error) {
-    this.logger.addDebugInfo(`❌ Error in timing calculation process for job ${woNo}: ${error}`);
+  if (!mappedStages || mappedStages.length === 0) {
+    throw new Error('No mapped stages provided for workflow creation');
   }
+
+  const stageMappings = mappedStages.map((stage: any, index: number) => ({
+    stage_id: stage.stageId,
+    unique_stage_id: `${jobId}_${index}_${stage.stageId}`,
+    stage_order: index + 1,
+    stage_specification_id: stage.specificationId || null,
+    part_name: stage.partName || null,
+    quantity: stage.quantity || originalJob.qty || 1,
+    paper_specification: stage.paperSpecification || null
+  }));
+
+  this.logger.addDebugInfo(`Stage mappings: ${JSON.stringify(stageMappings)}`);
+
+  const { error: workflowError } = await supabase.rpc(
+    'initialize_custom_job_stages_with_specs',
+    {
+      p_job_id: jobId,
+      p_job_table_name: 'production_jobs',
+      p_stage_mappings: stageMappings
+    }
+  );
+
+  if (workflowError) {
+    throw new Error(`Workflow initialization failed: ${workflowError.message}`);
+  }
+
+  this.logger.addDebugInfo(`✅ Created ${stageMappings.length} workflow stages for job ${jobId}`);
 }
 
 /**
- * Extract quantity from job specifications for a specific group
+ * Calculate a simple due date with fallback
+ */
+private calculateSimpleDueDate(originalDueDate?: string | Date): string | null {
+  if (originalDueDate) {
+    const parsedDate = new Date(originalDueDate);
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate.toISOString().split('T')[0];
+    }
+  }
+  
+  // Fallback: 3 days from now
+  const fallbackDate = new Date();
+  fallbackDate.setDate(fallbackDate.getDate() + 3);
+  return fallbackDate.toISOString().split('T')[0];
+}
+
+/**
+ * Legacy method - no longer used but kept for compatibility
  */
 private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
   this.logger.addDebugInfo(`🔍 Extracting quantity for group: ${groupName}`);
