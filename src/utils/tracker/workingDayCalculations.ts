@@ -120,3 +120,22 @@ export function getWorkingSchedule(
   const minutes = item?.estimated_duration_minutes || 0;
   return formatWorkingTimeDisplay(minutes, capacity);
 }
+
+/**
+ * Add working days to a date (excluding weekends and holidays)
+ */
+export function addWorkingDays(startDate: Date, workingDaysToAdd: number): Date {
+  const result = new Date(startDate);
+  let daysAdded = 0;
+  
+  while (daysAdded < workingDaysToAdd) {
+    result.setDate(result.getDate() + 1);
+    
+    // Skip weekends (Saturday = 6, Sunday = 0)
+    if (result.getDay() !== 0 && result.getDay() !== 6) {
+      daysAdded++;
+    }
+  }
+  
+  return result;
+}

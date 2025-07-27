@@ -68,8 +68,10 @@ interface BatchSchedulingResult {
 }
 
 interface DueDateCalculation {
-  earliestPossibleDate: Date;
-  recommendedDueDate: Date;
+  internalCompletionDate: Date;
+  dueDateWithBuffer: Date;
+  bufferDays: number;
+  totalWorkingDays: number;
   confidence: 'high' | 'medium' | 'low';
   factors: string[];
 }

@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { stageQueueManager } from "./stageQueueManager";
 import { dependencyResolver } from "./dependencyResolver";
 import { advancedSchedulingEngine } from "./advancedSchedulingEngine";
+import { dynamicDueDateService } from "./dynamicDueDateService";
 
 interface JobSchedulingRequest {
   jobId: string;
@@ -94,7 +95,7 @@ export class FlowBasedProductionScheduler {
       await this.updateJobSchedule(request.jobId, request.jobTableName, {
         estimatedStartDate: advancedSchedule.estimatedStartDate,
         estimatedCompletionDate: finalCompletionDate,
-        totalEstimatedDays: advancedSchedule.totalEstimatedDays
+        totalEstimatedDays: timeline.totalEstimatedWorkingDays
       });
 
       return {
@@ -168,30 +169,25 @@ export class FlowBasedProductionScheduler {
   }
 
   /**
-   * Calculate realistic due date based on current production workload
+   * Calculate realistic due date with 1-day buffer for client communication
    */
   async calculateRealisticDueDate(
     jobId: string, 
     jobTableName: string,
     priority: number = 50
   ): Promise<{
-    earliestPossibleDate: Date;
-    recommendedDueDate: Date;
+    internalCompletionDate: Date;
+    dueDateWithBuffer: Date;
+    bufferDays: number;
+    totalWorkingDays: number;
     confidence: 'high' | 'medium' | 'low';
     factors: string[];
   }> {
-    const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
+    // Use the new dynamic due date service for initial calculation
+    const dueDateInfo = await dynamicDueDateService.calculateInitialDueDate(jobId, jobTableName);
     const bottlenecks = await stageQueueManager.getBottleneckStages();
     
-    const earliestDate = timeline.stages.length > 0 
-      ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
-      : new Date();
-
-    // Add buffer based on priority and bottlenecks
-    const bufferDays = this.calculateSchedulingBuffer(priority, bottlenecks.length, timeline.criticalPath.length);
-    const recommendedDate = new Date(earliestDate.getTime() + (bufferDays * 24 * 60 * 60 * 1000));
-
-    // Determine confidence level
+    // Determine confidence level based on production conditions
     let confidence: 'high' | 'medium' | 'low' = 'high';
     const factors: string[] = [];
 
@@ -203,18 +199,24 @@ export class FlowBasedProductionScheduler {
       factors.push(`${bottlenecks.length} bottleneck stage(s)`);
     }
 
-    if (timeline.totalEstimatedDays > 14) {
+    if (dueDateInfo.totalWorkingDays > 10) {
       confidence = confidence === 'high' ? 'medium' : 'low';
-      factors.push('Long production timeline');
+      factors.push('Long production timeline (>10 working days)');
     }
 
-    if (timeline.criticalPath.length > 3) {
-      factors.push('Complex workflow with multiple critical stages');
+    if (dueDateInfo.totalWorkingDays > 5) {
+      factors.push('Complex workflow requiring multiple stages');
     }
+
+    // Add working day calculation info to factors
+    factors.push(`Calculated using 8-hour shifts at 85% efficiency`);
+    factors.push(`${dueDateInfo.bufferDays} working day buffer added for safety`);
 
     return {
-      earliestPossibleDate: earliestDate,
-      recommendedDueDate: recommendedDate,
+      internalCompletionDate: dueDateInfo.internalCompletionDate,
+      dueDateWithBuffer: dueDateInfo.dueDateWithBuffer,
+      bufferDays: dueDateInfo.bufferDays,
+      totalWorkingDays: dueDateInfo.totalWorkingDays,
       confidence,
       factors
     };

@@ -125,7 +125,7 @@ export class StageQueueManager {
   }
 
   /**
-   * Calculate complete job timeline through all stages
+   * Calculate complete job timeline through all stages using working days
    */
   async calculateJobTimeline(jobId: string, jobTableName: string = 'production_jobs'): Promise<{
     stages: Array<{
@@ -137,7 +137,8 @@ export class StageQueueManager {
       queuePosition: number;
       isBottleneck: boolean;
     }>;
-    totalEstimatedDays: number;
+    totalEstimatedWorkingDays: number;
+    totalEstimatedCalendarDays: number;
     bottleneckStage?: string;
     criticalPath: string[];
   }> {
@@ -201,14 +202,19 @@ export class StageQueueManager {
       maxCompletionDate = new Date(Math.max(maxCompletionDate.getTime(), stageCompletionDate.getTime()));
     }
 
-    const totalDays = Math.ceil((maxCompletionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    // Calculate working days using the working day calculation utility
+    const totalMinutes = timeline.reduce((total, stage) => total + (stage.estimatedDurationHours * 60), 0);
+    const workingDayBreakdown = require('@/utils/tracker/workingDayCalculations').calculateWorkingDays(totalMinutes);
+    
+    const totalCalendarDays = Math.ceil((maxCompletionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     const criticalPath = timeline
       .filter(stage => stage.isBottleneck)
       .map(stage => stage.stageName);
 
     return {
       stages: timeline,
-      totalEstimatedDays: totalDays,
+      totalEstimatedWorkingDays: workingDayBreakdown.workingDays,
+      totalEstimatedCalendarDays: totalCalendarDays,
       bottleneckStage,
       criticalPath
     };

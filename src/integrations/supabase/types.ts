@@ -1592,6 +1592,9 @@ export type Database = {
           date: string | null
           delivery_specifications: Json | null
           due_date: string | null
+          due_date_buffer_days: number | null
+          due_date_locked: boolean | null
+          due_date_warning_level: string | null
           expedite_reason: string | null
           expedited_at: string | null
           expedited_by: string | null
@@ -1599,8 +1602,10 @@ export type Database = {
           has_custom_workflow: boolean | null
           highlighted: boolean | null
           id: string
+          internal_completion_date: string | null
           is_batch_master: boolean | null
           is_expedited: boolean | null
+          last_due_date_check: string | null
           location: string | null
           manual_due_date: string | null
           manual_sla_days: number | null
@@ -1636,6 +1641,9 @@ export type Database = {
           date?: string | null
           delivery_specifications?: Json | null
           due_date?: string | null
+          due_date_buffer_days?: number | null
+          due_date_locked?: boolean | null
+          due_date_warning_level?: string | null
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
@@ -1643,8 +1651,10 @@ export type Database = {
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
+          internal_completion_date?: string | null
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
+          last_due_date_check?: string | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1680,6 +1690,9 @@ export type Database = {
           date?: string | null
           delivery_specifications?: Json | null
           due_date?: string | null
+          due_date_buffer_days?: number | null
+          due_date_locked?: boolean | null
+          due_date_warning_level?: string | null
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
@@ -1687,8 +1700,10 @@ export type Database = {
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
+          internal_completion_date?: string | null
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
+          last_due_date_check?: string | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null

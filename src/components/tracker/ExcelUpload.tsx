@@ -359,17 +359,25 @@ export const ExcelUpload = () => {
         const schedulingResult = await batchScheduleJobs(schedulingJobs);
         debugLogger.addDebugInfo(`Flow-based scheduling complete: ${schedulingResult.successful} successful, ${schedulingResult.failed} failed`);
         
-        // Update job due dates with realistic calculated values
+        // Update job due dates with realistic calculated values (with 1-day buffer)
         for (const result of schedulingResult.results) {
           if (result.success) {
             const job = data.find(j => j.id === result.jobId);
             if (job) {
-              await supabase
-                .from('production_jobs')
-                .update({ 
-                  due_date: result.estimatedCompletionDate.toISOString().split('T')[0] // Date only
-                })
-                .eq('id', job.id);
+              // Calculate due date with working day buffer
+              const dueDateCalculation = await calculateRealisticDueDate(job.id, "production_jobs");
+              if (dueDateCalculation) {
+                await supabase
+                  .from('production_jobs')
+                  .update({ 
+                    due_date: dueDateCalculation.dueDateWithBuffer.toISOString().split('T')[0],
+                    internal_completion_date: dueDateCalculation.internalCompletionDate.toISOString().split('T')[0],
+                    due_date_buffer_days: dueDateCalculation.bufferDays,
+                    due_date_warning_level: 'green',
+                    due_date_locked: true // Lock the due date once set initially
+                  })
+                  .eq('id', job.id);
+              }
             }
           }
         }
