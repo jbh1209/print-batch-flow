@@ -7,7 +7,7 @@ import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator
 import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
 import { TimingCalculationService } from '@/services/timingCalculationService';
 import { initializeJobWorkflow } from '@/utils/jobWorkflowInitializer';
-import { ProductionScheduler } from '@/services/productionScheduler';
+// ProductionScheduler removed - now using DynamicDueDateService for workload-aware scheduling
 
 export interface EnhancedJobCreationResult {
   success: boolean;
@@ -1205,26 +1205,47 @@ private storeMappingDataInJobSpecifications(job: ParsedJob, mappedStages: any[])
  */
 private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): Promise<void> {
   try {
-    this.logger.addDebugInfo(`📅 Starting smart scheduling for job ${job.wo_no} (${jobId})`);
+    this.logger.addDebugInfo(`📅 Starting workload-aware scheduling for job ${job.wo_no} (${jobId})`);
     
-    // Calculate total estimated hours for the job
-    const estimatedHours = await ProductionScheduler.calculateJobTotalHours(jobId, 'production_jobs');
+    // Use the new DynamicDueDateService for realistic due date calculation
+    const { dynamicDueDateService } = await import('@/services/dynamicDueDateService');
+    const dueDateResult = await dynamicDueDateService.calculateInitialDueDate(jobId, 'production_jobs');
     
-    // Schedule the job with workload awareness
-    const success = await ProductionScheduler.scheduleJob({
-      jobId,
-      jobTableName: 'production_jobs',
-      estimatedTotalHours: estimatedHours,
-      priority: 100 // Default priority
-    });
+    // Update the job with calculated due dates
+    const { error } = await supabase
+      .from('production_jobs')
+      .update({
+        due_date: dueDateResult.dueDateWithBuffer.toISOString().split('T')[0],
+        internal_completion_date: dueDateResult.internalCompletionDate.toISOString().split('T')[0],
+        due_date_buffer_days: dueDateResult.bufferDays,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
     
-    if (success) {
-      this.logger.addDebugInfo(`✅ Smart scheduling completed for job ${job.wo_no}: ${estimatedHours} hours estimated`);
-    } else {
-      this.logger.addDebugInfo(`⚠️ Smart scheduling failed for job ${job.wo_no}, using fallback`);
+    if (error) {
+      throw error;
     }
+    
+    this.logger.addDebugInfo(`✅ Workload-aware scheduling completed for job ${job.wo_no}:`);
+    this.logger.addDebugInfo(`   Internal completion: ${dueDateResult.internalCompletionDate.toDateString()}`);
+    this.logger.addDebugInfo(`   Due date (with buffer): ${dueDateResult.dueDateWithBuffer.toDateString()}`);
+    this.logger.addDebugInfo(`   Total working days: ${dueDateResult.totalWorkingDays}`);
+    
   } catch (error) {
-    this.logger.addDebugInfo(`❌ Error in smart scheduling for job ${job.wo_no}: ${error}`);
+    this.logger.addDebugInfo(`❌ Error in workload-aware scheduling for job ${job.wo_no}: ${error}`);
+    this.logger.addDebugInfo(`   Falling back to default due date calculation`);
+    
+    // Fallback: Set due date to 3 days from now
+    const fallbackDueDate = new Date();
+    fallbackDueDate.setDate(fallbackDueDate.getDate() + 3);
+    
+    await supabase
+      .from('production_jobs')
+      .update({
+        due_date: fallbackDueDate.toISOString().split('T')[0],
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
   }
 }
 
