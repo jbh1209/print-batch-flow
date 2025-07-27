@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
+import { RealTimeStageTimingDisplay } from "@/components/tracker/RealTimeStageTimingDisplay";
 
 interface MasterOrderModalProps {
   isOpen: boolean;
@@ -396,14 +397,16 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                  {stage.part_name && (
                                    <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
                                  )}
-                                 {stage.quantity && (
-                                   <p className="text-sm text-gray-600">Qty: {stage.quantity.toLocaleString()}</p>
-                                 )}
-                                 {stage.estimated_duration_minutes && (
-                                   <p className="text-xs text-blue-600 font-medium">
-                                     Est. {Math.floor(stage.estimated_duration_minutes / 60)}h {stage.estimated_duration_minutes % 60}m
-                                   </p>
-                                 )}
+                                  {stage.quantity && (
+                                    <p className="text-sm text-gray-600">Qty: {stage.quantity.toLocaleString()}</p>
+                                  )}
+                                  <RealTimeStageTimingDisplay
+                                    stageId={stage.production_stage_id}
+                                    quantity={stage.quantity}
+                                    specificationId={stage.stage_specification_id}
+                                    storedEstimate={stage.estimated_duration_minutes}
+                                    showSource={true}
+                                  />
                                </div>
                              </div>
                             <div className="flex items-center gap-3">

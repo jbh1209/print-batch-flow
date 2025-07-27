@@ -42,7 +42,7 @@ export const BulkTimingRecalculation = () => {
           quantity,
           production_stages(name)
         `)
-        .in('status', ['pending', 'active']);
+        .neq('status', 'cancelled'); // Process all stages except cancelled ones
 
       if (error) throw error;
 
@@ -89,7 +89,7 @@ export const BulkTimingRecalculation = () => {
           job_table_name,
           production_stages(id, name, running_speed_per_hour, make_ready_time_minutes, speed_unit)
         `)
-        .in('status', ['pending', 'active']);
+        .neq('status', 'cancelled'); // Process all stages except cancelled ones
 
       if (fetchError) throw fetchError;
 
@@ -135,12 +135,16 @@ export const BulkTimingRecalculation = () => {
             }
           }
 
-          // Recalculate timing using the service
+          // Recalculate timing using the service with debug logging
+          console.log(`🔧 Recalculating timing for stage ${(instance.production_stages as any)?.name || 'Unknown'} (${instance.id}) with quantity: ${quantity}, stageId: ${instance.production_stage_id}, specId: ${instance.stage_specification_id}`);
+          
           const timingEstimate = await TimingCalculationService.calculateStageTimingWithInheritance({
             quantity,
             stageId: instance.production_stage_id,
             specificationId: instance.stage_specification_id
           });
+          
+          console.log(`🔧 Timing result for ${(instance.production_stages as any)?.name}: ${timingEstimate.estimatedDurationMinutes} minutes (source: ${timingEstimate.calculationSource})`);
 
           const oldDuration = instance.estimated_duration_minutes;
           const newDuration = timingEstimate.estimatedDurationMinutes;
@@ -238,7 +242,7 @@ export const BulkTimingRecalculation = () => {
                 <div>
                   <h4 className="font-medium text-amber-800">Important Notes</h4>
                   <ul className="mt-2 text-sm text-amber-700 space-y-1">
-                    <li>• This will recalculate estimated_duration_minutes for all active stage instances</li>
+                    <li>• This will recalculate estimated_duration_minutes for all job stage instances (except cancelled)</li>
                     <li>• Uses current production stage configurations and specifications</li>
                     <li>• Preserves existing quantities and part assignments</li>
                     <li>• Only updates stages where timing has actually changed</li>
