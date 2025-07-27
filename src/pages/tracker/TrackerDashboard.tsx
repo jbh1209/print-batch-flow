@@ -6,6 +6,8 @@ import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerSt
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
+import { RealTimeProductionFlow } from "@/components/tracker/dashboard/RealTimeProductionFlow";
+import { CapacityAlerts } from "@/components/tracker/dashboard/CapacityAlerts";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 
@@ -321,6 +323,12 @@ const TrackerDashboard = () => {
             categories={categories}
           />
         )}
+
+        {/* Phase 5: Real-Time Production Flow Dashboard */}
+        <RealTimeProductionFlow />
+        
+        {/* Capacity Alerts */}
+        <CapacityAlerts />
 
         <TrackerStatusBreakdown stats={stats} />
         <TrackerQuickActions />
