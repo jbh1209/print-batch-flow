@@ -295,13 +295,41 @@ export const ExcelUpload = () => {
         }
       }
 
+      // Phase 3: Schedule all uploaded jobs with workload-aware due dates
+      if (data && data.length > 0) {
+        debugLogger.addDebugInfo(`Starting production scheduling for ${data.length} jobs`);
+        
+        const { ProductionScheduler } = await import("@/services/productionScheduler");
+        const schedulingJobs = data.map(job => ({
+          jobId: job.id,
+          jobTableName: "production_jobs",
+          priority: 100
+        }));
+        
+        const schedulingResult = await ProductionScheduler.batchScheduleJobs(schedulingJobs);
+        debugLogger.addDebugInfo(`Scheduling complete: ${schedulingResult.successful} successful, ${schedulingResult.failed} failed`);
+        
+        // Update job due dates with calculated values
+        for (const result of schedulingResult.results) {
+          if (result.success && result.scheduledDate) {
+            const job = data.find(j => j.id === result.jobId);
+            if (job) {
+              await supabase
+                .from('production_jobs')
+                .update({ due_date: result.scheduledDate })
+                .eq('id', job.id);
+            }
+          }
+        }
+      }
+
       const duplicatesSkipped = jobsWithUserId.length - (data?.length || 0);
       const qrMessage = generateQRCodes ? " with QR codes" : "";
       
       if (duplicatesSkipped > 0) {
-        toast.success(`Successfully uploaded ${data?.length || 0} new jobs${qrMessage}. ${duplicatesSkipped} duplicate work orders were skipped.`);
+        toast.success(`Successfully uploaded ${data?.length || 0} new jobs${qrMessage} with calculated due dates. ${duplicatesSkipped} duplicate work orders were skipped.`);
       } else {
-        toast.success(`Successfully uploaded ${data?.length || 0} jobs${qrMessage}`);
+        toast.success(`Successfully uploaded ${data?.length || 0} jobs${qrMessage} with calculated due dates`);
       }
       
       setParsedJobs([]);

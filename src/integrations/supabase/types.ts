@@ -2325,6 +2325,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      bulk_recalculate_job_due_dates: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          updated_job_id: string
+          old_due_date: string
+          new_due_date: string
+          estimated_hours: number
+        }[]
+      }
       calculate_smart_due_date: {
         Args: { p_estimated_hours: number; p_priority?: number }
         Returns: string

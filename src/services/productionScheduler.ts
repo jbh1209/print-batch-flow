@@ -19,37 +19,29 @@ export interface JobSchedulingData {
 export class ProductionScheduler {
   /**
    * Calculate smart due date based on current workload and estimated hours
+   * Includes 1-day production buffer for client reliability
    */
   static async calculateSmartDueDate(
     estimatedHours: number,
     priority: number = 100
   ): Promise<SchedulingResult> {
     try {
-      // Use the database function for smart scheduling
-      const { data, error } = await supabase
-        .rpc('calculate_smart_due_date', {
-          p_estimated_hours: estimatedHours,
-          p_priority: priority
-        });
-
-      if (error) {
-        console.error('Error calculating smart due date:', error);
-        // Fallback to simple calculation
-        return this.calculateFallbackSchedule(estimatedHours);
-      }
-
-      // Get current workload
+      // Get current workload in days
       const workloadQueue = await this.getCurrentWorkloadDays();
+      const jobDays = Math.ceil(estimatedHours / 8); // 8 hours per working day
       
       const today = new Date();
       const scheduledStart = new Date(today);
       scheduledStart.setDate(today.getDate() + workloadQueue);
       
+      // Add job duration + 1 day buffer to completion date
+      const scheduledCompletion = await addWorkingDays(scheduledStart, jobDays + 1);
+      
       return {
-        scheduledStartDate: data || scheduledStart.toISOString().split('T')[0],
-        scheduledCompletionDate: data || scheduledStart.toISOString().split('T')[0],
+        scheduledStartDate: scheduledStart.toISOString().split('T')[0],
+        scheduledCompletionDate: scheduledCompletion.toISOString().split('T')[0],
         estimatedTotalHours: estimatedHours,
-        workloadQueue
+        workloadQueue: workloadQueue + jobDays + 1 // Include buffer in queue
       };
     } catch (error) {
       console.error('Error in smart due date calculation:', error);
@@ -239,29 +231,31 @@ export class ProductionScheduler {
 
   /**
    * Fallback scheduling when database function fails
+   * Includes 1-day production buffer
    */
   private static async calculateFallbackSchedule(estimatedHours: number): Promise<SchedulingResult> {
     const today = new Date();
     const workloadDays = Math.ceil(estimatedHours / 8);
     
     try {
-      const completionDate = await addWorkingDays(today, workloadDays);
+      // Add 1 day buffer to completion date
+      const completionDate = await addWorkingDays(today, workloadDays + 1);
       return {
         scheduledStartDate: today.toISOString().split('T')[0],
         scheduledCompletionDate: completionDate.toISOString().split('T')[0],
         estimatedTotalHours: estimatedHours,
-        workloadQueue: workloadDays
+        workloadQueue: workloadDays + 1 // Include buffer
       };
     } catch (error) {
       // Ultimate fallback
       const fallbackDate = new Date(today);
-      fallbackDate.setDate(today.getDate() + workloadDays);
+      fallbackDate.setDate(today.getDate() + workloadDays + 1); // Add buffer
       
       return {
         scheduledStartDate: today.toISOString().split('T')[0],
         scheduledCompletionDate: fallbackDate.toISOString().split('T')[0],
         estimatedTotalHours: estimatedHours,
-        workloadQueue: workloadDays
+        workloadQueue: workloadDays + 1 // Include buffer
       };
     }
   }
