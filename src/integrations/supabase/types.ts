@@ -601,6 +601,36 @@ export type Database = {
         }
         Relationships: []
       }
+      due_date_recalculation_queue: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          job_table_name: string
+          processed: boolean | null
+          processed_at: string | null
+          trigger_reason: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          job_table_name?: string
+          processed?: boolean | null
+          processed_at?: string | null
+          trigger_reason: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          processed?: boolean | null
+          processed_at?: string | null
+          trigger_reason?: string
+        }
+        Relationships: []
+      }
       excel_import_mappings: {
         Row: {
           address_extraction_pattern: string | null
@@ -2894,6 +2924,10 @@ export type Database = {
       mark_job_ready_for_batching: {
         Args: { p_job_id: string; p_job_table_name: string; p_user_id?: string }
         Returns: boolean
+      }
+      process_due_date_recalculation_queue: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       reassign_jobs_to_category: {
         Args: {
