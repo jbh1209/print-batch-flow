@@ -1300,8 +1300,9 @@ private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): P
       this.logger.addDebugInfo(`⚠️ Smart scheduling failed for job ${job.wo_no}, using fallback`);
     }
 
-    // 🎯 FIX: Calculate realistic due dates and update production_jobs table
-    const dueDateCalculation = await dynamicDueDateService.calculateInitialDueDate(jobId, 'production_jobs');
+    // 🎯 FIX: Calculate realistic due dates using flow-based scheduling
+    const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
+    const dueDateCalculation = await flowBasedScheduler.calculateRealisticDueDate(jobId, 'production_jobs', 50);
     
     if (dueDateCalculation) {
       // Update the production_jobs table with realistic due dates

@@ -163,13 +163,12 @@ export class DirectJobCreator {
     // Initialize custom workflow from row mappings
     await this.initializeWorkflowFromMappings(finalJob, rowMappings);
 
-    // Calculate realistic due date using DynamicDueDateService
+    // Calculate realistic due date using flow-based scheduling engine
     try {
-      const { DynamicDueDateService } = await import('@/services/dynamicDueDateService');
-      const dueDateService = new DynamicDueDateService();
+      const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
       
-      // Calculate initial due date based on working days and capacity
-      const dueDateResult = await dueDateService.calculateInitialDueDate(finalJob.id, 'production_jobs');
+      // Calculate due date based on actual stage workloads and current capacity
+      const dueDateResult = await flowBasedScheduler.calculateRealisticDueDate(finalJob.id, 'production_jobs', 50);
       
       if (dueDateResult?.dueDateWithBuffer) {
         const originalDueDate = finalJob.due_date;
