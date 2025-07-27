@@ -14,6 +14,7 @@ import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecifica
 import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import { BulkJobRecalculation } from "@/components/tracker/BulkJobRecalculation";
+import { BulkTimingRecalculation } from "@/components/tracker/BulkTimingRecalculation";
 
 export default function TrackerAdmin() {
   const [activeTab, setActiveTab] = useState("workflow-diagnostics");
@@ -76,7 +77,10 @@ export default function TrackerAdmin() {
         </TabsList>
 
         <TabsContent value="job-scheduling">
-          <BulkJobRecalculation />
+          <div className="space-y-6">
+            <BulkJobRecalculation />
+            <BulkTimingRecalculation />
+          </div>
         </TabsContent>
 
         <TabsContent value="excel-mapping">
