@@ -400,13 +400,14 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                   {stage.quantity && (
                                     <p className="text-sm text-gray-600">Qty: {stage.quantity.toLocaleString()}</p>
                                   )}
-                                  <RealTimeStageTimingDisplay
-                                    stageId={stage.production_stage_id}
-                                    quantity={stage.quantity}
-                                    specificationId={stage.stage_specification_id}
-                                    storedEstimate={stage.estimated_duration_minutes}
-                                    showSource={true}
-                                  />
+                                   <RealTimeStageTimingDisplay
+                                     stageId={stage.production_stage_id}
+                                     quantity={stage.quantity}
+                                     specificationId={stage.stage_specification_id}
+                                     storedEstimate={stage.estimated_duration_minutes}
+                                     showSource={true}
+                                     useWorkingDays={true}
+                                   />
                                </div>
                              </div>
                             <div className="flex items-center gap-3">

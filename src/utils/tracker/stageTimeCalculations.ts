@@ -2,6 +2,8 @@
  * Utility functions for calculating and formatting stage timing information
  */
 
+import { formatWorkingTimeDisplay, calculateTotalWorkingTime, type WorkingDayBreakdown } from './workingDayCalculations';
+
 export interface JobStageWithTiming {
   estimated_duration_minutes?: number | null;
   actual_duration_minutes?: number | null;
@@ -48,6 +50,15 @@ export function formatTimeDisplay(minutes: number): string {
 }
 
 /**
+ * Format minutes into working day display with realistic schedule
+ * @param minutes - Total minutes
+ * @returns Working day breakdown with display text and tooltip
+ */
+export function formatWorkingTimeDisplayLegacy(minutes: number): WorkingDayBreakdown {
+  return formatWorkingTimeDisplay(minutes);
+}
+
+/**
  * Calculate and format total time for a stage
  * @param items - Array of jobs or job stages with timing information
  * @returns Formatted time string
@@ -57,6 +68,17 @@ export function calculateAndFormatStageTime(
 ): string {
   const totalMinutes = calculateTotalStageTime(items);
   return formatTimeDisplay(totalMinutes);
+}
+
+/**
+ * Calculate and format total working time for a stage with realistic schedule
+ * @param items - Array of jobs or job stages with timing information
+ * @returns Working day breakdown
+ */
+export function calculateAndFormatWorkingTime(
+  items: any[]
+): WorkingDayBreakdown {
+  return calculateTotalWorkingTime(items);
 }
 
 /**

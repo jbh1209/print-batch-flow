@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { formatWorkingTimeDisplay, type WorkingDayCapacity } from "@/utils/tracker/workingDayCalculations";
 
 export interface TimingCalculationParams {
   quantity: number;
@@ -25,6 +26,12 @@ export interface TimingEstimate {
   speedUsed: number;
   speedUnit: string;
   calculationSource: 'specification' | 'stage' | 'default' | 'manual_override';
+  workingDays?: number;
+  workingSchedule?: {
+    displayText: string;
+    tooltipText: string;
+    workingDays: number;
+  };
 }
 
 export class TimingCalculationService {
@@ -171,13 +178,22 @@ export class TimingCalculationService {
     // Calculate production time separately for breakdown
     const productionMinutes = this.calculateStageTimingLocally(quantity, running_speed_per_hour, 0, speed_unit);
 
+    // Calculate working day schedule
+    const workingSchedule = formatWorkingTimeDisplay(totalDuration);
+
     return {
       estimatedDurationMinutes: totalDuration,
       productionMinutes,
       makeReadyMinutes: make_ready_time_minutes,
       speedUsed: running_speed_per_hour,
       speedUnit: speed_unit,
-      calculationSource
+      calculationSource,
+      workingDays: workingSchedule.workingDays,
+      workingSchedule: {
+        displayText: workingSchedule.displayText,
+        tooltipText: workingSchedule.tooltipText,
+        workingDays: workingSchedule.workingDays
+      }
     };
   }
 }

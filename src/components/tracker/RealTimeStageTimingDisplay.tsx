@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { calculateRealTimeStageTimingForDisplay, CalculatedStageTimingDisplay, createStoredTimingDisplay } from '@/utils/tracker/realTimeStageTimingCalculations';
+import { WorkingTimeDisplay } from './WorkingTimeDisplay';
 
 interface RealTimeStageTimingDisplayProps {
   stageId: string;
@@ -8,6 +9,7 @@ interface RealTimeStageTimingDisplayProps {
   storedEstimate?: number | null; // Fallback to stored estimate if real-time fails
   className?: string;
   showSource?: boolean; // For debugging - shows calculation source
+  useWorkingDays?: boolean; // Show working days instead of raw hours
 }
 
 export const RealTimeStageTimingDisplay: React.FC<RealTimeStageTimingDisplayProps> = ({
@@ -16,7 +18,8 @@ export const RealTimeStageTimingDisplay: React.FC<RealTimeStageTimingDisplayProp
   specificationId,
   storedEstimate,
   className = "",
-  showSource = false
+  showSource = false,
+  useWorkingDays = false
 }) => {
   const [timingDisplay, setTimingDisplay] = useState<CalculatedStageTimingDisplay | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +94,25 @@ export const RealTimeStageTimingDisplay: React.FC<RealTimeStageTimingDisplayProp
         return '';
     }
   };
+
+  // Use working days display if requested and we have enough data
+  if (useWorkingDays && timingDisplay.displayMinutes > 0) {
+    return (
+      <div className={`flex items-center gap-2 ${className}`}>
+        {showSource && <span className="text-xs">{getTimingIcon()}</span>}
+        <span className="text-xs text-muted-foreground">Est.</span>
+        <WorkingTimeDisplay 
+          minutes={timingDisplay.displayMinutes} 
+          className="text-xs"
+          showIcon={true}
+          showTooltip={true}
+        />
+        {showSource && (
+          <span className="text-xs opacity-60 text-muted-foreground">({timingDisplay.source})</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <p className={`text-xs font-medium ${getTimingColor()} ${className}`}>
