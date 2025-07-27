@@ -7,7 +7,7 @@ import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator
 import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
 import { TimingCalculationService } from '@/services/timingCalculationService';
 import { initializeJobWorkflow } from '@/utils/jobWorkflowInitializer';
-import { ProductionScheduler } from '@/services/productionScheduler';
+
 import { dynamicDueDateService } from '@/services/dynamicDueDateService';
 
 export interface EnhancedJobCreationResult {
@@ -468,8 +468,8 @@ export class EnhancedJobCreator {
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
       
-      // 🚀 SMART SCHEDULING: Calculate workload-aware due dates
-      await this.scheduleJobWithWorkloadAwareness(insertedJob.id, originalJob);
+      // 🚀 SMART SCHEDULING: Calculate realistic due dates using flow-based scheduling
+      await this.calculateRealisticDueDate(insertedJob.id, originalJob);
       
       // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
       await this.calculateTimingForJob(insertedJob.id, userApprovedMappings, originalJob, woNo);
@@ -636,8 +636,8 @@ export class EnhancedJobCreator {
       result.stats.workflowsInitialized++;
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${job.wo_no}`);
       
-      // 🚀 SMART SCHEDULING: Calculate workload-aware due dates
-      await this.scheduleJobWithWorkloadAwareness(insertedJob.id, job);
+      // 🚀 SMART SCHEDULING: Calculate realistic due dates using flow-based scheduling  
+      await this.calculateRealisticDueDate(insertedJob.id, job);
       
       // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
       await this.calculateTimingForJob(insertedJob.id, result.userApprovedStageMappings, job, job.wo_no);
