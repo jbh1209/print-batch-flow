@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { stageQueueManager } from "./stageQueueManager";
+import { dependencyResolver } from "./dependencyResolver";
 
 interface JobSchedulingRequest {
   jobId: string;
@@ -73,11 +74,14 @@ export class FlowBasedProductionScheduler {
         throw new Error('No workflow stages found for job');
       }
 
-      // Calculate timeline through production flow
-      const timeline = await stageQueueManager.calculateJobTimeline(request.jobId, request.jobTableName);
+      // Create flow dependencies in database first
+      await dependencyResolver.createJobFlowDependencies(request.jobId, request.jobTableName);
 
-      // Create flow dependencies in database
-      await this.createJobFlowDependencies(request.jobId, request.jobTableName, stageInstances);
+      // Analyze critical path and dependencies
+      const criticalPathAnalysis = await dependencyResolver.analyzeCriticalPath(request.jobId, request.jobTableName);
+      
+      // Calculate timeline through production flow with dependency awareness
+      const timeline = await stageQueueManager.calculateJobTimeline(request.jobId, request.jobTableName);
 
       // Update job with realistic due date
       const finalCompletionDate = timeline.stages.length > 0 
@@ -97,8 +101,8 @@ export class FlowBasedProductionScheduler {
         estimatedCompletionDate: finalCompletionDate,
         totalEstimatedDays: timeline.totalEstimatedDays,
         stageTimeline: timeline.stages,
-        bottleneckStages: timeline.bottleneckStage ? [timeline.bottleneckStage] : [],
-        criticalPath: timeline.criticalPath,
+        bottleneckStages: criticalPathAnalysis.bottleneckStages,
+        criticalPath: criticalPathAnalysis.path,
         message: `Job scheduled through ${timeline.stages.length} stages, estimated completion in ${timeline.totalEstimatedDays} days`
       };
 
@@ -248,42 +252,32 @@ export class FlowBasedProductionScheduler {
   }
 
   /**
+   * Get stages that can be started based on dependencies
+   */
+  async getAvailableStages(jobId: string, jobTableName: string): Promise<Array<{
+    stageId: string;
+    stageName: string;
+    canStart: boolean;
+    blockedBy: string[];
+    reason: string;
+  }>> {
+    return await dependencyResolver.getNextAvailableStages(jobId, jobTableName);
+  }
+
+  /**
+   * Check if a specific stage can start
+   */
+  async canStageStart(jobId: string, jobTableName: string, stageId: string): Promise<{
+    canStart: boolean;
+    blockedBy: string[];
+    reason: string;
+  }> {
+    return await dependencyResolver.canStageStart(jobId, jobTableName, stageId);
+  }
+
+  /**
    * Private helper methods
    */
-  private async createJobFlowDependencies(
-    jobId: string, 
-    jobTableName: string, 
-    stageInstances: any[]
-  ): Promise<void> {
-    const dependencies = [];
-
-    for (let i = 0; i < stageInstances.length; i++) {
-      const currentStage = stageInstances[i];
-      const predecessorStage = i > 0 ? stageInstances[i - 1] : null;
-      const successorStage = i < stageInstances.length - 1 ? stageInstances[i + 1] : null;
-
-      dependencies.push({
-        job_id: jobId,
-        job_table_name: jobTableName,
-        current_stage_id: currentStage.production_stage_id,
-        predecessor_stage_id: predecessorStage?.production_stage_id || null,
-        successor_stage_id: successorStage?.production_stage_id || null,
-        dependency_type: 'sequential',
-        is_critical_path: true // Mark all as critical for now
-      });
-    }
-
-    // Insert dependencies
-    const { error } = await supabase
-      .from('job_flow_dependencies')
-      .upsert(dependencies, {
-        onConflict: 'job_id,job_table_name,current_stage_id'
-      });
-
-    if (error) {
-      console.error('Error creating job flow dependencies:', error);
-    }
-  }
 
   private async updateJobSchedule(
     jobId: string,
