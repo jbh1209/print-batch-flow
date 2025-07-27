@@ -793,51 +793,6 @@ export type Database = {
           },
         ]
       }
-      job_flow_dependencies: {
-        Row: {
-          created_at: string
-          current_stage_id: string
-          dependency_type: string
-          estimated_completion_date: string | null
-          estimated_start_date: string | null
-          id: string
-          is_critical_path: boolean
-          job_id: string
-          job_table_name: string
-          predecessor_stage_id: string | null
-          successor_stage_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          current_stage_id: string
-          dependency_type?: string
-          estimated_completion_date?: string | null
-          estimated_start_date?: string | null
-          id?: string
-          is_critical_path?: boolean
-          job_id: string
-          job_table_name: string
-          predecessor_stage_id?: string | null
-          successor_stage_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          current_stage_id?: string
-          dependency_type?: string
-          estimated_completion_date?: string | null
-          estimated_start_date?: string | null
-          id?: string
-          is_critical_path?: boolean
-          job_id?: string
-          job_table_name?: string
-          predecessor_stage_id?: string | null
-          successor_stage_id?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       job_print_specifications: {
         Row: {
           created_at: string
