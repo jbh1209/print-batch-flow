@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Calendar, Package, User, MapPin, Star, Edit, QrCode, BookOpen } from "lucide-react";
+import { Calendar, Package, User, MapPin, Star, Edit, QrCode, BookOpen, AlertTriangle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QRCodeManager } from "./QRCodeManager";
@@ -20,6 +20,8 @@ interface ProductionJob extends AccessibleJob {
   qr_code_url?: string;
   so_no?: string;
   location?: string;
+  due_date_warning_level?: 'green' | 'amber' | 'red' | 'critical';
+  internal_completion_date?: string;
   cover_text_detection?: {
     isBookJob: boolean;
     components: Array<{
@@ -104,9 +106,40 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
 
   const getCardBorderColor = () => {
     if (highlighted) return "border-yellow-400 bg-yellow-50";
+    
+    // Due date warning levels take priority over legacy overdue logic
+    if (job.due_date_warning_level) {
+      switch (job.due_date_warning_level) {
+        case 'critical':
+          return "border-red-600 bg-red-100";
+        case 'red':
+          return "border-red-400 bg-red-50";
+        case 'amber':
+          return "border-amber-400 bg-amber-50";
+        case 'green':
+        default:
+          return "border-gray-200 bg-white";
+      }
+    }
+    
+    // Fallback to legacy overdue logic
     if (isOverdue) return "border-red-400 bg-red-50";
     if (isDueSoon) return "border-orange-400 bg-orange-50";
     return "border-gray-200 bg-white";
+  };
+
+  const getDueDateWarningIcon = () => {
+    if (!job.due_date_warning_level || job.due_date_warning_level === 'green') {
+      return <Clock className="h-3 w-3 text-gray-400" />;
+    }
+    
+    const iconProps = {
+      'amber': { className: "h-3 w-3 text-amber-500" },
+      'red': { className: "h-3 w-3 text-red-500" },
+      'critical': { className: "h-3 w-3 text-red-600" }
+    };
+    
+    return <AlertTriangle {...iconProps[job.due_date_warning_level as keyof typeof iconProps]} />;
   };
 
   return (
@@ -174,17 +207,27 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
             )}
           </div>
 
-          {/* Due Date */}
+          {/* Due Date with Warning Indicator */}
           {job.due_date && (
             <div className="flex items-center gap-2">
-              <Calendar className="h-3 w-3 text-gray-400" />
-              <span className={`text-xs ${
-                isOverdue ? "text-red-600 font-medium" : 
-                isDueSoon ? "text-orange-600 font-medium" : 
-                "text-gray-600"
-              }`}>
-                Due: {new Date(job.due_date).toLocaleDateString()}
-              </span>
+              {getDueDateWarningIcon()}
+              <div className="flex-1">
+                <span className={`text-xs ${
+                  job.due_date_warning_level === 'critical' ? "text-red-600 font-medium" :
+                  job.due_date_warning_level === 'red' ? "text-red-500 font-medium" :
+                  job.due_date_warning_level === 'amber' ? "text-amber-600 font-medium" :
+                  isOverdue ? "text-red-600 font-medium" : 
+                  isDueSoon ? "text-orange-600 font-medium" : 
+                  "text-gray-600"
+                }`}>
+                  Due: {new Date(job.due_date).toLocaleDateString()}
+                </span>
+                {job.internal_completion_date && job.due_date_warning_level && job.due_date_warning_level !== 'green' && (
+                  <div className="text-xs text-gray-500">
+                    Est: {new Date(job.internal_completion_date).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

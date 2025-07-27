@@ -8,6 +8,7 @@ import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptySt
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import { RealTimeProductionFlow } from "@/components/tracker/dashboard/RealTimeProductionFlow";
 import { CapacityAlerts } from "@/components/tracker/dashboard/CapacityAlerts";
+import { DueDateWarningDashboard } from "@/components/tracker/DueDateWarningDashboard";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 
@@ -326,6 +327,9 @@ const TrackerDashboard = () => {
 
         {/* Phase 5: Real-Time Production Flow Dashboard */}
         <RealTimeProductionFlow />
+        
+        {/* Due Date Warning Dashboard */}
+        <DueDateWarningDashboard />
         
         {/* Capacity Alerts */}
         <CapacityAlerts />
