@@ -763,6 +763,51 @@ export type Database = {
           },
         ]
       }
+      job_flow_dependencies: {
+        Row: {
+          created_at: string
+          current_stage_id: string
+          dependency_type: string
+          estimated_completion_date: string | null
+          estimated_start_date: string | null
+          id: string
+          is_critical_path: boolean
+          job_id: string
+          job_table_name: string
+          predecessor_stage_id: string | null
+          successor_stage_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_stage_id: string
+          dependency_type?: string
+          estimated_completion_date?: string | null
+          estimated_start_date?: string | null
+          id?: string
+          is_critical_path?: boolean
+          job_id: string
+          job_table_name: string
+          predecessor_stage_id?: string | null
+          successor_stage_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_stage_id?: string
+          dependency_type?: string
+          estimated_completion_date?: string | null
+          estimated_start_date?: string | null
+          id?: string
+          is_critical_path?: boolean
+          job_id?: string
+          job_table_name?: string
+          predecessor_stage_id?: string | null
+          successor_stage_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_print_specifications: {
         Row: {
           created_at: string
@@ -1949,6 +1994,48 @@ export type Database = {
           },
         ]
       }
+      stage_capacity_profiles: {
+        Row: {
+          created_at: string
+          daily_capacity_hours: number
+          efficiency_factor: number
+          id: string
+          is_bottleneck: boolean
+          max_parallel_jobs: number
+          production_stage_id: string
+          setup_time_minutes: number
+          shift_hours_per_day: number
+          updated_at: string
+          working_days_per_week: number
+        }
+        Insert: {
+          created_at?: string
+          daily_capacity_hours?: number
+          efficiency_factor?: number
+          id?: string
+          is_bottleneck?: boolean
+          max_parallel_jobs?: number
+          production_stage_id: string
+          setup_time_minutes?: number
+          shift_hours_per_day?: number
+          updated_at?: string
+          working_days_per_week?: number
+        }
+        Update: {
+          created_at?: string
+          daily_capacity_hours?: number
+          efficiency_factor?: number
+          id?: string
+          is_bottleneck?: boolean
+          max_parallel_jobs?: number
+          production_stage_id?: string
+          setup_time_minutes?: number
+          shift_hours_per_day?: number
+          updated_at?: string
+          working_days_per_week?: number
+        }
+        Relationships: []
+      }
       stage_groups: {
         Row: {
           color: string | null
@@ -2031,6 +2118,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stage_workload_tracking: {
+        Row: {
+          active_jobs_count: number
+          available_hours: number
+          calculated_at: string
+          committed_hours: number
+          date: string
+          id: string
+          pending_jobs_count: number
+          production_stage_id: string
+          queue_length_hours: number
+          updated_at: string
+        }
+        Insert: {
+          active_jobs_count?: number
+          available_hours?: number
+          calculated_at?: string
+          committed_hours?: number
+          date: string
+          id?: string
+          pending_jobs_count?: number
+          production_stage_id: string
+          queue_length_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          active_jobs_count?: number
+          available_hours?: number
+          calculated_at?: string
+          committed_hours?: number
+          date?: string
+          id?: string
+          pending_jobs_count?: number
+          production_stage_id?: string
+          queue_length_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       sticker_jobs: {
         Row: {
@@ -2356,6 +2482,16 @@ export type Database = {
           p_quantity_type?: string
         }
         Returns: number
+      }
+      calculate_stage_queue_workload: {
+        Args: { p_production_stage_id: string }
+        Returns: {
+          total_pending_hours: number
+          total_active_hours: number
+          pending_jobs_count: number
+          active_jobs_count: number
+          earliest_available_slot: string
+        }[]
       }
       can_user_start_new_job: {
         Args: { p_user_id: string; p_department_id: string }
@@ -2867,6 +3003,10 @@ export type Database = {
           synced_count: number
           fixed_count: number
         }[]
+      }
+      update_stage_workload_tracking: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       update_user_profile_admin: {
         Args: { _user_id: string; _full_name: string }
