@@ -1024,36 +1024,83 @@ private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
   const findSpecByFuzzyMatch = (specifications: any, category: string): { key: string; spec: any } | null => {
     if (!specifications) return null;
     
+    this.logger.addDebugInfo(`🔍 Looking for group "${groupName}" in ${category} specifications`);
+    this.logger.addDebugInfo(`📋 Available keys in ${category}: ${Object.keys(specifications).join(', ')}`);
+    
     // 1. Try exact match first
     if (specifications[groupName]) {
       this.logger.addDebugInfo(`✅ Found exact match for ${groupName} in ${category}`);
       return { key: groupName, spec: specifications[groupName] };
     }
     
-    // 2. Extract base name from composite group names (e.g., "HP 12000 - Cover" -> "HP 12000")
-    const baseName = groupName.replace(/\s*-\s*[^_]+$/i, '').trim();
-    console.log(`[Excel Import] [QUANTITY FIX] Group: "${groupName}" -> Base: "${baseName}"`);
+    // 2. Extract base printer name and part type from group name
+    // Handle patterns like:
+    // - "HP 12000 - Cover" -> base: "HP 12000", part: "Cover"
+    // - "Inkjet Web HP, Performance - Text" -> base: "Inkjet Web HP, Performance", part: "Text"
+    let baseName = groupName;
+    let partType = '';
     
-    // 3. Look for keys that start with the base name
+    // Check for " - " pattern first
+    if (groupName.includes(' - ')) {
+      const parts = groupName.split(' - ');
+      baseName = parts[0].trim();
+      partType = parts[1]?.trim().toLowerCase() || '';
+    }
+    
+    this.logger.addDebugInfo(`🔧 Parsed group: base="${baseName}", part="${partType}"`);
+    
+    // 3. Look for matching keys using multiple strategies
     for (const [key, spec] of Object.entries(specifications)) {
-      if (key.startsWith(baseName)) {
-        // 4. Handle cover/text scenarios by checking suffixes
-        if (groupName.toLowerCase().includes('cover') && key.toLowerCase().includes('cover')) {
-          this.logger.addDebugInfo(`✅ Found cover match: ${key} for group ${groupName} in ${category}`);
+      const keyLower = key.toLowerCase();
+      const baseNameLower = baseName.toLowerCase();
+      
+      // Strategy 1: Direct base name match (for keys like "HP 12000, B2 4 Process Colours (One sides)_Cover")
+      if (keyLower.includes(baseNameLower)) {
+        // Check part type matching
+        if (partType && keyLower.includes(`_${partType}`)) {
+          this.logger.addDebugInfo(`✅ Found part-specific match: ${key} for group ${groupName} in ${category}`);
           return { key, spec };
         }
-        if (groupName.toLowerCase().includes('text') && key.toLowerCase().includes('text')) {
-          this.logger.addDebugInfo(`✅ Found text match: ${key} for group ${groupName} in ${category}`);
-          return { key, spec };
-        }
-        // 5. If no cover/text in group name, return first match
-        if (!groupName.toLowerCase().includes('cover') && !groupName.toLowerCase().includes('text')) {
+        // If no specific part type required, take first match
+        if (!partType) {
           this.logger.addDebugInfo(`✅ Found base name match: ${key} for group ${groupName} in ${category}`);
+          return { key, spec };
+        }
+      }
+      
+      // Strategy 2: Fuzzy matching for printer names (handle comma variations)
+      // Extract printer name from both group and key for comparison
+      const groupPrinter = baseName.split(',')[0].trim().toLowerCase();
+      const keyPrinter = key.split(',')[0].trim().toLowerCase();
+      
+      if (groupPrinter === keyPrinter) {
+        // Check part type
+        if (partType && keyLower.includes(`_${partType}`)) {
+          this.logger.addDebugInfo(`✅ Found printer + part match: ${key} for group ${groupName} in ${category}`);
+          return { key, spec };
+        }
+        if (!partType) {
+          this.logger.addDebugInfo(`✅ Found printer match: ${key} for group ${groupName} in ${category}`);
           return { key, spec };
         }
       }
     }
     
+    // 4. Fallback: If we have a part type but no exact match, try without part type
+    if (partType) {
+      this.logger.addDebugInfo(`🔄 Retrying without part type for group ${groupName}`);
+      for (const [key, spec] of Object.entries(specifications)) {
+        const keyLower = key.toLowerCase();
+        const baseNameLower = baseName.toLowerCase();
+        
+        if (keyLower.includes(baseNameLower)) {
+          this.logger.addDebugInfo(`✅ Found fallback match: ${key} for group ${groupName} in ${category}`);
+          return { key, spec };
+        }
+      }
+    }
+    
+    this.logger.addDebugInfo(`❌ No match found for group ${groupName} in ${category}`);
     return null;
   };
   
@@ -1087,10 +1134,38 @@ private extractQuantityFromJobSpecs(job: ParsedJob, groupName: string): number {
 
   // Log what specifications are available for debugging
   this.logger.addDebugInfo(`🔍 Available printing specs: ${job.printing_specifications ? Object.keys(job.printing_specifications).join(', ') : 'none'}`);
-  this.logger.addDebugInfo(`⚠️ No quantity found for group ${groupName}, using job default: ${job.qty || 1}`);
+  this.logger.addDebugInfo(`🔍 Available finishing specs: ${job.finishing_specifications ? Object.keys(job.finishing_specifications).join(', ') : 'none'}`);
+  this.logger.addDebugInfo(`🔍 Available prepress specs: ${job.prepress_specifications ? Object.keys(job.prepress_specifications).join(', ') : 'none'}`);
+  this.logger.addDebugInfo(`🔍 Available paper specs: ${job.paper_specifications ? Object.keys(job.paper_specifications).join(', ') : 'none'}`);
   
-  // Return job qty as fallback
-  return job.qty || 1;
+  // Enhanced fallback logic
+  let fallbackQty = job.qty || 1;
+  
+  // Try to find any quantity in any specification category as last resort
+  if (fallbackQty === 1) {
+    const allSpecs = [
+      job.printing_specifications,
+      job.finishing_specifications, 
+      job.prepress_specifications,
+      job.paper_specifications
+    ];
+    
+    for (const specs of allSpecs) {
+      if (specs) {
+        for (const [key, spec] of Object.entries(specs)) {
+          if ((spec as any)?.qty && (spec as any).qty > 1) {
+            this.logger.addDebugInfo(`🔄 Using fallback quantity from ${key}: ${(spec as any).qty}`);
+            fallbackQty = (spec as any).qty;
+            break;
+          }
+        }
+        if (fallbackQty > 1) break;
+      }
+    }
+  }
+  
+  this.logger.addDebugInfo(`⚠️ No quantity found for group ${groupName}, using fallback: ${fallbackQty}`);
+  return fallbackQty;
 }
 
 /**
