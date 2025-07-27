@@ -13,7 +13,7 @@ interface UseFlowBasedSchedulingReturn {
   refreshWorkloadSummary: () => Promise<void>;
 }
 
-interface WorkloadSummary {
+export interface WorkloadSummary {
   totalPendingJobs: number;
   totalPendingHours: number;
   bottleneckStages: Array<{
@@ -79,14 +79,13 @@ interface JobStageMapping {
   estimatedHours: number;
 }
 
-interface CapacityImpact {
+export interface CapacityImpact {
   stageImpacts: Array<{
     stageId: string;
     stageName: string;
     currentQueueDays: number;
     additionalDays: number;
     newQueueDays: number;
-    capacityUtilization: number;
   }>;
   totalImpactDays: number;
 }

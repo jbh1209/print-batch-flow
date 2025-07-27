@@ -18,6 +18,7 @@ import {
   ImportStats,
   validateAllJobs 
 } from "@/utils/excel";
+import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
 import { 
   parseExcelFileForPreview, 
   getAutoDetectedMapping, 
@@ -52,6 +53,17 @@ export const ExcelUpload = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [debugLogger] = useState(() => new ExcelImportDebugger());
   
+  // Flow-based scheduling integration
+  const {
+    scheduleJob,
+    batchScheduleJobs,
+    calculateRealisticDueDate,
+    getCapacityImpact,
+    refreshWorkloadSummary,
+    workloadSummary,
+    isCalculating
+  } = useFlowBasedScheduling();
+  
   // Enhanced mapping state
   const [previewData, setPreviewData] = useState<ExcelPreviewData | null>(null);
   const [autoDetectedMapping, setAutoDetectedMapping] = useState<ColumnMapping>({});
@@ -71,6 +83,17 @@ export const ExcelUpload = () => {
   // Part Assignment Modal state (additive only)
   const [showPartAssignment, setShowPartAssignment] = useState(false);
   const [partAssignmentJob, setPartAssignmentJob] = useState<{ id: string; wo_no: string } | null>(null);
+
+  // Phase 4: Workload Preview State
+  const [showWorkloadPreview, setShowWorkloadPreview] = useState(false);
+  const [previewJobsForScheduling, setPreviewJobsForScheduling] = useState<Array<{
+    wo_no: string;
+    customer: string;
+    reference: string;
+    due_date: string | null;
+    categoryId?: string;
+    estimatedStages: number;
+  }>>([]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -137,10 +160,24 @@ export const ExcelUpload = () => {
         generateQRCodes
       );
       
-      setEnhancedResult(result);
-      setShowEnhancedDialog(true);
+      // STEP 2: Prepare workload preview data
+      const workloadPreviewJobs = Object.entries(result.categoryAssignments).map(([woNo, assignment]) => ({
+        wo_no: woNo,
+        customer: (assignment as any).customer || 'Unknown',
+        reference: (assignment as any).reference || '',
+        due_date: (assignment as any).due_date || null,
+        categoryId: (assignment as any).categoryId,
+        estimatedStages: result.rowMappings[woNo]?.length || 0
+      }));
       
-      toast.success(`Processing completed! ${result.stats.total} jobs mapped and ready for review.`);
+      setPreviewJobsForScheduling(workloadPreviewJobs);
+      setEnhancedResult(result);
+      
+      // Show workload preview first, then enhanced dialog
+      await refreshWorkloadSummary();
+      setShowWorkloadPreview(true);
+      
+      toast.success(`Processing completed! ${result.stats.total} jobs mapped. Review workload impact below.`);
     } catch (error) {
       console.error("Error in enhanced job creation:", error);
       debugLogger.addDebugInfo(`Enhanced creation error: ${error}`);
@@ -168,13 +205,27 @@ export const ExcelUpload = () => {
         generateQRCodes
       );
       
+      // STEP 2: Prepare workload preview data for matrix jobs
+      const workloadPreviewJobs = Object.entries(result.categoryAssignments).map(([woNo, assignment]) => ({
+        wo_no: woNo,
+        customer: (assignment as any).customer || 'Unknown',
+        reference: (assignment as any).reference || '',
+        due_date: (assignment as any).due_date || null,
+        categoryId: (assignment as any).categoryId,
+        estimatedStages: result.rowMappings[woNo]?.length || 0
+      }));
+      
+      setPreviewJobsForScheduling(workloadPreviewJobs);
       setEnhancedResult(result);
-      setShowEnhancedDialog(true);
+      
+      // Show workload preview first
+      await refreshWorkloadSummary();
+      setShowWorkloadPreview(true);
       
       const duplicateMessage = result.duplicatesSkipped > 0 
         ? ` (${result.duplicatesSkipped} duplicates automatically skipped)`
         : '';
-      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped and ready for review.${duplicateMessage}`);
+      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped. Review workload impact below.${duplicateMessage}`);
     } catch (error) {
       console.error("Error in enhanced matrix job creation:", error);
       debugLogger.addDebugInfo(`Enhanced matrix creation error: ${error}`);
@@ -295,31 +346,37 @@ export const ExcelUpload = () => {
         }
       }
 
-      // Phase 3: Schedule all uploaded jobs with workload-aware due dates
+      // Phase 4: Flow-based scheduling with realistic due dates
       if (data && data.length > 0) {
-        debugLogger.addDebugInfo(`Starting production scheduling for ${data.length} jobs`);
+        debugLogger.addDebugInfo(`Starting flow-based scheduling for ${data.length} jobs`);
         
-        const { ProductionScheduler } = await import("@/services/productionScheduler");
         const schedulingJobs = data.map(job => ({
           jobId: job.id,
-          jobTableName: "production_jobs",
-          priority: 100
+          jobTableName: "production_jobs" as const,
+          priority: 50 // Default priority
         }));
         
-        const schedulingResult = await ProductionScheduler.batchScheduleJobs(schedulingJobs);
-        debugLogger.addDebugInfo(`Scheduling complete: ${schedulingResult.successful} successful, ${schedulingResult.failed} failed`);
+        const schedulingResult = await batchScheduleJobs(schedulingJobs);
+        debugLogger.addDebugInfo(`Flow-based scheduling complete: ${schedulingResult.successful} successful, ${schedulingResult.failed} failed`);
         
-        // Update job due dates with calculated values
+        // Update job due dates with realistic calculated values
         for (const result of schedulingResult.results) {
-          if (result.success && result.scheduledDate) {
+          if (result.success) {
             const job = data.find(j => j.id === result.jobId);
             if (job) {
               await supabase
                 .from('production_jobs')
-                .update({ due_date: result.scheduledDate })
+                .update({ 
+                  due_date: result.estimatedCompletionDate.toISOString().split('T')[0] // Date only
+                })
                 .eq('id', job.id);
             }
           }
+        }
+        
+        // Log capacity impact summary
+        if (schedulingResult.capacityImpact) {
+          debugLogger.addDebugInfo(`Capacity impact: ${schedulingResult.capacityImpact.totalImpactDays} total additional days across all stages`);
         }
       }
 
@@ -447,8 +504,145 @@ export const ExcelUpload = () => {
     if (fileInput) fileInput.value = "";
   };
 
+  // Handle workload preview confirmation
+  const handleWorkloadPreviewConfirmed = () => {
+    setShowWorkloadPreview(false);
+    setShowEnhancedDialog(true);
+  };
+
+  // Calculate capacity impact for preview
+  const handleCalculateCapacityImpact = async () => {
+    if (previewJobsForScheduling.length === 0) return;
+    
+    // Create stage mappings from preview jobs
+    const jobStageMapping = previewJobsForScheduling.flatMap(job => {
+      // Estimate 2 hours per stage as default
+      const hoursPerStage = 2;
+      return Array(job.estimatedStages).fill(null).map(() => ({
+        stageId: 'estimated', // Placeholder - real implementation would map specific stages
+        estimatedHours: hoursPerStage
+      }));
+    });
+    
+    await getCapacityImpact(jobStageMapping);
+  };
+
   return (
     <div className="w-full space-y-6">
+      {/* Workload Preview Dialog */}
+      {showWorkloadPreview && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-600" />
+              Production Workload Impact Preview
+            </CardTitle>
+            <CardDescription>
+              Review how these {previewJobsForScheduling.length} new jobs will impact your production schedule
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Current Workload Summary */}
+            {workloadSummary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.totalPendingJobs}</div>
+                  <div className="text-sm text-muted-foreground">Current Pending Jobs</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.totalPendingHours}h</div>
+                  <div className="text-sm text-muted-foreground">Pending Work Hours</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.averageLeadTime.toFixed(1)}</div>
+                  <div className="text-sm text-muted-foreground">Average Lead Time (days)</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.capacityUtilization.toFixed(1)}%</div>
+                  <div className="text-sm text-muted-foreground">Capacity Utilization</div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottleneck Warning */}
+            {workloadSummary?.bottleneckStages && workloadSummary.bottleneckStages.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium text-amber-800">Current Bottlenecks Detected</span>
+                </div>
+                <div className="space-y-1">
+                  {workloadSummary.bottleneckStages.map((stage, index) => (
+                    <div key={index} className="text-sm text-amber-700">
+                      <strong>{stage.stageName}</strong>: {stage.queueDays.toFixed(1)} days queue, {stage.pendingJobs} jobs
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New Jobs Preview */}
+            <div>
+              <h4 className="font-medium mb-3">Jobs to be Added ({previewJobsForScheduling.length})</h4>
+              <div className="bg-white border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Work Order</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Est. Stages</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewJobsForScheduling.slice(0, 10).map((job, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{job.wo_no}</TableCell>
+                        <TableCell>{job.customer}</TableCell>
+                        <TableCell>{job.due_date || 'TBD'}</TableCell>
+                        <TableCell>{job.estimatedStages} stages</TableCell>
+                      </TableRow>
+                    ))}
+                    {previewJobsForScheduling.length > 10 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          ... and {previewJobsForScheduling.length - 10} more jobs
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={handleClearPreview}
+              >
+                Cancel Import
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCalculateCapacityImpact}
+                  disabled={isCalculating}
+                >
+                  {isCalculating ? "Calculating..." : "Analyze Impact"}
+                </Button>
+                <Button
+                  onClick={handleWorkloadPreviewConfirmed}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Continue with Import
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
