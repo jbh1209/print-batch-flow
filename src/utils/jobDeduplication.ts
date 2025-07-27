@@ -1,131 +1,147 @@
-import { supabase } from '@/integrations/supabase/client';
-import type { ParsedJob } from './excel/types';
 
-export interface DuplicateCheckResult {
-  duplicates: Array<{ wo_no: string }>;
-  newJobs: Array<{ wo_no: string }>;
-}
+import { formatWONumber } from "./woNumberFormatter";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface DuplicateJobInfo {
   id: string;
   wo_no: string;
   customer: string;
-  reference: string;
-  status: string;
   created_at: string;
 }
 
-export const checkParsedJobsForDuplicates = async (
-  jobs: Array<{ wo_no: string }>
-): Promise<DuplicateCheckResult> => {
-  if (jobs.length === 0) {
-    return { duplicates: [], newJobs: [] };
-  }
-
-  const woNumbers = jobs.map(job => job.wo_no);
-  
-  // Query existing jobs to find duplicates
-  const { data: existingJobs, error } = await supabase
-    .from('production_jobs')
-    .select('wo_no')
-    .in('wo_no', woNumbers);
-
-  if (error) {
-    console.error('Error checking for duplicates:', error);
-    // If we can't check, assume all are new to prevent data loss
-    return { duplicates: [], newJobs: jobs };
-  }
-
-  const existingWONumbers = new Set(existingJobs?.map(job => job.wo_no) || []);
-  
-  const duplicates = jobs.filter(job => existingWONumbers.has(job.wo_no));
-  const newJobs = jobs.filter(job => !existingWONumbers.has(job.wo_no));
-
-  return { duplicates, newJobs };
-};
-
 export const findDuplicateJobs = async (): Promise<DuplicateJobInfo[][]> => {
-  const { data: jobs, error } = await supabase
-    .from('production_jobs')
-    .select('id, wo_no, customer, reference, status, created_at')
-    .order('wo_no');
+  try {
+    const { data: jobs, error } = await supabase
+      .from('production_jobs')
+      .select('id, wo_no, customer, created_at')
+      .order('created_at', { ascending: true });
 
-  if (error) {
+    if (error) throw error;
+
+    // Group jobs by normalized WO number
+    const jobGroups = new Map<string, DuplicateJobInfo[]>();
+    
+    jobs?.forEach((job) => {
+      const normalizedWO = formatWONumber(job.wo_no);
+      if (!normalizedWO) return;
+      
+      if (!jobGroups.has(normalizedWO)) {
+        jobGroups.set(normalizedWO, []);
+      }
+      jobGroups.get(normalizedWO)!.push({
+        id: job.id,
+        wo_no: job.wo_no,
+        customer: job.customer || 'Unknown',
+        created_at: job.created_at
+      });
+    });
+
+    // Return only groups with duplicates
+    return Array.from(jobGroups.values()).filter(group => group.length > 1);
+  } catch (error) {
     console.error('Error finding duplicate jobs:', error);
     return [];
   }
-
-  const groups = new Map<string, DuplicateJobInfo[]>();
-  
-  jobs?.forEach(job => {
-    if (!groups.has(job.wo_no)) {
-      groups.set(job.wo_no, []);
-    }
-    groups.get(job.wo_no)!.push(job);
-  });
-
-  // Return only groups with more than one job (duplicates)
-  return Array.from(groups.values()).filter(group => group.length > 1);
 };
 
-export const mergeDuplicateJobs = async (jobIds: string[], keepJobId: string): Promise<boolean> => {
+export const mergeDuplicateJobs = async (jobsToKeep: string[], jobsToRemove: string[]): Promise<boolean> => {
   try {
-    // Delete all duplicate jobs except the one to keep
-    const jobsToDelete = jobIds.filter(id => id !== keepJobId);
+    console.log('Merging duplicate jobs:', { jobsToKeep, jobsToRemove });
     
+    // Delete the duplicate jobs
     const { error } = await supabase
       .from('production_jobs')
       .delete()
-      .in('id', jobsToDelete);
+      .in('id', jobsToRemove);
 
-    if (error) {
-      console.error('Error merging duplicate jobs:', error);
-      return false;
-    }
+    if (error) throw error;
 
+    toast.success(`Successfully removed ${jobsToRemove.length} duplicate job(s)`);
     return true;
   } catch (error) {
     console.error('Error merging duplicate jobs:', error);
+    toast.error('Failed to merge duplicate jobs');
     return false;
+  }
+};
+
+export const checkParsedJobsForDuplicates = async (parsedJobs: any[]): Promise<{ newJobs: typeof parsedJobs; duplicates: typeof parsedJobs; existingWONumbers: Set<string> }> => {
+  try {
+    // Get all existing WO numbers from database
+    const { data: existingJobs, error } = await supabase
+      .from('production_jobs')
+      .select('wo_no');
+
+    if (error) throw error;
+
+    // Create a set of normalized existing WO numbers for fast lookup
+    const existingWONumbers = new Set<string>();
+    existingJobs?.forEach(job => {
+      const normalized = formatWONumber(job.wo_no);
+      if (normalized) {
+        existingWONumbers.add(normalized);
+      }
+    });
+
+    // Separate new jobs from duplicates
+    const newJobs: typeof parsedJobs = [];
+    const duplicates: typeof parsedJobs = [];
+
+    parsedJobs.forEach(job => {
+      const normalizedWO = formatWONumber(job.wo_no);
+      if (normalizedWO && existingWONumbers.has(normalizedWO)) {
+        duplicates.push(job);
+      } else {
+        newJobs.push(job);
+      }
+    });
+
+    console.log(`Duplicate check complete: ${newJobs.length} new jobs, ${duplicates.length} duplicates found`);
+    
+    return { newJobs, duplicates, existingWONumbers };
+  } catch (error) {
+    console.error('Error checking for duplicates:', error);
+    // Return all jobs as new if check fails
+    return { newJobs: parsedJobs, duplicates: [], existingWONumbers: new Set() };
   }
 };
 
 export const normalizeAllWONumbers = async (): Promise<boolean> => {
   try {
-    // Get all jobs
+    console.log('Normalizing all WO numbers...');
+    
     const { data: jobs, error: fetchError } = await supabase
       .from('production_jobs')
-      .select('id, wo_no, user_id');
+      .select('id, wo_no');
 
-    if (fetchError) {
-      console.error('Error fetching jobs for normalization:', fetchError);
-      return false;
-    }
+    if (fetchError) throw fetchError;
 
-    // Normalize WO numbers (basic implementation)
     const updates = jobs?.map(job => ({
       id: job.id,
-      wo_no: job.wo_no.trim().toUpperCase(),
-      user_id: job.user_id
-    })) || [];
+      wo_no: formatWONumber(job.wo_no)
+    })).filter(job => job.wo_no !== jobs?.find(j => j.id === job.id)?.wo_no);
 
-    if (updates.length > 0) {
-      for (const update of updates) {
-        const { error: updateError } = await supabase
-          .from('production_jobs')
-          .update({ wo_no: update.wo_no })
-          .eq('id', update.id);
-
-        if (updateError) {
-          console.error('Error normalizing WO number:', updateError);
-          return false;
-        }
-      }
+    if (!updates || updates.length === 0) {
+      toast.info('All WO numbers are already normalized');
+      return true;
     }
 
+    // Update in batches
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ wo_no: update.wo_no })
+        .eq('id', update.id);
+
+      if (error) throw error;
+    }
+
+    toast.success(`Normalized ${updates.length} WO number(s)`);
     return true;
   } catch (error) {
     console.error('Error normalizing WO numbers:', error);
+    toast.error('Failed to normalize WO numbers');
     return false;
   }
 };

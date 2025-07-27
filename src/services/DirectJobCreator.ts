@@ -97,7 +97,7 @@ export class DirectJobCreator {
       customer: originalJob.customer || 'Imported Customer',
       reference: originalJob.reference || '',
       qty: originalJob.qty || 1,
-      due_date: originalJob.due_date, // Keep original Excel due date for now
+      due_date: originalJob.due_date,
       user_id: this.userId,
       status: 'Pre-Press',
       has_custom_workflow: true,
@@ -160,28 +160,8 @@ export class DirectJobCreator {
     // LOGGING: Track finalJob after database operation
     this.logger.addDebugInfo(`[QUANTITY LOG] createSingleJob - finalJob qty after DB operation: ${finalJob.qty}`);
 
-    // Initialize custom workflow from row mappings (CORE FIX)
-    try {
-      await this.initializeWorkflowFromMappings(finalJob, rowMappings);
-      this.logger.addDebugInfo(`✅ Workflow initialized for job ${finalJob.wo_no}`);
-    } catch (workflowError) {
-      this.logger.addDebugInfo(`❌ Workflow initialization failed for job ${finalJob.wo_no}: ${workflowError}`);
-      // Don't fail the entire job creation for workflow issues
-    }
-
-    // Simple due date calculation - add 3 days to current date if needed
-    if (!finalJob.due_date) {
-      const threeDaysFromNow = new Date();
-      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-      finalJob.due_date = threeDaysFromNow.toISOString().split('T')[0];
-      
-      await supabase
-        .from('production_jobs')
-        .update({ due_date: finalJob.due_date })
-        .eq('id', finalJob.id);
-        
-      this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Set simple due date: ${finalJob.due_date}`);
-    }
+    // Initialize custom workflow from row mappings
+    await this.initializeWorkflowFromMappings(finalJob, rowMappings);
 
     // Generate QR code image if enabled
     if (this.generateQRCodes && finalJob.qr_code_data) {
@@ -371,8 +351,6 @@ export class DirectJobCreator {
 
     this.logger.addDebugInfo(`Creating ${sortedMappings.length} stage instances for job ${job.wo_no}`);
 
-    const createdStageIds = [];
-    
     for (let i = 0; i < sortedMappings.length; i++) {
       const mapping = sortedMappings[i];
       const stageId = mapping.originalStageId || mapping.mappedStageId;
@@ -386,7 +364,7 @@ export class DirectJobCreator {
         partType: mapping.partType
       })}`);
       
-      const { data: stageInstance, error } = await supabase
+      const { error } = await supabase
         .from('job_stage_instances')
         .insert({
           job_id: job.id,
@@ -398,83 +376,13 @@ export class DirectJobCreator {
           quantity: actualQuantity, // FIXED: Use actual quantity from mapping
           part_type: mapping.partType?.toLowerCase() || null,
           part_name: mapping.partType || null
-        })
-        .select('id')
-        .single();
+        });
 
       if (error) {
         throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
       }
 
       this.logger.addDebugInfo(`[QUANTITY LOG] Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
-      
-      if (stageInstance?.id) {
-        createdStageIds.push(stageInstance.id);
-      }
-    }
-
-    // CRITICAL: Calculate timing for all created stage instances
-    await this.calculateTimingForStageInstances(job, createdStageIds);
-  }
-
-  /**
-   * Calculate basic timing estimates for stage instances after creation
-   */
-  private async calculateTimingForStageInstances(job: any, stageInstanceIds: string[]): Promise<void> {
-    this.logger.addDebugInfo(`Calculating basic timing for ${stageInstanceIds.length} stage instances`);
-    
-    for (const stageInstanceId of stageInstanceIds) {
-      // Get stage instance details
-      const { data: stageInstance, error } = await supabase
-        .from('job_stage_instances')
-        .select(`
-          id,
-          quantity,
-          production_stage_id,
-          production_stages!inner(
-            running_speed_per_hour,
-            make_ready_time_minutes,
-            speed_unit
-          )
-        `)
-        .eq('id', stageInstanceId)
-        .single();
-
-      if (error || !stageInstance) {
-        this.logger.addDebugInfo(`Failed to fetch stage instance ${stageInstanceId}: ${error?.message}`);
-        continue;
-      }
-
-      const quantity = stageInstance.quantity || 1000; // Default to 1000 if null
-      const stageData = (stageInstance as any).production_stages;
-      
-      // Simple timing calculation using database function
-      const { data: calculatedDuration, error: durationError } = await supabase.rpc('calculate_stage_duration', {
-        p_quantity: quantity,
-        p_running_speed_per_hour: stageData.running_speed_per_hour || 100,
-        p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
-        p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
-      });
-
-      if (durationError || !calculatedDuration) {
-        this.logger.addDebugInfo(`Failed to calculate timing for stage instance ${stageInstanceId}: ${durationError?.message}`);
-        continue;
-      }
-
-      // Update stage instance with calculated timing
-      const { error: updateError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          estimated_duration_minutes: calculatedDuration,
-          setup_time_minutes: stageData.make_ready_time_minutes || 10
-        })
-        .eq('id', stageInstanceId);
-
-      if (updateError) {
-        this.logger.addDebugInfo(`Failed to update timing for stage instance ${stageInstanceId}: ${updateError.message}`);
-      } else {
-        this.logger.addDebugInfo(`Updated stage instance ${stageInstanceId} with ${calculatedDuration} minutes duration`);
-      }
     }
   }
 

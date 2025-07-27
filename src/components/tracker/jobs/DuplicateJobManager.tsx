@@ -32,7 +32,7 @@ export const DuplicateJobManager: React.FC = () => {
     const jobToKeep = group[0];
     const jobsToRemove = group.slice(1).map(job => job.id);
     
-    const success = await mergeDuplicateJobs([...jobsToRemove, jobToKeep.id], jobToKeep.id);
+    const success = await mergeDuplicateJobs([jobToKeep.id], jobsToRemove);
     if (success) {
       await loadDuplicates();
     }

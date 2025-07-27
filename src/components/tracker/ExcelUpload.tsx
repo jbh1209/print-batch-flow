@@ -18,7 +18,6 @@ import {
   ImportStats,
   validateAllJobs 
 } from "@/utils/excel";
-import { checkParsedJobsForDuplicates } from "@/utils/jobDeduplication";
 import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
 import { 
   parseExcelFileForPreview, 
@@ -36,7 +35,6 @@ import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
 import { PaginatedJobCreationDialog } from "@/components/admin/upload/PaginatedJobCreationDialog";
-import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface JobDataWithQR extends ParsedJob {
@@ -46,7 +44,7 @@ interface JobDataWithQR extends ParsedJob {
 }
 
 export const ExcelUpload = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [parsedJobs, setParsedJobs] = useState<ParsedJob[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -86,20 +84,20 @@ export const ExcelUpload = () => {
   const [showPartAssignment, setShowPartAssignment] = useState(false);
   const [partAssignmentJob, setPartAssignmentJob] = useState<{ id: string; wo_no: string } | null>(null);
 
+  // Phase 4: Workload Preview State
+  const [showWorkloadPreview, setShowWorkloadPreview] = useState(false);
+  const [previewJobsForScheduling, setPreviewJobsForScheduling] = useState<Array<{
+    wo_no: string;
+    customer: string;
+    reference: string;
+    due_date: string | null;
+    categoryId?: string;
+    estimatedStages: number;
+  }>>([]);
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Prevent file upload if auth is still loading
-    if (authLoading) {
-      toast.error("Please wait for authentication to complete");
-      return;
-    }
-
-    if (!user?.id) {
-      toast.error("You must be logged in to upload files");
-      return;
-    }
 
     setFileName(file.name);
     setUploadError(null);
@@ -146,38 +144,6 @@ export const ExcelUpload = () => {
     }
   };
 
-  const transformPreparedToEnhanced = (preparedResult: any): EnhancedJobCreationResult => {
-    const categoryAssignments: { [woNo: string]: any } = {};
-    const rowMappings: { [woNo: string]: any[] } = {};
-
-    if (preparedResult.enhancedJobAssignments) {
-      preparedResult.enhancedJobAssignments.forEach((assignment: any) => {
-        const woNo = assignment.originalJob.wo_no;
-        categoryAssignments[woNo] = assignment.originalJob;
-        rowMappings[woNo] = assignment.rowMappings;
-      });
-    }
-
-    return {
-      success: true,
-      createdJobs: [],
-      failedJobs: [],
-      categoryAssignments,
-      rowMappings,
-      duplicatesSkipped: preparedResult.duplicatesSkipped || 0,
-      duplicateJobs: preparedResult.duplicateJobs || [],
-      userApprovedStageMappings: preparedResult.userApprovedStageMappings,
-      generateQRCodes: preparedResult.generateQRCodes,
-      stats: {
-        total: preparedResult.stats?.total || 0,
-        successful: preparedResult.stats?.successful || 0,
-        failed: preparedResult.stats?.failed || 0,
-        newCategories: 0,
-        workflowsInitialized: 0
-      }
-    };
-  };
-
   const handleMappingConfirmed = async (mapping: ColumnMapping) => {
     if (!currentFile || !user?.id) return;
     
@@ -194,13 +160,24 @@ export const ExcelUpload = () => {
         generateQRCodes
       );
       
-      const transformedResult = transformPreparedToEnhanced(result);
-      setEnhancedResult(transformedResult);
+      // STEP 2: Prepare workload preview data
+      const workloadPreviewJobs = Object.entries(result.categoryAssignments).map(([woNo, assignment]) => ({
+        wo_no: woNo,
+        customer: (assignment as any).customer || 'Unknown',
+        reference: (assignment as any).reference || '',
+        due_date: (assignment as any).due_date || null,
+        categoryId: (assignment as any).categoryId,
+        estimatedStages: result.rowMappings[woNo]?.length || 0
+      }));
       
-      // Show enhanced dialog directly - skip workload preview
-      setShowEnhancedDialog(true);
+      setPreviewJobsForScheduling(workloadPreviewJobs);
+      setEnhancedResult(result);
       
-      toast.success(`Processing completed! ${result.stats.total} jobs mapped. Ready for import.`);
+      // Show workload preview first, then enhanced dialog
+      await refreshWorkloadSummary();
+      setShowWorkloadPreview(true);
+      
+      toast.success(`Processing completed! ${result.stats.total} jobs mapped. Review workload impact below.`);
     } catch (error) {
       console.error("Error in enhanced job creation:", error);
       debugLogger.addDebugInfo(`Enhanced creation error: ${error}`);
@@ -228,16 +205,27 @@ export const ExcelUpload = () => {
         generateQRCodes
       );
       
-      const transformedResult = transformPreparedToEnhanced(result);
-      setEnhancedResult(transformedResult);
+      // STEP 2: Prepare workload preview data for matrix jobs
+      const workloadPreviewJobs = Object.entries(result.categoryAssignments).map(([woNo, assignment]) => ({
+        wo_no: woNo,
+        customer: (assignment as any).customer || 'Unknown',
+        reference: (assignment as any).reference || '',
+        due_date: (assignment as any).due_date || null,
+        categoryId: (assignment as any).categoryId,
+        estimatedStages: result.rowMappings[woNo]?.length || 0
+      }));
       
-      // Show enhanced dialog directly - skip workload preview
-      setShowEnhancedDialog(true);
+      setPreviewJobsForScheduling(workloadPreviewJobs);
+      setEnhancedResult(result);
+      
+      // Show workload preview first
+      await refreshWorkloadSummary();
+      setShowWorkloadPreview(true);
       
       const duplicateMessage = result.duplicatesSkipped > 0 
         ? ` (${result.duplicatesSkipped} duplicates automatically skipped)`
         : '';
-      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped. Ready for import.${duplicateMessage}`);
+      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped. Review workload impact below.${duplicateMessage}`);
     } catch (error) {
       console.error("Error in enhanced matrix job creation:", error);
       debugLogger.addDebugInfo(`Enhanced matrix creation error: ${error}`);
@@ -313,24 +301,12 @@ export const ExcelUpload = () => {
       debugLogger.addDebugInfo(`Attempting to insert ${jobsWithUserId.length} jobs into database`);
       debugLogger.addDebugInfo(`Sample job data: ${JSON.stringify(jobsWithUserId[0], null, 2)}`);
 
-      // CRITICAL FIX: Check for duplicates BEFORE attempting database operations
-      debugLogger.addDebugInfo("Checking for duplicates before database insertion...");
-      
-      const duplicateCheck = await checkParsedJobsForDuplicates(jobsWithUserId.map(j => ({ wo_no: j.wo_no })));
-      const nonDuplicateJobs = duplicateCheck.newJobs.map(newJob => {
-        return jobsWithUserId.find(job => job.wo_no === newJob.wo_no);
-      }).filter(Boolean);
-
-      if (duplicateCheck.duplicates.length > 0) {
-        const duplicateWOs = duplicateCheck.duplicates.map(d => d.wo_no).join(', ');
-        debugLogger.addWarning(`Found ${duplicateCheck.duplicates.length} duplicates that will be skipped: ${duplicateWOs}`);
-      }
-
-      debugLogger.addDebugInfo(`Inserting ${nonDuplicateJobs.length} non-duplicate jobs (${duplicateCheck.duplicates.length} duplicates skipped)`);
-
       const { data, error } = await supabase
         .from('production_jobs')
-        .insert(nonDuplicateJobs)
+        .upsert(jobsWithUserId, { 
+          onConflict: 'wo_no,user_id',
+          ignoreDuplicates: true 
+        })
         .select();
 
       if (error) {
@@ -536,44 +512,145 @@ export const ExcelUpload = () => {
     if (fileInput) fileInput.value = "";
   };
 
+  // Handle workload preview confirmation
+  const handleWorkloadPreviewConfirmed = () => {
+    setShowWorkloadPreview(false);
+    setShowEnhancedDialog(true);
+  };
 
-  // Show loading state during auth
-  if (authLoading) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-center py-8">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span>Loading authentication...</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">You must be logged in to upload files</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Calculate capacity impact for preview
+  const handleCalculateCapacityImpact = async () => {
+    if (previewJobsForScheduling.length === 0) return;
+    
+    // Create stage mappings from preview jobs
+    const jobStageMapping = previewJobsForScheduling.flatMap(job => {
+      // Estimate 2 hours per stage as default
+      const hoursPerStage = 2;
+      return Array(job.estimatedStages).fill(null).map(() => ({
+        stageId: 'estimated', // Placeholder - real implementation would map specific stages
+        estimatedHours: hoursPerStage
+      }));
+    });
+    
+    await getCapacityImpact(jobStageMapping);
+  };
 
   return (
     <div className="w-full space-y-6">
+      {/* Workload Preview Dialog */}
+      {showWorkloadPreview && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-600" />
+              Production Workload Impact Preview
+            </CardTitle>
+            <CardDescription>
+              Review how these {previewJobsForScheduling.length} new jobs will impact your production schedule
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Current Workload Summary */}
+            {workloadSummary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.totalPendingJobs}</div>
+                  <div className="text-sm text-muted-foreground">Current Pending Jobs</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.totalPendingHours}h</div>
+                  <div className="text-sm text-muted-foreground">Pending Work Hours</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.averageLeadTime.toFixed(1)}</div>
+                  <div className="text-sm text-muted-foreground">Average Lead Time (days)</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <div className="text-2xl font-bold text-primary">{workloadSummary.capacityUtilization.toFixed(1)}%</div>
+                  <div className="text-sm text-muted-foreground">Capacity Utilization</div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottleneck Warning */}
+            {workloadSummary?.bottleneckStages && workloadSummary.bottleneckStages.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium text-amber-800">Current Bottlenecks Detected</span>
+                </div>
+                <div className="space-y-1">
+                  {workloadSummary.bottleneckStages.map((stage, index) => (
+                    <div key={index} className="text-sm text-amber-700">
+                      <strong>{stage.stageName}</strong>: {stage.queueDays.toFixed(1)} days queue, {stage.pendingJobs} jobs
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New Jobs Preview */}
+            <div>
+              <h4 className="font-medium mb-3">Jobs to be Added ({previewJobsForScheduling.length})</h4>
+              <div className="bg-white border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Work Order</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Est. Stages</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewJobsForScheduling.slice(0, 10).map((job, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{job.wo_no}</TableCell>
+                        <TableCell>{job.customer}</TableCell>
+                        <TableCell>{job.due_date || 'TBD'}</TableCell>
+                        <TableCell>{job.estimatedStages} stages</TableCell>
+                      </TableRow>
+                    ))}
+                    {previewJobsForScheduling.length > 10 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          ... and {previewJobsForScheduling.length - 10} more jobs
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={handleClearPreview}
+              >
+                Cancel Import
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCalculateCapacityImpact}
+                  disabled={isCalculating}
+                >
+                  {isCalculating ? "Calculating..." : "Analyze Impact"}
+                </Button>
+                <Button
+                  onClick={handleWorkloadPreviewConfirmed}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Continue with Import
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -710,16 +787,14 @@ export const ExcelUpload = () => {
       />
 
       {/* Phase 4: Paginated Job Creation Dialog */}
-      <TrackerErrorBoundary componentName="PaginatedJobCreationDialog">
-        <PaginatedJobCreationDialog
-          open={showEnhancedDialog}
-          onOpenChange={setShowEnhancedDialog}
-          result={enhancedResult}
-          isProcessing={isCreatingJobs}
-          onSingleJobConfirm={handleSingleJobConfirm}
-          onComplete={handlePaginatedComplete}
-        />
-      </TrackerErrorBoundary>
+      <PaginatedJobCreationDialog
+        open={showEnhancedDialog}
+        onOpenChange={setShowEnhancedDialog}
+        result={enhancedResult}
+        isProcessing={isCreatingJobs}
+        onSingleJobConfirm={handleSingleJobConfirm}
+        onComplete={handlePaginatedComplete}
+      />
 
       {/* Part Assignment Modal (additive) */}
       {partAssignmentJob && (

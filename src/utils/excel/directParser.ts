@@ -113,7 +113,7 @@ export const parseAndCreateJobsDirectly = async (
     }
   };
   
-  // Step 3: Use our simplified creator to directly save jobs (no dependency creation)
+  // Step 3: Use our simplified creator to directly save jobs
   const directCreator = new DirectJobCreator(logger, userId, generateQRCodes);
   const finalResult = await directCreator.createJobsFromMappings(preparedResult);
   

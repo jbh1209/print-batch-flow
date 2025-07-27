@@ -20,53 +20,24 @@ export class DynamicDueDateService {
     dueDateWithBuffer: Date;
     bufferDays: number;
     totalWorkingDays: number;
-  } | null> {
-    try {
-      console.log(`[DUE DATE SERVICE] Calculating simple due date for job ${jobId}`);
-      
-      // Simplified calculation to avoid blocking job creation
-      // Use default SLA for production jobs
-      let estimatedDays = 3; // Default
-      
-      if (jobTableName === 'production_jobs') {
-        const { data: jobData, error } = await supabase
-          .from('production_jobs')
-          .select('category_id, qty')
-          .eq('id', jobId)
-          .single();
-
-        if (!error && jobData?.category_id) {
-          const { data: categoryData } = await supabase
-            .from('categories')
-            .select('sla_target_days')
-            .eq('id', jobData.category_id)
-            .single();
-          
-          if (categoryData?.sla_target_days) {
-            estimatedDays = categoryData.sla_target_days;
-          }
-        }
-      }
-      
-      console.log(`[DUE DATE SERVICE] Job ${jobId} using ${estimatedDays} days SLA`);
-      
-      // Calculate simple dates
-      const internalCompletionDate = addWorkingDays(new Date(), estimatedDays);
-      const bufferDays = 1;
-      const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
-      
-      console.log(`[DUE DATE SERVICE] Job ${jobId} completion: ${internalCompletionDate.toISOString()}, due date with buffer: ${dueDateWithBuffer.toISOString()}`);
-      
-      return {
-        internalCompletionDate,
-        dueDateWithBuffer,
-        bufferDays,
-        totalWorkingDays: estimatedDays
-      };
-    } catch (error) {
-      console.error(`[DUE DATE SERVICE] Error calculating due date for job ${jobId}:`, error);
-      return null;
-    }
+  }> {
+    const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
+    
+    // Get the realistic completion date based on current workload
+    const internalCompletionDate = timeline.stages.length > 0 
+      ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
+      : new Date();
+    
+    // Add 1 working day buffer (configurable per job)
+    const bufferDays = 1;
+    const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
+    
+    return {
+      internalCompletionDate,
+      dueDateWithBuffer,
+      bufferDays,
+      totalWorkingDays: timeline.totalEstimatedWorkingDays
+    };
   }
 
   /**

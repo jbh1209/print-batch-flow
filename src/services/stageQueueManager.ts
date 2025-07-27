@@ -37,9 +37,9 @@ export class StageQueueManager {
         max_parallel_jobs,
         is_bottleneck,
         efficiency_factor,
-        production_stages(id, name, is_active)
+        production_stages!inner(id, name, is_active)
       `)
-      .not('production_stages', 'is', null);
+      .eq('production_stages.is_active', true);
 
     if (capacityError) {
       console.error('Error fetching stage capacities:', capacityError);
@@ -174,7 +174,7 @@ export class StageQueueManager {
         continue;
       }
 
-      const estimatedHours = (stage.estimated_duration_minutes || 480) / 60; // Default to 8 hours if null
+      const estimatedHours = (stage.estimated_duration_minutes || 60) / 60;
       const timing = await this.calculateJobStartTime(stage.production_stage_id, estimatedHours);
       const workload = await this.getStageWorkload(stage.production_stage_id);
 

@@ -793,6 +793,51 @@ export type Database = {
           },
         ]
       }
+      job_flow_dependencies: {
+        Row: {
+          created_at: string
+          current_stage_id: string
+          dependency_type: string
+          estimated_completion_date: string | null
+          estimated_start_date: string | null
+          id: string
+          is_critical_path: boolean
+          job_id: string
+          job_table_name: string
+          predecessor_stage_id: string | null
+          successor_stage_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_stage_id: string
+          dependency_type?: string
+          estimated_completion_date?: string | null
+          estimated_start_date?: string | null
+          id?: string
+          is_critical_path?: boolean
+          job_id: string
+          job_table_name: string
+          predecessor_stage_id?: string | null
+          successor_stage_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_stage_id?: string
+          dependency_type?: string
+          estimated_completion_date?: string | null
+          estimated_start_date?: string | null
+          id?: string
+          is_critical_path?: boolean
+          job_id?: string
+          job_table_name?: string
+          predecessor_stage_id?: string | null
+          successor_stage_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_print_specifications: {
         Row: {
           created_at: string
@@ -878,6 +923,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_scheduling: {
+        Row: {
+          actual_total_hours: number | null
+          created_at: string
+          created_by: string | null
+          estimated_total_hours: number | null
+          id: string
+          is_expedited: boolean
+          job_id: string
+          job_table_name: string
+          schedule_notes: string | null
+          schedule_priority: number
+          scheduled_completion_date: string | null
+          scheduled_start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_total_hours?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_total_hours?: number | null
+          id?: string
+          is_expedited?: boolean
+          job_id: string
+          job_table_name: string
+          schedule_notes?: string | null
+          schedule_priority?: number
+          scheduled_completion_date?: string | null
+          scheduled_start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_total_hours?: number | null
+          created_at?: string
+          created_by?: string | null
+          estimated_total_hours?: number | null
+          id?: string
+          is_expedited?: boolean
+          job_id?: string
+          job_table_name?: string
+          schedule_notes?: string | null
+          schedule_priority?: number
+          scheduled_completion_date?: string | null
+          scheduled_start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       job_stage_instances: {
         Row: {
@@ -1986,15 +2079,7 @@ export type Database = {
           updated_at?: string
           working_days_per_week?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_stage_capacity_profiles_production_stage_id"
-            columns: ["production_stage_id"]
-            isOneToOne: true
-            referencedRelation: "production_stages"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       stage_groups: {
         Row: {

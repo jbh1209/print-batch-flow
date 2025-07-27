@@ -183,8 +183,8 @@ export class FlowBasedProductionScheduler {
     confidence: 'high' | 'medium' | 'low';
     factors: string[];
   }> {
-    // Use proper workload calculation through stage queue manager
-    const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
+    // Use the new dynamic due date service for initial calculation
+    const dueDateInfo = await dynamicDueDateService.calculateInitialDueDate(jobId, jobTableName);
     const bottlenecks = await stageQueueManager.getBottleneckStages();
     
     // Determine confidence level based on production conditions
@@ -199,32 +199,24 @@ export class FlowBasedProductionScheduler {
       factors.push(`${bottlenecks.length} bottleneck stage(s)`);
     }
 
-    // Calculate buffer days and completion dates
-    const bufferDays = 1; // Always add 1 working day for client communication
-    // Get the final stage completion date from timeline stages
-    const finalStage = timeline.stages[timeline.stages.length - 1];
-    const internalCompletionDate = finalStage ? finalStage.estimatedCompletionDate : new Date();
-    const dueDateWithBuffer = new Date(internalCompletionDate);
-    dueDateWithBuffer.setDate(dueDateWithBuffer.getDate() + bufferDays);
-
-    if (timeline.totalEstimatedWorkingDays > 10) {
+    if (dueDateInfo.totalWorkingDays > 10) {
       confidence = confidence === 'high' ? 'medium' : 'low';
       factors.push('Long production timeline (>10 working days)');
     }
 
-    if (timeline.totalEstimatedWorkingDays > 5) {
+    if (dueDateInfo.totalWorkingDays > 5) {
       factors.push('Complex workflow requiring multiple stages');
     }
 
-    // Add workload calculation info to factors
-    factors.push(`Calculated based on current stage workloads and queue positions`);
-    factors.push(`${bufferDays} working day buffer added for client communication`);
+    // Add working day calculation info to factors
+    factors.push(`Calculated using 8-hour shifts at 85% efficiency`);
+    factors.push(`${dueDateInfo.bufferDays} working day buffer added for safety`);
 
     return {
-      internalCompletionDate,
-      dueDateWithBuffer,
-      bufferDays,
-      totalWorkingDays: timeline.totalEstimatedWorkingDays,
+      internalCompletionDate: dueDateInfo.internalCompletionDate,
+      dueDateWithBuffer: dueDateInfo.dueDateWithBuffer,
+      bufferDays: dueDateInfo.bufferDays,
+      totalWorkingDays: dueDateInfo.totalWorkingDays,
       confidence,
       factors
     };
