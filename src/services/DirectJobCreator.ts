@@ -174,10 +174,16 @@ export class DirectJobCreator {
       if (dueDateResult?.dueDateWithBuffer) {
         const originalDueDate = finalJob.due_date;
         const calculatedDueDate = dueDateResult.dueDateWithBuffer.toISOString().split('T')[0];
+        const workingDaysNeeded = dueDateResult.totalWorkingDays;
         
-        this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Excel due date: ${originalDueDate}, Calculated due date: ${calculatedDueDate}`);
+        // Calculate the difference in days for user feedback
+        const originalDate = new Date(originalDueDate);
+        const calculatedDate = new Date(calculatedDueDate);
+        const daysDifference = Math.ceil((calculatedDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
         
-        // Update job with realistic due date
+        this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Excel due date: ${originalDueDate}, Calculated due date: ${calculatedDueDate} (${workingDaysNeeded} working days needed, ${daysDifference} days later than Excel)`);
+        
+        // Always use the calculated realistic due date
         await supabase
           .from('production_jobs')
           .update({
@@ -194,10 +200,16 @@ export class DirectJobCreator {
         finalJob.manual_due_date = originalDueDate;
         finalJob.due_date_locked = true;
         
-        this.logger.addDebugInfo(`Updated job ${finalJob.wo_no} with realistic due date: ${calculatedDueDate} (was: ${originalDueDate})`);
+        if (daysDifference > 7) {
+          this.logger.addWarning(`⚠️ Job ${finalJob.wo_no}: Excel due date ${originalDueDate} is unrealistic. Realistic due date based on current workload: ${calculatedDueDate} (${workingDaysNeeded} working days, ${daysDifference} days later)`);
+        } else {
+          this.logger.addDebugInfo(`✅ Job ${finalJob.wo_no} due date updated: ${calculatedDueDate} (realistic based on workload)`);
+        }
+      } else {
+        this.logger.addDebugInfo(`⚠️ Could not calculate realistic due date for ${originalJob.wo_no} - keeping Excel due date`);
       }
     } catch (dueDateError) {
-      this.logger.addDebugInfo(`Warning: Due date calculation failed for ${originalJob.wo_no}: ${dueDateError}`);
+      this.logger.addDebugInfo(`❌ Due date calculation failed for ${originalJob.wo_no}: ${dueDateError}`);
     }
 
     // Generate QR code image if enabled
