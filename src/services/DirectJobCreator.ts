@@ -163,44 +163,35 @@ export class DirectJobCreator {
     // Initialize custom workflow from row mappings
     await this.initializeWorkflowFromMappings(finalJob, rowMappings);
 
-    // Calculate realistic due date using flow-based scheduling engine
+    // Schedule job using flow-based scheduling engine for workload-based due dates
     try {
       const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
       
-      // Calculate due date based on actual stage workloads and current capacity
-      const dueDateResult = await flowBasedScheduler.calculateRealisticDueDate(finalJob.id, 'production_jobs', 50);
+      // Use scheduleJob method which properly calculates workload-based due dates
+      const schedulingResult = await flowBasedScheduler.scheduleJob({
+        jobId: finalJob.id,
+        jobTableName: 'production_jobs',
+        priority: 50
+      });
       
-      if (dueDateResult?.dueDateWithBuffer) {
+      if (schedulingResult.success) {
         const originalDueDate = finalJob.due_date;
-        const calculatedDueDate = dueDateResult.dueDateWithBuffer.toISOString().split('T')[0];
-        const workingDaysNeeded = dueDateResult.totalWorkingDays;
+        const calculatedDueDate = schedulingResult.estimatedCompletionDate.toISOString().split('T')[0];
+        const workingDaysNeeded = schedulingResult.totalEstimatedDays;
         
         // Calculate the difference in days for user feedback
         const originalDate = new Date(originalDueDate);
         const calculatedDate = new Date(calculatedDueDate);
         const daysDifference = Math.ceil((calculatedDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
         
-        this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Excel due date: ${originalDueDate}, Calculated due date: ${calculatedDueDate} (${workingDaysNeeded} working days needed, ${daysDifference} days later than Excel)`);
+        this.logger.addDebugInfo(`Job ${finalJob.wo_no}: Excel due date: ${originalDueDate}, Workload-based due date: ${calculatedDueDate} (${workingDaysNeeded} working days needed, ${daysDifference} days later than Excel)`);
         
-        // Always use the calculated realistic due date
-        await supabase
-          .from('production_jobs')
-          .update({
-            due_date: calculatedDueDate,
-            internal_completion_date: dueDateResult.internalCompletionDate?.toISOString().split('T')[0],
-            due_date_buffer_days: dueDateResult.bufferDays || 1,
-            due_date_warning_level: 'green',
-            due_date_locked: true, // Lock the due date once set
-            manual_due_date: originalDueDate // Keep original Excel date for reference
-          })
-          .eq('id', finalJob.id);
-        
+        // The scheduleJob method already updates the database with realistic dates
         finalJob.due_date = calculatedDueDate;
         finalJob.manual_due_date = originalDueDate;
-        finalJob.due_date_locked = true;
         
         if (daysDifference > 7) {
-          this.logger.addWarning(`⚠️ Job ${finalJob.wo_no}: Excel due date ${originalDueDate} is unrealistic. Realistic due date based on current workload: ${calculatedDueDate} (${workingDaysNeeded} working days, ${daysDifference} days later)`);
+          this.logger.addDebugInfo(`⚠️ Job ${finalJob.wo_no}: Excel due date ${originalDueDate} is unrealistic. Workload-based due date: ${calculatedDueDate} (${workingDaysNeeded} working days, ${daysDifference} days later)`);
         } else {
           this.logger.addDebugInfo(`✅ Job ${finalJob.wo_no} due date updated: ${calculatedDueDate} (realistic based on workload)`);
         }

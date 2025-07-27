@@ -1300,32 +1300,35 @@ private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): P
       this.logger.addDebugInfo(`⚠️ Smart scheduling failed for job ${job.wo_no}, using fallback`);
     }
 
-    // 🎯 FIX: Calculate realistic due dates using flow-based scheduling
+    // 🎯 FIX: Schedule job using flow-based scheduling for workload-based due dates
     const { flowBasedScheduler } = await import('@/services/flowBasedProductionScheduler');
-    const dueDateCalculation = await flowBasedScheduler.calculateRealisticDueDate(jobId, 'production_jobs', 50);
+    const schedulingResult = await flowBasedScheduler.scheduleJob({
+      jobId: jobId,
+      jobTableName: 'production_jobs',
+      priority: 50
+    });
     
-    if (dueDateCalculation) {
-      // Update the production_jobs table with realistic due dates
+    if (schedulingResult.success) {
+      this.logger.addDebugInfo(`✅ Workload-based scheduling completed for job ${job.wo_no}: ${schedulingResult.totalEstimatedDays} working days estimated`);
+      // The scheduleJob method already updates the database with workload-based due dates
+    } else {
+      this.logger.addDebugInfo(`⚠️ Workload-based scheduling failed for job ${job.wo_no}: ${schedulingResult.message}`);
+      
+      // Fallback: Update with basic due date
       const { error: updateError } = await supabase
         .from('production_jobs')
         .update({
-          due_date: dueDateCalculation.dueDateWithBuffer.toISOString().split('T')[0], // Convert to date format
-          internal_completion_date: dueDateCalculation.internalCompletionDate.toISOString().split('T')[0],
-          due_date_buffer_days: dueDateCalculation.bufferDays,
-          due_date_warning_level: 'green', // Initially green
-          last_due_date_check: new Date().toISOString(),
+          due_date: job.due_date,
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
 
-      if (updateError) {
-        this.logger.addDebugInfo(`❌ Error updating due dates for job ${job.wo_no}: ${updateError.message}`);
-      } else {
-        this.logger.addDebugInfo(`✅ Realistic due dates set for job ${job.wo_no}: Internal completion ${dueDateCalculation.internalCompletionDate.toISOString().split('T')[0]}, Due date with buffer ${dueDateCalculation.dueDateWithBuffer.toISOString().split('T')[0]}`);
+        if (updateError) {
+          this.logger.addDebugInfo(`⚠️ Failed to update fallback due date for job ${job.wo_no}: ${updateError.message}`);
+        } else {
+          this.logger.addDebugInfo(`✅ Updated job ${job.wo_no} with fallback due date`);
+        }
       }
-    } else {
-      this.logger.addDebugInfo(`⚠️ Could not calculate realistic due dates for job ${job.wo_no}`);
-    }
     
   } catch (error) {
     this.logger.addDebugInfo(`❌ Error in smart scheduling for job ${job.wo_no}: ${error}`);
