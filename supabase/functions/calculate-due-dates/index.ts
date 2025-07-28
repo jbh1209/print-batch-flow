@@ -149,8 +149,6 @@ async function processJobBatch(
     userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
   } = {}
 ) {
-  console.log(`🚀 Processing batch of ${jobIds.length} jobs with comprehensive setup`);
-  
   const results = {
     success: true,
     errors: [],
@@ -162,109 +160,61 @@ async function processJobBatch(
   };
   
   try {
-    // Process each job individually for complex setup operations
-    for (const jobId of jobIds) {
-      try {
-        console.log(`📋 Processing job ${jobId}...`);
+    // OPTIMIZED: Bulk operations instead of individual processing
+    if (options.includeWorkflowInitialization) {
+      const { data: jobs } = await supabase
+        .from(tableName)
+        .select('id, category_id, wo_no')
+        .in('id', jobIds)
+        .not('category_id', 'is', null);
         
-        // 1. Initialize workflow if requested
-        if (options.includeWorkflowInitialization) {
-          const { data: job } = await supabase
-            .from(tableName)
-            .select('id, category_id, wo_no')
-            .eq('id', jobId)
-            .single();
-            
-          if (job && job.category_id) {
-            const { error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
-              p_job_id: jobId,
-              p_job_table_name: tableName,
-              p_category_id: job.category_id
-            });
-            
-            if (!workflowError) {
-              results.workflowsInitialized++;
-              console.log(`✅ Workflow initialized for job ${job.wo_no}`);
-            } else {
-              console.error(`❌ Workflow initialization failed for job ${job.wo_no}:`, workflowError);
-              results.errors.push(`Workflow init failed for ${job.wo_no}: ${workflowError.message}`);
-            }
+      if (jobs && jobs.length > 0) {
+        for (const job of jobs) {
+          const { error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
+            p_job_id: job.id,
+            p_job_table_name: tableName,
+            p_category_id: job.category_id
+          });
+          
+          if (!workflowError) {
+            results.workflowsInitialized++;
+          } else {
+            results.errors.push(`Workflow init failed for ${job.wo_no}: ${workflowError.message}`);
           }
         }
-        
-        // 2. Calculate timing if requested
-        if (options.includeTimingCalculation) {
-          const { data: stages } = await supabase
-            .from('job_stage_instances')
-            .select('id, production_stage_id, quantity')
-            .eq('job_id', jobId)
-            .eq('job_table_name', tableName);
-            
-          if (stages && stages.length > 0) {
-            for (const stage of stages) {
-              if (stage.quantity && stage.quantity > 0) {
-                const { data: stageInfo } = await supabase
-                  .from('production_stages')
-                  .select('running_speed_per_hour, make_ready_time_minutes, speed_unit')
-                  .eq('id', stage.production_stage_id)
-                  .single();
-                  
-                if (stageInfo) {
-                  const timing = await supabase.rpc('calculate_stage_duration', {
-                    p_quantity: stage.quantity,
-                    p_running_speed_per_hour: stageInfo.running_speed_per_hour || 100,
-                    p_make_ready_time_minutes: stageInfo.make_ready_time_minutes || 10,
-                    p_speed_unit: stageInfo.speed_unit || 'sheets_per_hour'
-                  });
-                  
-                  await supabase
-                    .from('job_stage_instances')
-                    .update({ estimated_duration_minutes: timing })
-                    .eq('id', stage.id);
-                }
-              }
-            }
-            results.timingsCalculated++;
-          }
-        }
-        
-        // 3. Generate QR codes if requested
-        if (options.includeQRCodeGeneration) {
-          const { data: job } = await supabase
-            .from(tableName)
-            .select('wo_no, customer, due_date')
-            .eq('id', jobId)
-            .single();
-            
-          if (job) {
-            const qrData = JSON.stringify({
-              job_id: jobId,
-              wo_no: job.wo_no,
-              customer: job.customer,
-              due_date: job.due_date
-            });
-            
-            await supabase
-              .from(tableName)
-              .update({ 
-                qr_code_data: qrData,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', jobId);
-              
-            results.qrCodesGenerated++;
-          }
-        }
-        
-        results.processed++;
-        
-      } catch (jobError) {
-        console.error(`❌ Error processing individual job ${jobId}:`, jobError);
-        results.errors.push(`Job ${jobId}: ${jobError instanceof Error ? jobError.message : String(jobError)}`);
       }
     }
     
-    // 4. Calculate due dates for all jobs (batch operation)
+    // Process QR codes in bulk
+    if (options.includeQRCodeGeneration) {
+      const { data: jobs } = await supabase
+        .from(tableName)
+        .select('id, wo_no, customer, due_date')
+        .in('id', jobIds);
+        
+      if (jobs && jobs.length > 0) {
+        const qrUpdates = jobs.map(job => ({
+          id: job.id,
+          qr_code_data: JSON.stringify({
+            job_id: job.id,
+            wo_no: job.wo_no,
+            customer: job.customer,
+            due_date: job.due_date
+          }),
+          updated_at: new Date().toISOString()
+        }));
+        
+        await supabase
+          .from(tableName)
+          .upsert(qrUpdates, { onConflict: 'id' });
+          
+        results.qrCodesGenerated = qrUpdates.length;
+      }
+    }
+    
+    results.processed = jobIds.length;
+    
+    // Calculate due dates for all jobs (batch operation)
     try {
       const timelines = await calculateJobTimelineBatch(supabase, jobIds, tableName);
       
@@ -346,8 +296,8 @@ Deno.serve(async (req) => {
     console.log(`🎯 Starting comprehensive job processing for ${jobIds.length} jobs`);
     console.log(`🔧 Options: workflows=${includeWorkflowInitialization}, timing=${includeTimingCalculation}, qr=${includeQRCodeGeneration}`);
     
-    // Use smaller batches for complex operations
-    const batchSize = includeWorkflowInitialization ? 10 : 20;
+    // Use larger batches for better performance
+    const batchSize = 50; // Increased batch size
     const results = [];
     
     for (let i = 0; i < jobIds.length; i += batchSize) {
@@ -362,9 +312,9 @@ Deno.serve(async (req) => {
       });
       results.push(result);
       
-      // Add delay between batches to prevent overwhelming the database
+      // Reduced delay for faster processing
       if (i + batchSize < jobIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     

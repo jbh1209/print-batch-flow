@@ -230,6 +230,9 @@ export const ExcelUpload = () => {
         return;
       }
       
+      console.log("📦 Creating jobs in database (simplified upload)...");
+      debugLogger.addSummary("Job Creation", parsedJobs.length);
+      
       // SIMPLIFIED: Only create basic job records - no QR codes, no processing
       const jobsWithUserId = parsedJobs.map(job => ({
         ...job,
@@ -254,7 +257,8 @@ export const ExcelUpload = () => {
 
       // SIMPLIFIED: Trigger background processing for everything
       if (data && data.length > 0) {
-        console.log(`Jobs created successfully. Triggering background processing for ${data.length} jobs...`);
+        console.log(`✅ ${data.length} jobs created. Starting background processing...`);
+        debugLogger.flushBatchedMessages();
         
         try {
           const { data: calcResult, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
@@ -269,13 +273,13 @@ export const ExcelUpload = () => {
           });
           
           if (calcError) {
-            console.error('Background processing error:', calcError);
+            console.error('❌ Background processing error:', calcError);
             toast.error("Jobs created but background processing failed. Processing will be retried later.");
           } else {
-            console.log('Background processing triggered:', calcResult);
+            console.log('🚀 Background processing initiated successfully');
           }
         } catch (error) {
-          console.error('Failed to trigger background processing:', error);
+          console.error('❌ Failed to trigger background processing:', error);
           toast.error("Jobs created but background processing failed. Processing will be retried later.");
         }
       }

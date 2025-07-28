@@ -8,10 +8,12 @@ export enum LogLevel {
 
 export class ExcelImportDebugger {
   private debugInfo: string[] = [];
-  private logLevel: LogLevel = LogLevel.WARN; // Only show warnings and errors by default
-  private consoleEnabled: boolean = process.env.NODE_ENV === 'development';
+  private logLevel: LogLevel = LogLevel.ERROR; // Only show errors during upload
+  private consoleEnabled: boolean = false; // Disable console during production uploads
+  private batchedMessages: string[] = [];
 
   constructor(verbose: boolean = false) {
+    // Only enable verbose logging if explicitly requested
     if (verbose) {
       this.logLevel = LogLevel.DEBUG;
       this.consoleEnabled = true;
@@ -21,9 +23,13 @@ export class ExcelImportDebugger {
   addDebugInfo(message: string, level: LogLevel = LogLevel.DEBUG) {
     this.debugInfo.push(message);
     
+    // Only log errors and critical warnings to console during upload
     if (this.consoleEnabled && level <= this.logLevel) {
       const prefix = this.getLogPrefix(level);
       console.log(prefix, message);
+    } else if (level === LogLevel.ERROR || level === LogLevel.WARN) {
+      // Batch important messages for later summary
+      this.batchedMessages.push(`${this.getLogPrefix(level)} ${message}`);
     }
   }
 
@@ -41,7 +47,19 @@ export class ExcelImportDebugger {
 
   addSummary(operation: string, count: number, duration?: number) {
     const durationText = duration ? ` (${duration}ms)` : '';
-    this.addInfo(`✅ ${operation}: ${count} items processed${durationText}`);
+    const message = `✅ ${operation}: ${count} items processed${durationText}`;
+    this.addInfo(message);
+    
+    // Always show summaries in console
+    console.log("[Excel Import] ℹ️", message);
+  }
+  
+  flushBatchedMessages() {
+    if (this.batchedMessages.length > 0) {
+      console.log("[Excel Import] 📋 Summary of important messages:");
+      this.batchedMessages.forEach(msg => console.log(msg));
+      this.batchedMessages = [];
+    }
   }
 
   private getLogPrefix(level: LogLevel): string {
@@ -60,6 +78,7 @@ export class ExcelImportDebugger {
 
   clear() {
     this.debugInfo = [];
+    this.batchedMessages = [];
   }
 
   setVerbose(verbose: boolean) {
