@@ -98,7 +98,7 @@ export class ProductionScheduler {
   }
 
   /**
-   * Create or update job scheduling record
+   * Calculate and update job due date using due_date_recalculation_queue
    */
   static async scheduleJob(data: JobSchedulingData): Promise<boolean> {
     try {
@@ -107,30 +107,25 @@ export class ProductionScheduler {
       
       const scheduling = await this.calculateSmartDueDate(estimatedHours, data.priority);
 
-      // Insert/update job scheduling record
+      // Add to due date recalculation queue for processing
       const { error } = await supabase
-        .from('job_scheduling')
-        .upsert({
+        .from('due_date_recalculation_queue')
+        .insert({
           job_id: data.jobId,
           job_table_name: data.jobTableName,
-          scheduled_start_date: scheduling.scheduledStartDate,
-          scheduled_completion_date: scheduling.scheduledCompletionDate,
-          estimated_total_hours: estimatedHours,
-          schedule_priority: data.priority || 100,
-          created_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .eq('job_id', data.jobId)
-        .eq('job_table_name', data.jobTableName);
+          trigger_reason: 'manual_scheduling',
+          processed: false
+        });
 
       if (error) {
-        console.error('Error scheduling job:', error);
+        console.error('Error adding job to recalculation queue:', error);
         return false;
       }
 
       // Update daily workload
       await this.updateDailyWorkload(scheduling.scheduledStartDate, estimatedHours);
       
-      console.log(`✅ Job ${data.jobId} scheduled for ${scheduling.scheduledStartDate}`);
+      console.log(`✅ Job ${data.jobId} added to scheduling queue`);
       return true;
     } catch (error) {
       console.error('Error in scheduleJob:', error);
@@ -155,18 +150,10 @@ export class ProductionScheduler {
         const success = await this.scheduleJob(job);
         if (success) {
           successful++;
-          // Get the scheduled date for reporting
-          const { data } = await supabase
-            .from('job_scheduling')
-            .select('scheduled_start_date')
-            .eq('job_id', job.jobId)
-            .eq('job_table_name', job.jobTableName)
-            .single();
-          
           results.push({
             jobId: job.jobId,
             success: true,
-            scheduledDate: data?.scheduled_start_date
+            scheduledDate: 'queued_for_calculation'
           });
         } else {
           failed++;
@@ -184,20 +171,22 @@ export class ProductionScheduler {
   }
 
   /**
-   * Get current workload in days
+   * Get current workload in days from daily_workload table
    */
   private static async getCurrentWorkloadDays(): Promise<number> {
     try {
+      const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
-        .from('job_scheduling')
-        .select('estimated_total_hours')
-        .gte('scheduled_start_date', new Date().toISOString().split('T')[0]);
+        .from('daily_workload')
+        .select('total_estimated_hours')
+        .gte('date', today)
+        .order('date');
 
       if (error || !data) {
         return 0;
       }
 
-      const totalHours = data.reduce((sum, job) => sum + (job.estimated_total_hours || 0), 0);
+      const totalHours = data.reduce((sum, day) => sum + (day.total_estimated_hours || 0), 0);
       return Math.ceil(totalHours / 8); // 8 hours per day
     } catch (error) {
       console.error('Error getting current workload:', error);

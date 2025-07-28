@@ -91,21 +91,21 @@ export class DependencyResolver {
     blockedBy: string[];
     reason: string;
   }> {
-    // Get current job flow dependencies
-    const { data: dependencies, error } = await supabase
-      .from('job_flow_dependencies')
+    // Get all job stage instances for this job
+    const { data: stageInstances, error } = await supabase
+      .from('job_stage_instances')
       .select(`
-        predecessor_stage_id,
-        current_stage_id,
-        dependency_type,
+        production_stage_id,
+        stage_order,
+        status,
         production_stages!inner(name)
       `)
       .eq('job_id', jobId)
       .eq('job_table_name', jobTableName)
-      .eq('current_stage_id', stageId);
+      .order('stage_order');
 
     if (error) {
-      console.error('Error fetching dependencies:', error);
+      console.error('Error fetching stage instances:', error);
       return {
         canStart: false,
         blockedBy: [],
@@ -113,32 +113,43 @@ export class DependencyResolver {
       };
     }
 
-    if (!dependencies || dependencies.length === 0) {
+    if (!stageInstances || stageInstances.length === 0) {
       return {
         canStart: true,
         blockedBy: [],
-        reason: 'No dependencies found'
+        reason: 'No stages found'
       };
     }
 
-    // Check if all predecessor stages are completed
+    // Find current stage and check if previous stages are completed
+    const currentStageIndex = stageInstances.findIndex(
+      stage => stage.production_stage_id === stageId
+    );
+
+    if (currentStageIndex === -1) {
+      return {
+        canStart: false,
+        blockedBy: [],
+        reason: 'Stage not found in job workflow'
+      };
+    }
+
+    // If this is the first stage, it can always start
+    if (currentStageIndex === 0) {
+      return {
+        canStart: true,
+        blockedBy: [],
+        reason: 'First stage in workflow'
+      };
+    }
+
+    // Check if all previous stages are completed
     const blockedBy: string[] = [];
     
-    for (const dep of dependencies) {
-      if (!dep.predecessor_stage_id) continue;
-      
-      const { data: predecessorStage, error: stageError } = await supabase
-        .from('job_stage_instances')
-        .select('status, production_stages!inner(name)')
-        .eq('job_id', jobId)
-        .eq('job_table_name', jobTableName)
-        .eq('production_stage_id', dep.predecessor_stage_id)
-        .single();
-
-      if (stageError || !predecessorStage) continue;
-      
-      if (predecessorStage.status !== 'completed') {
-        blockedBy.push((predecessorStage as any).production_stages.name);
+    for (let i = 0; i < currentStageIndex; i++) {
+      const previousStage = stageInstances[i];
+      if (previousStage.status !== 'completed') {
+        blockedBy.push((previousStage as any).production_stages.name);
       }
     }
 
@@ -147,7 +158,7 @@ export class DependencyResolver {
       blockedBy,
       reason: blockedBy.length > 0 
         ? `Waiting for: ${blockedBy.join(', ')}`
-        : 'All dependencies satisfied'
+        : 'All previous stages completed'
     };
   }
 
@@ -210,16 +221,17 @@ export class DependencyResolver {
   }
 
   /**
-   * Create flow dependencies for a job
+   * Create sequential workflow for a job (no separate table needed)
    */
   async createJobFlowDependencies(
     jobId: string, 
     jobTableName: string
   ): Promise<void> {
-    // Get job stage instances
+    // This method now ensures stages are ordered correctly
+    // Dependencies are enforced by stage_order in job_stage_instances
     const { data: stageInstances, error } = await supabase
       .from('job_stage_instances')
-      .select('production_stage_id, stage_order')
+      .select('id, production_stage_id, stage_order')
       .eq('job_id', jobId)
       .eq('job_table_name', jobTableName)
       .order('stage_order');
@@ -229,34 +241,7 @@ export class DependencyResolver {
       return;
     }
 
-    const dependencies = [];
-
-    for (let i = 0; i < stageInstances.length; i++) {
-      const currentStage = stageInstances[i];
-      const predecessorStage = i > 0 ? stageInstances[i - 1] : null;
-      const successorStage = i < stageInstances.length - 1 ? stageInstances[i + 1] : null;
-
-      dependencies.push({
-        job_id: jobId,
-        job_table_name: jobTableName,
-        current_stage_id: currentStage.production_stage_id,
-        predecessor_stage_id: predecessorStage?.production_stage_id || null,
-        successor_stage_id: successorStage?.production_stage_id || null,
-        dependency_type: 'sequential',
-        is_critical_path: true
-      });
-    }
-
-    // Insert dependencies
-    const { error: insertError } = await supabase
-      .from('job_flow_dependencies')
-      .upsert(dependencies, {
-        onConflict: 'job_id,job_table_name,current_stage_id'
-      });
-
-    if (insertError) {
-      console.error('Error creating job flow dependencies:', insertError);
-    }
+    console.log(`✅ Job ${jobId} has ${stageInstances.length} stages in sequential order`);
   }
 
   /**
