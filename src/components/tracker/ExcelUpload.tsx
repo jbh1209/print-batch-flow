@@ -304,9 +304,9 @@ export const ExcelUpload = () => {
         }
       }
 
-      // Flow-based scheduling with realistic due dates
+      // Optimized batch scheduling with reduced logging
       if (data && data.length > 0) {
-        debugLogger.addDebugInfo(`Scheduling ${data.length} jobs`);
+        console.log(`Batch processing ${data.length} jobs - calculating due dates...`);
         
         const schedulingJobs = data.map(job => ({
           jobId: job.id,
@@ -314,29 +314,45 @@ export const ExcelUpload = () => {
           priority: 50
         }));
         
+        // Batch schedule jobs
         const schedulingResult = await batchScheduleJobs(schedulingJobs);
         
-        // Update job due dates with calculated values
-        for (const result of schedulingResult.results) {
-          if (result.success) {
-            const job = data.find(j => j.id === result.jobId);
-            if (job) {
-              const dueDateCalculation = await calculateRealisticDueDate(job.id, "production_jobs");
-              if (dueDateCalculation) {
-                await supabase
-                  .from('production_jobs')
-                  .update({ 
-                    due_date: dueDateCalculation.dueDateWithBuffer.toISOString().split('T')[0],
-                    internal_completion_date: dueDateCalculation.internalCompletionDate.toISOString().split('T')[0],
-                    due_date_buffer_days: dueDateCalculation.bufferDays,
-                    due_date_warning_level: 'green',
-                    due_date_locked: true
-                  })
-                  .eq('id', job.id);
-              }
-            }
-          }
+        // Batch update due dates in groups of 10 to reduce database load
+        const updateBatchSize = 10;
+        const updatePromises = [];
+        
+        for (let i = 0; i < schedulingResult.results.length; i += updateBatchSize) {
+          const batch = schedulingResult.results.slice(i, i + updateBatchSize);
+          
+          updatePromises.push(
+            Promise.allSettled(
+              batch.map(async (result) => {
+                if (result.success) {
+                  const job = data.find(j => j.id === result.jobId);
+                  if (job) {
+                    const dueDateCalculation = await calculateRealisticDueDate(job.id, "production_jobs");
+                    if (dueDateCalculation) {
+                      return supabase
+                        .from('production_jobs')
+                        .update({ 
+                          due_date: dueDateCalculation.dueDateWithBuffer.toISOString().split('T')[0],
+                          internal_completion_date: dueDateCalculation.internalCompletionDate.toISOString().split('T')[0],
+                          due_date_buffer_days: dueDateCalculation.bufferDays,
+                          due_date_warning_level: 'green',
+                          due_date_locked: true
+                        })
+                        .eq('id', job.id);
+                    }
+                  }
+                }
+              })
+            )
+          );
         }
+        
+        // Wait for all batch updates to complete
+        await Promise.all(updatePromises);
+        console.log(`Due date calculations completed for ${data.length} jobs`);
       }
 
       const duplicatesSkipped = jobsWithUserId.length - (data?.length || 0);

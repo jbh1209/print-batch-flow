@@ -19,6 +19,22 @@ interface JobStageInstance {
   part_assignment: string;
   part_name: string | null;
   quantity: number | null;
+}
+
+interface ProductionStage {
+  id: string;
+  name: string;
+  color: string;
+  stage_group_id: string | null;
+}
+
+interface StageGroup {
+  id: string;
+  name: string;
+  parallel_processing_enabled: boolean;
+}
+
+interface EnrichedJobStageInstance extends JobStageInstance {
   production_stages: {
     name: string;
     color: string;
@@ -70,10 +86,10 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
 }) => {
   const queryClient = useQueryClient();
 
-  // Fetch job details - currently only supporting production_jobs
-  const { data: job } = useQuery({
-    queryKey: ['job', jobId, jobTableName],
-    queryFn: async () => {
+  // Optimized job details query with proper caching
+  const { data: job } = useQuery<Job>({
+    queryKey: ['job-details', jobId],
+    queryFn: async (): Promise<Job> => {
       if (jobTableName !== 'production_jobs') {
         throw new Error('Currently only production_jobs are supported');
       }
@@ -87,13 +103,15 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
       if (error) throw error;
       return data as Job;
     },
-    enabled: open
+    enabled: open,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000 // 10 minutes (replaced cacheTime)
   });
 
-  // Fetch job stage instances
-  const { data: stages, isLoading } = useQuery({
-    queryKey: ['job-stages', jobId, jobTableName],
-    queryFn: async () => {
+  // Optimized stages query - simplified and cached
+  const { data: stages, isLoading } = useQuery<JobStageInstance[]>({
+    queryKey: ['job-stages-simple', jobId],
+    queryFn: async (): Promise<JobStageInstance[]> => {
       const { data, error } = await supabase
         .from('job_stage_instances')
         .select(`
@@ -103,16 +121,7 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
           status,
           part_assignment,
           part_name,
-          quantity,
-          production_stages!inner (
-            name,
-            color,
-            stage_group_id,
-            stage_groups (
-              name,
-              parallel_processing_enabled
-            )
-          )
+          quantity
         `)
         .eq('job_id', jobId)
         .eq('job_table_name', jobTableName)
@@ -121,10 +130,78 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
       if (error) throw error;
       return data as JobStageInstance[];
     },
-    enabled: open
+    enabled: open,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000 // 5 minutes
   });
 
-  // Update part assignment mutation
+  // Separate query for production stages to avoid complex joins
+  const { data: productionStages } = useQuery<ProductionStage[]>({
+    queryKey: ['production-stages-info'],
+    queryFn: async (): Promise<ProductionStage[]> => {
+      const { data, error } = await supabase
+        .from('production_stages')
+        .select(`
+          id,
+          name,
+          color,
+          stage_group_id
+        `);
+      
+      if (error) throw error;
+      return data as ProductionStage[];
+    },
+    enabled: open,
+    staleTime: 10 * 60 * 1000, // 10 minutes - stages rarely change
+    gcTime: 30 * 60 * 1000 // 30 minutes
+  });
+
+  // Separate query for stage groups
+  const { data: stageGroups } = useQuery<StageGroup[]>({
+    queryKey: ['stage-groups-info'],
+    queryFn: async (): Promise<StageGroup[]> => {
+      const { data, error } = await supabase
+        .from('stage_groups')
+        .select(`
+          id,
+          name,
+          parallel_processing_enabled
+        `);
+      
+      if (error) throw error;
+      return data as StageGroup[];
+    },
+    enabled: open,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000 // 30 minutes
+  });
+
+  // Create enriched stages by joining data
+  const enrichedStages: EnrichedJobStageInstance[] = React.useMemo(() => {
+    if (!stages || !productionStages || !stageGroups) return [];
+    
+    return stages.map(stage => {
+      const productionStage = productionStages.find(ps => ps.id === stage.production_stage_id);
+      const stageGroup = productionStage?.stage_group_id 
+        ? stageGroups.find(sg => sg.id === productionStage.stage_group_id)
+        : undefined;
+      
+      return {
+        ...stage,
+        production_stages: {
+          name: productionStage?.name || 'Unknown Stage',
+          color: productionStage?.color || '#6B7280',
+          stage_group_id: productionStage?.stage_group_id || null
+        },
+        stage_groups: stageGroup ? {
+          name: stageGroup.name,
+          parallel_processing_enabled: stageGroup.parallel_processing_enabled
+        } : undefined
+      };
+    });
+  }, [stages, productionStages, stageGroups]);
+
+  // Optimized mutation with specific query key invalidation
   const updatePartAssignmentMutation = useMutation({
     mutationFn: async ({ stageId, partAssignment }: { stageId: string; partAssignment: string }) => {
       const { error } = await supabase
@@ -135,7 +212,8 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['job-stages', jobId, jobTableName] });
+      // Only invalidate the specific stage query, not all job-related queries
+      queryClient.invalidateQueries({ queryKey: ['job-stages-simple', jobId] });
       toast.success('Part assignment updated');
     },
     onError: (error) => {
@@ -148,11 +226,11 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
   };
 
   const groupStagesByGroup = () => {
-    if (!stages) return [];
+    if (!enrichedStages) return [];
     
-    const grouped: { [key: string]: JobStageInstance[] } = {};
+    const grouped: { [key: string]: EnrichedJobStageInstance[] } = {};
     
-    stages.forEach(stage => {
+    enrichedStages.forEach(stage => {
       const groupName = stage.production_stages.stage_group_id 
         ? stage.stage_groups?.name || 'Unknown Group'
         : 'Ungrouped Stages';
