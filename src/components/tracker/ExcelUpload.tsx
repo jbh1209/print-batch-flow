@@ -220,14 +220,13 @@ export const ExcelUpload = () => {
     setUploadError(null);
     
     try {
-      debugLogger.addDebugInfo(`Starting upload of ${parsedJobs.length} jobs for user ${user.id}`);
+      debugLogger.addDebugInfo(`Processing ${parsedJobs.length} jobs`);
     
-      // Validate jobs before upload using the updated validator
+      // Validate jobs before upload
       const validationErrors = validateAllJobs(parsedJobs);
     
       if (validationErrors.length > 0) {
         setUploadError(`Validation errors:\n${validationErrors.slice(0, 5).join('\n')}${validationErrors.length > 5 ? '\n...' : ''}`);
-        debugLogger.addDebugInfo(`Validation failed: ${validationErrors.join('; ')}`);
         return;
       }
       
@@ -237,7 +236,6 @@ export const ExcelUpload = () => {
         const jobData: JobDataWithQR = {
           ...job,
           user_id: user.id,
-          // Convert null dates to undefined for database insertion
           date: job.date || undefined,
           due_date: job.due_date || undefined
         };
@@ -257,15 +255,12 @@ export const ExcelUpload = () => {
             jobData.qr_code_data = qrData;
             jobData.qr_code_url = qrUrl;
           } catch (qrError) {
-            debugLogger.addDebugInfo(`Failed to generate QR code for ${job.wo_no}: ${qrError}`);
+            debugLogger.addDebugInfo(`QR generation failed for ${job.wo_no}`);
           }
         }
 
         jobsWithUserId.push(jobData);
       }
-
-      debugLogger.addDebugInfo(`Attempting to insert ${jobsWithUserId.length} jobs into database`);
-      debugLogger.addDebugInfo(`Sample job data: ${JSON.stringify(jobsWithUserId[0], null, 2)}`);
 
       const { data, error } = await supabase
         .from('production_jobs')
@@ -276,15 +271,12 @@ export const ExcelUpload = () => {
         .select();
 
       if (error) {
-        debugLogger.addDebugInfo(`Database error: ${JSON.stringify(error)}`);
         setUploadError(`Database error: ${error.message}`);
         toast.error("Failed to upload jobs to database");
         return;
       }
 
-      debugLogger.addDebugInfo(`Successfully inserted ${data?.length || 0} jobs (duplicates were ignored)`);
-
-      // Update QR codes with actual job IDs if QR generation was enabled
+      // Update QR codes with actual job IDs if needed
       if (generateQRCodes && data) {
         for (const insertedJob of data) {
           if (insertedJob.qr_code_data) {
@@ -306,31 +298,29 @@ export const ExcelUpload = () => {
                 })
                 .eq('id', insertedJob.id);
             } catch (qrError) {
-              debugLogger.addDebugInfo(`Failed to update QR code for job ${insertedJob.id}: ${qrError}`);
+              // Silent fail for QR updates
             }
           }
         }
       }
 
-      // Phase 4: Flow-based scheduling with realistic due dates
+      // Flow-based scheduling with realistic due dates
       if (data && data.length > 0) {
-        debugLogger.addDebugInfo(`Starting flow-based scheduling for ${data.length} jobs`);
+        debugLogger.addDebugInfo(`Scheduling ${data.length} jobs`);
         
         const schedulingJobs = data.map(job => ({
           jobId: job.id,
           jobTableName: "production_jobs" as const,
-          priority: 50 // Default priority
+          priority: 50
         }));
         
         const schedulingResult = await batchScheduleJobs(schedulingJobs);
-        debugLogger.addDebugInfo(`Flow-based scheduling complete: ${schedulingResult.successful} successful, ${schedulingResult.failed} failed`);
         
-        // Update job due dates with realistic calculated values (with 1-day buffer)
+        // Update job due dates with calculated values
         for (const result of schedulingResult.results) {
           if (result.success) {
             const job = data.find(j => j.id === result.jobId);
             if (job) {
-              // Calculate due date with working day buffer
               const dueDateCalculation = await calculateRealisticDueDate(job.id, "production_jobs");
               if (dueDateCalculation) {
                 await supabase
@@ -340,17 +330,12 @@ export const ExcelUpload = () => {
                     internal_completion_date: dueDateCalculation.internalCompletionDate.toISOString().split('T')[0],
                     due_date_buffer_days: dueDateCalculation.bufferDays,
                     due_date_warning_level: 'green',
-                    due_date_locked: true // Lock the due date once set initially
+                    due_date_locked: true
                   })
                   .eq('id', job.id);
               }
             }
           }
-        }
-        
-        // Log capacity impact summary
-        if (schedulingResult.capacityImpact) {
-          debugLogger.addDebugInfo(`Capacity impact: ${schedulingResult.capacityImpact.totalImpactDays} total additional days across all stages`);
         }
       }
 

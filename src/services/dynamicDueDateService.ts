@@ -22,27 +22,16 @@ export class DynamicDueDateService {
     totalWorkingDays: number;
   }> {
     try {
-      console.log(`🗓️ Starting due date calculation for job ${jobId}`);
-      
       const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
-      console.log(`📊 Timeline calculation completed for job ${jobId}: ${timeline.stages.length} stages, ${timeline.totalEstimatedWorkingDays} working days`);
       
       // Get the realistic completion date based on current workload
       const internalCompletionDate = timeline.stages.length > 0 
         ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
         : new Date();
       
-      console.log(`📅 Internal completion date for job ${jobId}: ${internalCompletionDate.toISOString()}`);
-      
       // Add 1 working day buffer (configurable per job)
       const bufferDays = 1;
       const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
-      
-      console.log(`✅ Due date calculation completed for job ${jobId}:`);
-      console.log(`   Internal completion: ${internalCompletionDate.toISOString()}`);
-      console.log(`   Due date (with buffer): ${dueDateWithBuffer.toISOString()}`);
-      console.log(`   Buffer days: ${bufferDays}`);
-      console.log(`   Total working days: ${timeline.totalEstimatedWorkingDays}`);
       
       return {
         internalCompletionDate,
@@ -51,7 +40,7 @@ export class DynamicDueDateService {
         totalWorkingDays: timeline.totalEstimatedWorkingDays
       };
     } catch (error) {
-      console.error(`❌ Error in calculateInitialDueDate for job ${jobId}:`, error);
+      console.error(`Error in calculateInitialDueDate for job ${jobId}:`, error);
       throw error;
     }
   }
@@ -219,14 +208,6 @@ export class DynamicDueDateService {
    * Trigger due date recalculation for all jobs affected by production changes
    */
   async triggerRecalculationForAffectedJobs(stageId?: string, jobId?: string): Promise<void> {
-    // This would be called when:
-    // - A job stage is completed
-    // - A job is expedited
-    // - Machine downtime occurs
-    // - Queue positions change
-    
-    console.log('Triggering due date recalculation for affected jobs...');
-    
     if (jobId) {
       // Recalculate specific job
       await this.recalculateJobDueDates([jobId]);
