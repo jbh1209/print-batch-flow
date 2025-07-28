@@ -82,33 +82,33 @@ async function getStageWorkloadsBatch(supabase: any, stageIds: string[]) {
     return workloads;
   }
 
-  // Get workload for each stage
-  for (const capacity of capacities || []) {
-    try {
-      const { data: workloadData, error: workloadError } = await supabase
-        .rpc('calculate_stage_queue_workload', {
-          p_production_stage_id: capacity.production_stage_id
-        });
+  // Get workload for each stage using the batch function
+  const { data: workloadData, error: workloadError } = await supabase
+    .rpc('calculate_stage_queue_workload', { stage_ids: stageIds });
 
-      if (!workloadError && workloadData?.[0]) {
-        const workload = workloadData[0];
-        const dailyCapacity = capacity.daily_capacity_hours * (capacity.efficiency_factor || 0.85);
-        const queueDaysToProcess = workload.total_pending_hours / dailyCapacity;
+  if (workloadError) {
+    console.error('Error fetching workload data:', workloadError);
+    return workloads;
+  }
 
-        workloads.set(capacity.production_stage_id, {
-          stageId: capacity.production_stage_id,
-          stageName: capacity.production_stages.name,
-          totalPendingHours: parseFloat(workload.total_pending_hours || '0'),
-          totalActiveHours: parseFloat(workload.total_active_hours || '0'),
-          pendingJobsCount: workload.pending_jobs_count || 0,
-          activeJobsCount: workload.active_jobs_count || 0,
-          dailyCapacityHours: dailyCapacity,
-          earliestAvailableSlot: new Date(workload.earliest_available_slot),
-          queueDaysToProcess: Math.ceil(queueDaysToProcess)
-        });
-      }
-    } catch (error) {
-      console.error(`Error calculating workload for stage ${capacity.production_stage_id}:`, error);
+  // Process the batch results
+  for (const workload of workloadData || []) {
+    const capacity = capacities?.find(c => c.production_stage_id === workload.stage_id);
+    if (capacity) {
+      const dailyCapacity = capacity.daily_capacity_hours * (capacity.efficiency_factor || 0.85);
+      const queueDaysToProcess = workload.total_pending_hours / dailyCapacity;
+
+      workloads.set(workload.stage_id, {
+        stageId: workload.stage_id,
+        stageName: capacity.production_stages.name,
+        totalPendingHours: parseFloat(workload.total_pending_hours || '0'),
+        totalActiveHours: parseFloat(workload.total_active_hours || '0'),
+        pendingJobsCount: workload.pending_jobs_count || 0,
+        activeJobsCount: workload.active_jobs_count || 0,
+        dailyCapacityHours: dailyCapacity,
+        earliestAvailableSlot: new Date(workload.earliest_available_slot),
+        queueDaysToProcess: Math.ceil(queueDaysToProcess)
+      });
     }
   }
   
