@@ -203,9 +203,11 @@ export class StageQueueManager {
         const workload = await this.getStageWorkload(stage.production_stage_id);
         console.log(`   Workload - Queue days: ${workload?.queueDaysToProcess || 0}, Is bottleneck: ${workload?.isBottleneck || false}`);
 
-        // Each stage starts after the previous one completes
+        // Stage starts after both the previous stage completes AND the queue allows
         const stageStartDate = new Date(Math.max(currentDate.getTime(), timing.earliestStartDate.getTime()));
-        const stageCompletionDate = new Date(stageStartDate.getTime() + (estimatedHours * 60 * 60 * 1000));
+        // Update the completion date to account for when the stage actually starts (not just queue calculation)
+        const actualStartDelay = Math.max(0, stageStartDate.getTime() - timing.earliestStartDate.getTime());
+        const stageCompletionDate = new Date(timing.estimatedCompletionDate.getTime() + actualStartDelay);
         
         console.log(`   Calculated - Start: ${stageStartDate.toISOString()}, Completion: ${stageCompletionDate.toISOString()}`);
 
