@@ -220,7 +220,7 @@ export const ExcelUpload = () => {
     setUploadError(null);
     
     try {
-      debugLogger.addDebugInfo(`Processing ${parsedJobs.length} jobs`);
+      console.log(`Creating ${parsedJobs.length} jobs in database (no processing)`);
     
       // Validate jobs before upload
       const validationErrors = validateAllJobs(parsedJobs);
@@ -230,37 +230,13 @@ export const ExcelUpload = () => {
         return;
       }
       
-      const jobsWithUserId: JobDataWithQR[] = [];
-      
-      for (const job of parsedJobs) {
-        const jobData: JobDataWithQR = {
-          ...job,
-          user_id: user.id,
-          date: job.date || undefined,
-          due_date: job.due_date || undefined
-        };
-
-        // Generate QR code if enabled
-        if (generateQRCodes) {
-          try {
-            const qrData = generateQRCodeData({
-              wo_no: job.wo_no,
-              job_id: `temp-${job.wo_no}`,
-              customer: job.customer,
-              due_date: job.due_date
-            });
-            
-            const qrUrl = await generateQRCodeImage(qrData);
-            
-            jobData.qr_code_data = qrData;
-            jobData.qr_code_url = qrUrl;
-          } catch (qrError) {
-            debugLogger.addDebugInfo(`QR generation failed for ${job.wo_no}`);
-          }
-        }
-
-        jobsWithUserId.push(jobData);
-      }
+      // SIMPLIFIED: Only create basic job records - no QR codes, no processing
+      const jobsWithUserId = parsedJobs.map(job => ({
+        ...job,
+        user_id: user.id,
+        date: job.date || undefined,
+        due_date: job.due_date || undefined
+      }));
 
       const { data, error } = await supabase
         .from('production_jobs')
@@ -276,80 +252,53 @@ export const ExcelUpload = () => {
         return;
       }
 
-      // Update QR codes with actual job IDs if needed
-      if (generateQRCodes && data) {
-        for (const insertedJob of data) {
-          if (insertedJob.qr_code_data) {
-            try {
-              const updatedQrData = generateQRCodeData({
-                wo_no: insertedJob.wo_no,
-                job_id: insertedJob.id,
-                customer: insertedJob.customer,
-                due_date: insertedJob.due_date
-              });
-              
-              const updatedQrUrl = await generateQRCodeImage(updatedQrData);
-              
-              await supabase
-                .from('production_jobs')
-                .update({
-                  qr_code_data: updatedQrData,
-                  qr_code_url: updatedQrUrl
-                })
-                .eq('id', insertedJob.id);
-            } catch (qrError) {
-              // Silent fail for QR updates
-            }
-          }
-        }
-      }
-
-      // Trigger background due date calculation
+      // SIMPLIFIED: Trigger background processing for everything
       if (data && data.length > 0) {
-        console.log(`Jobs created successfully. Triggering background due date calculation for ${data.length} jobs...`);
+        console.log(`Jobs created successfully. Triggering background processing for ${data.length} jobs...`);
         
         try {
-          // Call the edge function for background processing
           const { data: calcResult, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
             body: {
               jobIds: data.map(job => job.id),
               tableName: 'production_jobs',
-              priority: 'normal'
+              priority: 'normal',
+              includeWorkflowInitialization: true,
+              includeTimingCalculation: true,
+              includeQRCodeGeneration: generateQRCodes
             }
           });
           
           if (calcError) {
-            console.error('Due date calculation error:', calcError);
-            toast.error("Jobs created but due date calculation failed. They will be calculated later.");
+            console.error('Background processing error:', calcError);
+            toast.error("Jobs created but background processing failed. Processing will be retried later.");
           } else {
-            console.log('Due date calculation triggered successfully:', calcResult);
+            console.log('Background processing triggered:', calcResult);
           }
         } catch (error) {
-          console.error('Failed to trigger due date calculation:', error);
-          toast.error("Jobs created but due date calculation failed. They will be calculated later.");
+          console.error('Failed to trigger background processing:', error);
+          toast.error("Jobs created but background processing failed. Processing will be retried later.");
         }
       }
 
       const duplicatesSkipped = jobsWithUserId.length - (data?.length || 0);
-      const qrMessage = generateQRCodes ? " with QR codes" : "";
+      const processingMessage = generateQRCodes ? " QR codes, workflows, and due dates" : " workflows and due dates";
       
       if (duplicatesSkipped > 0) {
-        toast.success(`Successfully uploaded ${data?.length || 0} new jobs${qrMessage}. Due dates are being calculated in the background. ${duplicatesSkipped} duplicate work orders were skipped.`);
+        toast.success(`${data?.length || 0} jobs uploaded successfully!${processingMessage} are being processed in the background. ${duplicatesSkipped} duplicates skipped.`);
       } else {
-        toast.success(`Successfully uploaded ${data?.length || 0} jobs${qrMessage}. Due dates are being calculated in the background.`);
+        toast.success(`${data?.length || 0} jobs uploaded successfully!${processingMessage} are being processed in the background.`);
       }
       
       setParsedJobs([]);
       setFileName("");
       setImportStats(null);
-      debugLogger.clear();
       
       // Reset file input
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       if (fileInput) fileInput.value = "";
       
     } catch (error) {
-      debugLogger.addDebugInfo(`Upload error: ${error}`);
+      console.error("Upload error:", error);
       setUploadError(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
       toast.error("Failed to upload jobs");
     } finally {
@@ -409,14 +358,67 @@ export const ExcelUpload = () => {
     try {
       setIsCreatingJobs(true);
       
-      // Pass user-approved mappings to the finalization process
-      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger, user.id, userApprovedMappings);
+      // SIMPLIFIED: Create basic jobs first, then trigger background processing
+      const basicJobs = enhancedResult.stats.total > 0 
+        ? Object.values(enhancedResult.categoryAssignments).map((assignment: any) => assignment.originalJob).filter(Boolean)
+        : [];
       
-      toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
+      if (basicJobs.length === 0) {
+        throw new Error("No valid jobs found to create");
+      }
+
+      // Create basic job records only
+      const jobsWithUserId = basicJobs.map(job => ({
+        ...job,
+        user_id: user.id,
+        date: job.date || undefined,
+        due_date: job.due_date || undefined
+      }));
+
+      const { data, error } = await supabase
+        .from('production_jobs')
+        .upsert(jobsWithUserId, { 
+          onConflict: 'wo_no,user_id',
+          ignoreDuplicates: true 
+        })
+        .select();
+
+      if (error) {
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("No jobs were created (possibly all duplicates)");
+      }
+
+      // Trigger background processing with user mappings
+      try {
+        const { data: calcResult, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+          body: {
+            jobIds: data.map(job => job.id),
+            tableName: 'production_jobs',
+            priority: 'normal',
+            includeWorkflowInitialization: true,
+            includeTimingCalculation: true,
+            includeQRCodeGeneration: enhancedResult.generateQRCodes,
+            userApprovedMappings: userApprovedMappings
+          }
+        });
+        
+        if (calcError) {
+          console.error('Background processing error:', calcError);
+          toast.warning("Jobs created but background processing failed. Processing will be retried later.");
+        }
+      } catch (bgError) {
+        console.error('Failed to trigger background processing:', bgError);
+        toast.warning("Jobs created but background processing failed. Processing will be retried later.");
+      }
       
-      // Auto-open part assignment for newly created jobs (additive functionality)
-      if (finalResult.createdJobs && finalResult.createdJobs.length > 0) {
-        const firstJob = finalResult.createdJobs[0];
+      toast.success(`${data.length} jobs created successfully! Workflows and processing are running in the background.`);
+      
+      // Auto-open part assignment for first created job (additive functionality)
+      if (data.length > 0) {
+        const firstJob = data[0];
         setPartAssignmentJob({ id: firstJob.id, wo_no: firstJob.wo_no });
         setShowPartAssignment(true);
       }
@@ -426,8 +428,8 @@ export const ExcelUpload = () => {
       setShowEnhancedDialog(false);
       handleClearPreview();
     } catch (error) {
-      console.error("Error finalizing jobs:", error);
-      toast.error("Failed to create jobs in database. Please try again.");
+      console.error("Error creating jobs:", error);
+      toast.error(`Failed to create jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsCreatingJobs(false);
     }
