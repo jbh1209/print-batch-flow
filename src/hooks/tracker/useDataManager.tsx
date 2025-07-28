@@ -31,7 +31,6 @@ export const useDataManager = () => {
   const isManualRefreshRef = useRef(false);
 
   const fetchJobs = useCallback(async (): Promise<any[]> => {
-    console.log('🔄 Fetching jobs from database...');
     const { data, error } = await supabase
       .from('production_jobs')
       .select(`
@@ -51,7 +50,6 @@ export const useDataManager = () => {
   }, []);
 
   const fetchStages = useCallback(async (): Promise<any[]> => {
-    console.log('🔄 Fetching stages from database...');
     const { data, error } = await supabase
       .from('production_stages')
       .select('*')
@@ -80,7 +78,6 @@ export const useDataManager = () => {
         const stagesCache = cacheRef.current.stages;
 
         if (isCacheValid(jobsCache) && isCacheValid(stagesCache)) {
-          console.log('📦 Using cached data');
           setState(prev => ({
             ...prev,
             jobs: jobsCache!.data,
@@ -118,12 +115,7 @@ export const useDataManager = () => {
         toast.success('Data refreshed successfully');
       }
 
-      console.log('✅ Data loaded successfully:', {
-        jobs: jobsData.length,
-        stages: stagesData.length,
-        fromCache: false,
-        routeKey
-      });
+      // Data loaded: ${jobsData.length} jobs, ${stagesData.length} stages
     } catch (error) {
       console.error('❌ Error loading data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load data';

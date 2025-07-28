@@ -61,7 +61,61 @@ function calculateWorkingDaysBetween(startDate: Date, endDate: Date): number {
   return count;
 }
 
-// Efficient batch job timeline calculation
+// Batch function to get stage workloads for multiple stages
+async function getStageWorkloadsBatch(supabase: any, stageIds: string[]) {
+  const workloads = new Map();
+  
+  // Get capacity profiles first
+  const { data: capacities, error: capacityError } = await supabase
+    .from('stage_capacity_profiles')
+    .select(`
+      production_stage_id,
+      daily_capacity_hours,
+      efficiency_factor,
+      production_stages!inner(name, is_active)
+    `)
+    .in('production_stage_id', stageIds)
+    .eq('production_stages.is_active', true);
+
+  if (capacityError) {
+    console.error('Error fetching stage capacities:', capacityError);
+    return workloads;
+  }
+
+  // Get workload for each stage
+  for (const capacity of capacities || []) {
+    try {
+      const { data: workloadData, error: workloadError } = await supabase
+        .rpc('calculate_stage_queue_workload', {
+          p_production_stage_id: capacity.production_stage_id
+        });
+
+      if (!workloadError && workloadData?.[0]) {
+        const workload = workloadData[0];
+        const dailyCapacity = capacity.daily_capacity_hours * (capacity.efficiency_factor || 0.85);
+        const queueDaysToProcess = workload.total_pending_hours / dailyCapacity;
+
+        workloads.set(capacity.production_stage_id, {
+          stageId: capacity.production_stage_id,
+          stageName: capacity.production_stages.name,
+          totalPendingHours: parseFloat(workload.total_pending_hours || '0'),
+          totalActiveHours: parseFloat(workload.total_active_hours || '0'),
+          pendingJobsCount: workload.pending_jobs_count || 0,
+          activeJobsCount: workload.active_jobs_count || 0,
+          dailyCapacityHours: dailyCapacity,
+          earliestAvailableSlot: new Date(workload.earliest_available_slot),
+          queueDaysToProcess: Math.ceil(queueDaysToProcess)
+        });
+      }
+    } catch (error) {
+      console.error(`Error calculating workload for stage ${capacity.production_stage_id}:`, error);
+    }
+  }
+  
+  return workloads;
+}
+
+// Enhanced job timeline calculation using proper workload data
 async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableName: string): Promise<JobTimeline[]> {
   // Get all stage instances for these jobs in one query
   const { data: stageInstances, error: stageError } = await supabase
@@ -71,6 +125,7 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
       production_stage_id,
       stage_order,
       estimated_duration_minutes,
+      status,
       production_stages!inner(name, color)
     `)
     .in('job_id', jobIds)
@@ -82,14 +137,11 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
     return [];
   }
 
-  // Get stage capacity data in batch
+  // Get unique stage IDs and fetch their workloads in batch
   const stageIds = [...new Set(stageInstances?.map(si => si.production_stage_id) || [])];
-  const { data: capacityData, error: capacityError } = await supabase
-    .rpc('calculate_stage_queue_workload', { stage_ids: stageIds });
-
-  if (capacityError) {
-    console.error('Error fetching capacity data:', capacityError);
-  }
+  const stageWorkloads = await getStageWorkloadsBatch(supabase, stageIds);
+  
+  // Retrieved workload data for ${stageWorkloads.size} stages
 
   // Build timelines for each job
   const timelines: JobTimeline[] = [];
@@ -98,27 +150,60 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
     const jobStages = stageInstances?.filter(si => si.job_id === jobId) || [];
     const stages: JobTimelineStage[] = [];
     let currentDate = new Date();
+    let bottleneckStage: string | null = null;
+    let maxQueueDays = 0;
     
     for (const stage of jobStages) {
-      const capacity = capacityData?.find(c => c.stage_id === stage.production_stage_id);
-      const estimatedDuration = stage.estimated_duration_minutes || 60; // Default 1 hour
-      const queueHours = capacity?.queue_processing_hours || 0;
+      // Skip completed stages
+      if (stage.status === 'completed') {
+        continue;
+      }
       
-      // Calculate start date considering queue
-      const estimatedStartDate = addWorkingDays(currentDate, Math.ceil(queueHours / 8));
+      const workload = stageWorkloads.get(stage.production_stage_id);
+      const estimatedDurationMinutes = stage.estimated_duration_minutes || 60;
+      const estimatedDurationHours = estimatedDurationMinutes / 60;
       
-      // Calculate completion date
-      const estimatedCompletionDate = addWorkingDays(estimatedStartDate, Math.ceil(estimatedDuration / 60 / 8));
+      let estimatedStartDate: Date;
+      let estimatedCompletionDate: Date;
+      let queuePosition = 0;
+      
+      if (workload) {
+        // Calculate realistic start time based on current workload
+        const queueHours = workload.totalPendingHours + workload.totalActiveHours;
+        const queueDays = Math.ceil(queueHours / workload.dailyCapacityHours);
+        
+        // Stage starts after both previous stage completes AND queue allows
+        const queueStartDate = addWorkingDays(new Date(), queueDays);
+        estimatedStartDate = new Date(Math.max(currentDate.getTime(), queueStartDate.getTime()));
+        
+        // Stage completes after its duration
+        const stageDurationDays = Math.ceil(estimatedDurationHours / workload.dailyCapacityHours);
+        estimatedCompletionDate = addWorkingDays(estimatedStartDate, Math.max(1, stageDurationDays));
+        
+        queuePosition = workload.pendingJobsCount + 1;
+        
+        // Track bottleneck stage
+        if (workload.queueDaysToProcess > maxQueueDays) {
+          maxQueueDays = workload.queueDaysToProcess;
+          bottleneckStage = stage.production_stage_id;
+        }
+      } else {
+        // Fallback if no workload data available
+        estimatedStartDate = currentDate;
+        const fallbackDurationDays = Math.ceil(estimatedDurationHours / 8); // 8-hour workday
+        estimatedCompletionDate = addWorkingDays(estimatedStartDate, Math.max(1, fallbackDurationDays));
+      }
       
       stages.push({
         stageId: stage.production_stage_id,
         stageName: stage.production_stages?.name || 'Unknown',
         estimatedStartDate,
         estimatedCompletionDate,
-        estimatedDuration,
-        queuePosition: 0
+        estimatedDuration: estimatedDurationMinutes,
+        queuePosition
       });
       
+      // Next stage can't start until this one completes
       currentDate = estimatedCompletionDate;
     }
     
@@ -130,8 +215,8 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
       jobId,
       stages,
       totalEstimatedWorkingDays: totalWorkingDays,
-      bottleneckStage: null,
-      criticalPath: []
+      bottleneckStage,
+      criticalPath: stages.filter(s => s.stageId === bottleneckStage).map(s => s.stageName)
     });
   }
   
@@ -240,7 +325,6 @@ async function processJobBatch(
         
         if (!updateError) {
           results.dueDatesCalculated = timelines.length;
-          console.log(`✅ Successfully calculated due dates for ${timelines.length} jobs`);
         } else {
           results.errors.push(`Due date update error: ${updateError.message}`);
         }
@@ -250,7 +334,6 @@ async function processJobBatch(
       results.errors.push(`Due date calculation: ${dueDateError instanceof Error ? dueDateError.message : String(dueDateError)}`);
     }
     
-    console.log(`🏁 Batch processing completed:`, results);
     return results;
     
   } catch (error) {
@@ -293,16 +376,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`🎯 Starting comprehensive job processing for ${jobIds.length} jobs`);
-    console.log(`🔧 Options: workflows=${includeWorkflowInitialization}, timing=${includeTimingCalculation}, qr=${includeQRCodeGeneration}`);
+    console.log(`🎯 Processing ${jobIds.length} jobs with workload-based scheduling`);
     
-    // Use larger batches for better performance
-    const batchSize = 50; // Increased batch size
+    // Optimize batch size for faster processing
+    const batchSize = 25; // Smaller batches for faster response
     const results = [];
     
     for (let i = 0; i < jobIds.length; i += batchSize) {
       const batch = jobIds.slice(i, i + batchSize);
-      console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(jobIds.length/batchSize)}: ${batch.length} jobs`);
       
       const result = await processJobBatch(supabase, batch, tableName, {
         includeWorkflowInitialization,
@@ -312,9 +393,9 @@ Deno.serve(async (req) => {
       });
       results.push(result);
       
-      // Reduced delay for faster processing
-      if (i + batchSize < jobIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // No delay for single jobs or small batches
+      if (i + batchSize < jobIds.length && jobIds.length > 10) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
     
