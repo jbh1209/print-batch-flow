@@ -1235,16 +1235,44 @@ private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): P
     console.error(`❌ Error in workload-aware scheduling for job ${job.wo_no}:`, error);
     this.logger.addDebugInfo(`❌ Error in workload-aware scheduling for job ${job.wo_no}: ${error}`);
     this.logger.addDebugInfo(`   Error details: ${error instanceof Error ? error.message : String(error)}`);
-    this.logger.addDebugInfo(`   Falling back to default due date calculation`);
+    this.logger.addDebugInfo(`   Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`);
+    this.logger.addDebugInfo(`   Falling back to intelligent due date calculation`);
     
-    // Fallback: Set due date to 3 days from now
+    // Improved fallback: Calculate based on job's total estimated duration
+    let fallbackDays = 3; // Default fallback
+    
+    try {
+      // Try to get job's total estimated duration for a more intelligent fallback
+      const { data: stageInstances } = await supabase
+        .from('job_stage_instances')
+        .select('estimated_duration_minutes')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs');
+      
+      if (stageInstances && stageInstances.length > 0) {
+        const totalMinutes = stageInstances.reduce((total, stage) => 
+          total + (stage.estimated_duration_minutes || 0), 0);
+        const totalHours = totalMinutes / 60;
+        
+        // Estimate working days based on 8 hours per day + buffer
+        const estimatedWorkingDays = Math.ceil(totalHours / 8);
+        fallbackDays = Math.max(3, estimatedWorkingDays + 2); // Minimum 3 days, plus 2-day buffer
+        
+        this.logger.addDebugInfo(`   Intelligent fallback: ${totalHours.toFixed(2)} hours = ${estimatedWorkingDays} working days + 2 buffer = ${fallbackDays} total days`);
+      }
+    } catch (fallbackError) {
+      console.error(`❌ Error calculating intelligent fallback for job ${job.wo_no}:`, fallbackError);
+      this.logger.addDebugInfo(`   Fallback calculation failed, using default 3 days`);
+    }
+    
     const fallbackDueDate = new Date();
-    fallbackDueDate.setDate(fallbackDueDate.getDate() + 3);
+    fallbackDueDate.setDate(fallbackDueDate.getDate() + fallbackDays);
     
     await supabase
       .from('production_jobs')
       .update({
         due_date: fallbackDueDate.toISOString().split('T')[0],
+        internal_completion_date: fallbackDueDate.toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', jobId);

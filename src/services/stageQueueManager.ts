@@ -143,6 +143,8 @@ export class StageQueueManager {
     bottleneckStage?: string;
     criticalPath: string[];
   }> {
+    console.log(`🔄 Calculating timeline for job ${jobId} (table: ${jobTableName})`);
+    
     // Get job's stage instances
     const { data: stageInstances, error } = await supabase
       .from('job_stage_instances')
@@ -159,58 +161,105 @@ export class StageQueueManager {
       .order('stage_order');
 
     if (error) {
-      console.error('Error fetching job stage instances:', error);
+      console.error(`❌ Error fetching job stage instances for job ${jobId}:`, error);
       throw error;
     }
 
+    if (!stageInstances || stageInstances.length === 0) {
+      console.warn(`⚠️ No stage instances found for job ${jobId}`);
+      return {
+        stages: [],
+        totalEstimatedWorkingDays: 0,
+        totalEstimatedCalendarDays: 0,
+        criticalPath: []
+      };
+    }
+
+    console.log(`📊 Found ${stageInstances.length} stages for job ${jobId}`);
+    
     const timeline = [];
     let currentDate = new Date();
     let maxCompletionDate = new Date();
     let bottleneckStage: string | undefined;
     let maxQueueDays = 0;
+    
+    try {
 
     for (const stage of stageInstances || []) {
       if (stage.status === 'completed') {
-        // Skip completed stages
+        console.log(`⏭️ Skipping completed stage: ${(stage as any).production_stages.name}`);
         continue;
       }
 
+      console.log(`🔧 Processing stage: ${(stage as any).production_stages.name} (ID: ${stage.production_stage_id})`);
+      
       const estimatedHours = (stage.estimated_duration_minutes || 60) / 60;
-      const timing = await this.calculateJobStartTime(stage.production_stage_id, estimatedHours);
-      const workload = await this.getStageWorkload(stage.production_stage_id);
+      console.log(`   Duration: ${estimatedHours} hours (${stage.estimated_duration_minutes} minutes)`);
+      
+      try {
+        const timing = await this.calculateJobStartTime(stage.production_stage_id, estimatedHours);
+        console.log(`   Timing - Start: ${timing.earliestStartDate.toISOString()}, Queue position: ${timing.queuePosition}`);
+        
+        const workload = await this.getStageWorkload(stage.production_stage_id);
+        console.log(`   Workload - Queue days: ${workload?.queueDaysToProcess || 0}, Is bottleneck: ${workload?.isBottleneck || false}`);
 
-      // Each stage starts after the previous one completes
-      const stageStartDate = new Date(Math.max(currentDate.getTime(), timing.earliestStartDate.getTime()));
-      const stageCompletionDate = new Date(stageStartDate.getTime() + (estimatedHours * 60 * 60 * 1000));
+        // Each stage starts after the previous one completes
+        const stageStartDate = new Date(Math.max(currentDate.getTime(), timing.earliestStartDate.getTime()));
+        const stageCompletionDate = new Date(stageStartDate.getTime() + (estimatedHours * 60 * 60 * 1000));
+        
+        console.log(`   Calculated - Start: ${stageStartDate.toISOString()}, Completion: ${stageCompletionDate.toISOString()}`);
 
-      timeline.push({
-        stageId: stage.production_stage_id,
-        stageName: (stage as any).production_stages.name,
-        estimatedStartDate: stageStartDate,
-        estimatedCompletionDate: stageCompletionDate,
-        estimatedDurationHours: estimatedHours,
-        queuePosition: timing.queuePosition,
-        isBottleneck: workload?.isBottleneck || false
-      });
+        timeline.push({
+          stageId: stage.production_stage_id,
+          stageName: (stage as any).production_stages.name,
+          estimatedStartDate: stageStartDate,
+          estimatedCompletionDate: stageCompletionDate,
+          estimatedDurationHours: estimatedHours,
+          queuePosition: timing.queuePosition,
+          isBottleneck: workload?.isBottleneck || false
+        });
 
-      // Track bottleneck (stage with longest queue)
-      if (workload && workload.queueDaysToProcess > maxQueueDays) {
-        maxQueueDays = workload.queueDaysToProcess;
-        bottleneckStage = stage.production_stage_id;
+        // Track bottleneck (stage with longest queue)
+        if (workload && workload.queueDaysToProcess > maxQueueDays) {
+          maxQueueDays = workload.queueDaysToProcess;
+          bottleneckStage = stage.production_stage_id;
+          console.log(`   🚧 New bottleneck identified: ${(stage as any).production_stages.name} (${workload.queueDaysToProcess} days)`);
+        }
+
+        currentDate = stageCompletionDate;
+        maxCompletionDate = new Date(Math.max(maxCompletionDate.getTime(), stageCompletionDate.getTime()));
+        
+      } catch (error) {
+        console.error(`❌ Error processing stage ${(stage as any).production_stages.name}:`, error);
+        throw error;
       }
+    }
 
-      currentDate = stageCompletionDate;
-      maxCompletionDate = new Date(Math.max(maxCompletionDate.getTime(), stageCompletionDate.getTime()));
+    } catch (error) {
+      console.error(`❌ Error processing stages for job ${jobId}:`, error);
+      throw error;
     }
 
     // Calculate working days using the working day calculation utility
     const totalMinutes = timeline.reduce((total, stage) => total + (stage.estimatedDurationHours * 60), 0);
+    console.log(`📊 Timeline calculation results:`);
+    console.log(`   Stages processed: ${timeline.length}`);
+    console.log(`   Total duration: ${totalMinutes} minutes (${(totalMinutes / 60).toFixed(2)} hours)`);
+    console.log(`   Max completion date: ${maxCompletionDate.toISOString()}`);
+    
     const workingDayBreakdown = calculateWorkingDays(totalMinutes);
+    console.log(`   Working days breakdown:`, workingDayBreakdown);
     
     const totalCalendarDays = Math.ceil((maxCompletionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     const criticalPath = timeline
       .filter(stage => stage.isBottleneck)
       .map(stage => stage.stageName);
+
+    console.log(`✅ Timeline calculation completed for job ${jobId}:`);
+    console.log(`   Working days: ${workingDayBreakdown.workingDays}`);
+    console.log(`   Calendar days: ${totalCalendarDays}`);
+    console.log(`   Bottleneck stage: ${bottleneckStage || 'None'}`);
+    console.log(`   Critical path: ${criticalPath.join(' → ') || 'None'}`);
 
     return {
       stages: timeline,

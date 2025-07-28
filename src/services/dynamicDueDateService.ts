@@ -21,23 +21,39 @@ export class DynamicDueDateService {
     bufferDays: number;
     totalWorkingDays: number;
   }> {
-    const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
-    
-    // Get the realistic completion date based on current workload
-    const internalCompletionDate = timeline.stages.length > 0 
-      ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
-      : new Date();
-    
-    // Add 1 working day buffer (configurable per job)
-    const bufferDays = 1;
-    const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
-    
-    return {
-      internalCompletionDate,
-      dueDateWithBuffer,
-      bufferDays,
-      totalWorkingDays: timeline.totalEstimatedWorkingDays
-    };
+    try {
+      console.log(`🗓️ Starting due date calculation for job ${jobId}`);
+      
+      const timeline = await stageQueueManager.calculateJobTimeline(jobId, jobTableName);
+      console.log(`📊 Timeline calculation completed for job ${jobId}: ${timeline.stages.length} stages, ${timeline.totalEstimatedWorkingDays} working days`);
+      
+      // Get the realistic completion date based on current workload
+      const internalCompletionDate = timeline.stages.length > 0 
+        ? timeline.stages[timeline.stages.length - 1].estimatedCompletionDate
+        : new Date();
+      
+      console.log(`📅 Internal completion date for job ${jobId}: ${internalCompletionDate.toISOString()}`);
+      
+      // Add 1 working day buffer (configurable per job)
+      const bufferDays = 1;
+      const dueDateWithBuffer = addWorkingDays(internalCompletionDate, bufferDays);
+      
+      console.log(`✅ Due date calculation completed for job ${jobId}:`);
+      console.log(`   Internal completion: ${internalCompletionDate.toISOString()}`);
+      console.log(`   Due date (with buffer): ${dueDateWithBuffer.toISOString()}`);
+      console.log(`   Buffer days: ${bufferDays}`);
+      console.log(`   Total working days: ${timeline.totalEstimatedWorkingDays}`);
+      
+      return {
+        internalCompletionDate,
+        dueDateWithBuffer,
+        bufferDays,
+        totalWorkingDays: timeline.totalEstimatedWorkingDays
+      };
+    } catch (error) {
+      console.error(`❌ Error in calculateInitialDueDate for job ${jobId}:`, error);
+      throw error;
+    }
   }
 
   /**
