@@ -304,64 +304,39 @@ export const ExcelUpload = () => {
         }
       }
 
-      // Optimized batch scheduling with reduced logging
+      // Trigger background due date calculation
       if (data && data.length > 0) {
-        console.log(`Batch processing ${data.length} jobs - calculating due dates...`);
+        console.log(`Jobs created successfully. Triggering background due date calculation for ${data.length} jobs...`);
         
-        const schedulingJobs = data.map(job => ({
-          jobId: job.id,
-          jobTableName: "production_jobs" as const,
-          priority: 50
-        }));
-        
-        // Batch schedule jobs
-        const schedulingResult = await batchScheduleJobs(schedulingJobs);
-        
-        // Batch update due dates in groups of 10 to reduce database load
-        const updateBatchSize = 10;
-        const updatePromises = [];
-        
-        for (let i = 0; i < schedulingResult.results.length; i += updateBatchSize) {
-          const batch = schedulingResult.results.slice(i, i + updateBatchSize);
+        try {
+          // Call the edge function for background processing
+          const { data: calcResult, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: data.map(job => job.id),
+              tableName: 'production_jobs',
+              priority: 'normal'
+            }
+          });
           
-          updatePromises.push(
-            Promise.allSettled(
-              batch.map(async (result) => {
-                if (result.success) {
-                  const job = data.find(j => j.id === result.jobId);
-                  if (job) {
-                    const dueDateCalculation = await calculateRealisticDueDate(job.id, "production_jobs");
-                    if (dueDateCalculation) {
-                      return supabase
-                        .from('production_jobs')
-                        .update({ 
-                          due_date: dueDateCalculation.dueDateWithBuffer.toISOString().split('T')[0],
-                          internal_completion_date: dueDateCalculation.internalCompletionDate.toISOString().split('T')[0],
-                          due_date_buffer_days: dueDateCalculation.bufferDays,
-                          due_date_warning_level: 'green',
-                          due_date_locked: true
-                        })
-                        .eq('id', job.id);
-                    }
-                  }
-                }
-              })
-            )
-          );
+          if (calcError) {
+            console.error('Due date calculation error:', calcError);
+            toast.error("Jobs created but due date calculation failed. They will be calculated later.");
+          } else {
+            console.log('Due date calculation triggered successfully:', calcResult);
+          }
+        } catch (error) {
+          console.error('Failed to trigger due date calculation:', error);
+          toast.error("Jobs created but due date calculation failed. They will be calculated later.");
         }
-        
-        // Wait for all batch updates to complete
-        await Promise.all(updatePromises);
-        console.log(`Due date calculations completed for ${data.length} jobs`);
       }
 
       const duplicatesSkipped = jobsWithUserId.length - (data?.length || 0);
       const qrMessage = generateQRCodes ? " with QR codes" : "";
       
       if (duplicatesSkipped > 0) {
-        toast.success(`Successfully uploaded ${data?.length || 0} new jobs${qrMessage} with calculated due dates. ${duplicatesSkipped} duplicate work orders were skipped.`);
+        toast.success(`Successfully uploaded ${data?.length || 0} new jobs${qrMessage}. Due dates are being calculated in the background. ${duplicatesSkipped} duplicate work orders were skipped.`);
       } else {
-        toast.success(`Successfully uploaded ${data?.length || 0} jobs${qrMessage} with calculated due dates`);
+        toast.success(`Successfully uploaded ${data?.length || 0} jobs${qrMessage}. Due dates are being calculated in the background.`);
       }
       
       setParsedJobs([]);
