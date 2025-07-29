@@ -467,11 +467,8 @@ export class EnhancedJobCreator {
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
       
-      // 🚀 SMART SCHEDULING: Calculate workload-aware due dates
-      await this.scheduleJobWithWorkloadAwareness(insertedJob.id, originalJob);
-      
-      // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
-      await this.calculateTimingForJob(insertedJob.id, userApprovedMappings, originalJob, woNo);
+      // 🚀 SIMPLE DUE DATE: Set immediate due date using simple calculation
+      await this.setSimpleDueDate(insertedJob.id, woNo);
       
     } catch (error) {
       this.logger.addDebugInfo(`Workflow initialization error for ${originalJob.wo_no}: ${error}`);
@@ -635,11 +632,8 @@ export class EnhancedJobCreator {
       result.stats.workflowsInitialized++;
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${job.wo_no}`);
       
-      // 🚀 SMART SCHEDULING: Calculate workload-aware due dates
-      await this.scheduleJobWithWorkloadAwareness(insertedJob.id, job);
-      
-      // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
-      await this.calculateTimingForJob(insertedJob.id, result.userApprovedStageMappings, job, job.wo_no);
+      // 🚀 SIMPLE DUE DATE: Set immediate due date using simple calculation
+      await this.setSimpleDueDate(insertedJob.id, job.wo_no);
       
     } catch (error) {
       this.logger.addDebugInfo(`Workflow initialization error for ${job.wo_no}: ${error}`);
@@ -888,9 +882,9 @@ export class EnhancedJobCreator {
 }
 
 /**
- * Calculate timing estimates for all stage instances of a job
+ * [REMOVED] Complex timing calculations moved out of job creation for performance
  */
-private async calculateTimingForJob(
+private async calculateTimingForJob_REMOVED(
   jobId: string,
   userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> | undefined,
   originalJob: ParsedJob,
@@ -1201,81 +1195,49 @@ private storeMappingDataInJobSpecifications(job: ParsedJob, mappedStages: any[])
 }
 
 /**
- * Schedule job with workload-aware due dates
+ * Set simple due date for immediate feedback during job creation
  */
-private async scheduleJobWithWorkloadAwareness(jobId: string, job: ParsedJob): Promise<void> {
+private async setSimpleDueDate(jobId: string, woNo: string): Promise<void> {
   try {
-    this.logger.addDebugInfo(`📅 Starting workload-aware scheduling for job ${job.wo_no} (${jobId})`);
+    this.logger.addDebugInfo(`📅 Setting simple due date for job ${woNo} (${jobId})`);
     
-    // Use the new DynamicDueDateService for realistic due date calculation
-    const { dynamicDueDateService } = await import('@/services/dynamicDueDateService');
-    const dueDateResult = await dynamicDueDateService.calculateInitialDueDate(jobId, 'production_jobs');
+    // Import and use the simple due date calculator
+    const { SimpleDueDateCalculator } = await import('@/services/simpleDueDateCalculator');
+    const success = await SimpleDueDateCalculator.updateJobDueDate(jobId);
     
-    // Update the job with calculated due dates
-    const { error } = await supabase
-      .from('production_jobs')
-      .update({
-        due_date: dueDateResult.dueDateWithBuffer.toISOString().split('T')[0],
-        internal_completion_date: dueDateResult.internalCompletionDate.toISOString().split('T')[0],
-        due_date_buffer_days: dueDateResult.bufferDays,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', jobId);
-    
-    if (error) {
-      throw error;
+    if (success) {
+      this.logger.addDebugInfo(`✅ Simple due date set for job ${woNo}`);
+    } else {
+      this.logger.addDebugInfo(`⚠️ Failed to set simple due date for job ${woNo}, using fallback`);
+      await this.setFallbackDueDate(jobId);
     }
-    
-    this.logger.addDebugInfo(`✅ Workload-aware scheduling completed for job ${job.wo_no}:`);
-    this.logger.addDebugInfo(`   Internal completion: ${dueDateResult.internalCompletionDate.toDateString()}`);
-    this.logger.addDebugInfo(`   Due date (with buffer): ${dueDateResult.dueDateWithBuffer.toDateString()}`);
-    this.logger.addDebugInfo(`   Total working days: ${dueDateResult.totalWorkingDays}`);
     
   } catch (error) {
-    console.error(`❌ Error in workload-aware scheduling for job ${job.wo_no}:`, error);
-    this.logger.addDebugInfo(`❌ Error in workload-aware scheduling for job ${job.wo_no}: ${error}`);
-    this.logger.addDebugInfo(`   Error details: ${error instanceof Error ? error.message : String(error)}`);
-    this.logger.addDebugInfo(`   Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`);
-    this.logger.addDebugInfo(`   Falling back to intelligent due date calculation`);
-    
-    // Improved fallback: Calculate based on job's total estimated duration
-    let fallbackDays = 3; // Default fallback
-    
-    try {
-      // Try to get job's total estimated duration for a more intelligent fallback
-      const { data: stageInstances } = await supabase
-        .from('job_stage_instances')
-        .select('estimated_duration_minutes')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs');
-      
-      if (stageInstances && stageInstances.length > 0) {
-        const totalMinutes = stageInstances.reduce((total, stage) => 
-          total + (stage.estimated_duration_minutes || 0), 0);
-        const totalHours = totalMinutes / 60;
-        
-        // Estimate working days based on 8 hours per day + buffer
-        const estimatedWorkingDays = Math.ceil(totalHours / 8);
-        fallbackDays = Math.max(3, estimatedWorkingDays + 2); // Minimum 3 days, plus 2-day buffer
-        
-        this.logger.addDebugInfo(`   Intelligent fallback: ${totalHours.toFixed(2)} hours = ${estimatedWorkingDays} working days + 2 buffer = ${fallbackDays} total days`);
-      }
-    } catch (fallbackError) {
-      console.error(`❌ Error calculating intelligent fallback for job ${job.wo_no}:`, fallbackError);
-      this.logger.addDebugInfo(`   Fallback calculation failed, using default 3 days`);
-    }
-    
-    const fallbackDueDate = new Date();
-    fallbackDueDate.setDate(fallbackDueDate.getDate() + fallbackDays);
+    this.logger.addDebugInfo(`❌ Error setting simple due date for job ${woNo}: ${error}`);
+    await this.setFallbackDueDate(jobId);
+  }
+}
+
+/**
+ * Fallback due date setting (3 working days + 1 day buffer)
+ */
+private async setFallbackDueDate(jobId: string): Promise<void> {
+  try {
+    const { addWorkingDays } = await import('@/utils/tracker/workingDayCalculations');
+    const today = new Date();
+    const dueDate = addWorkingDays(today, 4); // 3 working days + 1 buffer
     
     await supabase
       .from('production_jobs')
       .update({
-        due_date: fallbackDueDate.toISOString().split('T')[0],
-        internal_completion_date: fallbackDueDate.toISOString(),
+        due_date: dueDate.toISOString().split('T')[0],
+        due_date_buffer_days: 1,
         updated_at: new Date().toISOString()
       })
       .eq('id', jobId);
+      
+  } catch (error) {
+    this.logger.addDebugInfo(`❌ Even fallback due date failed: ${error}`);
   }
 }
 
