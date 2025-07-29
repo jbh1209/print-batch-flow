@@ -39,7 +39,8 @@ export const useDueDateCalculation = () => {
         body: {
           jobIds,
           tableName,
-          priority
+          priority,
+          includeTimingCalculation: true // Enable detailed timing calculations
         }
       });
 
