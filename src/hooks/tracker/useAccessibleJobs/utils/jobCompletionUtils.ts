@@ -6,6 +6,23 @@ export const completeJobStage = async (jobId: string, stageId: string): Promise<
   console.log('✅ Completing job stage:', { jobId, stageId });
   
   try {
+    // Get stage info before completing to check if it's a proof stage
+    const { data: stageData, error: stageQueryError } = await supabase
+      .from('job_stage_instances')
+      .select(`
+        *,
+        production_stages (
+          id,
+          name
+        )
+      `)
+      .eq('job_id', jobId)
+      .eq('job_table_name', 'production_jobs')
+      .eq('production_stage_id', stageId)
+      .single();
+
+    const isProofStage = stageData?.production_stages?.name?.toLowerCase().includes('proof') || false;
+    
     // Use the advance_job_stage RPC function to properly complete and advance the job
     const { data, error } = await supabase.rpc('advance_job_stage', {
       p_job_id: jobId,
@@ -21,6 +38,33 @@ export const completeJobStage = async (jobId: string, stageId: string): Promise<
     }
 
     console.log('✅ Job stage completed successfully');
+
+    // If this was a proof stage completion, trigger queue-based due date calculation
+    if (isProofStage && jobId) {
+      console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
+      
+      try {
+        const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+          body: {
+            jobIds: [jobId],
+            tableName: 'production_jobs',
+            priority: 'high',
+            triggerReason: 'proof_approval'
+          }
+        });
+
+        if (calcError) {
+          console.error('❌ Error triggering queue-based calculation:', calcError);
+          toast.error('Failed to update due date after proof approval');
+        } else {
+          console.log('✅ Queue-based calculation triggered:', calcData);
+          toast.success('Due date updated based on current production queue');
+        }
+      } catch (calcErr) {
+        console.error('❌ Error in queue calculation:', calcErr);
+        toast.error('Failed to update due date');
+      }
+    }
     
     // Check if this was the final stage - if so, mark the entire job as completed
     const { data: remainingStages, error: stagesError } = await supabase

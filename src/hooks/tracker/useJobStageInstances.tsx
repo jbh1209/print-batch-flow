@@ -174,6 +174,10 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
     try {
       console.log('🔄 Advancing job stage...');
       
+      // Get the current stage info before advancing to check if it's a proof stage
+      const currentStage = jobStages.find(stage => stage.production_stage_id === currentStageId);
+      const isProofStage = currentStage?.production_stage?.name?.toLowerCase().includes('proof');
+      
       const { data, error } = await supabase.rpc('advance_job_stage', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
@@ -191,6 +195,34 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       }
 
       console.log('✅ Job stage advanced successfully');
+      
+      // If this was a proof stage completion, trigger queue-based due date calculation
+      if (isProofStage && jobId) {
+        console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
+        
+        try {
+          const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: [jobId],
+              tableName: jobTableName || 'production_jobs',
+              priority: 'high',
+              triggerReason: 'proof_approval'
+            }
+          });
+
+          if (calcError) {
+            console.error('❌ Error triggering queue-based calculation:', calcError);
+            toast.error('Failed to update due date after proof approval');
+          } else {
+            console.log('✅ Queue-based calculation triggered:', calcData);
+            toast.success('Due date updated based on current production queue');
+          }
+        } catch (calcErr) {
+          console.error('❌ Error in queue calculation:', calcErr);
+          toast.error('Failed to update due date');
+        }
+      }
+      
       toast.success("Job stage advanced successfully");
       await fetchJobStages();
       return true;
@@ -199,7 +231,7 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       toast.error("Failed to advance job stage");
       return false;
     }
-  }, [jobId, jobTableName, fetchJobStages]);
+  }, [jobId, jobTableName, jobStages, fetchJobStages]);
 
   const updateStageNotes = useCallback(async (stageId: string, notes: string) => {
     try {
