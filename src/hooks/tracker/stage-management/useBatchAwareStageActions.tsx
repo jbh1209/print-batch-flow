@@ -90,11 +90,15 @@ export const useBatchAwareStageActions = () => {
   ) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Completing batch-aware stage...', { 
+      console.log('🔄 [useBatchAwareStageActions] Completing batch-aware stage...', { 
         stageId, 
         options, 
         notes 
       });
+      
+      // Get stage info to check if it's a proof stage
+      const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../utils/proofStageUtils');
+      const stageInfo = await getStageInfoForProofCheck(stageId);
       
       // Complete the stage using the standard advancement function
       const { error: advanceError } = await supabase.rpc('advance_job_stage', {
@@ -106,6 +110,11 @@ export const useBatchAwareStageActions = () => {
       });
 
       if (advanceError) throw advanceError;
+
+      // If this was a proof stage completion, trigger queue-based due date calculation
+      if (stageInfo?.isProof && options.jobId) {
+        await triggerProofCompletionCalculation(options.jobId, options.jobTableName);
+      }
 
       // If this is a batch master job, handle batch-specific completion logic
       if (options.isBatchMaster && options.constituentJobIds?.length) {
@@ -125,7 +134,7 @@ export const useBatchAwareStageActions = () => {
       );
       return true;
     } catch (err) {
-      console.error('❌ Error completing batch-aware stage:', err);
+      console.error('❌ [useBatchAwareStageActions] Error completing batch-aware stage:', err);
       toast.error("Failed to complete stage");
       return false;
     } finally {

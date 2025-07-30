@@ -220,13 +220,11 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
 
   const completeStage = useCallback(async (jobId: string, stageId: string) => {
     try {
-      console.log('Completing stage:', { jobId, stageId });
+      console.log('🔄 [useEnhancedProductionJobs] Completing stage:', { jobId, stageId });
       
-      // Get the current stage info before advancing to check if it's a proof stage
-      const currentJob = jobs.find(job => job.id === jobId);
-      const currentStage = currentJob?.stages?.find((stage: any) => stage.production_stage_id === stageId);
-      const isProofStage = currentStage?.stage_name?.toLowerCase().includes('proof') || 
-                          currentStage?.production_stages?.name?.toLowerCase().includes('proof');
+      // Get stage info to check if it's a proof stage
+      const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('./utils/proofStageUtils');
+      const stageInfo = await getStageInfoForProofCheck(stageId);
       
       const { error } = await supabase.rpc('advance_job_stage', {
         p_job_id: jobId,
@@ -237,41 +235,19 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
       if (error) throw error;
 
       // If this was a proof stage completion, trigger queue-based due date calculation
-      if (isProofStage && jobId) {
-        console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
-        
-        try {
-          const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
-            body: {
-              jobIds: [jobId],
-              tableName: 'production_jobs',
-              priority: 'high',
-              triggerReason: 'proof_approval'
-            }
-          });
-
-          if (calcError) {
-            console.error('❌ Error triggering queue-based calculation:', calcError);
-            toast.error('Failed to update due date after proof approval');
-          } else {
-            console.log('✅ Queue-based calculation triggered:', calcData);
-            toast.success('Due date updated based on current production queue');
-          }
-        } catch (calcErr) {
-          console.error('❌ Error in queue calculation:', calcErr);
-          toast.error('Failed to update due date');
-        }
+      if (stageInfo?.isProof && jobId) {
+        await triggerProofCompletionCalculation(jobId, 'production_jobs');
       }
 
       toast.success("Stage completed successfully");
       await fetchJobs();
       return true;
     } catch (err) {
-      console.error('Error completing stage:', err);
+      console.error('❌ [useEnhancedProductionJobs] Error completing stage:', err);
       toast.error("Failed to complete stage");
       return false;
     }
-  }, [jobs, fetchJobs]);
+  }, [fetchJobs]);
 
   const recordQRScan = useCallback(async (jobId: string, stageId: string, qrData?: any) => {
     try {
