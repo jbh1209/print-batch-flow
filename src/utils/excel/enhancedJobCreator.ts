@@ -653,8 +653,8 @@ export class EnhancedJobCreator {
     result.createdJobs.push(insertedJob);
   }
 
-  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> {
-    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> = [];
+  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string, qty?: number}> {
+    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string, qty?: number}> = [];
     
     // Extract from printing specifications
     if (job.printing_specifications) {
@@ -666,7 +666,8 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'printing'
+            category: 'printing',
+            qty: spec.qty || job.qty || 1
           });
         } else if (spec && spec.description) {
           // FALLBACK: Try to resolve mapping from database if not already stored
@@ -678,7 +679,8 @@ export class EnhancedJobCreator {
               mappedStageName: resolvedMapping.stageName,
               mappedStageSpecId: resolvedMapping.stageSpecId || null,
               mappedStageSpecName: resolvedMapping.stageSpecName || null,
-              category: 'printing'
+              category: 'printing',
+              qty: spec.qty || job.qty || 1
             });
           }
         }
@@ -695,7 +697,8 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'finishing'
+            category: 'finishing',
+            qty: spec.qty || job.qty || 1
           });
         }
       });
@@ -711,7 +714,8 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'prepress'
+            category: 'prepress',
+            qty: spec.qty || job.qty || 1
           });
         }
       });
@@ -727,7 +731,8 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'packaging'
+            category: 'packaging',
+            qty: spec.qty || job.qty || 1
           });
         }
       });
