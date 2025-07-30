@@ -42,6 +42,22 @@ export const useStageActions = () => {
     try {
       console.log('🔄 Completing stage...', { stageId, notes });
       
+      // Get stage info before completing to check if it's a proof stage
+      const { data: stageInfo, error: stageInfoError } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          id,
+          job_id,
+          job_table_name,
+          production_stage:production_stages(name)
+        `)
+        .eq('id', stageId)
+        .single();
+
+      if (stageInfoError) throw stageInfoError;
+
+      const isProofStage = stageInfo?.production_stage?.name?.toLowerCase().includes('proof');
+      
       const { error } = await supabase
         .from('job_stage_instances')
         .update({
@@ -55,6 +71,35 @@ export const useStageActions = () => {
         .eq('status', 'active');
 
       if (error) throw error;
+
+      console.log('✅ Stage completed successfully');
+
+      // If this was a proof stage completion, trigger queue-based due date calculation
+      if (isProofStage && stageInfo?.job_id) {
+        console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
+        
+        try {
+          const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: [stageInfo.job_id],
+              tableName: stageInfo.job_table_name || 'production_jobs',
+              priority: 'high',
+              triggerReason: 'proof_approval'
+            }
+          });
+
+          if (calcError) {
+            console.error('❌ Error triggering queue-based calculation:', calcError);
+            toast.error('Failed to update due date after proof approval');
+          } else {
+            console.log('✅ Queue-based calculation triggered:', calcData);
+            toast.success('Due date updated based on current production queue');
+          }
+        } catch (calcErr) {
+          console.error('❌ Error in queue calculation:', calcErr);
+          toast.error('Failed to update due date');
+        }
+      }
 
       toast.success("Stage completed successfully");
       return true;
@@ -80,10 +125,18 @@ export const useStageActions = () => {
         notes 
       });
 
-      // First, get the current stage instance details
+      // First, get the current stage instance details including production stage name
       const { data: currentStageInstance, error: currentStageError } = await supabase
         .from('job_stage_instances')
-        .select('stage_order, job_table_name, status, production_stage_id, category_id')
+        .select(`
+          stage_order, 
+          job_table_name, 
+          status, 
+          production_stage_id, 
+          category_id,
+          job_id,
+          production_stage:production_stages(name)
+        `)
         .eq('id', currentStageInstanceId)
         .single();
 
@@ -92,6 +145,8 @@ export const useStageActions = () => {
       }
 
       console.log('🔍 Current stage instance info:', currentStageInstance);
+
+      const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof');
 
       // Complete the current stage
       const { error: completeError } = await supabase
@@ -110,6 +165,33 @@ export const useStageActions = () => {
       }
 
       console.log('✅ Current stage completed successfully');
+
+      // If this was a proof stage completion, trigger queue-based due date calculation
+      if (isProofStage && currentStageInstance?.job_id) {
+        console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
+        
+        try {
+          const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: [currentStageInstance.job_id],
+              tableName: currentStageInstance.job_table_name || 'production_jobs',
+              priority: 'high',
+              triggerReason: 'proof_approval'
+            }
+          });
+
+          if (calcError) {
+            console.error('❌ Error triggering queue-based calculation:', calcError);
+            toast.error('Failed to update due date after proof approval');
+          } else {
+            console.log('✅ Queue-based calculation triggered:', calcData);
+            toast.success('Due date updated based on current production queue');
+          }
+        } catch (calcErr) {
+          console.error('❌ Error in queue calculation:', calcErr);
+          toast.error('Failed to update due date');
+        }
+      }
 
       // Get all pending stages after the current one, ordered by stage_order
       const { data: pendingStages, error: pendingStagesError } = await supabase
