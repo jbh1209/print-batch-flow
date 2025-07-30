@@ -467,6 +467,9 @@ export class EnhancedJobCreator {
 
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${woNo}`);
       
+      // ✅ RESTORED: Calculate timing for job stages to get quantities right
+      await this.calculateTimingForJob(insertedJob.id, userApprovedMappings, originalJob, woNo);
+      
       // 🚀 SIMPLE DUE DATE: Set immediate due date using simple calculation
       await this.setSimpleDueDate(insertedJob.id, woNo);
       
@@ -632,6 +635,9 @@ export class EnhancedJobCreator {
       result.stats.workflowsInitialized++;
       this.logger.addDebugInfo(`✅ Workflow initialized for job ${job.wo_no}`);
       
+      // ✅ RESTORED: Calculate timing for job stages to get quantities right
+      await this.calculateTimingForJob(insertedJob.id, this.extractUserApprovedMappings(job), job, job.wo_no);
+      
       // 🚀 SIMPLE DUE DATE: Set immediate due date using simple calculation
       await this.setSimpleDueDate(insertedJob.id, job.wo_no);
       
@@ -653,8 +659,8 @@ export class EnhancedJobCreator {
     result.createdJobs.push(insertedJob);
   }
 
-  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string, qty?: number}> {
-    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string, qty?: number}> = [];
+  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> {
+    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> = [];
     
     // Extract from printing specifications
     if (job.printing_specifications) {
@@ -666,8 +672,7 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'printing',
-            qty: spec.qty || job.qty || 1
+            category: 'printing'
           });
         } else if (spec && spec.description) {
           // FALLBACK: Try to resolve mapping from database if not already stored
@@ -679,8 +684,7 @@ export class EnhancedJobCreator {
               mappedStageName: resolvedMapping.stageName,
               mappedStageSpecId: resolvedMapping.stageSpecId || null,
               mappedStageSpecName: resolvedMapping.stageSpecName || null,
-              category: 'printing',
-              qty: spec.qty || job.qty || 1
+              category: 'printing'
             });
           }
         }
@@ -697,8 +701,7 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'finishing',
-            qty: spec.qty || job.qty || 1
+            category: 'finishing'
           });
         }
       });
@@ -714,8 +717,7 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'prepress',
-            qty: spec.qty || job.qty || 1
+            category: 'prepress'
           });
         }
       });
@@ -731,8 +733,7 @@ export class EnhancedJobCreator {
             mappedStageName: spec.mappedStageName,
             mappedStageSpecId: spec.mappedStageSpecId || null,
             mappedStageSpecName: spec.mappedStageSpecName || null,
-            category: 'packaging',
-            qty: spec.qty || job.qty || 1
+            category: 'packaging'
           });
         }
       });
@@ -887,9 +888,9 @@ export class EnhancedJobCreator {
 }
 
 /**
- * [REMOVED] Complex timing calculations moved out of job creation for performance
+ * ✅ RESTORED: Calculate timing for job stages to populate quantities correctly
  */
-private async calculateTimingForJob_REMOVED(
+private async calculateTimingForJob(
   jobId: string,
   userApprovedMappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, mappedStageSpecId?: string, mappedStageSpecName?: string, category: string}> | undefined,
   originalJob: ParsedJob,
