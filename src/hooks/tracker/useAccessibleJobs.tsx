@@ -334,11 +334,12 @@ export const useAccessibleJobs = ({
         isVirtual: job.is_virtual_stage_entry 
       });
 
-      const { error } = await supabase.rpc('advance_job_stage', {
+      const { error } = await supabase.rpc('advance_parallel_job_stage', {
         p_job_id: actualJobId,
         p_job_table_name: 'production_jobs',
         p_current_stage_id: actualStageId,
-        p_completed_by: user?.id
+        p_completed_by: user?.id,
+        p_notes: null
       });
 
       if (error) throw error;
