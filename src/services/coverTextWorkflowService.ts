@@ -141,9 +141,9 @@ export class CoverTextWorkflowService {
   }
 
   private shouldWaitForDependency(stageName: string): boolean {
-    // Stages that require both cover and text to be completed (synchronization stages)
-    const dependencyStages = [
-      'Hunkeler',
+    // TRUE synchronization stages that require both cover and text to be completed
+    // These are stages where cover and text parts come together
+    const trueSynchronizationStages = [
       'Perfect Binding', 
       'Saddle Stitching',
       'Collating',
@@ -153,13 +153,21 @@ export class CoverTextWorkflowService {
       'Quality Check',
       'Packing',
       'Dispatch',
-      'Finishing', // General finishing that requires both parts
       'Gathering',
       'Collection',
-      'Delivery'
+      'Delivery',
+      'Final Trimming', // Final trimming after gathering
+      'Inspection', // Final inspection of assembled product
+      'Packaging' // Final packaging of complete product
     ];
     
-    return dependencyStages.some(depStage => 
+    // Part-specific finishing stages that should NOT wait for dependencies:
+    // - Hunkeler (text-specific finishing)
+    // - UV Varnishing (cover-specific finishing) 
+    // - Laminating (part-specific)
+    // - Die Cutting (part-specific)
+    
+    return trueSynchronizationStages.some(depStage => 
       stageName.toLowerCase().includes(depStage.toLowerCase())
     );
   }
