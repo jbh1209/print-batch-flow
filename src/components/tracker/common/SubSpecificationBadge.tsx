@@ -85,14 +85,22 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
+  // Filter specifications by part assignment if specified
+  const filteredSpecifications = partAssignment && partAssignment !== 'both' 
+    ? specifications.filter(spec => {
+        const specPart = spec.part_name || 'both';
+        return specPart === 'both' || specPart === partAssignment;
+      })
+    : specifications;
+
   // Get paper details for display - first try from job_print_specifications, then from notes
   const paperType = paperSpecs.find(spec => spec.category === 'paper_type')?.display_name;
   const paperWeight = paperSpecs.find(spec => spec.category === 'paper_weight')?.display_name;
   let paperDisplay = [paperWeight, paperType].filter(Boolean).join(' ');
   
-  // If no paper specs from job_print_specifications, try to extract from notes
-  if (!paperDisplay && specifications.length > 0) {
-    const notesWithPaper = specifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
+  // If no paper specs from job_print_specifications, try to extract from filtered notes
+  if (!paperDisplay && filteredSpecifications.length > 0) {
+    const notesWithPaper = filteredSpecifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
     if (notesWithPaper) {
       const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
       paperDisplay = formatPaperDisplay(parsedPaper) || '';
@@ -101,7 +109,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
 
   if (compact) {
     // Show stage + sub-spec + paper in compact mode
-    const primary = specifications[0];
+    const primary = filteredSpecifications[0];
     const subSpec = primary.sub_specification || primary.stage_name;
     const displayText = paperDisplay ? `${subSpec} | ${paperDisplay}` : subSpec;
     
@@ -118,7 +126,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
           </TooltipTrigger>
           <TooltipContent>
             <div className="space-y-2">
-              {specifications.map((spec, index) => (
+              {filteredSpecifications.map((spec, index) => (
                 <div key={index} className="text-sm">
                   <strong>{spec.stage_name}:</strong> {spec.sub_specification || 'Standard'}
                   {spec.part_name && <div className="text-xs opacity-75">Part: {spec.part_name}</div>}
@@ -140,7 +148,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   // Full view - show all specifications with paper details
   return (
     <div className={`space-y-2 ${className}`}>
-      {specifications.map((spec, index) => (
+      {filteredSpecifications.map((spec, index) => (
         <div key={index} className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge 
@@ -160,7 +168,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
               </span>
             )}
           </div>
-          {paperDisplay && index === 0 && (
+          {paperDisplay && (
             <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
               {paperDisplay}
             </Badge>
