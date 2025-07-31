@@ -132,22 +132,10 @@ export const useAccessibleJobs = ({
       const currentStageOrder = parallelStages.length > 0 
         ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
-
-      console.log(`🚀 Processing job ${job.wo_no} (${job.job_id}):`, {
-        parallelStagesCount: parallelStages.length,
-        currentStageOrder,
-        showSeparately: config.showParallelStagesSeparately,
-        parallelStages: parallelStages.map(s => `${s.stage_name} (order: ${s.stage_order})`)
-      });
       
-      // CRITICAL FIX: Only create virtual entries if there are multiple stages at the SAME current order
+      // Only create virtual entries if there are ACTUALLY multiple stages at the SAME current order
       // AND user wants them shown separately
       if (parallelStages.length > 1 && config.showParallelStagesSeparately) {
-        console.log(`📝 Creating ${parallelStages.length} virtual entries for job ${job.wo_no}`);
-        
-        parallelStages.forEach((parallelStage, index) => {
-          console.log(`   ➤ Virtual entry ${index + 1}: ${parallelStage.stage_name} (${parallelStage.stage_id})`);
-        });
         parallelStages.forEach(parallelStage => {
           const virtualJob: AccessibleJob = {
             job_id: job.job_id,
@@ -180,7 +168,7 @@ export const useAccessibleJobs = ({
             is_in_batch_processing: job.status === 'In Batch Processing',
             has_custom_workflow: (job as any).has_custom_workflow || false,
             manual_due_date: (job as any).manual_due_date || null,
-            parallel_stages: [parallelStage], // Only the current stage for this virtual entry
+            // No parallel_stages array for virtual entries - they represent single stages
             current_stage_order: currentStageOrder,
             // Mark as virtual entry for parallel stage
             is_virtual_stage_entry: true,
@@ -233,7 +221,8 @@ export const useAccessibleJobs = ({
           is_in_batch_processing: job.status === 'In Batch Processing',
           has_custom_workflow: (job as any).has_custom_workflow || false,
           manual_due_date: (job as any).manual_due_date || null,
-          parallel_stages: parallelStages, // This is already filtered to current stage order only
+          // Only add parallel_stages if there are actually multiple stages
+          ...(parallelStages.length > 1 ? { parallel_stages: parallelStages } : {}),
           current_stage_order: currentStageOrder
         };
 

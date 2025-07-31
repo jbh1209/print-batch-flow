@@ -61,27 +61,8 @@ const TrackerProduction = () => {
         return job.status === 'In Batch Processing';
       }
       
-    // For virtual stage entries (parallel stages shown separately), check current stage
-    if (job.is_virtual_stage_entry) {
-      console.log(`Virtual job ${job.wo_no}: current stage "${job.current_stage_name}" vs selected "${selectedStageName}"`);
+      // Simple filtering: job's current stage must match selected stage
       return job.current_stage_name === selectedStageName;
-    }
-    
-    // For jobs with parallel stages (multiple stages at current order)
-    if (job.parallel_stages && job.parallel_stages.length > 1) {
-      // This job has multiple parallel stages - check if any match selected stage
-      const currentParallelStages = job.parallel_stages.filter(stage => 
-        stage.stage_status === 'active' || stage.stage_status === 'pending'
-      );
-      console.log(`Parallel job ${job.wo_no}: parallel stages`, 
-        currentParallelStages.map(s => s.stage_name), 'vs selected:', selectedStageName);
-      return currentParallelStages.some(stage => stage.stage_name === selectedStageName);
-    }
-    
-    // For regular jobs (single stage), use current stage
-    const currentStage = job.current_stage_name || job.display_stage_name;
-    console.log(`Regular job ${job.wo_no}: current stage "${currentStage}" vs selected "${selectedStageName}"`);
-    return currentStage === selectedStageName;
     });
   }, [jobs, selectedStageName]);
 
