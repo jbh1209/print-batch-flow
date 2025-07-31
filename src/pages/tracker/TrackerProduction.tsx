@@ -19,14 +19,16 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 interface TrackerProductionContext {
   activeTab: string;
   filters: any;
-  selectedStageId?: string;
-  onStageSelect?: (stageId: string | null) => void;
+  selectedStageId?: string | null;
+  selectedStageName?: string | null;
+  onStageSelect?: (stageId: string | null, stageName: string | null) => void;
   onFilterChange?: (filters: any) => void;
   setSidebarData?: (data: any) => void;
 }
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
+  const { selectedStageId, selectedStageName, onStageSelect } = context;
   const isMobile = useIsMobile();
   
   const { 
@@ -43,8 +45,6 @@ const TrackerProduction = () => {
 
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
-  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
@@ -127,11 +127,6 @@ const TrackerProduction = () => {
     return Array.from(stageMap.values());
   }, [jobs]);
 
-  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
-    console.log('Stage selected:', { stageId, stageName });
-    setSelectedStageId(stageId);
-    setSelectedStageName(stageName);
-  };
 
   const handleJobClick = (job: AccessibleJob) => {
     setSelectedJob(job);
@@ -242,7 +237,7 @@ const TrackerProduction = () => {
             consolidatedStages={consolidatedStages}
             selectedStageId={selectedStageId}
             selectedStageName={selectedStageName}
-            onStageSelect={handleStageSelect}
+            onStageSelect={onStageSelect}
           />
         </div>
 
