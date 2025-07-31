@@ -134,6 +134,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
                   jobId={job.job_id}
                   stageId={stageContext.stageId}
                   compact={true}
+                  partAssignment={job.is_virtual_stage_entry ? job.part_assignment : undefined}
                 />
               </div>
 
