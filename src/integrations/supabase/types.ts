@@ -2534,6 +2534,15 @@ export type Database = {
         Args: { p_category_id: string }
         Returns: Json
       }
+      fix_existing_cover_text_workflows: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          fixed_job_id: string
+          wo_no: string
+          dependency_group_assigned: string
+          stages_updated: number
+        }[]
+      }
       get_admin_status: {
         Args: { check_user_id?: string }
         Returns: {
