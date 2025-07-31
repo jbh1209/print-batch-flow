@@ -47,6 +47,10 @@ export interface AccessibleJob {
   // Parallel stages support
   parallel_stages?: ParallelStageInfo[];
   current_stage_order?: number;
+  // Virtual stage entry support for parallel workflows
+  is_virtual_stage_entry?: boolean;
+  stage_instance_id?: string;
+  parent_job_id?: string;
 }
 
 export interface UseAccessibleJobsOptions {

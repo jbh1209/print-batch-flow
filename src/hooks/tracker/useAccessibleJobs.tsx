@@ -129,52 +129,109 @@ export const useAccessibleJobs = ({
         ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
 
-      const processedJob: AccessibleJob = {
-        job_id: job.job_id,
-        id: job.job_id, // Ensure backward compatibility
-        wo_no: job.wo_no || '',
-        customer: job.customer || 'Unknown',
-        status: job.status || 'Unknown',
-        due_date: job.due_date || '',
-        reference: job.reference || '',
-        category_id: job.category_id || '',
-        category_name: job.category_name || 'No Category',
-        category_color: job.category_color || '#6B7280',
-        current_stage_id: job.current_stage_id || '',
-        current_stage_name: job.current_stage_name || 'No Stage',
-        current_stage_color: stageColor,
-        current_stage_status: job.current_stage_status || 'pending',
-        display_stage_name: displayStage,
-        user_can_view: job.user_can_view || false,
-        user_can_edit: job.user_can_edit || false,
-        user_can_work: job.user_can_work || false,
-        user_can_manage: job.user_can_manage || false,
-        workflow_progress: job.workflow_progress || 0,
-        total_stages: job.total_stages || 0,
-        completed_stages: job.completed_stages || 0,
-        qty: job.qty || 0,
-        started_by: job.started_by || null,
-        started_by_name: job.started_by_name || null,
-        proof_emailed_at: job.proof_emailed_at || null,
-        // Add batch-related fields - use safe property access
-        batch_category: (job as any).batch_category || null,
-        is_in_batch_processing: job.status === 'In Batch Processing',
-        has_custom_workflow: (job as any).has_custom_workflow || false,
-        manual_due_date: (job as any).manual_due_date || null,
-        // Parallel stages support
-        parallel_stages: parallelStages,
-        current_stage_order: currentStageOrder
-      };
+      // Check if this job has parallel stages at the current stage order
+      const currentParallelStages = parallelStages.filter(s => s.stage_order === currentStageOrder);
+      
+      // If there are multiple parallel stages, create separate virtual job entries for each
+      if (currentParallelStages.length > 1) {
+        currentParallelStages.forEach(parallelStage => {
+          const virtualJob: AccessibleJob = {
+            job_id: job.job_id,
+            id: `${job.job_id}-${parallelStage.stage_id}`, // Unique virtual ID
+            wo_no: job.wo_no || '',
+            customer: job.customer || 'Unknown',
+            status: job.status || 'Unknown',
+            due_date: job.due_date || '',
+            reference: job.reference || '',
+            category_id: job.category_id || '',
+            category_name: job.category_name || 'No Category',
+            category_color: job.category_color || '#6B7280',
+            current_stage_id: parallelStage.stage_id,
+            current_stage_name: parallelStage.stage_name || 'No Stage',
+            current_stage_color: parallelStage.stage_color || '#6B7280',
+            current_stage_status: parallelStage.stage_status || 'pending',
+            display_stage_name: `${job.wo_no} - ${parallelStage.stage_name}`,
+            user_can_view: job.user_can_view || false,
+            user_can_edit: job.user_can_edit || false,
+            user_can_work: job.user_can_work || false,
+            user_can_manage: job.user_can_manage || false,
+            workflow_progress: job.workflow_progress || 0,
+            total_stages: job.total_stages || 0,
+            completed_stages: job.completed_stages || 0,
+            qty: job.qty || 0,
+            started_by: job.started_by || null,
+            started_by_name: job.started_by_name || null,
+            proof_emailed_at: job.proof_emailed_at || null,
+            batch_category: (job as any).batch_category || null,
+            is_in_batch_processing: job.status === 'In Batch Processing',
+            has_custom_workflow: (job as any).has_custom_workflow || false,
+            manual_due_date: (job as any).manual_due_date || null,
+            parallel_stages: parallelStages,
+            current_stage_order: currentStageOrder,
+            // Mark as virtual entry for parallel stage
+            is_virtual_stage_entry: true,
+            stage_instance_id: parallelStage.stage_id,
+            parent_job_id: job.job_id
+          };
 
-      // Check if this is a batch master job (wo_no starts with "BATCH-")
-      if (processedJob.wo_no.startsWith('BATCH-')) {
-        const batchName = processedJob.wo_no.replace('BATCH-', '');
-        processedJob.is_batch_master = true;
-        processedJob.batch_name = batchName;
-        processedJob.constituent_job_count = processedJob.qty; // qty represents number of constituent jobs
-        batchMasterJobs.set(batchName, processedJob);
+          // Handle batch/individual job categorization for virtual entries
+          if (virtualJob.wo_no.startsWith('BATCH-')) {
+            const batchName = virtualJob.wo_no.replace('BATCH-', '');
+            virtualJob.is_batch_master = true;
+            virtualJob.batch_name = batchName;
+            virtualJob.constituent_job_count = virtualJob.qty;
+            batchMasterJobs.set(`${batchName}-${parallelStage.stage_id}`, virtualJob);
+          } else {
+            individualJobs.push(virtualJob);
+          }
+        });
       } else {
-        individualJobs.push(processedJob);
+        // Standard processing for jobs without parallel stages or single stage
+        const processedJob: AccessibleJob = {
+          job_id: job.job_id,
+          id: job.job_id, // Ensure backward compatibility
+          wo_no: job.wo_no || '',
+          customer: job.customer || 'Unknown',
+          status: job.status || 'Unknown',
+          due_date: job.due_date || '',
+          reference: job.reference || '',
+          category_id: job.category_id || '',
+          category_name: job.category_name || 'No Category',
+          category_color: job.category_color || '#6B7280',
+          current_stage_id: job.current_stage_id || '',
+          current_stage_name: job.current_stage_name || 'No Stage',
+          current_stage_color: stageColor,
+          current_stage_status: job.current_stage_status || 'pending',
+          display_stage_name: displayStage,
+          user_can_view: job.user_can_view || false,
+          user_can_edit: job.user_can_edit || false,
+          user_can_work: job.user_can_work || false,
+          user_can_manage: job.user_can_manage || false,
+          workflow_progress: job.workflow_progress || 0,
+          total_stages: job.total_stages || 0,
+          completed_stages: job.completed_stages || 0,
+          qty: job.qty || 0,
+          started_by: job.started_by || null,
+          started_by_name: job.started_by_name || null,
+          proof_emailed_at: job.proof_emailed_at || null,
+          batch_category: (job as any).batch_category || null,
+          is_in_batch_processing: job.status === 'In Batch Processing',
+          has_custom_workflow: (job as any).has_custom_workflow || false,
+          manual_due_date: (job as any).manual_due_date || null,
+          parallel_stages: parallelStages,
+          current_stage_order: currentStageOrder
+        };
+
+        // Check if this is a batch master job (wo_no starts with "BATCH-")
+        if (processedJob.wo_no.startsWith('BATCH-')) {
+          const batchName = processedJob.wo_no.replace('BATCH-', '');
+          processedJob.is_batch_master = true;
+          processedJob.batch_name = batchName;
+          processedJob.constituent_job_count = processedJob.qty; // qty represents number of constituent jobs
+          batchMasterJobs.set(batchName, processedJob);
+        } else {
+          individualJobs.push(processedJob);
+        }
       }
     });
 
@@ -207,14 +264,26 @@ export const useAccessibleJobs = ({
     try {
       console.log('🔄 Starting job stage:', { jobId, stageId });
 
-      if (!stageId) {
-        const job = jobs.find(j => j.job_id === jobId);
-        stageId = job?.current_stage_id;
+      // Find the job entry (could be virtual or real)
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        throw new Error('Job not found');
       }
 
-      if (!stageId) {
+      // For virtual entries, use the parent job ID and stage instance ID
+      const actualJobId = job.parent_job_id || job.job_id;
+      const actualStageId = stageId || job.stage_instance_id || job.current_stage_id;
+
+      if (!actualStageId) {
         throw new Error('Stage ID is required to start job');
       }
+
+      console.log('🔄 Starting stage:', { 
+        virtualJobId: jobId, 
+        actualJobId, 
+        actualStageId,
+        isVirtual: job.is_virtual_stage_entry 
+      });
 
       const { error } = await supabase
         .from('job_stage_instances')
@@ -223,8 +292,8 @@ export const useAccessibleJobs = ({
           started_at: new Date().toISOString(),
           started_by: user?.id
         })
-        .eq('job_id', jobId)
-        .eq('production_stage_id', stageId)
+        .eq('job_id', actualJobId)
+        .eq('production_stage_id', actualStageId)
         .eq('status', 'pending');
 
       if (error) throw error;
@@ -241,19 +310,31 @@ export const useAccessibleJobs = ({
     try {
       console.log('🔄 Completing job stage:', { jobId, stageId });
 
-      if (!stageId) {
-        const job = jobs.find(j => j.job_id === jobId);
-        stageId = job?.current_stage_id;
+      // Find the job entry (could be virtual or real)
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        throw new Error('Job not found');
       }
 
-      if (!stageId) {
+      // For virtual entries, use the parent job ID and stage instance ID
+      const actualJobId = job.parent_job_id || job.job_id;
+      const actualStageId = stageId || job.stage_instance_id || job.current_stage_id;
+
+      if (!actualStageId) {
         throw new Error('Stage ID is required to complete job');
       }
 
+      console.log('🔄 Completing stage:', { 
+        virtualJobId: jobId, 
+        actualJobId, 
+        actualStageId,
+        isVirtual: job.is_virtual_stage_entry 
+      });
+
       const { error } = await supabase.rpc('advance_job_stage', {
-        p_job_id: jobId,
+        p_job_id: actualJobId,
         p_job_table_name: 'production_jobs',
-        p_current_stage_id: stageId,
+        p_current_stage_id: actualStageId,
         p_completed_by: user?.id
       });
 
