@@ -127,18 +127,28 @@ export const useAccessibleJobs = ({
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
 
-      // Get parallel stages for this job
+      // Get parallel stages for this job (only current stage order)
       const parallelStages = getJobParallelStages(jobStages, job.job_id);
       const currentStageOrder = parallelStages.length > 0 
         ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
 
-      // Check if this job has parallel stages at the current stage order
-      const currentParallelStages = parallelStages.filter(s => s.stage_order === currentStageOrder);
+      console.log(`🚀 Processing job ${job.wo_no} (${job.job_id}):`, {
+        parallelStagesCount: parallelStages.length,
+        currentStageOrder,
+        showSeparately: config.showParallelStagesSeparately,
+        parallelStages: parallelStages.map(s => `${s.stage_name} (order: ${s.stage_order})`)
+      });
       
-      // If there are multiple parallel stages AND user wants them shown separately, create virtual entries
-      if (currentParallelStages.length > 1 && config.showParallelStagesSeparately) {
-        currentParallelStages.forEach(parallelStage => {
+      // CRITICAL FIX: Only create virtual entries if there are multiple stages at the SAME current order
+      // AND user wants them shown separately
+      if (parallelStages.length > 1 && config.showParallelStagesSeparately) {
+        console.log(`📝 Creating ${parallelStages.length} virtual entries for job ${job.wo_no}`);
+        
+        parallelStages.forEach((parallelStage, index) => {
+          console.log(`   ➤ Virtual entry ${index + 1}: ${parallelStage.stage_name} (${parallelStage.stage_id})`);
+        });
+        parallelStages.forEach(parallelStage => {
           const virtualJob: AccessibleJob = {
             job_id: job.job_id,
             id: `${job.job_id}-${parallelStage.stage_id}`, // Unique virtual ID

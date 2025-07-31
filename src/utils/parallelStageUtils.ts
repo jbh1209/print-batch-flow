@@ -50,8 +50,19 @@ export const getJobParallelStages = (
   // Get the current stage order (lowest order among active/pending stages)
   const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
   
-  // Return all stages at the current order level (parallel stages)
-  return activeStages
+  console.log(`🔧 getJobParallelStages for job ${jobId}:`, {
+    totalActiveStages: activeStages.length,
+    currentOrder,
+    activeStages: activeStages.map(s => ({
+      stage_id: s.production_stage_id,
+      stage_name: s.stage_name,
+      stage_order: s.stage_order,
+      status: s.status
+    }))
+  });
+  
+  // CRITICAL FIX: Only return stages at the current order level (parallel stages)
+  const currentParallelStages = activeStages
     .filter(stage => stage.stage_order === currentOrder)
     .map(stage => ({
       stage_id: stage.production_stage_id,
@@ -61,6 +72,11 @@ export const getJobParallelStages = (
       stage_order: stage.stage_order,
       part_assignment: stage.part_assignment || null
     }));
+    
+  console.log(`🎯 Returning ${currentParallelStages.length} stages at order ${currentOrder}:`, 
+    currentParallelStages.map(s => `${s.stage_name} (${s.stage_id})`));
+  
+  return currentParallelStages;
 };
 
 export const shouldJobAppearInStage = (
