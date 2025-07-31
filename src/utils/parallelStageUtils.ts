@@ -6,6 +6,7 @@ export interface ParallelStageInfo {
   stage_color: string;
   stage_status: string;
   stage_order: number;
+  part_assignment?: string;
   is_critical_path?: boolean;
   dependency_type?: 'sequential' | 'parallel' | 'merge';
   predecessor_stages?: string[];
@@ -57,7 +58,8 @@ export const getJobParallelStages = (
       stage_name: stage.stage_name,
       stage_color: stage.stage_color || '#6B7280',
       stage_status: stage.status,
-      stage_order: stage.stage_order
+      stage_order: stage.stage_order,
+      part_assignment: stage.part_assignment || null
     }));
 };
 

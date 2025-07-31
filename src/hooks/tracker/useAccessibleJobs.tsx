@@ -73,6 +73,7 @@ export const useAccessibleJobs = ({
           production_stage_id,
           status,
           stage_order,
+          part_assignment,
           production_stages!inner (
             id,
             name,
@@ -94,7 +95,8 @@ export const useAccessibleJobs = ({
         status: stage.status,
         stage_order: stage.stage_order,
         stage_name: stage.production_stages?.name,
-        stage_color: stage.production_stages?.color
+        stage_color: stage.production_stages?.color,
+        part_assignment: (stage as any).part_assignment || null
       })) || [];
     },
     enabled: !!user?.id && !!rawJobs?.length,
@@ -171,7 +173,8 @@ export const useAccessibleJobs = ({
             // Mark as virtual entry for parallel stage
             is_virtual_stage_entry: true,
             stage_instance_id: parallelStage.stage_id,
-            parent_job_id: job.job_id
+            parent_job_id: job.job_id,
+            part_assignment: parallelStage.part_assignment || 'unknown'
           };
 
           // Handle batch/individual job categorization for virtual entries

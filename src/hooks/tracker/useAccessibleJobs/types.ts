@@ -6,6 +6,7 @@ export interface ParallelStageInfo {
   stage_color: string;
   stage_status: string;
   stage_order: number;
+  part_assignment?: string;
 }
 
 export interface AccessibleJob {
@@ -51,6 +52,7 @@ export interface AccessibleJob {
   is_virtual_stage_entry?: boolean;
   stage_instance_id?: string;
   parent_job_id?: string;
+  part_assignment?: string;
 }
 
 export interface UseAccessibleJobsOptions {

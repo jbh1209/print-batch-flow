@@ -47,7 +47,7 @@ export const DtpKanbanColumn: React.FC<DtpKanbanColumnProps> = ({
             ) : (
               jobs.map((job) => (
                 <JobErrorBoundary 
-                  key={job.job_id} 
+                  key={job.id} 
                   jobId={job.job_id} 
                   jobWoNo={job.wo_no}
                 >
