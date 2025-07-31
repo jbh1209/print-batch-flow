@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { ParallelStageToggle } from "@/components/tracker/settings/ParallelStageToggle";
 
 interface SlaSetting {
   product_type: string;
@@ -214,6 +215,8 @@ const Settings = () => {
           )}
         </CardContent>
       </Card>
+      
+      <ParallelStageToggle />
       
       {/* Additional settings sections can be added here */}
     </div>

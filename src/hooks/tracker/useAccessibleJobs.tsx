@@ -3,6 +3,7 @@ import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useParallelStageConfig } from "@/hooks/useParallelStageConfig";
 import { getJobParallelStages } from "@/utils/parallelStageUtils";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
 
@@ -12,6 +13,7 @@ export const useAccessibleJobs = ({
 }: UseAccessibleJobsOptions = {}) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { config } = useParallelStageConfig();
 
   // Fetch both jobs and their stage instances for parallel stage support
   const {
@@ -134,8 +136,8 @@ export const useAccessibleJobs = ({
       // Check if this job has parallel stages at the current stage order
       const currentParallelStages = parallelStages.filter(s => s.stage_order === currentStageOrder);
       
-      // If there are multiple parallel stages, create separate virtual job entries for each
-      if (currentParallelStages.length > 1) {
+      // If there are multiple parallel stages AND user wants them shown separately, create virtual entries
+      if (currentParallelStages.length > 1 && config.showParallelStagesSeparately) {
         currentParallelStages.forEach(parallelStage => {
           const virtualJob: AccessibleJob = {
             job_id: job.job_id,
@@ -261,7 +263,7 @@ export const useAccessibleJobs = ({
     });
 
     return processedJobs;
-  }, [rawJobs, jobStages]);
+  }, [rawJobs, jobStages, config.showParallelStagesSeparately]);
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
