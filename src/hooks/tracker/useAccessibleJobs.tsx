@@ -180,7 +180,7 @@ export const useAccessibleJobs = ({
             is_in_batch_processing: job.status === 'In Batch Processing',
             has_custom_workflow: (job as any).has_custom_workflow || false,
             manual_due_date: (job as any).manual_due_date || null,
-            parallel_stages: parallelStages,
+            parallel_stages: [parallelStage], // Only the current stage for this virtual entry
             current_stage_order: currentStageOrder,
             // Mark as virtual entry for parallel stage
             is_virtual_stage_entry: true,
@@ -233,7 +233,7 @@ export const useAccessibleJobs = ({
           is_in_batch_processing: job.status === 'In Batch Processing',
           has_custom_workflow: (job as any).has_custom_workflow || false,
           manual_due_date: (job as any).manual_due_date || null,
-          parallel_stages: parallelStages,
+          parallel_stages: parallelStages, // This is already filtered to current stage order only
           current_stage_order: currentStageOrder
         };
 
