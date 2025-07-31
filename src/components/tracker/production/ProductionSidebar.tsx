@@ -38,9 +38,12 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
         return true;
       }
       
-      // Check if job has parallel stages that match
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        return job.parallel_stages.some(stage => stage.stage_name === stageName);
+      // Check if job has current parallel stages that match
+      if (job.parallel_stages && job.parallel_stages.length > 0 && job.current_stage_order) {
+        const currentParallelStages = job.parallel_stages.filter(stage => 
+          stage.stage_order === job.current_stage_order
+        );
+        return currentParallelStages.some(stage => stage.stage_name === stageName);
       }
       
       return false;

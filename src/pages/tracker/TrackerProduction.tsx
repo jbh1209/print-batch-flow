@@ -61,9 +61,14 @@ const TrackerProduction = () => {
         return job.status === 'In Batch Processing';
       }
       
-      // Check if job should appear in this stage based on parallel stages
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        return job.parallel_stages.some(stage => stage.stage_name === selectedStageName);
+      // Check if job should appear in this stage based on current parallel stages only
+      if (job.parallel_stages && job.parallel_stages.length > 0 && job.current_stage_order) {
+        const currentParallelStages = job.parallel_stages.filter(stage => 
+          stage.stage_order === job.current_stage_order
+        );
+        console.log(`Job ${job.wo_no}: checking parallel stages at order ${job.current_stage_order}:`, 
+          currentParallelStages.map(s => s.stage_name), 'vs selected:', selectedStageName);
+        return currentParallelStages.some(stage => stage.stage_name === selectedStageName);
       }
       
       // Fallback to original logic for jobs without parallel stage data
