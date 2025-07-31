@@ -11,6 +11,7 @@ const TrackerLayout = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("orders");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [filters, setFilters] = useState<any>({});
   const [productionSidebarData, setProductionSidebarData] = useState<any>({
     consolidatedStages: [],
@@ -57,8 +58,9 @@ const TrackerLayout = () => {
     setFilters(newFilters);
   };
 
-  const handleStageSelect = (stageId: string | null) => {
+  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
     setSelectedStageId(stageId);
+    setSelectedStageName(stageName);
   };
 
   const setSidebarData = (data: any) => {
@@ -85,6 +87,7 @@ const TrackerLayout = () => {
               productionSidebarData={activeTab === "production" ? productionSidebarData : undefined}
               onStageSelect={activeTab === "production" ? handleStageSelect : undefined}
               selectedStageId={activeTab === "production" ? selectedStageId : undefined}
+              selectedStageName={activeTab === "production" ? selectedStageName : undefined}
             />
           )}
           
@@ -93,6 +96,7 @@ const TrackerLayout = () => {
               activeTab, 
               filters,
               selectedStageId,
+              selectedStageName,
               onStageSelect: handleStageSelect,
               onFilterChange: handleFilterChange,
               setSidebarData
