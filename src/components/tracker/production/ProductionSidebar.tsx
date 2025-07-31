@@ -39,11 +39,19 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
       }
       
       // Check if job has current parallel stages that match
-      if (job.parallel_stages && job.parallel_stages.length > 0 && job.current_stage_order) {
-        const currentParallelStages = job.parallel_stages.filter(stage => 
-          stage.stage_order === job.current_stage_order
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        // Calculate current stage order from parallel stages (same logic as getJobParallelStages)
+        const activeStages = job.parallel_stages.filter(stage => 
+          stage.stage_status === 'active' || stage.stage_status === 'pending'
         );
-        return currentParallelStages.some(stage => stage.stage_name === stageName);
+        
+        if (activeStages.length > 0) {
+          const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
+          const currentParallelStages = activeStages.filter(stage => 
+            stage.stage_order === currentOrder
+          );
+          return currentParallelStages.some(stage => stage.stage_name === stageName);
+        }
       }
       
       return false;

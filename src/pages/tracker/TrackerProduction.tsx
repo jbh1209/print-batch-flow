@@ -62,13 +62,21 @@ const TrackerProduction = () => {
       }
       
       // Check if job should appear in this stage based on current parallel stages only
-      if (job.parallel_stages && job.parallel_stages.length > 0 && job.current_stage_order) {
-        const currentParallelStages = job.parallel_stages.filter(stage => 
-          stage.stage_order === job.current_stage_order
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        // Calculate current stage order from parallel stages (same logic as getJobParallelStages)
+        const activeStages = job.parallel_stages.filter(stage => 
+          stage.stage_status === 'active' || stage.stage_status === 'pending'
         );
-        console.log(`Job ${job.wo_no}: checking parallel stages at order ${job.current_stage_order}:`, 
-          currentParallelStages.map(s => s.stage_name), 'vs selected:', selectedStageName);
-        return currentParallelStages.some(stage => stage.stage_name === selectedStageName);
+        
+        if (activeStages.length > 0) {
+          const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
+          const currentParallelStages = activeStages.filter(stage => 
+            stage.stage_order === currentOrder
+          );
+          console.log(`Job ${job.wo_no}: checking parallel stages at order ${currentOrder}:`, 
+            currentParallelStages.map(s => s.stage_name), 'vs selected:', selectedStageName);
+          return currentParallelStages.some(stage => stage.stage_name === selectedStageName);
+        }
       }
       
       // Fallback to original logic for jobs without parallel stage data
