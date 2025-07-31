@@ -218,7 +218,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
     }
   }, [user?.id, fetchJobs]);
 
-  const completeStage = useCallback(async (jobId: string, stageId: string) => {
+  const completeStage = useCallback(async (jobId: string, stageId: string, notes?: string) => {
     try {
       console.log('🔄 [useEnhancedProductionJobs] Completing stage:', { jobId, stageId });
       
@@ -226,10 +226,11 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
       const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('./utils/proofStageUtils');
       const stageInfo = await getStageInfoForProofCheck(stageId);
       
-      const { error } = await supabase.rpc('advance_job_stage', {
+      const { error } = await supabase.rpc('advance_job_stage_with_parallel_support', {
         p_job_id: jobId,
         p_job_table_name: 'production_jobs',
-        p_current_stage_id: stageId
+        p_current_stage_id: stageId,
+        p_notes: notes
       });
 
       if (error) throw error;

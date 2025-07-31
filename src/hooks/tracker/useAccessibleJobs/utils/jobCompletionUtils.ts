@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const completeJobStage = async (jobId: string, stageId: string): Promise<boolean> => {
+export const completeJobStage = async (jobId: string, stageId: string, notes?: string): Promise<boolean> => {
   console.log('🔄 [jobCompletionUtils] Completing job stage:', { jobId, stageId });
   
   try {
@@ -11,11 +11,11 @@ export const completeJobStage = async (jobId: string, stageId: string): Promise<
     const stageInfo = await getStageInfoForProofCheck(stageId);
     
     // Use the advance_job_stage RPC function to properly complete and advance the job
-    const { data, error } = await supabase.rpc('advance_job_stage', {
+    const { data, error } = await supabase.rpc('advance_job_stage_with_parallel_support', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
       p_current_stage_id: stageId,
-      p_completed_by: (await supabase.auth.getUser()).data.user?.id
+      p_notes: notes
     });
 
     if (error) {

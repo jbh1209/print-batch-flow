@@ -2389,6 +2389,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      advance_job_stage_with_parallel_support: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
       advance_job_stage_with_parts: {
         Args: {
           p_job_id: string
