@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { filterJobsByStage } from "@/utils/tracker/stageFiltering";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
@@ -49,21 +50,19 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Enhanced filtering to handle batch processing jobs and parallel stages
+  // Enhanced filtering using unified filtering logic
   const filteredJobs = useMemo(() => {
     if (!selectedStageName) {
       return jobs;
     }
 
-    return jobs.filter(job => {
-      // Special handling for batch processing
-      if (selectedStageName === 'In Batch Processing') {
-        return job.status === 'In Batch Processing';
-      }
-      
-      // Simple filtering: job's current stage must match selected stage
-      return job.current_stage_name === selectedStageName;
-    });
+    // Special handling for batch processing
+    if (selectedStageName === 'In Batch Processing') {
+      return jobs.filter(job => job.status === 'In Batch Processing');
+    }
+    
+    // Use unified filtering logic for all other stages
+    return filterJobsByStage(jobs, selectedStageName);
   }, [jobs, selectedStageName]);
 
   // Enhanced sorting with batch processing awareness

@@ -12,6 +12,7 @@ import {
   Play
 } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { getJobCountForStage } from "@/utils/tracker/stageFiltering";
 
 interface ProductionSidebarProps {
   jobs: AccessibleJob[];
@@ -29,33 +30,9 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
   onStageSelect
 }) => {
 
-  const getJobCountForStage = (stageName: string) => {
-    return jobs.filter(job => {
-      const currentStage = job.current_stage_name || job.display_stage_name;
-      
-      // Check if job's current stage matches
-      if (currentStage === stageName) {
-        return true;
-      }
-      
-      // Check if job has current parallel stages that match
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        // Calculate current stage order from parallel stages (same logic as getJobParallelStages)
-        const activeStages = job.parallel_stages.filter(stage => 
-          stage.stage_status === 'active' || stage.stage_status === 'pending'
-        );
-        
-        if (activeStages.length > 0) {
-          const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
-          const currentParallelStages = activeStages.filter(stage => 
-            stage.stage_order === currentOrder
-          );
-          return currentParallelStages.some(stage => stage.stage_name === stageName);
-        }
-      }
-      
-      return false;
-    }).length;
+  // Use the shared filtering utility for consistent counts
+  const getJobCountForStageLocal = (stageName: string) => {
+    return getJobCountForStage(jobs, stageName);
   };
 
   const getJobCountByStatus = (status: string) => {
@@ -124,7 +101,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
             </Badge>
           </Button>
           {consolidatedStages.map(stage => {
-            const jobCount = getJobCountForStage(stage.stage_name);
+            const jobCount = getJobCountForStageLocal(stage.stage_name);
             const isSelected = selectedStageId === stage.stage_id;
             return (
               <Button 
