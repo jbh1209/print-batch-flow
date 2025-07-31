@@ -1,6 +1,7 @@
 
 
 export interface ParallelStageInfo {
+  id: string; // Unique job_stage_instances.id
   stage_id: string;
   stage_name: string;
   stage_color: string;

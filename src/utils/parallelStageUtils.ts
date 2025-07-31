@@ -1,6 +1,7 @@
 // Utility functions for handling parallel/concurrent stages and dependency chains
 
 export interface ParallelStageInfo {
+  id: string; // Add the unique job_stage_instances.id
   stage_id: string;
   stage_name: string;
   stage_color: string;
@@ -65,6 +66,7 @@ export const getJobParallelStages = (
   const currentParallelStages = activeStages
     .filter(stage => stage.stage_order === currentOrder)
     .map(stage => ({
+      id: stage.id, // Include the unique job_stage_instances.id
       stage_id: stage.production_stage_id,
       stage_name: stage.stage_name,
       stage_color: stage.stage_color || '#6B7280',

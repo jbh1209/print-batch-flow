@@ -71,6 +71,7 @@ export const useAccessibleJobs = ({
       const { data, error } = await supabase
         .from('job_stage_instances')
         .select(`
+          id,
           job_id,
           production_stage_id,
           status,
@@ -92,6 +93,7 @@ export const useAccessibleJobs = ({
       }
 
       return data?.map(stage => ({
+        id: stage.id, // Add the unique job_stage_instances.id
         job_id: stage.job_id,
         production_stage_id: stage.production_stage_id,
         status: stage.status,
@@ -172,7 +174,7 @@ export const useAccessibleJobs = ({
             current_stage_order: currentStageOrder,
             // Mark as virtual entry for parallel stage
             is_virtual_stage_entry: true,
-            stage_instance_id: parallelStage.stage_id,
+            stage_instance_id: parallelStage.id, // Use the unique job_stage_instances.id
             parent_job_id: job.job_id,
             part_assignment: parallelStage.part_assignment || 'unknown'
           };
