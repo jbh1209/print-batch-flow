@@ -85,13 +85,18 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
-  // Filter specifications by part assignment if specified
-  const filteredSpecifications = partAssignment && partAssignment !== 'both' 
+  // Filter specifications by part assignment if specified, with fallback
+  let filteredSpecifications = partAssignment && partAssignment !== 'both' 
     ? specifications.filter(spec => {
         const specPart = spec.part_name || 'both';
         return specPart === 'both' || specPart === partAssignment;
       })
     : specifications;
+
+  // Fallback to original specifications if filtering results in empty array
+  if (filteredSpecifications.length === 0) {
+    filteredSpecifications = specifications;
+  }
 
   // Get paper details for display - first try from job_print_specifications, then from notes
   const paperType = paperSpecs.find(spec => spec.category === 'paper_type')?.display_name;
@@ -110,6 +115,13 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   if (compact) {
     // Show stage + sub-spec + paper in compact mode
     const primary = filteredSpecifications[0];
+    if (!primary) {
+      return (
+        <Badge variant="secondary" className={`text-xs ${className}`}>
+          No specs
+        </Badge>
+      );
+    }
     const subSpec = primary.sub_specification || primary.stage_name;
     const displayText = paperDisplay ? `${subSpec} | ${paperDisplay}` : subSpec;
     
