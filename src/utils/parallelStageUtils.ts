@@ -40,45 +40,76 @@ export const getJobParallelStages = (
 ): ParallelStageInfo[] => {
   if (!jobStages || jobStages.length === 0) return [];
   
-  // Find all active/pending stages for this job
-  const activeStages = jobStages.filter(stage => 
-    stage.job_id === jobId && 
-    (stage.status === 'active' || stage.status === 'pending')
+  // Find all stages for this job (including completed ones)
+  const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
+  
+  if (allJobStages.length === 0) return [];
+  
+  // Find all active/pending stages
+  const activeStages = allJobStages.filter(stage => 
+    stage.status === 'active' || stage.status === 'pending'
   );
   
-  if (activeStages.length === 0) return [];
-  
-  // Get the current stage order (lowest order among active/pending stages)
-  const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
+  // Find completed stages
+  const completedStages = allJobStages.filter(stage => 
+    stage.status === 'completed'
+  );
   
   console.log(`🔧 getJobParallelStages for job ${jobId}:`, {
-    totalActiveStages: activeStages.length,
-    currentOrder,
-    activeStages: activeStages.map(s => ({
+    totalStages: allJobStages.length,
+    activeStages: activeStages.length,
+    completedStages: completedStages.length,
+    stageDetails: allJobStages.map(s => ({
       stage_id: s.production_stage_id,
       stage_name: s.stage_name,
       stage_order: s.stage_order,
-      status: s.status
+      status: s.status,
+      part_assignment: s.part_assignment
     }))
   });
   
-  // CRITICAL FIX: Only return stages at the current order level (parallel stages)
-  const currentParallelStages = activeStages
-    .filter(stage => stage.stage_order === currentOrder)
-    .map(stage => ({
-      id: stage.id, // Include the unique job_stage_instances.id
-      stage_id: stage.production_stage_id,
-      stage_name: stage.stage_name,
-      stage_color: stage.stage_color || '#6B7280',
-      stage_status: stage.status,
-      stage_order: stage.stage_order,
-      part_assignment: stage.part_assignment || null
-    }));
-    
-  console.log(`🎯 Returning ${currentParallelStages.length} stages at order ${currentOrder}:`, 
-    currentParallelStages.map(s => `${s.stage_name} (${s.stage_id})`));
+  // If we have active stages, return them at current order level
+  if (activeStages.length > 0) {
+    const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
+    const currentParallelStages = activeStages
+      .filter(stage => stage.stage_order === currentOrder)
+      .map(stage => ({
+        id: stage.id,
+        stage_id: stage.production_stage_id,
+        stage_name: stage.stage_name,
+        stage_color: stage.stage_color || '#6B7280',
+        stage_status: stage.status,
+        stage_order: stage.stage_order,
+        part_assignment: stage.part_assignment || null
+      }));
+      
+    console.log(`🎯 Returning ${currentParallelStages.length} active stages at order ${currentOrder}`);
+    return currentParallelStages;
+  }
   
-  return currentParallelStages;
+  // PARALLEL PROCESSING FIX: If no active stages but have completed stages,
+  // check if we need to advance to next available stages
+  if (completedStages.length > 0) {
+    const maxCompletedOrder = Math.max(...completedStages.map(s => s.stage_order));
+    const nextOrderStages = allJobStages.filter(stage => 
+      stage.stage_order === maxCompletedOrder + 1 && stage.status === 'pending'
+    );
+    
+    if (nextOrderStages.length > 0) {
+      console.log(`🚀 Found ${nextOrderStages.length} next order stages to advance to`);
+      return nextOrderStages.map(stage => ({
+        id: stage.id,
+        stage_id: stage.production_stage_id,
+        stage_name: stage.stage_name,
+        stage_color: stage.stage_color || '#6B7280',
+        stage_status: stage.status,
+        stage_order: stage.stage_order,
+        part_assignment: stage.part_assignment || null
+      }));
+    }
+  }
+  
+  return [];
 };
 
 export const shouldJobAppearInStage = (

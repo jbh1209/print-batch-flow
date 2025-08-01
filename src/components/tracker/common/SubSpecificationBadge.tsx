@@ -101,7 +101,16 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
+  // Early return for non-printing stages with basic stage name
   if (!specifications || !specifications.length) {
+    // If we have a stage ID but no specifications, try to get the stage name
+    if (stageId) {
+      return (
+        <Badge variant="outline" className={`text-xs bg-gray-50 border-gray-200 text-gray-700 ${className}`}>
+          Stage
+        </Badge>
+      );
+    }
     return (
       <Badge variant="secondary" className={`text-xs ${className}`}>
         No specs
@@ -121,6 +130,15 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const shouldShowPaperSpecs = filteredSpecifications.some(spec => 
     isPrintingStage(spec.stage_name)
   );
+  
+  console.log(`🎯 SubSpecificationBadge Debug for job ${jobId}:`, {
+    stageId,
+    filteredSpecifications: filteredSpecifications.length,
+    shouldShowPaperSpecs,
+    paperSpecs: paperSpecs.length,
+    legacyJobSpecs: !!legacyJobSpecs,
+    partAssignment
+  });
 
   // Get unified paper specifications only for printing stages
   let paperDisplay = '';
@@ -150,9 +168,10 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     // Show stage + sub-spec + paper in compact mode
     const primary = filteredSpecifications[0];
     if (!primary) {
+      // Fallback to stage name if available
       return (
-        <Badge variant="secondary" className={`text-xs ${className}`}>
-          No specs
+        <Badge variant="outline" className={`text-xs bg-gray-50 border-gray-200 text-gray-700 ${className}`}>
+          Processing
         </Badge>
       );
     }
