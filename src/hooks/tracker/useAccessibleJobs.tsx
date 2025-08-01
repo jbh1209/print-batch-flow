@@ -356,14 +356,29 @@ export const useAccessibleJobs = ({
   }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
-    console.log('🔄 Refreshing accessible jobs...');
+    console.log('🔄 Refreshing accessible jobs and clearing all related caches...');
+    // Clear all related caches to prevent stale data
+    queryClient.invalidateQueries({ 
+      queryKey: ['accessible-jobs', user?.id] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['job-stages', user?.id] 
+    });
+    // Also clear any derived job queries that might be cached
+    queryClient.invalidateQueries({ 
+      predicate: (query) => 
+        query.queryKey.includes('jobs') || query.queryKey.includes('production')
+    });
     return Promise.all([refetchJobs(), refetchStages()]);
-  }, [refetchJobs, refetchStages]);
+  }, [refetchJobs, refetchStages, queryClient, user?.id]);
 
   const invalidateCache = useCallback(() => {
     console.log('🗑️ Invalidating accessible jobs cache...');
     queryClient.invalidateQueries({ 
       queryKey: ['accessible-jobs', user?.id] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['job-stages', user?.id] 
     });
   }, [queryClient, user?.id]);
 

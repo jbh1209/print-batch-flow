@@ -50,20 +50,37 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Enhanced filtering using unified filtering logic
+  // Enhanced filtering with state validation
   const filteredJobs = useMemo(() => {
+    console.log('🔍 Filtering jobs:', { 
+      selectedStageId, 
+      selectedStageName, 
+      jobsCount: jobs.length 
+    });
+
+    // State validation guard
+    if (selectedStageId && !selectedStageName) {
+      console.warn('⚠️ State mismatch: stageId without stageName, showing all jobs');
+      return jobs;
+    }
+    
     if (!selectedStageName) {
+      console.log('📋 No stage selected, showing all jobs');
       return jobs;
     }
 
     // Special handling for batch processing
     if (selectedStageName === 'In Batch Processing') {
-      return jobs.filter(job => job.status === 'In Batch Processing');
+      const batchJobs = jobs.filter(job => job.status === 'In Batch Processing');
+      console.log('🔄 Batch processing filter:', batchJobs.length);
+      return batchJobs;
     }
     
     // Use unified filtering logic for all other stages
-    return filterJobsByStage(jobs, selectedStageName);
-  }, [jobs, selectedStageName]);
+    const filtered = filterJobsByStage(jobs, selectedStageName);
+    console.log('🎯 Stage filter result:', { stageName: selectedStageName, count: filtered.length });
+    return filtered;
+  }, [jobs, selectedStageName, selectedStageId]);
 
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {

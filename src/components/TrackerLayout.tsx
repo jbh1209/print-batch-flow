@@ -59,8 +59,26 @@ const TrackerLayout = () => {
   };
 
   const handleStageSelect = (stageId: string | null, stageName: string | null) => {
-    setSelectedStageId(stageId);
-    setSelectedStageName(stageName);
+    console.log('🎯 TrackerLayout: Stage selection changing', { 
+      from: { selectedStageId, selectedStageName }, 
+      to: { stageId, stageName } 
+    });
+    
+    // State synchronization guard - ensure atomic updates
+    if (stageId === null && stageName === null) {
+      // Clearing selection
+      setSelectedStageId(null);
+      setSelectedStageName(null);
+    } else if (stageId && stageName) {
+      // Setting new selection - ensure both are set together
+      setSelectedStageId(stageId);
+      setSelectedStageName(stageName);
+    } else {
+      // Defensive programming: don't allow mismatched state
+      console.warn('⚠️ Stage selection mismatch detected, clearing selection', { stageId, stageName });
+      setSelectedStageId(null);
+      setSelectedStageName(null);
+    }
   };
 
   const setSidebarData = (data: any) => {

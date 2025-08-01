@@ -56,13 +56,21 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
   };
 
   const handleStageClick = (stageId: string, stageName: string) => {
-    console.log('Sidebar stage clicked:', { stageId, stageName, selectedStageId, selectedStageName });
+    console.log('🖱️ Sidebar stage clicked:', { 
+      stageId, 
+      stageName, 
+      current: { selectedStageId, selectedStageName },
+      isReclick: selectedStageId === stageId
+    });
     
-    if (selectedStageId === stageId) {
+    // Prevent rapid clicking issues with debounce-like behavior
+    if (selectedStageId === stageId && selectedStageName === stageName) {
       // Clicking the same stage - deselect it
+      console.log('🔄 Deselecting current stage');
       onStageSelect(null, null);
     } else {
-      // Select the new stage
+      // Select the new stage - ensure atomic update
+      console.log('✅ Selecting new stage:', { stageId, stageName });
       onStageSelect(stageId, stageName);
     }
   };
