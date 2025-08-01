@@ -116,7 +116,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
                 {job.qty && (
                   <div className="flex items-center gap-1 text-sm">
                     <Package className="h-3 w-3 text-gray-400" />
-                    <span>{job.qty}</span>
+                    <span title={`Sheets: ${job.qty}`}>{job.qty}</span>
                   </div>
                 )}
               </div>

@@ -1,4 +1,5 @@
 // Utility functions for handling parallel/concurrent stages and dependency chains
+import { debugService } from '@/services/DebugService';
 
 export interface ParallelStageInfo {
   id: string; // Add the unique job_stage_instances.id
@@ -55,17 +56,27 @@ export const getJobParallelStages = (
     stage.status === 'completed'
   );
   
+  const stageDetails = allJobStages.map(s => ({
+    stage_id: s.production_stage_id,
+    stage_name: s.stage_name,
+    stage_order: s.stage_order,
+    status: s.status,
+    part_assignment: s.part_assignment
+  }));
+
   console.log(`🔧 getJobParallelStages for job ${jobId}:`, {
     totalStages: allJobStages.length,
     activeStages: activeStages.length,
     completedStages: completedStages.length,
-    stageDetails: allJobStages.map(s => ({
-      stage_id: s.production_stage_id,
-      stage_name: s.stage_name,
-      stage_order: s.stage_order,
-      status: s.status,
-      part_assignment: s.part_assignment
-    }))
+    stageDetails
+  });
+
+  debugService.log('ParallelStageUtils', 'getJobParallelStages', {
+    jobId,
+    totalStages: allJobStages.length,
+    activeStages: activeStages.length,
+    completedStages: completedStages.length,
+    stageDetails
   });
   
   // If we have active stages, return them at current order level
@@ -84,20 +95,37 @@ export const getJobParallelStages = (
       }));
       
     console.log(`🎯 Returning ${currentParallelStages.length} active stages at order ${currentOrder}`);
+    debugService.logParallelStageTransition(jobId, 'current_active', currentParallelStages.map(s => s.stage_name));
     return currentParallelStages;
   }
   
   // PARALLEL PROCESSING FIX: If no active stages but have completed stages,
-  // check if we need to advance to next available stages
+  // check for next available stages based on parallel processing rules
   if (completedStages.length > 0) {
     const maxCompletedOrder = Math.max(...completedStages.map(s => s.stage_order));
-    const nextOrderStages = allJobStages.filter(stage => 
-      stage.stage_order === maxCompletedOrder + 1 && stage.status === 'pending'
-    );
     
-    if (nextOrderStages.length > 0) {
-      console.log(`🚀 Found ${nextOrderStages.length} next order stages to advance to`);
-      return nextOrderStages.map(stage => ({
+    // For parallel processing, look for stages that can be activated based on completed stages
+    const availableStages = allJobStages.filter(stage => {
+      if (stage.status !== 'pending') return false;
+      
+      // Check if this stage's order is next in sequence OR can run in parallel
+      const isNextSequential = stage.stage_order === maxCompletedOrder + 1;
+      
+      // For part-specific stages (like Cover Laminating after HP 12000 Cover completion)
+      const canRunBasedOnParts = completedStages.some(completed => {
+        return completed.part_assignment === stage.part_assignment ||
+               (completed.part_assignment === 'both' && stage.part_assignment !== 'both') ||
+               (stage.part_assignment === 'both' && completed.part_assignment !== 'both');
+      });
+      
+      return isNextSequential || canRunBasedOnParts;
+    });
+    
+    if (availableStages.length > 0) {
+      const stageInfo = availableStages.map(s => ({ name: s.stage_name, part: s.part_assignment, order: s.stage_order }));
+      console.log(`🚀 Found ${availableStages.length} available stages after completion:`, stageInfo);
+      debugService.logParallelStageTransition(jobId, 'available_after_completion', availableStages.map(s => s.stage_name));
+      return availableStages.map(stage => ({
         id: stage.id,
         stage_id: stage.production_stage_id,
         stage_name: stage.stage_name,

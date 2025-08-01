@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { parseUnifiedSpecifications, formatPaperDisplay, type LegacySpecifications, type NormalizedSpecification } from '@/utils/specificationParser';
+import { specificationUnificationService } from '@/services/SpecificationUnificationService';
 
 interface JobSpecification {
   category: string;
@@ -13,9 +13,9 @@ interface JobSpecification {
 
 export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string) => {
   const [specifications, setSpecifications] = useState<JobSpecification[]>([]);
-  const [legacySpecs, setLegacySpecs] = useState<LegacySpecifications | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unifiedResult, setUnifiedResult] = useState<any>(null);
 
   useEffect(() => {
     const fetchSpecifications = async () => {
@@ -28,36 +28,12 @@ export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string
         setIsLoading(true);
         setError(null);
 
-        // Fetch normalized specifications
-        const { data, error: fetchError } = await supabase
-          .rpc('get_job_specifications', {
-            p_job_id: jobId,
-            p_job_table_name: jobTableName
-          });
-
-        if (fetchError) throw fetchError;
-
-        setSpecifications(data || []);
-
-        // Fetch legacy specifications if using production_jobs table
-        if (jobTableName === 'production_jobs') {
-          const { data: legacyData, error: legacyError } = await supabase
-            .from('production_jobs')
-            .select('paper_specifications, printing_specifications, finishing_specifications, delivery_specifications')
-            .eq('id', jobId)
-            .single();
-
-          if (legacyError && legacyError.code !== 'PGRST116') {
-            console.warn('Error fetching legacy specifications:', legacyError);
-          } else if (legacyData) {
-            setLegacySpecs({
-              paper_specifications: legacyData.paper_specifications as Record<string, any> || {},
-              printing_specifications: legacyData.printing_specifications as Record<string, any> || {},
-              finishing_specifications: legacyData.finishing_specifications as Record<string, any> || {},
-              delivery_specifications: legacyData.delivery_specifications as Record<string, any> || {}
-            });
-          }
-        }
+        // Use the unification service
+        const result = await specificationUnificationService.getUnifiedSpecifications(jobId, jobTableName);
+        
+        setSpecifications(result.specifications);
+        setUnifiedResult(result);
+        setError(result.error || null);
 
       } catch (err) {
         console.error('Error fetching job specifications:', err);
@@ -96,39 +72,8 @@ export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string
 
   // Helper functions to get specific specification values with unified parsing
   const getSpecificationValue = (category: string, defaultValue: string = 'N/A') => {
-    // Try normalized specifications first
-    const spec = specifications.find(s => s.category === category);
-    if (spec?.display_name) {
-      return spec.display_name;
-    }
-
-    // Fallback to unified parser for legacy data
-    if (legacySpecs) {
-      const normalizedSpecs: NormalizedSpecification[] = specifications.map(s => ({
-        category: s.category,
-        specification_id: s.specification_id,
-        name: s.name,
-        display_name: s.display_name,
-        properties: s.properties
-      }));
-
-      const unifiedSpecs = parseUnifiedSpecifications(legacySpecs, normalizedSpecs);
-      
-      switch (category) {
-        case 'paper_type':
-          return unifiedSpecs.paperType || defaultValue;
-        case 'paper_weight':
-          return unifiedSpecs.paperWeight || defaultValue;
-        case 'size':
-          return unifiedSpecs.paperSize || defaultValue;
-        case 'lamination_type':
-          return unifiedSpecs.finishingSpec || defaultValue;
-        default:
-          return defaultValue;
-      }
-    }
-
-    return defaultValue;
+    if (!unifiedResult) return defaultValue;
+    return specificationUnificationService.getSpecificationValue(unifiedResult, category, defaultValue);
   };
 
   const getSize = () => getSpecificationValue('size');
@@ -138,19 +83,7 @@ export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string
 
   // Get formatted paper display (combines weight and type)
   const getPaperDisplay = (): string => {
-    if (legacySpecs) {
-      const normalizedSpecs: NormalizedSpecification[] = specifications.map(spec => ({
-        category: spec.category,
-        specification_id: spec.specification_id,
-        name: spec.name,
-        display_name: spec.display_name,
-        properties: spec.properties
-      }));
-      
-      const unifiedSpecs = parseUnifiedSpecifications(legacySpecs, normalizedSpecs);
-      return formatPaperDisplay(unifiedSpecs) || 'N/A';
-    }
-    return 'N/A';
+    return unifiedResult?.paperDisplay || 'N/A';
   };
 
   return {

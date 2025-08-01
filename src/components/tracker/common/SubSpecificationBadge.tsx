@@ -2,9 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
-import { supabase } from "@/integrations/supabase/client";
-import { parsePaperSpecsFromNotes, formatPaperDisplay as formatPaperDisplayLegacy } from "@/utils/paperSpecUtils";
-import { parseUnifiedSpecifications, formatPaperDisplay, type LegacySpecifications, type NormalizedSpecification } from "@/utils/specificationParser";
+import { specificationUnificationService } from "@/services/SpecificationUnificationService";
 import { isPrintingStage } from "@/utils/stageUtils";
 
 interface SubSpecificationBadgeProps {
@@ -15,13 +13,6 @@ interface SubSpecificationBadgeProps {
   partAssignment?: string;
 }
 
-interface JobPrintSpecification {
-  category: string;
-  specification_id: string;
-  name: string;
-  display_name: string;
-  properties: any;
-}
 
 export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   jobId,
@@ -31,73 +22,33 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   partAssignment
 }) => {
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
-  const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
-  const [legacyJobSpecs, setLegacyJobSpecs] = useState<LegacySpecifications | null>(null);
+  const [unifiedSpecs, setUnifiedSpecs] = useState<any>(null);
   const [paperLoading, setPaperLoading] = useState(false);
 
-  // Fetch both normalized and legacy specifications
+  // Fetch unified specifications using the new service
   useEffect(() => {
-    const fetchAllSpecs = async () => {
+    const fetchUnifiedSpecs = async () => {
       if (!jobId) return;
       
       setPaperLoading(true);
       try {
-        // Fetch normalized specifications
-        const { data: normalizedData, error: normalizedError } = await supabase.rpc('get_job_specifications', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs'
-        });
-
-        if (normalizedError) throw normalizedError;
-        
-        let normalizedSpecs = (normalizedData || []).filter((spec: JobPrintSpecification) => 
-          spec.category === 'paper_type' || spec.category === 'paper_weight'
-        );
-        
-        // Filter by part assignment if specified (for virtual stage entries)
-        if (partAssignment && partAssignment !== 'both') {
-          normalizedSpecs = normalizedSpecs.filter(spec => {
-            const specPart = (spec.properties as any)?.part_assignment || 'both';
-            return specPart === 'both' || specPart === partAssignment;
-          });
-        }
-        
-        setPaperSpecs(normalizedSpecs);
-
-        // Fetch legacy specifications from production_jobs
-        const { data: legacyData, error: legacyError } = await supabase
-          .from('production_jobs')
-          .select('paper_specifications, printing_specifications, finishing_specifications, delivery_specifications')
-          .eq('id', jobId)
-          .single();
-
-        if (legacyError && legacyError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.warn('Error fetching legacy specifications:', legacyError);
-        } else if (legacyData) {
-          // Cast Json types to the expected format
-          setLegacyJobSpecs({
-            paper_specifications: legacyData.paper_specifications as Record<string, any> || {},
-            printing_specifications: legacyData.printing_specifications as Record<string, any> || {},
-            finishing_specifications: legacyData.finishing_specifications as Record<string, any> || {},
-            delivery_specifications: legacyData.delivery_specifications as Record<string, any> || {}
-          });
-        }
-
+        const result = await specificationUnificationService.getUnifiedSpecifications(jobId, 'production_jobs');
+        setUnifiedSpecs(result);
       } catch (error) {
-        console.error('Error fetching specifications:', error);
+        console.error('Error fetching unified specifications:', error);
       } finally {
         setPaperLoading(false);
       }
     };
 
-    fetchAllSpecs();
+    fetchUnifiedSpecs();
   }, [jobId, partAssignment]);
 
-  if (isLoading || paperLoading) {
+  if (isLoading || paperLoading || !unifiedSpecs) {
     return (
-      <div className="animate-pulse">
-        <div className="h-5 bg-gray-200 rounded w-16"></div>
-      </div>
+      <Badge variant="outline" className={`text-xs animate-pulse ${className}`}>
+        Loading...
+      </Badge>
     );
   }
 
@@ -135,33 +86,15 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     stageId,
     filteredSpecifications: filteredSpecifications.length,
     shouldShowPaperSpecs,
-    paperSpecs: paperSpecs.length,
-    legacyJobSpecs: !!legacyJobSpecs,
+    hasUnifiedSpecs: !!unifiedSpecs,
+    paperDisplay: unifiedSpecs?.paperDisplay,
     partAssignment
   });
 
   // Get unified paper specifications only for printing stages
   let paperDisplay = '';
-  if (shouldShowPaperSpecs) {
-    const normalizedSpecs: NormalizedSpecification[] = paperSpecs.map(spec => ({
-      category: spec.category,
-      specification_id: spec.specification_id,
-      name: spec.name,
-      display_name: spec.display_name,
-      properties: spec.properties
-    }));
-
-    const unifiedSpecs = parseUnifiedSpecifications(legacyJobSpecs, normalizedSpecs);
-    paperDisplay = formatPaperDisplay(unifiedSpecs) || '';
-    
-    // If still no paper display, try to extract from filtered notes (legacy fallback)
-    if (!paperDisplay && filteredSpecifications.length > 0) {
-      const notesWithPaper = filteredSpecifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
-      if (notesWithPaper) {
-        const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
-        paperDisplay = formatPaperDisplayLegacy(parsedPaper) || '';
-      }
-    }
+  if (shouldShowPaperSpecs && unifiedSpecs?.paperDisplay) {
+    paperDisplay = unifiedSpecs.paperDisplay;
   }
 
   if (compact) {
@@ -171,7 +104,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       // Fallback to stage name if available
       return (
         <Badge variant="outline" className={`text-xs bg-gray-50 border-gray-200 text-gray-700 ${className}`}>
-          Processing
+          {unifiedSpecs?.paperDisplay || 'Stage'}
         </Badge>
       );
     }
