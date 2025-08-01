@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
 import { supabase } from "@/integrations/supabase/client";
-import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
+import { parsePaperSpecsFromNotes, formatPaperDisplay as formatPaperDisplayLegacy } from "@/utils/paperSpecUtils";
+import { parseUnifiedSpecifications, formatPaperDisplay, type LegacySpecifications, type NormalizedSpecification } from "@/utils/specificationParser";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
@@ -30,44 +31,66 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
 }) => {
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
   const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
+  const [legacyJobSpecs, setLegacyJobSpecs] = useState<LegacySpecifications | null>(null);
   const [paperLoading, setPaperLoading] = useState(false);
 
-  // Fetch paper specifications for the job
+  // Fetch both normalized and legacy specifications
   useEffect(() => {
-    const fetchPaperSpecs = async () => {
+    const fetchAllSpecs = async () => {
       if (!jobId) return;
       
       setPaperLoading(true);
       try {
-        const { data, error } = await supabase.rpc('get_job_specifications', {
+        // Fetch normalized specifications
+        const { data: normalizedData, error: normalizedError } = await supabase.rpc('get_job_specifications', {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs'
         });
 
-        if (error) throw error;
+        if (normalizedError) throw normalizedError;
         
-        let paperSpecs = (data || []).filter((spec: JobPrintSpecification) => 
+        let normalizedSpecs = (normalizedData || []).filter((spec: JobPrintSpecification) => 
           spec.category === 'paper_type' || spec.category === 'paper_weight'
         );
         
         // Filter by part assignment if specified (for virtual stage entries)
         if (partAssignment && partAssignment !== 'both') {
-          paperSpecs = paperSpecs.filter(spec => {
+          normalizedSpecs = normalizedSpecs.filter(spec => {
             const specPart = (spec.properties as any)?.part_assignment || 'both';
             return specPart === 'both' || specPart === partAssignment;
           });
         }
         
-        setPaperSpecs(paperSpecs);
+        setPaperSpecs(normalizedSpecs);
+
+        // Fetch legacy specifications from production_jobs
+        const { data: legacyData, error: legacyError } = await supabase
+          .from('production_jobs')
+          .select('paper_specifications, printing_specifications, finishing_specifications, delivery_specifications')
+          .eq('id', jobId)
+          .single();
+
+        if (legacyError && legacyError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.warn('Error fetching legacy specifications:', legacyError);
+        } else if (legacyData) {
+          // Cast Json types to the expected format
+          setLegacyJobSpecs({
+            paper_specifications: legacyData.paper_specifications as Record<string, any> || {},
+            printing_specifications: legacyData.printing_specifications as Record<string, any> || {},
+            finishing_specifications: legacyData.finishing_specifications as Record<string, any> || {},
+            delivery_specifications: legacyData.delivery_specifications as Record<string, any> || {}
+          });
+        }
+
       } catch (error) {
-        console.error('Error fetching paper specifications:', error);
+        console.error('Error fetching specifications:', error);
       } finally {
         setPaperLoading(false);
       }
     };
 
-    fetchPaperSpecs();
-  }, [jobId]);
+    fetchAllSpecs();
+  }, [jobId, partAssignment]);
 
   if (isLoading || paperLoading) {
     return (
@@ -93,17 +116,24 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       })
     : specifications;
 
-  // Get paper details for display - first try from job_print_specifications, then from notes
-  const paperType = paperSpecs.find(spec => spec.category === 'paper_type')?.display_name;
-  const paperWeight = paperSpecs.find(spec => spec.category === 'paper_weight')?.display_name;
-  let paperDisplay = [paperWeight, paperType].filter(Boolean).join(' ');
+  // Get unified paper specifications from both systems
+  const normalizedSpecs: NormalizedSpecification[] = paperSpecs.map(spec => ({
+    category: spec.category,
+    specification_id: spec.specification_id,
+    name: spec.name,
+    display_name: spec.display_name,
+    properties: spec.properties
+  }));
+
+  const unifiedSpecs = parseUnifiedSpecifications(legacyJobSpecs, normalizedSpecs);
+  let paperDisplay = formatPaperDisplay(unifiedSpecs);
   
-  // If no paper specs from job_print_specifications, try to extract from filtered notes
+  // If still no paper display, try to extract from filtered notes (legacy fallback)
   if (!paperDisplay && filteredSpecifications.length > 0) {
     const notesWithPaper = filteredSpecifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
     if (notesWithPaper) {
       const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
-      paperDisplay = formatPaperDisplay(parsedPaper) || '';
+      paperDisplay = formatPaperDisplayLegacy(parsedPaper) || '';
     }
   }
 
