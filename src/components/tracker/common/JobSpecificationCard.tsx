@@ -19,7 +19,7 @@ export const JobSpecificationCard: React.FC<JobSpecificationCardProps> = ({
   className = "",
   compact = false
 }) => {
-  const { specifications, isLoading, getSpecificationValue } = useJobSpecificationDisplay(jobId, jobTableName);
+  const { specifications, isLoading, getSpecificationValue, getPaperDisplay } = useJobSpecificationDisplay(jobId, jobTableName);
 
   if (isLoading) {
     return (
@@ -31,24 +31,26 @@ export const JobSpecificationCard: React.FC<JobSpecificationCardProps> = ({
     return null;
   }
 
+  // Get combined paper display
+  const paperDisplay = getPaperDisplay();
+  
   const mainSpecs = [
     { key: 'size', label: 'Size', icon: Package2 },
-    { key: 'paper_type', label: 'Paper', icon: FileText },
-    { key: 'paper_weight', label: 'Weight', icon: Layers },
+    { key: 'paper', label: 'Paper', value: paperDisplay, icon: FileText },
     { key: 'lamination_type', label: 'Lamination', icon: Palette }
   ];
 
   if (compact) {
     return (
       <div className={`flex flex-wrap gap-1 ${className}`}>
-        {mainSpecs.map(({ key, label, icon: Icon }) => {
-          const value = getSpecificationValue(key);
-          if (value === 'N/A') return null;
+        {mainSpecs.map(({ key, label, value, icon: Icon }) => {
+          const displayValue = value || getSpecificationValue(key);
+          if (displayValue === 'N/A') return null;
           
           return (
             <Badge key={key} variant="outline" className="text-xs">
               <Icon className="h-3 w-3 mr-1" />
-              {value}
+              {displayValue}
             </Badge>
           );
         })}
@@ -66,9 +68,9 @@ export const JobSpecificationCard: React.FC<JobSpecificationCardProps> = ({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          {mainSpecs.map(({ key, label, icon: Icon }) => {
-            const value = getSpecificationValue(key);
-            if (value === 'N/A') return null;
+          {mainSpecs.map(({ key, label, value, icon: Icon }) => {
+            const displayValue = value || getSpecificationValue(key);
+            if (displayValue === 'N/A') return null;
             
             return (
               <div key={key} className="space-y-1">
@@ -77,7 +79,7 @@ export const JobSpecificationCard: React.FC<JobSpecificationCardProps> = ({
                   {label}
                 </div>
                 <Badge variant="outline" className="text-xs font-medium">
-                  {value}
+                  {displayValue}
                 </Badge>
               </div>
             );

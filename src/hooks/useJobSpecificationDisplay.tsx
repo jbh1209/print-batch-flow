@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { parseUnifiedSpecifications, type LegacySpecifications, type NormalizedSpecification } from '@/utils/specificationParser';
+import { parseUnifiedSpecifications, formatPaperDisplay, type LegacySpecifications, type NormalizedSpecification } from '@/utils/specificationParser';
 
 interface JobSpecification {
   category: string;
@@ -136,6 +136,23 @@ export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string
   const getPaperWeight = () => getSpecificationValue('paper_weight');
   const getLamination = () => getSpecificationValue('lamination_type', 'None');
 
+  // Get formatted paper display (combines weight and type)
+  const getPaperDisplay = (): string => {
+    if (legacySpecs) {
+      const normalizedSpecs: NormalizedSpecification[] = specifications.map(spec => ({
+        category: spec.category,
+        specification_id: spec.specification_id,
+        name: spec.name,
+        display_name: spec.display_name,
+        properties: spec.properties
+      }));
+      
+      const unifiedSpecs = parseUnifiedSpecifications(legacySpecs, normalizedSpecs);
+      return formatPaperDisplay(unifiedSpecs) || 'N/A';
+    }
+    return 'N/A';
+  };
+
   return {
     specifications,
     isLoading,
@@ -144,6 +161,7 @@ export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string
     getPaperType,
     getPaperWeight,
     getLamination,
+    getPaperDisplay,
     getSpecificationValue,
     getJobSpecifications
   };

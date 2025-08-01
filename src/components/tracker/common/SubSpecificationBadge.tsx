@@ -5,6 +5,7 @@ import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStage
 import { supabase } from "@/integrations/supabase/client";
 import { parsePaperSpecsFromNotes, formatPaperDisplay as formatPaperDisplayLegacy } from "@/utils/paperSpecUtils";
 import { parseUnifiedSpecifications, formatPaperDisplay, type LegacySpecifications, type NormalizedSpecification } from "@/utils/specificationParser";
+import { isPrintingStage } from "@/utils/stageUtils";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
@@ -116,24 +117,32 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       })
     : specifications;
 
-  // Get unified paper specifications from both systems
-  const normalizedSpecs: NormalizedSpecification[] = paperSpecs.map(spec => ({
-    category: spec.category,
-    specification_id: spec.specification_id,
-    name: spec.name,
-    display_name: spec.display_name,
-    properties: spec.properties
-  }));
+  // Check if this is a printing stage that should show paper specs
+  const shouldShowPaperSpecs = filteredSpecifications.some(spec => 
+    isPrintingStage(spec.stage_name)
+  );
 
-  const unifiedSpecs = parseUnifiedSpecifications(legacyJobSpecs, normalizedSpecs);
-  let paperDisplay = formatPaperDisplay(unifiedSpecs);
-  
-  // If still no paper display, try to extract from filtered notes (legacy fallback)
-  if (!paperDisplay && filteredSpecifications.length > 0) {
-    const notesWithPaper = filteredSpecifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
-    if (notesWithPaper) {
-      const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
-      paperDisplay = formatPaperDisplayLegacy(parsedPaper) || '';
+  // Get unified paper specifications only for printing stages
+  let paperDisplay = '';
+  if (shouldShowPaperSpecs) {
+    const normalizedSpecs: NormalizedSpecification[] = paperSpecs.map(spec => ({
+      category: spec.category,
+      specification_id: spec.specification_id,
+      name: spec.name,
+      display_name: spec.display_name,
+      properties: spec.properties
+    }));
+
+    const unifiedSpecs = parseUnifiedSpecifications(legacyJobSpecs, normalizedSpecs);
+    paperDisplay = formatPaperDisplay(unifiedSpecs) || '';
+    
+    // If still no paper display, try to extract from filtered notes (legacy fallback)
+    if (!paperDisplay && filteredSpecifications.length > 0) {
+      const notesWithPaper = filteredSpecifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
+      if (notesWithPaper) {
+        const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
+        paperDisplay = formatPaperDisplayLegacy(parsedPaper) || '';
+      }
     }
   }
 
@@ -148,7 +157,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       );
     }
     const subSpec = primary.sub_specification || primary.stage_name;
-    const displayText = paperDisplay ? `${subSpec} | ${paperDisplay}` : subSpec;
+    const displayText = paperDisplay && shouldShowPaperSpecs ? `${subSpec} | ${paperDisplay}` : subSpec;
     
     return (
       <TooltipProvider>
@@ -170,7 +179,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
                   {spec.quantity && <div className="text-xs opacity-75">Qty: {spec.quantity}</div>}
                 </div>
               ))}
-              {paperDisplay && (
+              {paperDisplay && shouldShowPaperSpecs && (
                 <div className="text-sm border-t pt-1">
                   <strong>Paper:</strong> {paperDisplay}
                 </div>
@@ -205,7 +214,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
               </span>
             )}
           </div>
-          {paperDisplay && (
+          {paperDisplay && shouldShowPaperSpecs && (
             <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
               {paperDisplay}
             </Badge>
