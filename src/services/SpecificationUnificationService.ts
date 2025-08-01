@@ -17,6 +17,9 @@ interface UnifiedSpecificationResult {
   finishingSpec?: string;
   fullPaperSpec?: string;
   paperDisplay?: string;
+  // Part-specific paper specs
+  textPaperDisplay?: string;
+  coverPaperDisplay?: string;
   specifications: JobSpecification[];
   isLoading: boolean;
   error?: string;
@@ -104,6 +107,14 @@ class SpecificationUnificationService {
       result.finishingSpec = unifiedSpecs.finishingSpec;
       result.fullPaperSpec = unifiedSpecs.fullPaperSpec;
       result.paperDisplay = formatPaperDisplay(unifiedSpecs);
+      
+      // 5. Parse part-specific paper specifications from legacy data
+      if (legacySpecs?.paper_specifications) {
+        const { textPaper, coverPaper } = this.parsePartSpecificPapers(legacySpecs.paper_specifications);
+        result.textPaperDisplay = textPaper;
+        result.coverPaperDisplay = coverPaper;
+      }
+      
       result.isLoading = false;
 
       // Cache the result
@@ -128,6 +139,48 @@ class SpecificationUnificationService {
       };
       return errorResult;
     }
+  }
+
+  private parsePartSpecificPapers(paperSpecs: Record<string, any>): { textPaper?: string; coverPaper?: string } {
+    const keys = Object.keys(paperSpecs);
+    let textPaper: string | undefined;
+    let coverPaper: string | undefined;
+    
+    // Look for patterns like "Bond, 080gsm" and "Gloss, 250gsm"
+    keys.forEach(key => {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.includes('bond') && lowerKey.includes('080')) {
+        const match = key.match(/(.+?),\s*(\d+gsm)/);
+        if (match) {
+          textPaper = `${match[1]} ${match[2]}`;
+        }
+      } else if (lowerKey.includes('gloss') && lowerKey.includes('250')) {
+        const match = key.match(/(.+?),\s*(\d+gsm)/);
+        if (match) {
+          coverPaper = `${match[1]} ${match[2]}`;
+        }
+      }
+    });
+    
+    console.log(`📝 Parsed part-specific papers:`, { textPaper, coverPaper, keys });
+    return { textPaper, coverPaper };
+  }
+
+  getPartSpecificPaper(result: UnifiedSpecificationResult, partAssignment?: string): string {
+    if (!partAssignment || partAssignment === 'both') {
+      return result.paperDisplay || 'N/A';
+    }
+    
+    if (partAssignment.toLowerCase() === 'text' && result.textPaperDisplay) {
+      return result.textPaperDisplay;
+    }
+    
+    if (partAssignment.toLowerCase() === 'cover' && result.coverPaperDisplay) {
+      return result.coverPaperDisplay;
+    }
+    
+    // Fallback to general paper display
+    return result.paperDisplay || 'N/A';
   }
 
   getSpecificationValue(result: UnifiedSpecificationResult, category: string, defaultValue: string = 'N/A'): string {

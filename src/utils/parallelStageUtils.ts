@@ -108,17 +108,38 @@ export const getJobParallelStages = (
     const availableStages = allJobStages.filter(stage => {
       if (stage.status !== 'pending') return false;
       
-      // Check if this stage's order is next in sequence OR can run in parallel
+      // ENHANCED PARALLEL PROCESSING LOGIC:
+      // 1. Check if this stage's order is next in sequence
       const isNextSequential = stage.stage_order === maxCompletedOrder + 1;
       
-      // For part-specific stages (like Cover Laminating after HP 12000 Cover completion)
+      // 2. Check for part-specific stage progression
       const canRunBasedOnParts = completedStages.some(completed => {
-        return completed.part_assignment === stage.part_assignment ||
-               (completed.part_assignment === 'both' && stage.part_assignment !== 'both') ||
-               (stage.part_assignment === 'both' && completed.part_assignment !== 'both');
+        // Same part assignment can progress (Text -> Text, Cover -> Cover)
+        if (completed.part_assignment === stage.part_assignment) {
+          return true;
+        }
+        
+        // 'both' stages unlock part-specific stages
+        if (completed.part_assignment === 'both' && stage.part_assignment !== 'both') {
+          return true;
+        }
+        
+        // Part-specific stages can unlock 'both' stages if this is the right order
+        if (stage.part_assignment === 'both' && completed.part_assignment !== 'both') {
+          return stage.stage_order > completed.stage_order;
+        }
+        
+        return false;
       });
       
-      return isNextSequential || canRunBasedOnParts;
+      // 3. Special case: Text stages completing should unlock next Text stages
+      const isTextProgression = completedStages.some(completed => 
+        completed.part_assignment === 'text' && 
+        stage.part_assignment === 'text' &&
+        stage.stage_order > completed.stage_order
+      );
+      
+      return isNextSequential || canRunBasedOnParts || isTextProgression;
     });
     
     if (availableStages.length > 0) {
