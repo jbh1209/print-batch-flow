@@ -10,8 +10,8 @@ export const completeJobStage = async (jobId: string, stageId: string, notes?: s
     const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../../utils/proofStageUtils');
     const stageInfo = await getStageInfoForProofCheck(stageId);
     
-    // Use the existing parallel processing function for proper parallel workflow
-    const { data, error } = await supabase.rpc('advance_parallel_job_stage', {
+    // Use advance_job_stage which handles parallel processing but doesn't auto-activate next stages
+    const { data, error } = await supabase.rpc('advance_job_stage', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
       p_current_stage_id: stageId,
