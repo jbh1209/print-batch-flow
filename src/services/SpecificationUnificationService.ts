@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { parseUnifiedSpecifications, formatPaperDisplay, type LegacySpecifications, type NormalizedSpecification } from '@/utils/specificationParser';
 import { debugService } from './DebugService';
 
 interface JobSpecification {
@@ -11,13 +10,7 @@ interface JobSpecification {
 }
 
 interface UnifiedSpecificationResult {
-  paperType?: string;
-  paperWeight?: string;
-  paperSize?: string;
-  finishingSpec?: string;
-  fullPaperSpec?: string;
-  paperDisplay?: string;
-  // Part-specific paper specs
+  // Part-specific paper specs (the only ones needed)
   textPaperDisplay?: string;
   coverPaperDisplay?: string;
   specifications: JobSpecification[];
@@ -68,51 +61,21 @@ class SpecificationUnificationService {
       const specifications = normalizedData || [];
       result.specifications = specifications;
 
-      // 2. Fetch legacy specifications (fallback)
-      let legacySpecs: LegacySpecifications | null = null;
+      // 2. Fetch printing specifications for part-specific paper display
       if (jobTableName === 'production_jobs') {
-        const { data: legacyData, error: legacyError } = await supabase
+        const { data: printingData, error: printingError } = await supabase
           .from('production_jobs')
-          .select('paper_specifications, printing_specifications, finishing_specifications, delivery_specifications')
+          .select('printing_specifications')
           .eq('id', jobId)
           .single();
 
-        if (legacyError && legacyError.code !== 'PGRST116') {
-          console.warn('Error fetching legacy specifications:', legacyError);
-        } else if (legacyData) {
-          legacySpecs = {
-            paper_specifications: legacyData.paper_specifications as Record<string, any> || {},
-            printing_specifications: legacyData.printing_specifications as Record<string, any> || {},
-            finishing_specifications: legacyData.finishing_specifications as Record<string, any> || {},
-            delivery_specifications: legacyData.delivery_specifications as Record<string, any> || {}
-          };
+        if (printingError && printingError.code !== 'PGRST116') {
+          console.warn('Error fetching printing specifications:', printingError);
+        } else if (printingData?.printing_specifications) {
+          const { textPaper, coverPaper } = this.parsePartSpecificPapers(printingData.printing_specifications as Record<string, any>);
+          result.textPaperDisplay = textPaper;
+          result.coverPaperDisplay = coverPaper;
         }
-      }
-
-      // 3. Parse unified specifications using hierarchy
-      const normalizedSpecs: NormalizedSpecification[] = specifications.map(spec => ({
-        category: spec.category,
-        specification_id: spec.specification_id,
-        name: spec.name,
-        display_name: spec.display_name,
-        properties: spec.properties
-      }));
-
-      const unifiedSpecs = parseUnifiedSpecifications(legacySpecs, normalizedSpecs);
-
-      // 4. Build final result with all needed properties
-      result.paperType = unifiedSpecs.paperType;
-      result.paperWeight = unifiedSpecs.paperWeight;
-      result.paperSize = unifiedSpecs.paperSize;
-      result.finishingSpec = unifiedSpecs.finishingSpec;
-      result.fullPaperSpec = unifiedSpecs.fullPaperSpec;
-      result.paperDisplay = formatPaperDisplay(unifiedSpecs);
-      
-      // 5. Parse part-specific paper specifications from printing specifications (already mapped)
-      if (legacySpecs?.printing_specifications) {
-        const { textPaper, coverPaper } = this.parsePartSpecificPapers(legacySpecs.printing_specifications);
-        result.textPaperDisplay = textPaper;
-        result.coverPaperDisplay = coverPaper;
       }
       
       result.isLoading = false;
@@ -122,8 +85,8 @@ class SpecificationUnificationService {
 
       console.log(`✅ Unified specifications ready for ${cacheKey}:`, {
         normalizedCount: specifications.length,
-        hasLegacy: !!legacySpecs,
-        paperDisplay: result.paperDisplay
+        textPaper: result.textPaperDisplay,
+        coverPaper: result.coverPaperDisplay
       });
 
       debugService.logSpecificationFetch(jobId, 'unified', result);
@@ -169,42 +132,20 @@ class SpecificationUnificationService {
   }
 
   getPartSpecificPaper(result: UnifiedSpecificationResult, partAssignment?: string): string {
-    if (!partAssignment || partAssignment === 'both') {
-      return result.paperDisplay || 'N/A';
-    }
-    
-    if (partAssignment.toLowerCase() === 'text' && result.textPaperDisplay) {
+    if (partAssignment?.toLowerCase() === 'text' && result.textPaperDisplay) {
       return result.textPaperDisplay;
     }
     
-    if (partAssignment.toLowerCase() === 'cover' && result.coverPaperDisplay) {
+    if (partAssignment?.toLowerCase() === 'cover' && result.coverPaperDisplay) {
       return result.coverPaperDisplay;
     }
     
-    // Fallback to general paper display
-    return result.paperDisplay || 'N/A';
+    return 'N/A';
   }
 
   getSpecificationValue(result: UnifiedSpecificationResult, category: string, defaultValue: string = 'N/A'): string {
-    // Try normalized specifications first
     const spec = result.specifications.find(s => s.category === category);
-    if (spec?.display_name) {
-      return spec.display_name;
-    }
-
-    // Fallback to unified parsed values
-    switch (category) {
-      case 'paper_type':
-        return result.paperType || defaultValue;
-      case 'paper_weight':
-        return result.paperWeight || defaultValue;
-      case 'size':
-        return result.paperSize || defaultValue;
-      case 'lamination_type':
-        return result.finishingSpec || defaultValue;
-      default:
-        return defaultValue;
-    }
+    return spec?.display_name || defaultValue;
   }
 
   clearCache(jobId?: string, jobTableName?: string): void {

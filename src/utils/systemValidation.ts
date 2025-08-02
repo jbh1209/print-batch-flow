@@ -23,19 +23,21 @@ class SystemValidation {
         passed: !unifiedResult.error && unifiedResult.specifications.length >= 0,
         message: unifiedResult.error || `Successfully fetched ${unifiedResult.specifications.length} specifications`,
         data: { 
-          paperDisplay: unifiedResult.paperDisplay,
+          textPaper: unifiedResult.textPaperDisplay,
+          coverPaper: unifiedResult.coverPaperDisplay,
           specsCount: unifiedResult.specifications.length,
           hasError: !!unifiedResult.error 
         }
       });
 
       // Test 2: Paper display format
+      const hasAnyPaper = unifiedResult.textPaperDisplay || unifiedResult.coverPaperDisplay;
       results.push({
         component: 'PaperDisplay',
         test: 'paper_display_format',
-        passed: !!unifiedResult.paperDisplay && unifiedResult.paperDisplay !== 'N/A',
-        message: unifiedResult.paperDisplay ? `Paper display: ${unifiedResult.paperDisplay}` : 'No paper display available',
-        data: { paperDisplay: unifiedResult.paperDisplay }
+        passed: !!hasAnyPaper,
+        message: hasAnyPaper ? `Paper displays: Text=${unifiedResult.textPaperDisplay || 'N/A'}, Cover=${unifiedResult.coverPaperDisplay || 'N/A'}` : 'No paper display available',
+        data: { textPaper: unifiedResult.textPaperDisplay, coverPaper: unifiedResult.coverPaperDisplay }
       });
 
       // Test 3: Specification categories
