@@ -108,9 +108,9 @@ class SpecificationUnificationService {
       result.fullPaperSpec = unifiedSpecs.fullPaperSpec;
       result.paperDisplay = formatPaperDisplay(unifiedSpecs);
       
-      // 5. Parse part-specific paper specifications from legacy data
-      if (legacySpecs?.paper_specifications) {
-        const { textPaper, coverPaper } = this.parsePartSpecificPapers(legacySpecs.paper_specifications);
+      // 5. Parse part-specific paper specifications from printing specifications (already mapped)
+      if (legacySpecs?.printing_specifications) {
+        const { textPaper, coverPaper } = this.parsePartSpecificPapers(legacySpecs.printing_specifications);
         result.textPaperDisplay = textPaper;
         result.coverPaperDisplay = coverPaper;
       }
@@ -141,33 +141,31 @@ class SpecificationUnificationService {
     }
   }
 
-  private parsePartSpecificPapers(paperSpecs: Record<string, any>): { textPaper?: string; coverPaper?: string } {
-    const entries = Object.entries(paperSpecs);
-    
-    if (entries.length === 0) return {};
-    
-    // Extract paper display from key: "Sappi Laser Pre Print , 70gsm, White, 1000x445" -> "Sappi Laser Pre Print 70gsm"
-    const extractPaperDisplay = (key: string): string => {
-      const match = key.match(/^([^,]+),\s*(\d+gsm)/);
-      return match ? `${match[1].trim()} ${match[2]}` : key;
-    };
-    
-    // Sort by quantity to identify text (higher qty) vs cover (lower qty)
-    const sortedByQty = entries
-      .filter(([, spec]) => spec && typeof spec === 'object' && spec.qty)
-      .sort(([, a], [, b]) => (b.qty || 0) - (a.qty || 0));
-    
-    const textPaper = sortedByQty[0] ? extractPaperDisplay(sortedByQty[0][0]) : undefined;
-    const coverPaper = sortedByQty[1] ? extractPaperDisplay(sortedByQty[1][0]) : undefined;
-    
-    console.log(`📝 Parsed part-specific papers:`, { 
-      textPaper, 
-      coverPaper, 
-      entriesProcessed: entries.length,
-      sortedEntries: sortedByQty.map(([key, spec]) => ({ key, qty: spec.qty }))
+  private parsePartSpecificPapers(printingSpecs: Record<string, any>): { textPaper?: string; coverPaper?: string } {
+    if (!printingSpecs || Object.keys(printingSpecs).length === 0) {
+      return {};
+    }
+
+    const result: { textPaper?: string; coverPaper?: string } = {};
+
+    // Look for stages with _Text and _Cover suffixes to get their mapped paper specifications
+    Object.entries(printingSpecs).forEach(([stageName, stageData]) => {
+      if (typeof stageData === 'object' && stageData && 'paperSpecification' in stageData) {
+        if (stageName.endsWith('_Text')) {
+          result.textPaper = stageData.paperSpecification;
+        } else if (stageName.endsWith('_Cover')) {
+          result.coverPaper = stageData.paperSpecification;
+        }
+      }
     });
-    
-    return { textPaper, coverPaper };
+
+    console.log(`📝 Parsed mapped paper specifications:`, { 
+      textPaper: result.textPaper, 
+      coverPaper: result.coverPaper,
+      stagesProcessed: Object.keys(printingSpecs).length
+    });
+
+    return result;
   }
 
   getPartSpecificPaper(result: UnifiedSpecificationResult, partAssignment?: string): string {
