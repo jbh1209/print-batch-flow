@@ -142,27 +142,31 @@ class SpecificationUnificationService {
   }
 
   private parsePartSpecificPapers(paperSpecs: Record<string, any>): { textPaper?: string; coverPaper?: string } {
-    const keys = Object.keys(paperSpecs);
-    let textPaper: string | undefined;
-    let coverPaper: string | undefined;
+    const entries = Object.entries(paperSpecs);
     
-    // Look for patterns like "Bond, 080gsm" and "Gloss, 250gsm"
-    keys.forEach(key => {
-      const lowerKey = key.toLowerCase();
-      if (lowerKey.includes('bond') && lowerKey.includes('080')) {
-        const match = key.match(/(.+?),\s*(\d+gsm)/);
-        if (match) {
-          textPaper = `${match[1]} ${match[2]}`;
-        }
-      } else if (lowerKey.includes('gloss') && lowerKey.includes('250')) {
-        const match = key.match(/(.+?),\s*(\d+gsm)/);
-        if (match) {
-          coverPaper = `${match[1]} ${match[2]}`;
-        }
-      }
+    if (entries.length === 0) return {};
+    
+    // Extract paper display from key: "Sappi Laser Pre Print , 70gsm, White, 1000x445" -> "Sappi Laser Pre Print 70gsm"
+    const extractPaperDisplay = (key: string): string => {
+      const match = key.match(/^([^,]+),\s*(\d+gsm)/);
+      return match ? `${match[1].trim()} ${match[2]}` : key;
+    };
+    
+    // Sort by quantity to identify text (higher qty) vs cover (lower qty)
+    const sortedByQty = entries
+      .filter(([, spec]) => spec && typeof spec === 'object' && spec.qty)
+      .sort(([, a], [, b]) => (b.qty || 0) - (a.qty || 0));
+    
+    const textPaper = sortedByQty[0] ? extractPaperDisplay(sortedByQty[0][0]) : undefined;
+    const coverPaper = sortedByQty[1] ? extractPaperDisplay(sortedByQty[1][0]) : undefined;
+    
+    console.log(`📝 Parsed part-specific papers:`, { 
+      textPaper, 
+      coverPaper, 
+      entriesProcessed: entries.length,
+      sortedEntries: sortedByQty.map(([key, spec]) => ({ key, qty: spec.qty }))
     });
     
-    console.log(`📝 Parsed part-specific papers:`, { textPaper, coverPaper, keys });
     return { textPaper, coverPaper };
   }
 
