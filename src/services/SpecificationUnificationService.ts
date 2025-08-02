@@ -61,18 +61,20 @@ class SpecificationUnificationService {
       const specifications = normalizedData || [];
       result.specifications = specifications;
 
-      // 2. Fetch printing specifications for part-specific paper display
+  // 2. Fetch paper specifications from job stage instances notes
       if (jobTableName === 'production_jobs') {
-        const { data: printingData, error: printingError } = await supabase
-          .from('production_jobs')
-          .select('printing_specifications')
-          .eq('id', jobId)
-          .single();
+        const { data: stageData, error: stageError } = await supabase
+          .from('job_stage_instances')
+          .select('notes, part_assignment, production_stages!inner(name)')
+          .eq('job_id', jobId)
+          .eq('job_table_name', jobTableName)
+          .in('part_assignment', ['text', 'cover'])
+          .not('notes', 'is', null);
 
-        if (printingError && printingError.code !== 'PGRST116') {
-          console.warn('Error fetching printing specifications:', printingError);
-        } else if (printingData?.printing_specifications) {
-          const { textPaper, coverPaper } = this.parsePartSpecificPapers(printingData.printing_specifications as Record<string, any>);
+        if (stageError) {
+          console.warn('Error fetching stage notes:', stageError);
+        } else if (stageData && stageData.length > 0) {
+          const { textPaper, coverPaper } = this.parsePartSpecificPapersFromNotes(stageData);
           result.textPaperDisplay = textPaper;
           result.coverPaperDisplay = coverPaper;
         }
@@ -104,28 +106,28 @@ class SpecificationUnificationService {
     }
   }
 
-  private parsePartSpecificPapers(printingSpecs: Record<string, any>): { textPaper?: string; coverPaper?: string } {
-    if (!printingSpecs || Object.keys(printingSpecs).length === 0) {
-      return {};
-    }
-
+  private parsePartSpecificPapersFromNotes(stageData: any[]): { textPaper?: string; coverPaper?: string } {
     const result: { textPaper?: string; coverPaper?: string } = {};
 
-    // Look for stages with _Text and _Cover suffixes to get their mapped paper specifications
-    Object.entries(printingSpecs).forEach(([stageName, stageData]) => {
-      if (typeof stageData === 'object' && stageData && 'paperSpecification' in stageData) {
-        if (stageName.endsWith('_Text')) {
-          result.textPaper = stageData.paperSpecification;
-        } else if (stageName.endsWith('_Cover')) {
-          result.coverPaper = stageData.paperSpecification;
+    stageData.forEach(stage => {
+      if (stage.notes && stage.part_assignment) {
+        const { parsePaperSpecsFromNotes } = require('@/utils/paperSpecUtils');
+        const parsedSpecs = parsePaperSpecsFromNotes(stage.notes);
+        
+        if (parsedSpecs.fullPaperSpec) {
+          if (stage.part_assignment === 'text') {
+            result.textPaper = parsedSpecs.fullPaperSpec;
+          } else if (stage.part_assignment === 'cover') {
+            result.coverPaper = parsedSpecs.fullPaperSpec;
+          }
         }
       }
     });
 
-    console.log(`📝 Parsed mapped paper specifications:`, { 
+    console.log(`📝 Parsed paper specifications from notes:`, { 
       textPaper: result.textPaper, 
       coverPaper: result.coverPaper,
-      stagesProcessed: Object.keys(printingSpecs).length
+      stagesProcessed: stageData.length
     });
 
     return result;
