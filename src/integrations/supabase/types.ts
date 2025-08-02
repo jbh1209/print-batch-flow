@@ -2770,22 +2770,14 @@ export type Database = {
         }[]
       }
       get_user_accessible_jobs_with_batch_allocation: {
-        Args:
-          | {
-              p_user_id: string
-              p_permission_type?: string
-              p_status_filter?: string
-              p_stage_filter?: string
-            }
-          | {
-              p_user_id?: string
-              p_permission_type?: string
-              p_status_filter?: string
-              p_stage_filter?: string
-            }
+        Args: {
+          p_user_id?: string
+          p_permission_type?: string
+          p_status_filter?: string
+          p_stage_filter?: string
+        }
         Returns: {
           job_id: string
-          id: string
           wo_no: string
           customer: string
           status: string
@@ -2798,6 +2790,7 @@ export type Database = {
           current_stage_name: string
           current_stage_color: string
           current_stage_status: string
+          display_stage_name: string
           user_can_view: boolean
           user_can_edit: boolean
           user_can_work: boolean
@@ -2805,23 +2798,11 @@ export type Database = {
           workflow_progress: number
           total_stages: number
           completed_stages: number
-          display_stage_name: string
           qty: number
-          has_custom_workflow: boolean
-          manual_due_date: string
-          batch_category: string
-          is_in_batch_processing: boolean
           started_by: string
           started_by_name: string
           proof_emailed_at: string
-          is_batch_master: boolean
-          batch_name: string
-          constituent_job_count: number
-          current_stage_order: number
-          is_virtual_stage_entry: boolean
-          stage_instance_id: string
-          parent_job_id: string
-          part_assignment: string
+          batch_category: string
         }[]
       }
       get_user_accessible_stages: {
