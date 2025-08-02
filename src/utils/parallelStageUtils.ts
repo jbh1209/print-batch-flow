@@ -80,10 +80,10 @@ const canStageStartBasedOnDependencies = (pendingStage: any, allJobStages: any[]
     return canPartSpecificStageStart(pendingStage, allJobStages);
   }
   
-  // If stage has dependency group, it waits for synchronization (both cover and text to be ready)
-  // For now, we'll let the database function handle this logic when stages are completed
-  // But we can check if all stages in the dependency group are completed
-  return false; // Dependency group stages will be activated by the database function
+  // For dependency group stages, check if prerequisites for THIS part are met
+  // This allows part-specific stages (like Hunkeler for text) to proceed when text prerequisites are complete
+  // without waiting for cover stages to be ready
+  return canPartSpecificStageStart(pendingStage, allJobStages);
 };
 
 /**
