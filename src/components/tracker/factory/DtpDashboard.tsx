@@ -88,7 +88,7 @@ export const DtpDashboard: React.FC = () => {
           .eq('job_table_name', 'production_jobs')
           .in('status', ['active', 'pending']);
 
-        const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_accessible_jobs', {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_accessible_jobs_with_batch_allocation', {
           p_user_id: user.id,
           p_permission_type: 'work'
         });
