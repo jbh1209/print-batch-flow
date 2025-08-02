@@ -42,16 +42,6 @@ export const getJobParallelStages = (
   
   if (allJobStages.length === 0) return [];
   
-  console.log(`🔧 getJobParallelStages for job ${jobId}:`, {
-    totalStages: allJobStages.length,
-    stages: allJobStages.map(s => ({
-      name: s.stage_name,
-      order: s.stage_order,
-      status: s.status,
-      part: s.part_assignment
-    }))
-  });
-
   // Find current active stages - these are the ones currently being worked on
   const activeStages = allJobStages.filter(stage => stage.status === 'active');
   
@@ -70,14 +60,29 @@ export const getJobParallelStages = (
         part_assignment: stage.part_assignment || null
       }));
       
-    console.log(`🎯 Returning ${currentParallelStages.length} active stages at order ${currentOrder}`);
     return currentParallelStages;
   }
   
-  // No active stages - return empty array
-  // The database function `advance_job_stage_with_part_support` will handle
-  // activating the next appropriate stages when stages are completed
-  console.log(`📋 No active stages found for job ${jobId}`);
+  // Check for next parallel stages that should be activated
+  const pendingStages = allJobStages.filter(stage => stage.status === 'pending');
+  if (pendingStages.length > 0) {
+    // Find the next stage order that should be activated
+    const nextOrder = Math.min(...pendingStages.map(s => s.stage_order));
+    const nextParallelStages = pendingStages
+      .filter(stage => stage.stage_order === nextOrder)
+      .map(stage => ({
+        id: stage.id,
+        stage_id: stage.production_stage_id,
+        stage_name: stage.stage_name,
+        stage_color: stage.stage_color || '#6B7280',
+        stage_status: stage.status,
+        stage_order: stage.stage_order,
+        part_assignment: stage.part_assignment || null
+      }));
+      
+    return nextParallelStages;
+  }
+  
   return [];
 };
 
