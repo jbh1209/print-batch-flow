@@ -25,11 +25,11 @@ export interface DependencyChain {
 }
 
 /**
- * SIMPLIFIED PARALLEL STAGE PROCESSING
+ * ENHANCED PARALLEL STAGE PROCESSING WITH DEPENDENCY GROUPS
  * 
- * This function has been simplified to work with the new database-level
- * part-specific stage advancement. The complex parallel processing logic
- * has been moved to the database function `advance_job_stage_with_part_support`.
+ * This function identifies stages that are ready to be worked on based on:
+ * 1. Currently active stages (being worked on)
+ * 2. Pending stages whose prerequisites are met (ready to start)
  */
 export const getJobParallelStages = (
   jobStages: any[], 
@@ -42,31 +42,74 @@ export const getJobParallelStages = (
   
   if (allJobStages.length === 0) return [];
   
-  // Find current active stages - these are the ones currently being worked on
+  // Always include active stages
   const activeStages = allJobStages.filter(stage => stage.status === 'active');
   
-  if (activeStages.length > 0) {
-    // Return active stages for display
-    const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
-    const currentParallelStages = activeStages
-      .filter(stage => stage.stage_order === currentOrder)
-      .map(stage => ({
-        id: stage.id,
-        stage_id: stage.production_stage_id,
-        stage_name: stage.stage_name,
-        stage_color: stage.stage_color || '#6B7280',
-        stage_status: stage.status,
-        stage_order: stage.stage_order,
-        part_assignment: stage.part_assignment || null
-      }));
-      
-    return currentParallelStages;
+  // Find pending stages that are ready to start
+  const pendingStages = allJobStages.filter(stage => stage.status === 'pending');
+  const readyStages = [];
+  
+  for (const pendingStage of pendingStages) {
+    const isReadyToStart = canStageStartBasedOnDependencies(pendingStage, allJobStages);
+    if (isReadyToStart) {
+      readyStages.push(pendingStage);
+    }
   }
   
-  // No active stages found - return empty array
-  // The database function will handle activating next stages when stages are completed
+  // Combine active and ready stages
+  const availableStages = [...activeStages, ...readyStages];
   
-  return [];
+  // Convert to ParallelStageInfo format
+  return availableStages.map(stage => ({
+    id: stage.id,
+    stage_id: stage.production_stage_id,
+    stage_name: stage.stage_name,
+    stage_color: stage.stage_color || '#6B7280',
+    stage_status: stage.status,
+    stage_order: stage.stage_order,
+    part_assignment: stage.part_assignment || null
+  }));
+};
+
+/**
+ * Check if a pending stage can start based on dependency logic
+ */
+const canStageStartBasedOnDependencies = (pendingStage: any, allJobStages: any[]): boolean => {
+  // If stage has no dependency group, check if prerequisite stages for the same part are completed
+  if (!pendingStage.dependency_group) {
+    return canPartSpecificStageStart(pendingStage, allJobStages);
+  }
+  
+  // If stage has dependency group, it waits for synchronization (both cover and text to be ready)
+  // For now, we'll let the database function handle this logic when stages are completed
+  // But we can check if all stages in the dependency group are completed
+  return false; // Dependency group stages will be activated by the database function
+};
+
+/**
+ * Check if a part-specific stage can start (no dependency group)
+ */
+const canPartSpecificStageStart = (pendingStage: any, allJobStages: any[]): boolean => {
+  const partAssignment = pendingStage.part_assignment;
+  const stageOrder = pendingStage.stage_order;
+  
+  // Find the previous stage in the workflow for the same part assignment
+  const previousStages = allJobStages.filter(stage => 
+    stage.part_assignment === partAssignment &&
+    stage.stage_order < stageOrder &&
+    !stage.dependency_group // Only consider stages without dependency groups for linear progression
+  );
+  
+  if (previousStages.length === 0) {
+    // No previous stages for this part, so this can start
+    return true;
+  }
+  
+  // Check if the immediate previous stage for this part is completed
+  const sortedPreviousStages = previousStages.sort((a, b) => b.stage_order - a.stage_order);
+  const immediatePrevious = sortedPreviousStages[0];
+  
+  return immediatePrevious.status === 'completed';
 };
 
 export const shouldJobAppearInStage = (parallelStages: ParallelStageInfo[], targetStageId: string): boolean => {
