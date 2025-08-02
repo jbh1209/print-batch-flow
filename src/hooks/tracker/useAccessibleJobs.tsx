@@ -182,7 +182,6 @@ export const useAccessibleJobs = ({
       } else {
         individualJobs.push(processedJob);
       }
-    }
     });
 
     // Add batch master jobs first
@@ -208,7 +207,7 @@ export const useAccessibleJobs = ({
     });
 
     return processedJobs;
-  }, [rawJobs, jobStages, config.showParallelStagesSeparately]);
+  }, [rawJobs, jobStages]);
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
