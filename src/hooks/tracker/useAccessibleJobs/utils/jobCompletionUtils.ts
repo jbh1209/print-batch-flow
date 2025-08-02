@@ -10,7 +10,7 @@ export const completeJobStage = async (jobId: string, stageId: string, notes?: s
     const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../../utils/proofStageUtils');
     const stageInfo = await getStageInfoForProofCheck(stageId);
     
-    // Use the advance_job_stage RPC function to properly complete and advance the job
+    // Use the new part-specific advancement function for proper parallel processing
     const { data, error } = await supabase.rpc('advance_job_stage_with_parallel_support', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
