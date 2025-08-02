@@ -63,25 +63,8 @@ export const getJobParallelStages = (
     return currentParallelStages;
   }
   
-  // Check for next parallel stages that should be activated
-  const pendingStages = allJobStages.filter(stage => stage.status === 'pending');
-  if (pendingStages.length > 0) {
-    // Find the next stage order that should be activated
-    const nextOrder = Math.min(...pendingStages.map(s => s.stage_order));
-    const nextParallelStages = pendingStages
-      .filter(stage => stage.stage_order === nextOrder)
-      .map(stage => ({
-        id: stage.id,
-        stage_id: stage.production_stage_id,
-        stage_name: stage.stage_name,
-        stage_color: stage.stage_color || '#6B7280',
-        stage_status: stage.status,
-        stage_order: stage.stage_order,
-        part_assignment: stage.part_assignment || null
-      }));
-      
-    return nextParallelStages;
-  }
+  // No active stages found - return empty array
+  // The database function will handle activating next stages when stages are completed
   
   return [];
 };

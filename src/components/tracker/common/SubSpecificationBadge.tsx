@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
 import { specificationUnificationService } from "@/services/SpecificationUnificationService";
 import { isPrintingStage } from "@/utils/stageUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
@@ -25,7 +26,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const [unifiedSpecs, setUnifiedSpecs] = useState<any>(null);
   const [paperLoading, setPaperLoading] = useState(false);
 
-  // Fetch unified specifications using the new service
+  // Fetch unified specifications with paper details from stage notes
   useEffect(() => {
     const fetchUnifiedSpecs = async () => {
       if (!jobId) return;
@@ -33,6 +34,33 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       setPaperLoading(true);
       try {
         const result = await specificationUnificationService.getUnifiedSpecifications(jobId, 'production_jobs');
+        
+        // Also get paper specs from stage notes for the current stage
+        if (stageId && partAssignment) {
+          const { data: stageData } = await supabase
+            .from('job_stage_instances')
+            .select('notes, part_assignment')
+            .eq('job_id', jobId)
+            .eq('production_stage_id', stageId)
+            .eq('part_assignment', partAssignment)
+            .maybeSingle();
+            
+          if (stageData?.notes) {
+            // Parse paper info from notes (format: "Bond 080gsm" or "FBB 230gsm")
+            const paperMatch = stageData.notes.match(/([A-Za-z\s]+)\s+(\d+gsm)/);
+            if (paperMatch) {
+              const [, paperType, weight] = paperMatch;
+              // Set the paper display in the result
+              if (!result.textPaperDisplay) {
+                result.textPaperDisplay = `${paperType.trim()} ${weight}`;
+              }
+              if (!result.coverPaperDisplay) {
+                result.coverPaperDisplay = `${paperType.trim()} ${weight}`;
+              }
+            }
+          }
+        }
+        
         setUnifiedSpecs(result);
       } catch (error) {
         console.error('Error fetching unified specifications:', error);
@@ -42,7 +70,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     };
 
     fetchUnifiedSpecs();
-  }, [jobId, partAssignment]);
+  }, [jobId, stageId, partAssignment]);
 
   if (isLoading || paperLoading || !unifiedSpecs) {
     return (
@@ -87,7 +115,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     filteredSpecifications: filteredSpecifications.length,
     shouldShowPaperSpecs,
     hasUnifiedSpecs: !!unifiedSpecs,
-    paperDisplay: unifiedSpecs?.paperDisplay,
+    paperDisplay: unifiedSpecs?.textPaperDisplay || unifiedSpecs?.coverPaperDisplay,
     partAssignment
   });
 
@@ -106,7 +134,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       // Fallback to stage name if available
       return (
         <Badge variant="outline" className={`text-xs bg-gray-50 border-gray-200 text-gray-700 ${className}`}>
-          {unifiedSpecs?.paperDisplay || 'Stage'}
+          {unifiedSpecs?.textPaperDisplay || unifiedSpecs?.coverPaperDisplay || 'Stage'}
         </Badge>
       );
     }

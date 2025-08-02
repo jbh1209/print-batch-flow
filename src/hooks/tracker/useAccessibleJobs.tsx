@@ -135,110 +135,54 @@ export const useAccessibleJobs = ({
         ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
       
-      // Only create virtual entries if there are ACTUALLY multiple stages at the SAME current order
-      // AND user wants them shown separately
-      if (parallelStages.length > 1 && config.showParallelStagesSeparately) {
-        parallelStages.forEach(parallelStage => {
-          const virtualJob: AccessibleJob = {
-            job_id: job.job_id,
-            id: `${job.job_id}-${parallelStage.stage_id}`, // Unique virtual ID
-            wo_no: job.wo_no || '',
-            customer: job.customer || 'Unknown',
-            status: job.status || 'Unknown',
-            due_date: job.due_date || '',
-            reference: job.reference || '',
-            category_id: job.category_id || '',
-            category_name: job.category_name || 'No Category',
-            category_color: job.category_color || '#6B7280',
-            current_stage_id: parallelStage.stage_id,
-            current_stage_name: parallelStage.stage_name || 'No Stage',
-            current_stage_color: parallelStage.stage_color || '#6B7280',
-            current_stage_status: parallelStage.stage_status || 'pending',
-            display_stage_name: `${job.wo_no} - ${parallelStage.stage_name}`,
-            user_can_view: job.user_can_view || false,
-            user_can_edit: job.user_can_edit || false,
-            user_can_work: job.user_can_work || false,
-            user_can_manage: job.user_can_manage || false,
-            workflow_progress: job.workflow_progress || 0,
-            total_stages: job.total_stages || 0,
-            completed_stages: job.completed_stages || 0,
-            qty: job.qty || 0,
-            started_by: job.started_by || null,
-            started_by_name: job.started_by_name || null,
-            proof_emailed_at: job.proof_emailed_at || null,
-            batch_category: (job as any).batch_category || null,
-            is_in_batch_processing: job.status === 'In Batch Processing',
-            has_custom_workflow: (job as any).has_custom_workflow || false,
-            manual_due_date: (job as any).manual_due_date || null,
-            // No parallel_stages array for virtual entries - they represent single stages
-            current_stage_order: currentStageOrder,
-            // Mark as virtual entry for parallel stage
-            is_virtual_stage_entry: true,
-            stage_instance_id: parallelStage.id, // Use the unique job_stage_instances.id
-            parent_job_id: job.job_id,
-            part_assignment: parallelStage.part_assignment || 'unknown'
-          };
+      // Standard processing for all jobs - show jobs once with parallel stage indicators
+      const processedJob: AccessibleJob = {
+        job_id: job.job_id,
+        id: job.job_id, // Ensure backward compatibility
+        wo_no: job.wo_no || '',
+        customer: job.customer || 'Unknown',
+        status: job.status || 'Unknown',
+        due_date: job.due_date || '',
+        reference: job.reference || '',
+        category_id: job.category_id || '',
+        category_name: job.category_name || 'No Category',
+        category_color: job.category_color || '#6B7280',
+        current_stage_id: job.current_stage_id || '',
+        current_stage_name: job.current_stage_name || 'No Stage',
+        current_stage_color: stageColor,
+        current_stage_status: job.current_stage_status || 'pending',
+        display_stage_name: displayStage,
+        user_can_view: job.user_can_view || false,
+        user_can_edit: job.user_can_edit || false,
+        user_can_work: job.user_can_work || false,
+        user_can_manage: job.user_can_manage || false,
+        workflow_progress: job.workflow_progress || 0,
+        total_stages: job.total_stages || 0,
+        completed_stages: job.completed_stages || 0,
+        qty: job.qty || 0,
+        started_by: job.started_by || null,
+        started_by_name: job.started_by_name || null,
+        proof_emailed_at: job.proof_emailed_at || null,
+        batch_category: (job as any).batch_category || null,
+        is_in_batch_processing: job.status === 'In Batch Processing',
+        has_custom_workflow: (job as any).has_custom_workflow || false,
+        manual_due_date: (job as any).manual_due_date || null,
+        // Always add parallel_stages array for proper display
+        parallel_stages: parallelStages,
+        current_stage_order: currentStageOrder
+      };
 
-          // Handle batch/individual job categorization for virtual entries
-          if (virtualJob.wo_no.startsWith('BATCH-')) {
-            const batchName = virtualJob.wo_no.replace('BATCH-', '');
-            virtualJob.is_batch_master = true;
-            virtualJob.batch_name = batchName;
-            virtualJob.constituent_job_count = virtualJob.qty;
-            batchMasterJobs.set(`${batchName}-${parallelStage.stage_id}`, virtualJob);
-          } else {
-            individualJobs.push(virtualJob);
-          }
-        });
+      // Check if this is a batch master job (wo_no starts with "BATCH-")
+      if (processedJob.wo_no.startsWith('BATCH-')) {
+        const batchName = processedJob.wo_no.replace('BATCH-', '');
+        processedJob.is_batch_master = true;
+        processedJob.batch_name = batchName;
+        processedJob.constituent_job_count = processedJob.qty; // qty represents number of constituent jobs
+        batchMasterJobs.set(batchName, processedJob);
       } else {
-        // Standard processing for jobs without parallel stages or single stage
-        const processedJob: AccessibleJob = {
-          job_id: job.job_id,
-          id: job.job_id, // Ensure backward compatibility
-          wo_no: job.wo_no || '',
-          customer: job.customer || 'Unknown',
-          status: job.status || 'Unknown',
-          due_date: job.due_date || '',
-          reference: job.reference || '',
-          category_id: job.category_id || '',
-          category_name: job.category_name || 'No Category',
-          category_color: job.category_color || '#6B7280',
-          current_stage_id: job.current_stage_id || '',
-          current_stage_name: job.current_stage_name || 'No Stage',
-          current_stage_color: stageColor,
-          current_stage_status: job.current_stage_status || 'pending',
-          display_stage_name: displayStage,
-          user_can_view: job.user_can_view || false,
-          user_can_edit: job.user_can_edit || false,
-          user_can_work: job.user_can_work || false,
-          user_can_manage: job.user_can_manage || false,
-          workflow_progress: job.workflow_progress || 0,
-          total_stages: job.total_stages || 0,
-          completed_stages: job.completed_stages || 0,
-          qty: job.qty || 0,
-          started_by: job.started_by || null,
-          started_by_name: job.started_by_name || null,
-          proof_emailed_at: job.proof_emailed_at || null,
-          batch_category: (job as any).batch_category || null,
-          is_in_batch_processing: job.status === 'In Batch Processing',
-          has_custom_workflow: (job as any).has_custom_workflow || false,
-          manual_due_date: (job as any).manual_due_date || null,
-          // Only add parallel_stages if there are actually multiple stages
-          ...(parallelStages.length > 1 ? { parallel_stages: parallelStages } : {}),
-          current_stage_order: currentStageOrder
-        };
-
-        // Check if this is a batch master job (wo_no starts with "BATCH-")
-        if (processedJob.wo_no.startsWith('BATCH-')) {
-          const batchName = processedJob.wo_no.replace('BATCH-', '');
-          processedJob.is_batch_master = true;
-          processedJob.batch_name = batchName;
-          processedJob.constituent_job_count = processedJob.qty; // qty represents number of constituent jobs
-          batchMasterJobs.set(batchName, processedJob);
-        } else {
-          individualJobs.push(processedJob);
-        }
+        individualJobs.push(processedJob);
       }
+    }
     });
 
     // Add batch master jobs first
