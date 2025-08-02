@@ -94,7 +94,9 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   // Get part-specific paper specifications for printing stages
   let paperDisplay = '';
   if (shouldShowPaperSpecs && unifiedSpecs) {
-    paperDisplay = specificationUnificationService.getPartSpecificPaper(unifiedSpecs, partAssignment);
+    // Use part assignment from the actual stage data instead of the prop
+    const stagePartAssignment = filteredSpecifications[0]?.part_name;
+    paperDisplay = specificationUnificationService.getPartSpecificPaper(unifiedSpecs, stagePartAssignment);
   }
 
   if (compact) {
