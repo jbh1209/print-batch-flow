@@ -2390,23 +2390,6 @@ export type Database = {
         Returns: boolean
       }
       advance_job_stage_with_parallel_support: {
-        Args:
-          | {
-              p_job_id: string
-              p_job_table_name: string
-              p_current_stage_id: string
-              p_completed_by?: string
-              p_notes?: string
-            }
-          | {
-              p_job_id: string
-              p_job_table_name: string
-              p_current_stage_id: string
-              p_notes?: string
-            }
-        Returns: boolean
-      }
-      advance_job_stage_with_part_support: {
         Args: {
           p_job_id: string
           p_job_table_name: string
@@ -2434,16 +2417,6 @@ export type Database = {
         Returns: boolean
       }
       advance_parallel_job_stage: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_current_stage_id: string
-          p_completed_by?: string
-          p_notes?: string
-        }
-        Returns: boolean
-      }
-      advance_parallel_job_stage_no_auto_start: {
         Args: {
           p_job_id: string
           p_job_table_name: string
@@ -2501,26 +2474,12 @@ export type Database = {
           queue_processing_hours: number
         }[]
       }
-      can_stage_start_parallel_aware: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_stage_instance_id: string
-          p_part_assignment: string
-          p_dependency_group: string
-        }
-        Returns: boolean
-      }
       can_user_start_new_job: {
         Args: { p_user_id: string; p_department_id: string }
         Returns: boolean
       }
       check_admin_exists: {
         Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      check_and_activate_parallel_stages: {
-        Args: { p_job_id: string; p_job_table_name: string }
         Returns: boolean
       }
       check_dependency_completion: {
@@ -2727,10 +2686,10 @@ export type Database = {
           p_user_id?: string
           p_permission_type?: string
           p_status_filter?: string
+          p_stage_filter?: string
         }
         Returns: {
           job_id: string
-          id: string
           wo_no: string
           customer: string
           status: string
@@ -2752,35 +2711,20 @@ export type Database = {
           completed_stages: number
           display_stage_name: string
           qty: number
-          has_custom_workflow: boolean
-          manual_due_date: string
-          batch_category: string
-          is_in_batch_processing: boolean
           started_by: string
           started_by_name: string
           proof_emailed_at: string
-          is_batch_master: boolean
-          batch_name: string
-          constituent_job_count: number
-          current_stage_order: number
-          is_virtual_stage_entry: boolean
-          stage_instance_id: string
-          parent_job_id: string
-          part_assignment: string
         }[]
       }
       get_user_accessible_jobs_with_batch_allocation: {
-        Args:
-          | {
-              p_user_id: string
-              p_permission_type?: string
-              p_status_filter?: string
-              p_stage_filter?: string
-            }
-          | { p_user_id?: string }
+        Args: {
+          p_user_id?: string
+          p_permission_type?: string
+          p_status_filter?: string
+          p_stage_filter?: string
+        }
         Returns: {
           job_id: string
-          id: string
           wo_no: string
           customer: string
           status: string
@@ -2793,6 +2737,7 @@ export type Database = {
           current_stage_name: string
           current_stage_color: string
           current_stage_status: string
+          display_stage_name: string
           user_can_view: boolean
           user_can_edit: boolean
           user_can_work: boolean
@@ -2800,24 +2745,15 @@ export type Database = {
           workflow_progress: number
           total_stages: number
           completed_stages: number
-          display_stage_name: string
           qty: number
-          has_custom_workflow: boolean
-          manual_due_date: string
-          batch_category: string
-          is_in_batch_processing: boolean
           started_by: string
           started_by_name: string
           proof_emailed_at: string
-          is_batch_master: boolean
-          batch_name: string
-          constituent_job_count: number
-          parallel_stages: Json
-          current_stage_order: number
-          is_virtual_stage_entry: boolean
-          stage_instance_id: string
-          parent_job_id: string
-          part_assignment: string
+          has_custom_workflow: boolean
+          manual_due_date: string
+          manual_sla_days: number
+          categories: Json
+          sla_target_days: number
         }[]
       }
       get_user_accessible_stages: {
@@ -2990,16 +2926,6 @@ export type Database = {
           job_wo_no: string
           category_name: string
           stages_created: number
-        }[]
-      }
-      repair_missed_parallel_activations: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          job_id: string
-          wo_no: string
-          stage_name: string
-          stage_id: string
-          action_taken: string
         }[]
       }
       repair_missing_batch_references_fixed: {
