@@ -11,7 +11,6 @@ const TrackerLayout = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("orders");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
-  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [filters, setFilters] = useState<any>({});
   const [productionSidebarData, setProductionSidebarData] = useState<any>({
     consolidatedStages: [],
@@ -58,27 +57,8 @@ const TrackerLayout = () => {
     setFilters(newFilters);
   };
 
-  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
-    console.log('🎯 TrackerLayout: Stage selection changing', { 
-      from: { selectedStageId, selectedStageName }, 
-      to: { stageId, stageName } 
-    });
-    
-    // State synchronization guard - ensure atomic updates
-    if (stageId === null && stageName === null) {
-      // Clearing selection
-      setSelectedStageId(null);
-      setSelectedStageName(null);
-    } else if (stageId && stageName) {
-      // Setting new selection - ensure both are set together
-      setSelectedStageId(stageId);
-      setSelectedStageName(stageName);
-    } else {
-      // Defensive programming: don't allow mismatched state
-      console.warn('⚠️ Stage selection mismatch detected, clearing selection', { stageId, stageName });
-      setSelectedStageId(null);
-      setSelectedStageName(null);
-    }
+  const handleStageSelect = (stageId: string | null) => {
+    setSelectedStageId(stageId);
   };
 
   const setSidebarData = (data: any) => {
@@ -105,7 +85,6 @@ const TrackerLayout = () => {
               productionSidebarData={activeTab === "production" ? productionSidebarData : undefined}
               onStageSelect={activeTab === "production" ? handleStageSelect : undefined}
               selectedStageId={activeTab === "production" ? selectedStageId : undefined}
-              selectedStageName={activeTab === "production" ? selectedStageName : undefined}
             />
           )}
           
@@ -114,7 +93,6 @@ const TrackerLayout = () => {
               activeTab, 
               filters,
               selectedStageId,
-              selectedStageName,
               onStageSelect: handleStageSelect,
               onFilterChange: handleFilterChange,
               setSidebarData

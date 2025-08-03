@@ -3,7 +3,6 @@ import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { filterJobsByStage } from "@/utils/tracker/stageFiltering";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
@@ -20,16 +19,14 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 interface TrackerProductionContext {
   activeTab: string;
   filters: any;
-  selectedStageId?: string | null;
-  selectedStageName?: string | null;
-  onStageSelect?: (stageId: string | null, stageName: string | null) => void;
+  selectedStageId?: string;
+  onStageSelect?: (stageId: string | null) => void;
   onFilterChange?: (filters: any) => void;
   setSidebarData?: (data: any) => void;
 }
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
-  const { selectedStageId, selectedStageName, onStageSelect } = context;
   const isMobile = useIsMobile();
   
   const { 
@@ -46,41 +43,34 @@ const TrackerProduction = () => {
 
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Enhanced filtering with state validation
+  // Enhanced filtering to handle batch processing jobs and parallel stages
   const filteredJobs = useMemo(() => {
-    console.log('🔍 Filtering jobs:', { 
-      selectedStageId, 
-      selectedStageName, 
-      jobsCount: jobs.length 
-    });
-
-    // State validation guard
-    if (selectedStageId && !selectedStageName) {
-      console.warn('⚠️ State mismatch: stageId without stageName, showing all jobs');
-      return jobs;
-    }
-    
     if (!selectedStageName) {
-      console.log('📋 No stage selected, showing all jobs');
       return jobs;
     }
 
-    // Special handling for batch processing
-    if (selectedStageName === 'In Batch Processing') {
-      const batchJobs = jobs.filter(job => job.status === 'In Batch Processing');
-      console.log('🔄 Batch processing filter:', batchJobs.length);
-      return batchJobs;
-    }
-    
-    // Use unified filtering logic for all other stages
-    const filtered = filterJobsByStage(jobs, selectedStageName);
-    console.log('🎯 Stage filter result:', { stageName: selectedStageName, count: filtered.length });
-    return filtered;
-  }, [jobs, selectedStageName, selectedStageId]);
+    return jobs.filter(job => {
+      // Special handling for batch processing
+      if (selectedStageName === 'In Batch Processing') {
+        return job.status === 'In Batch Processing';
+      }
+      
+      // Check if job should appear in this stage based on parallel stages
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        return job.parallel_stages.some(stage => stage.stage_name === selectedStageName);
+      }
+      
+      // Fallback to original logic for jobs without parallel stage data
+      const currentStage = job.current_stage_name || job.display_stage_name;
+      return currentStage === selectedStageName;
+    });
+  }, [jobs, selectedStageName]);
 
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
@@ -143,6 +133,11 @@ const TrackerProduction = () => {
     return Array.from(stageMap.values());
   }, [jobs]);
 
+  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
+    console.log('Stage selected:', { stageId, stageName });
+    setSelectedStageId(stageId);
+    setSelectedStageName(stageName);
+  };
 
   const handleJobClick = (job: AccessibleJob) => {
     setSelectedJob(job);
@@ -253,7 +248,7 @@ const TrackerProduction = () => {
             consolidatedStages={consolidatedStages}
             selectedStageId={selectedStageId}
             selectedStageName={selectedStageName}
-            onStageSelect={onStageSelect}
+            onStageSelect={handleStageSelect}
           />
         </div>
 

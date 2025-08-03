@@ -145,7 +145,6 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
           </div>
           <SubSpecificationBadge 
             jobId={job.job_id}
-            partAssignment={job.is_virtual_stage_entry ? job.part_assignment : undefined}
             stageId={stageContext.stageId}
             compact={false}
           />

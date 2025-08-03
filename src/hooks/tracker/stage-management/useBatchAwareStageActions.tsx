@@ -101,10 +101,11 @@ export const useBatchAwareStageActions = () => {
       const stageInfo = await getStageInfoForProofCheck(stageId);
       
       // Complete the stage using the standard advancement function
-      const { error: advanceError } = await supabase.rpc('advance_job_stage_with_parallel_support', {
+      const { error: advanceError } = await supabase.rpc('advance_job_stage', {
         p_job_id: options.jobId,
         p_job_table_name: options.jobTableName,
         p_current_stage_id: stageId,
+        p_completed_by: user?.id,
         p_notes: notes
       });
 

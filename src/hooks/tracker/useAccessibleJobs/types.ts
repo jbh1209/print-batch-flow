@@ -1,13 +1,11 @@
 
 
 export interface ParallelStageInfo {
-  id: string; // Unique job_stage_instances.id
   stage_id: string;
   stage_name: string;
   stage_color: string;
   stage_status: string;
   stage_order: number;
-  part_assignment?: string;
 }
 
 export interface AccessibleJob {
@@ -49,11 +47,6 @@ export interface AccessibleJob {
   // Parallel stages support
   parallel_stages?: ParallelStageInfo[];
   current_stage_order?: number;
-  // Virtual stage entry support for parallel workflows
-  is_virtual_stage_entry?: boolean;
-  stage_instance_id?: string;
-  parent_job_id?: string;
-  part_assignment?: string;
 }
 
 export interface UseAccessibleJobsOptions {

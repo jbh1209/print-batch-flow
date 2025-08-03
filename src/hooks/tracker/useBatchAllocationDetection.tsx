@@ -24,7 +24,7 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
       console.log('🔍 Fetching batch allocation jobs...');
       
       // Get jobs in Batch Allocation stage that are ready for batching
-      const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_batch_allocation', {
+      const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
         p_permission_type: 'work'
       });
 
