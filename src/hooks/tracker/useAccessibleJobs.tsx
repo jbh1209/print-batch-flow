@@ -250,12 +250,36 @@ export const useAccessibleJobs = ({
         throw new Error('Stage ID is required to complete job');
       }
 
-      const { error } = await supabase.rpc('advance_job_stage', {
-        p_job_id: jobId,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: stageId,
-        p_completed_by: user?.id
-      });
+      // Check if this job has parallel components (cover/text workflow)
+      const { data: parallelCheck } = await supabase
+        .from('job_stage_instances')
+        .select('part_assignment')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .neq('part_assignment', 'both');
+      
+      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
+      
+      let error;
+      if (hasParallelComponents) {
+        // Use parallel-aware advancement for cover/text jobs
+        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: stageId,
+          p_completed_by: user?.id
+        });
+        error = result.error;
+      } else {
+        // Use standard advancement for regular jobs
+        const result = await supabase.rpc('advance_job_stage', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: stageId,
+          p_completed_by: user?.id
+        });
+        error = result.error;
+      }
 
       if (error) throw error;
 

@@ -17,6 +17,8 @@ export interface JobStageInstance {
   completed_by: string | null;
   notes: string | null;
   part_name: string | null;
+  part_assignment: string | null;
+  dependency_group: string | null;
   
   printer_id: string | null;
   qr_scan_data: any;
@@ -178,12 +180,41 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       const currentStage = jobStages.find(stage => stage.production_stage_id === currentStageId);
       const isProofStage = currentStage?.production_stage?.name?.toLowerCase().includes('proof');
       
-      const { data, error } = await supabase.rpc('advance_job_stage', {
-        p_job_id: jobId,
-        p_job_table_name: jobTableName,
-        p_current_stage_id: currentStageId,
-        p_notes: notes || null
+      // Check if this job has parallel components (cover/text workflow)
+      const parallelComponents = jobStages.filter(stage => 
+        stage.part_assignment && stage.part_assignment !== 'both'
+      );
+      const hasParallelComponents = parallelComponents.length > 0;
+      
+      // Use parallel-aware advancement for jobs with cover/text components
+      console.log(`🔄 Job advancement decision`, {
+        hasParallelComponents,
+        parallelComponentsFound: parallelComponents.length,
+        functionToUse: hasParallelComponents ? 'advance_parallel_job_stage' : 'advance_job_stage'
       });
+      
+      let data, error;
+      if (hasParallelComponents) {
+        // Use parallel-aware advancement for cover/text jobs
+        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
+          p_job_id: jobId,
+          p_job_table_name: jobTableName,
+          p_current_stage_id: currentStageId,
+          p_notes: notes || null
+        });
+        data = result.data;
+        error = result.error;
+      } else {
+        // Use standard advancement for regular jobs
+        const result = await supabase.rpc('advance_job_stage', {
+          p_job_id: jobId,
+          p_job_table_name: jobTableName,
+          p_current_stage_id: currentStageId,
+          p_notes: notes || null
+        });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error('❌ Job stage advancement error:', error);

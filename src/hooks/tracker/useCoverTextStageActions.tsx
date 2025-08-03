@@ -49,8 +49,8 @@ export const useCoverTextStageActions = () => {
         }
       }
 
-      // Use standard advancement - dependencies are complete or no dependencies
-      const { error } = await supabase.rpc('advance_job_stage', {
+      // Use parallel-aware advancement for cover/text workflows
+      const { error } = await supabase.rpc('advance_parallel_job_stage' as any, {
         p_job_id: options.jobId,
         p_job_table_name: 'production_jobs',
         p_current_stage_id: options.stageId,
