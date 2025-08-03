@@ -250,10 +250,10 @@ export const useAccessibleJobs = ({
         throw new Error('Stage ID is required to complete job');
       }
 
-      // Check if this job has parallel components (cover/text workflow)
+      // Phase 4: Fix UI Display Logic - Enhanced parallel stage detection
       const { data: parallelCheck } = await supabase
         .from('job_stage_instances')
-        .select('part_assignment')
+        .select('part_assignment, dependency_group, status, stage_order')
         .eq('job_id', jobId)
         .eq('job_table_name', 'production_jobs')
         .neq('part_assignment', 'both');

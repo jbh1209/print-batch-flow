@@ -2389,6 +2389,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      advance_job_stage_with_parallel_support: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
       advance_job_stage_with_parts: {
         Args: {
           p_job_id: string
@@ -2404,6 +2413,16 @@ export type Database = {
           p_job_id: string
           p_job_table_name?: string
           p_completed_by?: string
+        }
+        Returns: boolean
+      }
+      advance_parallel_job_stage: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_completed_by?: string
+          p_notes?: string
         }
         Returns: boolean
       }
@@ -2524,6 +2543,15 @@ export type Database = {
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
         Returns: Json
+      }
+      fix_existing_cover_text_workflows: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          fixed_job_id: string
+          wo_no: string
+          dependency_group_assigned: string
+          stages_updated: number
+        }[]
       }
       get_admin_status: {
         Args: { check_user_id?: string }
@@ -2778,11 +2806,18 @@ export type Database = {
         Returns: boolean
       }
       initialize_custom_job_stages_with_specs: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_stage_mappings: Json
-        }
+        Args:
+          | {
+              p_job_id: string
+              p_job_table_name: string
+              p_category_id: string
+              p_part_assignments?: Json
+            }
+          | {
+              p_job_id: string
+              p_job_table_name: string
+              p_stage_mappings: Json
+            }
         Returns: boolean
       }
       initialize_job_stages: {

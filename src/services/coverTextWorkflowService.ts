@@ -101,7 +101,7 @@ export class CoverTextWorkflowService {
       const stage = categoryStage.production_stages;
       const isFirstStage = index === 0;
       
-      // Determine if this stage needs dependency synchronization
+      // Phase 3: Fix Stage Instance Creation - Only assign dependency groups to true synchronization points
       const needsSynchronization = this.shouldWaitForDependency(stage.name);
       
       const stageInstance = {
@@ -112,6 +112,8 @@ export class CoverTextWorkflowService {
         stage_order: categoryStage.stage_order,
         part_name: componentName,
         part_type: 'printing_component',
+        part_assignment: componentName.toLowerCase(), // Cover or Text
+        // Independent finishing stages get null dependency_group, synchronization stages get the group
         dependency_group: needsSynchronization ? dependencyGroupId : null,
         quantity: component.printing.wo_qty,
         status: isFirstStage ? 'active' : 'pending',
