@@ -20,6 +20,7 @@ export interface JobStageInstance {
   proof_approved_manually_at?: string;
   stage_name?: string;
   stage_color?: string;
+  estimated_duration_minutes?: number;
   production_stages?: {
     id: string;
     name: string;
