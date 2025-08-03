@@ -2771,13 +2771,13 @@ export type Database = {
       }
       get_user_accessible_jobs_with_batch_allocation: {
         Args:
-          | { p_user_id?: string }
           | {
-              p_user_id?: string
+              p_user_id: string
               p_permission_type?: string
               p_status_filter?: string
               p_stage_filter?: string
             }
+          | { p_user_id?: string }
         Returns: {
           job_id: string
           id: string
@@ -2812,6 +2812,7 @@ export type Database = {
           is_batch_master: boolean
           batch_name: string
           constituent_job_count: number
+          parallel_stages: Json
           current_stage_order: number
           is_virtual_stage_entry: boolean
           stage_instance_id: string
