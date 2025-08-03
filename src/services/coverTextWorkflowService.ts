@@ -102,7 +102,7 @@ export class CoverTextWorkflowService {
       const isFirstStage = index === 0;
       
       // Phase 3: Fix Stage Instance Creation - Only assign dependency groups to true synchronization points
-      const needsSynchronization = this.shouldWaitForDependency(stage.name);
+      const needsSynchronization = this.shouldWaitForDependency(stage.supports_parts);
       
       const stageInstance = {
         job_id: jobId,
@@ -138,47 +138,9 @@ export class CoverTextWorkflowService {
     return stageInstances;
   }
 
-  private shouldWaitForDependency(stageName: string): boolean {
-    // Independent finishing stages that should NOT wait for synchronization
-    // These stages work on individual components and can progress independently
-    const independentStages = [
-      'uv varnishing',
-      'hunkeler',
-      'laminating',
-      'cutting',
-      'folding',
-      'die cutting',
-      'embossing',
-      'foiling'
-    ];
-
-    // Check if this is an independent stage first
-    const isIndependentStage = independentStages.some(independentStage => 
-      stageName.toLowerCase().includes(independentStage.toLowerCase())
-    );
-
-    if (isIndependentStage) {
-      return false; // Independent stages don't need dependency groups
-    }
-
-    // True synchronization stages that require both cover AND text to be complete
-    const synchronizationStages = [
-      'perfect binding',
-      'saddle stitching', 
-      'gathering',
-      'binding',
-      'final trimming',
-      'final trim',
-      'packaging',
-      'packing',
-      'shipping',
-      'dispatch',
-      'delivery',
-      'collection'
-    ];
-
-    return synchronizationStages.some(syncStage => 
-      stageName.toLowerCase().includes(syncStage.toLowerCase())
-    );
+  private shouldWaitForDependency(stageSupportsparts: boolean): boolean {
+    // If stage supports parts (independent finishing stages), no dependency group needed
+    // If stage doesn't support parts (complete job stages), dependency group needed for synchronization
+    return !stageSupportsparts;
   }
 }
