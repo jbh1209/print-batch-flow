@@ -143,15 +143,9 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
     const DAILY_CAPACITY = 480; // 8 hours in minutes
     
-    // Get all jobs that need to be completed within this week
-    const weekEndDate = addDays(weekStart, 4); // Friday
+    // Get all jobs for scheduling (not just those due this week)
     const jobsForWeek = jobs
-      .filter(job => {
-        if (!job.due_date) return false;
-        const dueDate = new Date(job.due_date);
-        const weekStartDate = weekStart;
-        return dueDate >= weekStartDate && dueDate <= weekEndDate;
-      })
+      .filter(job => job.due_date)
       .map(job => {
         // Get estimated minutes from job stage instances
         const estimatedMinutes = job.job_stage_instances?.reduce((total, instance) => {
@@ -200,18 +194,12 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
       is_working_day: true
     }));
 
-    // Smart scheduling: fill available capacity starting from earliest day
+    // Simple sequential scheduling: fill days from Monday onwards
     jobsForWeek.forEach(job => {
       let remainingWork = job.estimated_minutes;
-      let scheduledToDate: string | null = null;
       
-      // Find the latest day this job can start to meet its due date
-      const dueDateStr = format(job.due_date, 'yyyy-MM-dd');
-      const dueDayIndex = dailySchedules.findIndex(day => day.date === dueDateStr);
-      const maxStartDay = dueDayIndex >= 0 ? dueDayIndex : dailySchedules.length - 1;
-      
-      // Try to schedule from the earliest available day that allows completion by due date
-      for (let dayIndex = 0; dayIndex <= maxStartDay && remainingWork > 0; dayIndex++) {
+      // Fill available capacity starting from Monday
+      for (let dayIndex = 0; dayIndex < dailySchedules.length && remainingWork > 0; dayIndex++) {
         const day = dailySchedules[dayIndex];
         
         if (day.availableCapacity > 0) {
@@ -228,27 +216,10 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
           day.availableCapacity -= workToAssign;
           day.total_minutes += workToAssign;
           day.total_hours = Math.round(day.total_minutes / 60 * 100) / 100;
-          day.utilization = Math.round((day.total_minutes / day.capacity_minutes) * 100);
+          day.utilization = Math.round((day.total_minutes / DAILY_CAPACITY) * 100);
           
           remainingWork -= workToAssign;
-          scheduledToDate = day.date;
         }
-      }
-      
-      // If there's still work remaining and we couldn't fit it, create overflow
-      if (remainingWork > 0) {
-        const lastDay = dailySchedules[maxStartDay];
-        const overflowJob: ScheduledJob = {
-          ...job,
-          estimated_minutes: remainingWork,
-          estimated_hours: Math.round(remainingWork / 60 * 100) / 100,
-          scheduled_date: lastDay.date
-        };
-        
-        lastDay.jobs.push(overflowJob);
-        lastDay.total_minutes += remainingWork;
-        lastDay.total_hours = Math.round(lastDay.total_minutes / 60 * 100) / 100;
-        lastDay.utilization = Math.round((lastDay.total_minutes / lastDay.capacity_minutes) * 100);
       }
     });
 
@@ -420,7 +391,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         >
           {viewMode === 'cards' ? (
             <div className="overflow-x-auto">
-              <div className="grid grid-cols-5 gap-3 min-w-[1200px] lg:min-w-0 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                 {weekSchedule.map((day) => {
                   const dayDate = new Date(day.date);
                   const dayName = format(dayDate, 'EEE');
