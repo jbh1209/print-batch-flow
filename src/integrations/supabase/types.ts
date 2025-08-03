@@ -2770,19 +2770,12 @@ export type Database = {
         }[]
       }
       get_user_accessible_jobs_with_batch_allocation: {
-        Args:
-          | {
-              p_user_id?: string
-              p_permission_type?: string
-              p_status_filter?: string
-              p_stage_filter?: string
-            }
-          | {
-              p_user_id?: string
-              p_permission_type?: string
-              p_status_filter?: string
-              p_stage_filter?: string
-            }
+        Args: {
+          p_user_id?: string
+          p_permission_type?: string
+          p_status_filter?: string
+          p_stage_filter?: string
+        }
         Returns: {
           job_id: string
           id: string
