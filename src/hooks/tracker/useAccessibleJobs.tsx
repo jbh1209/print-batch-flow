@@ -73,10 +73,14 @@ export const useAccessibleJobs = ({
           production_stage_id,
           status,
           stage_order,
+          unique_stage_key,
+          part_assignment,
+          dependency_group,
           production_stages!inner (
             id,
             name,
-            color
+            color,
+            supports_parts
           )
         `)
         .in('job_id', jobIds)
@@ -93,8 +97,12 @@ export const useAccessibleJobs = ({
         production_stage_id: stage.production_stage_id,
         status: stage.status,
         stage_order: stage.stage_order,
+        unique_stage_key: stage.unique_stage_key,
+        part_assignment: stage.part_assignment,
+        dependency_group: stage.dependency_group,
         stage_name: stage.production_stages?.name,
-        stage_color: stage.production_stages?.color
+        stage_color: stage.production_stages?.color,
+        production_stages: stage.production_stages
       })) || [];
     },
     enabled: !!user?.id && !!rawJobs?.length,

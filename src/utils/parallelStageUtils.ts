@@ -6,6 +6,8 @@ export interface ParallelStageInfo {
   stage_color: string;
   stage_status: string;
   stage_order: number;
+  unique_stage_key?: string;
+  production_stage_id?: string;
   is_critical_path?: boolean;
   dependency_type?: 'sequential' | 'parallel' | 'merge';
   predecessor_stages?: string[];
@@ -46,26 +48,62 @@ export const getJobParallelStages = (
   
   if (activeStages.length === 0) return [];
   
-  // Get the current stage order (lowest order among active/pending stages)
-  const currentOrder = Math.min(...activeStages.map(s => s.stage_order));
+  // Group stages by dependency group and part assignment
+  const independentStages = activeStages.filter(stage => 
+    !stage.dependency_group && stage.production_stages?.supports_parts
+  );
   
-  // Return all stages at the current order level (parallel stages)
-  return activeStages
-    .filter(stage => stage.stage_order === currentOrder)
-    .map(stage => ({
-      stage_id: stage.production_stage_id,
-      stage_name: stage.stage_name,
-      stage_color: stage.stage_color || '#6B7280',
-      stage_status: stage.status,
-      stage_order: stage.stage_order
-    }));
+  const dependentStages = activeStages.filter(stage => 
+    stage.dependency_group || !stage.production_stages?.supports_parts
+  );
+  
+  const availableStages: any[] = [];
+  
+  // For independent stages (supports_parts = true), group by part assignment
+  if (independentStages.length > 0) {
+    const partGroups = independentStages.reduce((groups, stage) => {
+      const partKey = stage.part_assignment || 'both';
+      if (!groups[partKey]) groups[partKey] = [];
+      groups[partKey].push(stage);
+      return groups;
+    }, {} as Record<string, any[]>);
+    
+    // For each part, find the next available stage(s)
+    Object.values(partGroups).forEach((partStages: any[]) => {
+      const minOrder = Math.min(...partStages.map((s: any) => s.stage_order));
+      const nextStages = partStages.filter((stage: any) => stage.stage_order === minOrder);
+      availableStages.push(...nextStages);
+    });
+  }
+  
+  // For dependent stages, use original logic (lowest order)
+  if (dependentStages.length > 0) {
+    const currentOrder = Math.min(...dependentStages.map(s => s.stage_order));
+    const nextDependentStages = dependentStages.filter(stage => stage.stage_order === currentOrder);
+    availableStages.push(...nextDependentStages);
+  }
+  
+  // Return mapped stage info with unique identifiers
+  return availableStages.map(stage => ({
+    stage_id: stage.unique_stage_key || stage.production_stage_id,
+    stage_name: stage.production_stages?.name || stage.stage_name,
+    stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
+    stage_status: stage.status,
+    stage_order: stage.stage_order,
+    unique_stage_key: stage.unique_stage_key,
+    production_stage_id: stage.production_stage_id
+  }));
 };
 
 export const shouldJobAppearInStage = (
   parallelStages: ParallelStageInfo[],
   targetStageId: string
 ): boolean => {
-  return parallelStages.some(stage => stage.stage_id === targetStageId);
+  return parallelStages.some(stage => 
+    stage.stage_id === targetStageId || 
+    stage.production_stage_id === targetStageId ||
+    stage.unique_stage_key === targetStageId
+  );
 };
 
 export const getJobsForStage = (
