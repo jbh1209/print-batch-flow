@@ -137,14 +137,42 @@ export class CoverTextWorkflowService {
   }
 
   private shouldWaitForDependency(stageName: string): boolean {
-    // Stages that should wait for both cover and text to complete
+    // Independent finishing stages that should NOT wait for synchronization
+    // These stages work on individual components and can progress independently
+    const independentStages = [
+      'uv varnishing',
+      'hunkeler',
+      'laminating',
+      'cutting',
+      'folding',
+      'die cutting',
+      'embossing',
+      'foiling'
+    ];
+
+    // Check if this is an independent stage first
+    const isIndependentStage = independentStages.some(independentStage => 
+      stageName.toLowerCase().includes(independentStage.toLowerCase())
+    );
+
+    if (isIndependentStage) {
+      return false; // Independent stages don't need dependency groups
+    }
+
+    // True synchronization stages that require both cover AND text to be complete
     const synchronizationStages = [
+      'perfect binding',
+      'saddle stitching', 
       'gathering',
       'binding',
-      'delivery',
-      'collection',
+      'final trimming',
+      'final trim',
+      'packaging',
       'packing',
-      'dispatch'
+      'shipping',
+      'dispatch',
+      'delivery',
+      'collection'
     ];
 
     return synchronizationStages.some(syncStage => 
