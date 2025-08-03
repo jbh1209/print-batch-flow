@@ -2816,6 +2816,12 @@ export type Database = {
           | {
               p_job_id: string
               p_job_table_name: string
+              p_custom_workflow: Json
+              p_dependency_group_id?: string
+            }
+          | {
+              p_job_id: string
+              p_job_table_name: string
               p_stage_mappings: Json
             }
         Returns: boolean
