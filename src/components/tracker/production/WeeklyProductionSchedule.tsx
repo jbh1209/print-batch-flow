@@ -137,60 +137,126 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     return shifts;
   };
 
-  // Create weekly schedule from filtered jobs
+  // Smart job scheduling algorithm that fills available capacity across days
   const weekSchedule = useMemo(() => {
     const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+    const DAILY_CAPACITY = 480; // 8 hours in minutes
     
-    return weekDays.map(date => {
-      const dateStr = format(date, 'yyyy-MM-dd');
+    // Get all jobs that need to be completed within this week
+    const weekEndDate = addDays(weekStart, 4); // Friday
+    const jobsForWeek = jobs
+      .filter(job => {
+        if (!job.due_date) return false;
+        const dueDate = new Date(job.due_date);
+        const weekStartDate = weekStart;
+        return dueDate >= weekStartDate && dueDate <= weekEndDate;
+      })
+      .map(job => {
+        // Get estimated minutes from job stage instances
+        const estimatedMinutes = job.job_stage_instances?.reduce((total, instance) => {
+          return total + (instance.estimated_duration_minutes || 0);
+        }, 0) || Math.max(240, (job.qty || 100) * 2); // Fallback: 2 mins per unit, min 4 hours
+
+        return {
+          id: job.job_id,
+          wo_no: job.wo_no || 'Unknown',
+          customer: job.customer || 'Unknown',
+          status: job.status || 'Unknown',
+          estimated_hours: Math.round(estimatedMinutes / 60 * 100) / 100,
+          estimated_minutes: estimatedMinutes,
+          due_date: new Date(job.due_date),
+          priority: (job as any).proof_approved_manually_at ? 
+            new Date((job as any).proof_approved_manually_at).getTime() : 
+            ((job as any).is_expedited ? 1 : Date.now()),
+          is_expedited: (job as any).is_expedited || false,
+          current_stage: job.display_stage_name,
+          accessibleJob: job
+        };
+      })
+      .sort((a, b) => {
+        // Sort by expedited first, then by proof approval date, then by due date
+        if (a.is_expedited !== b.is_expedited) {
+          return a.is_expedited ? -1 : 1;
+        }
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return a.due_date.getTime() - b.due_date.getTime();
+      });
+
+    // Initialize daily schedules with empty capacity
+    const dailySchedules = weekDays.map(date => ({
+      date: format(date, 'yyyy-MM-dd'),
+      dateObj: date,
+      jobs: [] as ScheduledJob[],
+      availableCapacity: DAILY_CAPACITY,
+      shifts: [] as ShiftSchedule[],
+      total_hours: 0,
+      total_minutes: 0,
+      capacity_hours: 8,
+      capacity_minutes: 480,
+      utilization: 0,
+      is_working_day: true
+    }));
+
+    // Smart scheduling: fill available capacity starting from earliest day
+    jobsForWeek.forEach(job => {
+      let remainingWork = job.estimated_minutes;
+      let scheduledToDate: string | null = null;
       
-      // Filter jobs for this day
-      const dayJobs = jobs
-        .filter(job => {
-          if (!job.due_date) return false;
-          return isSameDay(new Date(job.due_date), date);
-        })
-        .map(job => {
-          // Get estimated minutes from job stage instances
-          const estimatedMinutes = job.job_stage_instances?.reduce((total, instance) => {
-            return total + (instance.estimated_duration_minutes || 0);
-          }, 0) || Math.max(240, (job.qty || 100) * 2); // Fallback: 2 mins per unit, min 4 hours
-
-          return {
-            id: job.job_id,
-            wo_no: job.wo_no || 'Unknown',
-            customer: job.customer || 'Unknown',
-            status: job.status || 'Unknown',
-            estimated_hours: Math.round(estimatedMinutes / 60 * 100) / 100,
-            estimated_minutes: estimatedMinutes,
-            scheduled_date: dateStr,
-            priority: (job as any).is_expedited ? 1 : 100,
-            is_expedited: (job as any).is_expedited || false,
-            current_stage: job.display_stage_name,
-            accessibleJob: job
+      // Find the latest day this job can start to meet its due date
+      const dueDateStr = format(job.due_date, 'yyyy-MM-dd');
+      const dueDayIndex = dailySchedules.findIndex(day => day.date === dueDateStr);
+      const maxStartDay = dueDayIndex >= 0 ? dueDayIndex : dailySchedules.length - 1;
+      
+      // Try to schedule from the earliest available day that allows completion by due date
+      for (let dayIndex = 0; dayIndex <= maxStartDay && remainingWork > 0; dayIndex++) {
+        const day = dailySchedules[dayIndex];
+        
+        if (day.availableCapacity > 0) {
+          const workToAssign = Math.min(remainingWork, day.availableCapacity);
+          
+          const scheduledJob: ScheduledJob = {
+            ...job,
+            estimated_minutes: workToAssign,
+            estimated_hours: Math.round(workToAssign / 60 * 100) / 100,
+            scheduled_date: day.date
           };
-        });
-
-      const shifts = calculateDayShifts(dayJobs);
-      const total_minutes = dayJobs.reduce((sum, job) => sum + job.estimated_minutes, 0);
-      const total_hours = Math.round(total_minutes / 60 * 100) / 100;
-      const capacity_hours = 8; // Standard workday
-      const capacity_minutes = 480;
-      const utilization = Math.round((total_minutes / capacity_minutes) * 100);
-
-      return {
-        date: dateStr,
-        jobs: dayJobs,
-        shifts,
-        total_hours,
-        total_minutes,
-        capacity_hours,
-        capacity_minutes,
-        utilization,
-        is_working_day: true
-      };
+          
+          day.jobs.push(scheduledJob);
+          day.availableCapacity -= workToAssign;
+          day.total_minutes += workToAssign;
+          day.total_hours = Math.round(day.total_minutes / 60 * 100) / 100;
+          day.utilization = Math.round((day.total_minutes / day.capacity_minutes) * 100);
+          
+          remainingWork -= workToAssign;
+          scheduledToDate = day.date;
+        }
+      }
+      
+      // If there's still work remaining and we couldn't fit it, create overflow
+      if (remainingWork > 0) {
+        const lastDay = dailySchedules[maxStartDay];
+        const overflowJob: ScheduledJob = {
+          ...job,
+          estimated_minutes: remainingWork,
+          estimated_hours: Math.round(remainingWork / 60 * 100) / 100,
+          scheduled_date: lastDay.date
+        };
+        
+        lastDay.jobs.push(overflowJob);
+        lastDay.total_minutes += remainingWork;
+        lastDay.total_hours = Math.round(lastDay.total_minutes / 60 * 100) / 100;
+        lastDay.utilization = Math.round((lastDay.total_minutes / lastDay.capacity_minutes) * 100);
+      }
     });
+
+    // Calculate shifts for each day
+    return dailySchedules.map(day => ({
+      ...day,
+      shifts: calculateDayShifts(day.jobs)
+    }));
   }, [jobs, currentWeek]);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -353,23 +419,25 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
           onDragEnd={handleDragEnd}
         >
           {viewMode === 'cards' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4 overflow-x-auto">
-              {weekSchedule.map((day) => {
-                const dayDate = new Date(day.date);
-                const dayName = format(dayDate, 'EEE');
-                const dayNumber = format(dayDate, 'd');
-                
-                return (
-                  <div key={day.date} className="min-h-[300px] sm:min-h-[400px] min-w-[280px]">
-                    <DroppableDay
-                      id={day.date}
-                      day={day}
-                      dayName={dayName}
-                      dayNumber={dayNumber}
-                    />
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-5 gap-3 min-w-[1200px] lg:min-w-0 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3">
+                {weekSchedule.map((day) => {
+                  const dayDate = new Date(day.date);
+                  const dayName = format(dayDate, 'EEE');
+                  const dayNumber = format(dayDate, 'd');
+                  
+                  return (
+                    <div key={day.date} className="min-h-[350px] w-full">
+                      <DroppableDay
+                        id={day.date}
+                        day={day}
+                        dayName={dayName}
+                        dayNumber={dayNumber}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
