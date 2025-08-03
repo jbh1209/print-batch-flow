@@ -8,6 +8,26 @@ export interface ParallelStageInfo {
   stage_order: number;
 }
 
+export interface JobStageInstance {
+  job_id: string;
+  production_stage_id: string;
+  status: string;
+  stage_order: number;
+  unique_stage_key?: string;
+  part_assignment?: string;
+  dependency_group?: string;
+  proof_emailed_at?: string;
+  proof_approved_manually_at?: string;
+  stage_name?: string;
+  stage_color?: string;
+  production_stages?: {
+    id: string;
+    name: string;
+    color: string;
+    supports_parts: boolean;
+  };
+}
+
 export interface AccessibleJob {
   job_id: string;
   id: string;
@@ -47,6 +67,10 @@ export interface AccessibleJob {
   // Parallel stages support
   parallel_stages?: ParallelStageInfo[];
   current_stage_order?: number;
+  // Production management fields
+  is_expedited?: boolean;
+  created_at?: string;
+  job_stage_instances?: JobStageInstance[];
 }
 
 export interface UseAccessibleJobsOptions {

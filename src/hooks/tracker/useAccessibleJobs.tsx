@@ -100,6 +100,8 @@ export const useAccessibleJobs = ({
         unique_stage_key: stage.unique_stage_key,
         part_assignment: stage.part_assignment,
         dependency_group: stage.dependency_group,
+        proof_emailed_at: (stage as any).proof_emailed_at,
+        proof_approved_manually_at: (stage as any).proof_approved_manually_at,
         stage_name: stage.production_stages?.name,
         stage_color: stage.production_stages?.color,
         production_stages: stage.production_stages
@@ -171,7 +173,11 @@ export const useAccessibleJobs = ({
         manual_due_date: (job as any).manual_due_date || null,
         // Parallel stages support
         parallel_stages: parallelStages,
-        current_stage_order: currentStageOrder
+        current_stage_order: currentStageOrder,
+        // Production management fields
+        is_expedited: (job as any).is_expedited || false,
+        created_at: (job as any).created_at || '',
+        job_stage_instances: jobStages.filter(stage => stage.job_id === job.job_id)
       };
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")
