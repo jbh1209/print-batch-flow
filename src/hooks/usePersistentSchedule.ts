@@ -15,6 +15,7 @@ interface PersistentScheduleEntry {
   shift_number: number;
   estimated_duration_minutes?: number;
   version: number;
+  part_name?: string;
 }
 
 export const usePersistentSchedule = () => {

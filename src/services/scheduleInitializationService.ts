@@ -9,6 +9,7 @@ interface JobForScheduling {
   due_date: string;
   production_stage_id: string;
   estimated_duration_minutes: number;
+  part_name?: string;
 }
 
 interface ScheduleEntry {
@@ -19,6 +20,7 @@ interface ScheduleEntry {
   queue_position: number;
   shift_number: number;
   estimated_duration_minutes: number;
+  part_name?: string;
 }
 
 export class ScheduleInitializationService {
@@ -49,6 +51,7 @@ export class ScheduleInitializationService {
           production_stage_id,
           estimated_duration_minutes,
           job_table_name,
+          part_name,
           production_jobs!inner(
             id,
             wo_no,
@@ -93,7 +96,8 @@ export class ScheduleInitializationService {
           customer: jobInstance.production_jobs.customer,
           due_date: jobInstance.production_jobs.due_date,
           production_stage_id: stageId,
-          estimated_duration_minutes: jobInstance.estimated_duration_minutes || 120 // Default 2 hours
+          estimated_duration_minutes: jobInstance.estimated_duration_minutes || 120, // Default 2 hours
+          part_name: jobInstance.part_name
         };
 
         if (!jobsByStage.has(stageId)) {
@@ -115,7 +119,10 @@ export class ScheduleInitializationService {
         if (scheduleEntries.length > 0) {
           const { error: insertError } = await supabase
             .from('production_job_schedules')
-            .insert(scheduleEntries);
+            .upsert(scheduleEntries, {
+              onConflict: 'job_id,job_table_name,production_stage_id,scheduled_date,part_name',
+              ignoreDuplicates: false
+            });
 
           if (insertError) {
             console.error(`❌ Failed to save schedule for ${stageName}:`, insertError);
@@ -186,7 +193,8 @@ export class ScheduleInitializationService {
           scheduled_date: dateKey,
           queue_position: queuePosition,
           shift_number: 1, // Single shift for now
-          estimated_duration_minutes: jobDuration
+          estimated_duration_minutes: jobDuration,
+          part_name: job.part_name
         });
 
         dayUtilization += jobDuration;
@@ -221,7 +229,8 @@ export class ScheduleInitializationService {
           scheduled_date: dateKey,
           queue_position: maxPosition + 1,
           shift_number: 1,
-          estimated_duration_minutes: job.estimated_duration_minutes
+          estimated_duration_minutes: job.estimated_duration_minutes,
+          part_name: job.part_name
         });
 
         dayIndex++;

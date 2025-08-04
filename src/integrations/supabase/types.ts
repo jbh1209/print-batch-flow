@@ -1523,6 +1523,7 @@ export type Database = {
           id: string
           job_id: string
           job_table_name: string
+          part_name: string | null
           production_stage_id: string
           queue_position: number
           scheduled_date: string
@@ -1539,6 +1540,7 @@ export type Database = {
           id?: string
           job_id: string
           job_table_name?: string
+          part_name?: string | null
           production_stage_id: string
           queue_position?: number
           scheduled_date: string
@@ -1555,6 +1557,7 @@ export type Database = {
           id?: string
           job_id?: string
           job_table_name?: string
+          part_name?: string | null
           production_stage_id?: string
           queue_position?: number
           scheduled_date?: string
