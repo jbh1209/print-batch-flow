@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, addDays, format } from 'date-fns';
+import { enhanceSupabaseError, logApiCall } from '@/utils/errorLogging';
 
 interface JobForScheduling {
   id: string;
@@ -24,17 +25,21 @@ export class ScheduleInitializationService {
   /**
    * Initialize schedules for all production stages with real job data
    */
-  static async initializeAllSchedules(): Promise<boolean> {
+  static async initializeAllSchedules(forceInitialize: boolean = false): Promise<boolean> {
     try {
       console.log('🚀 Initializing production schedules from real job data...');
 
       // Get all active production stages
+      logApiCall('GET', 'production_stages (active)');
       const { data: stages, error: stagesError } = await supabase
         .from('production_stages')
         .select('id, name')
         .eq('is_active', true);
 
-      if (stagesError) throw stagesError;
+      if (stagesError) {
+        enhanceSupabaseError(stagesError, 'Fetching production stages');
+        throw stagesError;
+      }
 
       // Get jobs that need scheduling (active stage instances)
       const { data: jobsData, error: jobsError } = await supabase
@@ -60,9 +65,21 @@ export class ScheduleInitializationService {
 
       console.log(`📊 Found ${jobsData?.length || 0} jobs across ${stages?.length || 0} stages`);
 
-      if (!stages || !jobsData || stages.length === 0) {
-        console.log('⚠️ No stages or jobs found for scheduling');
-        return true;
+      if (!stages || stages.length === 0) {
+        const errorMsg = 'No active production stages found';
+        console.error('❌', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      if (!jobsData || jobsData.length === 0) {
+        if (forceInitialize) {
+          console.log('⚠️ No jobs found but force initialize enabled - creating empty schedules');
+          return true;
+        } else {
+          const errorMsg = 'No jobs found that need scheduling. Use Force Initialize to create empty schedules.';
+          console.error('❌', errorMsg);
+          throw new Error(errorMsg);
+        }
       }
 
       // Group jobs by stage
@@ -238,7 +255,7 @@ export class ScheduleInitializationService {
   /**
    * Clear all schedules and regenerate from scratch
    */
-  static async regenerateAllSchedules(): Promise<boolean> {
+  static async regenerateAllSchedules(forceInitialize: boolean = false): Promise<boolean> {
     try {
       console.log('🔄 Clearing all existing schedules...');
       
@@ -253,7 +270,7 @@ export class ScheduleInitializationService {
       console.log('✅ Cleared existing schedules');
       
       // Regenerate schedules
-      return await this.initializeAllSchedules();
+      return await this.initializeAllSchedules(forceInitialize);
     } catch (error) {
       console.error('❌ Failed to regenerate schedules:', error);
       return false;

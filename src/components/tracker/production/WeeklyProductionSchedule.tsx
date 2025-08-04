@@ -16,6 +16,7 @@ import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 import { type DynamicDaySchedule, type DynamicScheduledJob } from '@/services/dynamicProductionScheduler';
 import { usePersistentSchedule } from '@/hooks/usePersistentSchedule';
 import { ScheduleInitializationService } from '@/services/scheduleInitializationService';
+import { ScheduleInitializationPanel } from './ScheduleInitializationPanel';
 
 interface WeeklyProductionScheduleProps {
   jobs: AccessibleJob[];
@@ -202,9 +203,9 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
               variant="outline"
               size="sm"
               onClick={async () => {
-                if (confirm('Initialize schedules from current job data? This will create new schedules for all production stages.')) {
-                  setIsLoading(true);
-                  const success = await ScheduleInitializationService.initializeAllSchedules();
+                setIsLoading(true);
+                try {
+                  const success = await ScheduleInitializationService.initializeAllSchedules(false);
                   if (success) {
                     toast.success('Schedules initialized successfully');
                     // Reload current schedule
@@ -213,15 +214,48 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
                       const schedule = await loadSchedule(weekStart, selectedStage);
                       if (schedule) setWeekSchedule(schedule);
                     }
-                  } else {
-                    toast.error('Failed to initialize schedules');
                   }
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : 'Failed to initialize schedules';
+                  toast.error(errorMessage);
+                  console.error('Schedule initialization error:', error);
+                } finally {
                   setIsLoading(false);
                 }
               }}
               disabled={isLoading}
             >
               Initialize Schedules
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={async () => {
+                if (confirm('Force initialize empty schedules? This will clear ALL existing schedules and create new ones even without jobs.')) {
+                  setIsLoading(true);
+                  try {
+                    const success = await ScheduleInitializationService.regenerateAllSchedules(true);
+                    if (success) {
+                      toast.success('Schedules force initialized successfully');
+                      // Reload current schedule
+                      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+                      if (selectedStage) {
+                        const schedule = await loadSchedule(weekStart, selectedStage);
+                        if (schedule) setWeekSchedule(schedule);
+                      }
+                    }
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Failed to force initialize schedules';
+                    toast.error(errorMessage);
+                    console.error('Force schedule initialization error:', error);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }
+              }}
+              disabled={isLoading}
+            >
+              Force Initialize
             </Button>
             <div className="flex items-center gap-1 mr-4">
               <Button
@@ -323,13 +357,25 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         )}
 
         {selectedStage && !isLoading && weekSchedule.length === 0 && (
-          <div className="flex items-center justify-center py-16 text-center">
-            <div>
-              <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No Jobs Found</h3>
-              <p className="text-muted-foreground">
-                No jobs are currently scheduled for {selectedStage} this week
+          <div className="space-y-6 py-8">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+              <h3 className="text-lg font-medium mb-2">No Schedule Found</h3>
+              <p className="text-muted-foreground mb-4">
+                No jobs are scheduled for {selectedStage} this week. Initialize schedules to get started.
               </p>
+            </div>
+            
+            <div className="max-w-2xl mx-auto">
+              <ScheduleInitializationPanel 
+                onScheduleInitialized={async () => {
+                  if (selectedStage) {
+                    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+                    const schedule = await loadSchedule(weekStart, selectedStage);
+                    if (schedule) setWeekSchedule(schedule);
+                  }
+                }}
+              />
             </div>
           </div>
         )}
