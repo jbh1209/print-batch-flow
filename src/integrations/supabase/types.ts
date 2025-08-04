@@ -1515,60 +1515,6 @@ export type Database = {
         }
         Relationships: []
       }
-      production_job_schedules: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          estimated_duration_minutes: number | null
-          id: string
-          job_id: string
-          job_table_name: string
-          part_name: string | null
-          production_stage_id: string
-          queue_position: number
-          scheduled_date: string
-          scheduled_end_time: string | null
-          scheduled_start_time: string | null
-          shift_number: number
-          updated_at: string
-          version: number
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          estimated_duration_minutes?: number | null
-          id?: string
-          job_id: string
-          job_table_name?: string
-          part_name?: string | null
-          production_stage_id: string
-          queue_position?: number
-          scheduled_date: string
-          scheduled_end_time?: string | null
-          scheduled_start_time?: string | null
-          shift_number?: number
-          updated_at?: string
-          version?: number
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          estimated_duration_minutes?: number | null
-          id?: string
-          job_id?: string
-          job_table_name?: string
-          part_name?: string | null
-          production_stage_id?: string
-          queue_position?: number
-          scheduled_date?: string
-          scheduled_end_time?: string | null
-          scheduled_start_time?: string | null
-          shift_number?: number
-          updated_at?: string
-          version?: number
-        }
-        Relationships: []
-      }
       production_jobs: {
         Row: {
           batch_allocated_at: string | null
@@ -1586,6 +1532,8 @@ export type Database = {
           due_date_buffer_days: number | null
           due_date_locked: boolean | null
           due_date_warning_level: string | null
+          estimated_completion_date: string | null
+          estimated_start_date: string | null
           expedite_reason: string | null
           expedited_at: string | null
           expedited_by: string | null
@@ -1597,6 +1545,7 @@ export type Database = {
           is_batch_master: boolean | null
           is_expedited: boolean | null
           last_due_date_check: string | null
+          last_scheduled_at: string | null
           location: string | null
           manual_due_date: string | null
           manual_sla_days: number | null
@@ -1608,8 +1557,11 @@ export type Database = {
           qr_code_url: string | null
           qt_no: string | null
           qty: number | null
+          queue_position: number | null
           reference: string | null
           rep: string | null
+          scheduled_date: string | null
+          scheduling_priority: number | null
           size: string | null
           so_no: string | null
           specification: string | null
@@ -1635,6 +1587,8 @@ export type Database = {
           due_date_buffer_days?: number | null
           due_date_locked?: boolean | null
           due_date_warning_level?: string | null
+          estimated_completion_date?: string | null
+          estimated_start_date?: string | null
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
@@ -1646,6 +1600,7 @@ export type Database = {
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
           last_due_date_check?: string | null
+          last_scheduled_at?: string | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1657,8 +1612,11 @@ export type Database = {
           qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
+          queue_position?: number | null
           reference?: string | null
           rep?: string | null
+          scheduled_date?: string | null
+          scheduling_priority?: number | null
           size?: string | null
           so_no?: string | null
           specification?: string | null
@@ -1684,6 +1642,8 @@ export type Database = {
           due_date_buffer_days?: number | null
           due_date_locked?: boolean | null
           due_date_warning_level?: string | null
+          estimated_completion_date?: string | null
+          estimated_start_date?: string | null
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
@@ -1695,6 +1655,7 @@ export type Database = {
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
           last_due_date_check?: string | null
+          last_scheduled_at?: string | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1706,8 +1667,11 @@ export type Database = {
           qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
+          queue_position?: number | null
           reference?: string | null
           rep?: string | null
+          scheduled_date?: string | null
+          scheduling_priority?: number | null
           size?: string | null
           so_no?: string | null
           specification?: string | null

@@ -300,12 +300,16 @@ export class FlowBasedProductionScheduler {
       totalEstimatedDays: number;
     }
   ): Promise<void> {
-    // Update the job's due date to be realistic (only for production_jobs table for now)
+    // Update the job with scheduling information directly in production_jobs
     if (jobTableName === 'production_jobs') {
       const { error } = await supabase
         .from('production_jobs')
         .update({
-          due_date: schedule.estimatedCompletionDate.toISOString().split('T')[0], // Date only
+          scheduled_date: schedule.estimatedStartDate.toISOString().split('T')[0],
+          estimated_start_date: schedule.estimatedStartDate.toISOString().split('T')[0],
+          estimated_completion_date: schedule.estimatedCompletionDate.toISOString().split('T')[0],
+          due_date: schedule.estimatedCompletionDate.toISOString().split('T')[0],
+          last_scheduled_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
