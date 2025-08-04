@@ -2,15 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar, ChevronLeft, ChevronRight, List, Grid3X3, AlertTriangle } from 'lucide-react';
+import { Loader2, Calendar, ChevronLeft, ChevronRight, List, Grid3X3, AlertTriangle, Table } from 'lucide-react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { DraggableJobCard } from '@/components/production/DraggableJobCard';
 import { DroppableDay } from '@/components/production/DroppableDay';
+import { WeeklyScheduleTable } from './WeeklyScheduleTable';
+import { JobSpecificationCard } from '@/components/tracker/common/JobSpecificationCard';
 import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 import { dynamicProductionScheduler, type DynamicDaySchedule, type DynamicScheduledJob } from '@/services/dynamicProductionScheduler';
+import { useSchedulePersistence } from '@/hooks/useSchedulePersistence';
 
 interface WeeklyProductionScheduleProps {
   jobs: AccessibleJob[];
@@ -35,8 +39,11 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
   const [isLoading, setIsLoading] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedJob, setDraggedJob] = useState<ScheduledJob | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
+  const [viewMode, setViewMode] = useState<'table' | 'list' | 'cards'>('table');
   const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>([]);
+  
+  // Schedule persistence
+  const { getCache, setCache, invalidateCache } = useSchedulePersistence();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -46,11 +53,21 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     })
   );
 
-  // Load dynamic schedule using the new scheduler
+  // Load dynamic schedule using the new scheduler with caching
   useEffect(() => {
     const loadDynamicSchedule = async () => {
       if (!selectedStage) {
         setWeekSchedule([]);
+        return;
+      }
+
+      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+      
+      // Check cache first
+      const cachedSchedule = getCache(weekStart, selectedStage);
+      if (cachedSchedule) {
+        console.log(`📦 Using cached schedule for ${selectedStage}`);
+        setWeekSchedule(cachedSchedule);
         return;
       }
 
@@ -65,7 +82,8 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         });
         
         setWeekSchedule(schedule);
-        console.log(`✅ Loaded schedule with ${schedule.length} days`);
+        setCache(weekStart, selectedStage, schedule);
+        console.log(`✅ Loaded and cached schedule with ${schedule.length} days`);
       } catch (error) {
         console.error('❌ Error loading dynamic schedule:', error);
         toast.error('Failed to load production schedule');
@@ -76,7 +94,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     };
 
     loadDynamicSchedule();
-  }, [jobs, currentWeek, selectedStage]);
+  }, [jobs, currentWeek, selectedStage, getCache, setCache]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -119,7 +137,9 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
           throw error;
         }
 
-        // Refresh the jobs data
+        // Invalidate cache and refresh
+        const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+        invalidateCache(weekStart, selectedStage || undefined);
         onRefresh();
         toast.success(`Job ${draggedJob.wo_no} rescheduled to ${format(new Date(newDate), 'MMM dd')}`);
       } catch (error) {
@@ -173,6 +193,13 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 mr-4">
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+              >
+                <Table className="h-4 w-4" />
+              </Button>
               <Button
                 variant={viewMode === 'list' ? 'default' : 'outline'}
                 size="sm"
@@ -244,7 +271,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         )}
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="h-[calc(100vh-400px)] overflow-auto">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -282,7 +309,17 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            {viewMode === 'cards' ? (
+            {viewMode === 'table' ? (
+              <SortableContext 
+                items={weekSchedule.flatMap(day => day.jobs.map(job => job.id))}
+                strategy={verticalListSortingStrategy}
+              >
+                <WeeklyScheduleTable 
+                  weekSchedule={weekSchedule}
+                  onJobClick={onJobClick}
+                />
+              </SortableContext>
+            ) : viewMode === 'cards' ? (
               <div className="overflow-x-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                   {weekSchedule.map((day) => {
@@ -354,30 +391,38 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
                                     {shift.jobs.map((jobSegment, index) => (
                                       <div 
                                         key={`${jobSegment.jobId}-${index}`}
-                                        className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm cursor-pointer hover:bg-muted/70"
+                                        className="cursor-pointer hover:bg-muted/70 rounded p-2"
                                         onClick={() => onJobClick(jobSegment.job.accessibleJob)}
                                       >
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium">{jobSegment.job.wo_no}</span>
-                                          <span className="text-muted-foreground">{jobSegment.job.customer}</span>
-                                          {jobSegment.job.is_expedited && (
-                                            <Badge variant="destructive" className="text-xs">Rush</Badge>
-                                          )}
-                                          {jobSegment.job.queue_position && (
-                                            <Badge variant="outline" className="text-xs">#{jobSegment.job.queue_position}</Badge>
-                                          )}
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium">{jobSegment.job.wo_no}</span>
+                                            <span className="text-muted-foreground">{jobSegment.job.customer}</span>
+                                            {jobSegment.job.is_expedited && (
+                                              <Badge variant="destructive" className="text-xs">Rush</Badge>
+                                            )}
+                                            {jobSegment.job.queue_position && (
+                                              <Badge variant="outline" className="text-xs">#{jobSegment.job.queue_position}</Badge>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">
+                                              {(jobSegment as any).start_time} - {(jobSegment as any).end_time}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                              {Math.round(jobSegment.duration / 60 * 100) / 100}h
+                                            </span>
+                                            {jobSegment.isPartial && (
+                                              <Badge variant="secondary" className="text-xs">Partial</Badge>
+                                            )}
+                                          </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-muted-foreground">
-                                            {(jobSegment as any).start_time} - {(jobSegment as any).end_time}
-                                          </span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {Math.round(jobSegment.duration / 60 * 100) / 100}h
-                                          </span>
-                                          {jobSegment.isPartial && (
-                                            <Badge variant="secondary" className="text-xs">Partial</Badge>
-                                          )}
-                                        </div>
+                                        <JobSpecificationCard
+                                          jobId={jobSegment.job.id}
+                                          jobTableName="production_jobs"
+                                          compact={true}
+                                          className="mt-1"
+                                        />
                                       </div>
                                     ))}
                                   </div>

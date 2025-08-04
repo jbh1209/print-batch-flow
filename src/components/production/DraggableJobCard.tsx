@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Clock, AlertTriangle, Zap } from 'lucide-react';
+import { JobSpecificationCard } from '@/components/tracker/common/JobSpecificationCard';
 
 interface ScheduledJob {
   id: string;
@@ -96,6 +97,14 @@ export const DraggableJobCard: React.FC<DraggableJobCardProps> = ({ job, isDragg
             )}
           </div>
         )}
+
+        {/* Paper Specifications */}
+        <JobSpecificationCard
+          jobId={job.id}
+          jobTableName="production_jobs"
+          compact={true}
+          className="my-2"
+        />
 
         {/* Timing */}
         <div className="flex items-center gap-1 text-xs">
