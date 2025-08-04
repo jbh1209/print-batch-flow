@@ -13,8 +13,9 @@ import { DroppableDay } from '@/components/production/DroppableDay';
 import { WeeklyScheduleTable } from './WeeklyScheduleTable';
 import { JobSpecificationCard } from '@/components/tracker/common/JobSpecificationCard';
 import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
-import { dynamicProductionScheduler, type DynamicDaySchedule, type DynamicScheduledJob } from '@/services/dynamicProductionScheduler';
+import { type DynamicDaySchedule, type DynamicScheduledJob } from '@/services/dynamicProductionScheduler';
 import { usePersistentSchedule } from '@/hooks/usePersistentSchedule';
+import { ScheduleInitializationService } from '@/services/scheduleInitializationService';
 
 interface WeeklyProductionScheduleProps {
   jobs: AccessibleJob[];
@@ -53,9 +54,9 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     })
   );
 
-  // Load dynamic schedule using persistent storage
+  // Load database-persistent schedule ONLY - no dynamic generation
   useEffect(() => {
-    const loadDynamicSchedule = async () => {
+    const loadPersistentSchedule = async () => {
       if (!selectedStage) {
         setWeekSchedule([]);
         setIsLoading(false);
@@ -66,27 +67,23 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
 
       try {
-        // Try to load persistent schedule first
+        console.log(`📦 Loading persistent schedule for ${selectedStage}...`);
+        
+        // ONLY load from database - no dynamic generation
         const persistentSchedule = await loadSchedule(weekStart, selectedStage);
         
-        if (persistentSchedule) {
-          console.log(`📦 Using persistent schedule for ${selectedStage}`);
+        if (persistentSchedule && persistentSchedule.length > 0) {
+          console.log(`✅ Loaded persistent schedule with ${persistentSchedule.reduce((sum, day) => sum + day.jobs.length, 0)} jobs`);
           setWeekSchedule(persistentSchedule);
         } else {
-          // Generate new schedule and persist it
-          console.log(`🔄 Generating new schedule for ${selectedStage}...`);
-          const schedule = await dynamicProductionScheduler.generateWeeklySchedule({
-            currentWeek,
-            selectedStage,
-            jobs
-          });
+          console.log(`📭 No persistent schedule found for ${selectedStage} - week ${weekStart.toISOString().split('T')[0]}`);
+          setWeekSchedule([]);
           
-          setWeekSchedule(schedule);
-          await saveSchedule(weekStart, selectedStage, schedule);
-          console.log(`✅ Generated and saved new schedule with ${schedule.length} days`);
+          // Show user that no schedule exists
+          toast.info('No schedule found for this week. Administrator needs to initialize schedules.');
         }
       } catch (error) {
-        console.error('❌ Error with schedule:', error);
+        console.error('❌ Error loading persistent schedule:', error);
         toast.error('Failed to load production schedule');
         setWeekSchedule([]);
       } finally {
@@ -94,8 +91,8 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
       }
     };
 
-    loadDynamicSchedule();
-  }, [jobs, currentWeek, selectedStage, loadSchedule, saveSchedule]);
+    loadPersistentSchedule();
+  }, [currentWeek, selectedStage, loadSchedule]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -142,22 +139,12 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         const newDateObj = new Date(newDate);
         await updateJobPosition(draggedJob.id, selectedStage!, newDateObj, 1, 0);
         
-        // Regenerate and save updated schedule
+        // Reload the persistent schedule after job update
         const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-        const updatedJobs = jobs.map(job => 
-          job.job_id === draggedJob.id 
-            ? { ...job, due_date: newDate }
-            : job
-        );
-
-        const newSchedule = await dynamicProductionScheduler.generateWeeklySchedule({
-          currentWeek,
-          selectedStage,
-          jobs: updatedJobs
-        });
-
-        setWeekSchedule(newSchedule);
-        await saveSchedule(weekStart, selectedStage, newSchedule);
+        const updatedSchedule = await loadSchedule(weekStart, selectedStage!);
+        if (updatedSchedule) {
+          setWeekSchedule(updatedSchedule);
+        }
         
         onRefresh();
         toast.success(`Job ${draggedJob.wo_no} rescheduled to ${format(new Date(newDate), 'MMM dd')}`);
@@ -198,7 +185,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Dynamic Production Schedule
+            Production Schedule
             {selectedStage ? (
               <Badge variant="outline" className="ml-2">
                 {selectedStage}
@@ -211,6 +198,31 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (confirm('Initialize schedules from current job data? This will create new schedules for all production stages.')) {
+                  setIsLoading(true);
+                  const success = await ScheduleInitializationService.initializeAllSchedules();
+                  if (success) {
+                    toast.success('Schedules initialized successfully');
+                    // Reload current schedule
+                    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+                    if (selectedStage) {
+                      const schedule = await loadSchedule(weekStart, selectedStage);
+                      if (schedule) setWeekSchedule(schedule);
+                    }
+                  } else {
+                    toast.error('Failed to initialize schedules');
+                  }
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            >
+              Initialize Schedules
+            </Button>
             <div className="flex items-center gap-1 mr-4">
               <Button
                 variant={viewMode === 'table' ? 'default' : 'outline'}
@@ -294,7 +306,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            <span className="text-sm">Loading dynamic schedule for {selectedStage}...</span>
+            <span className="text-sm">Loading schedule for {selectedStage}...</span>
           </div>
         )}
 
@@ -304,7 +316,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
               <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">No Stage Selected</h3>
               <p className="text-muted-foreground">
-                Select a production stage from the tracker to view the dynamic weekly schedule
+                Select a production stage from the tracker to view the weekly schedule
               </p>
             </div>
           </div>
