@@ -14,7 +14,7 @@ import { WeeklyScheduleTable } from './WeeklyScheduleTable';
 import { JobSpecificationCard } from '@/components/tracker/common/JobSpecificationCard';
 import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 import { dynamicProductionScheduler, type DynamicDaySchedule, type DynamicScheduledJob } from '@/services/dynamicProductionScheduler';
-import { useSchedulePersistence } from '@/hooks/useSchedulePersistence';
+import { usePersistentSchedule } from '@/hooks/usePersistentSchedule';
 
 interface WeeklyProductionScheduleProps {
   jobs: AccessibleJob[];
@@ -43,7 +43,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
   const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>([]);
   
   // Schedule persistence
-  const { getCache, setCache, invalidateCache } = useSchedulePersistence();
+  const { loadSchedule, saveSchedule, updateJobPosition } = usePersistentSchedule();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -53,39 +53,40 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     })
   );
 
-  // Load dynamic schedule using the new scheduler with caching
+  // Load dynamic schedule using persistent storage
   useEffect(() => {
     const loadDynamicSchedule = async () => {
       if (!selectedStage) {
         setWeekSchedule([]);
+        setIsLoading(false);
         return;
       }
 
+      setIsLoading(true);
       const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-      
-      // Check cache first
-      const cachedSchedule = getCache(weekStart, selectedStage);
-      if (cachedSchedule) {
-        console.log(`📦 Using cached schedule for ${selectedStage}`);
-        setWeekSchedule(cachedSchedule);
-        return;
-      }
 
       try {
-        setIsLoading(true);
-        console.log(`🔄 Loading dynamic schedule for ${selectedStage}...`);
+        // Try to load persistent schedule first
+        const persistentSchedule = await loadSchedule(weekStart, selectedStage);
         
-        const schedule = await dynamicProductionScheduler.generateWeeklySchedule({
-          currentWeek,
-          selectedStage,
-          jobs
-        });
-        
-        setWeekSchedule(schedule);
-        setCache(weekStart, selectedStage, schedule);
-        console.log(`✅ Loaded and cached schedule with ${schedule.length} days`);
+        if (persistentSchedule) {
+          console.log(`📦 Using persistent schedule for ${selectedStage}`);
+          setWeekSchedule(persistentSchedule);
+        } else {
+          // Generate new schedule and persist it
+          console.log(`🔄 Generating new schedule for ${selectedStage}...`);
+          const schedule = await dynamicProductionScheduler.generateWeeklySchedule({
+            currentWeek,
+            selectedStage,
+            jobs
+          });
+          
+          setWeekSchedule(schedule);
+          await saveSchedule(weekStart, selectedStage, schedule);
+          console.log(`✅ Generated and saved new schedule with ${schedule.length} days`);
+        }
       } catch (error) {
-        console.error('❌ Error loading dynamic schedule:', error);
+        console.error('❌ Error with schedule:', error);
         toast.error('Failed to load production schedule');
         setWeekSchedule([]);
       } finally {
@@ -94,7 +95,7 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
     };
 
     loadDynamicSchedule();
-  }, [jobs, currentWeek, selectedStage, getCache, setCache]);
+  }, [jobs, currentWeek, selectedStage, loadSchedule, saveSchedule]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -137,9 +138,27 @@ export const WeeklyProductionSchedule: React.FC<WeeklyProductionScheduleProps> =
           throw error;
         }
 
-        // Invalidate cache and refresh
+        // Update job position in persistent schedule
+        const newDateObj = new Date(newDate);
+        await updateJobPosition(draggedJob.id, selectedStage!, newDateObj, 1, 0);
+        
+        // Regenerate and save updated schedule
         const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-        invalidateCache(weekStart, selectedStage || undefined);
+        const updatedJobs = jobs.map(job => 
+          job.job_id === draggedJob.id 
+            ? { ...job, due_date: newDate }
+            : job
+        );
+
+        const newSchedule = await dynamicProductionScheduler.generateWeeklySchedule({
+          currentWeek,
+          selectedStage,
+          jobs: updatedJobs
+        });
+
+        setWeekSchedule(newSchedule);
+        await saveSchedule(weekStart, selectedStage, newSchedule);
+        
         onRefresh();
         toast.success(`Job ${draggedJob.wo_no} rescheduled to ${format(new Date(newDate), 'MMM dd')}`);
       } catch (error) {

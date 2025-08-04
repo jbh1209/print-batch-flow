@@ -1515,6 +1515,57 @@ export type Database = {
         }
         Relationships: []
       }
+      production_job_schedules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          estimated_duration_minutes: number | null
+          id: string
+          job_id: string
+          job_table_name: string
+          production_stage_id: string
+          queue_position: number
+          scheduled_date: string
+          scheduled_end_time: string | null
+          scheduled_start_time: string | null
+          shift_number: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          estimated_duration_minutes?: number | null
+          id?: string
+          job_id: string
+          job_table_name?: string
+          production_stage_id: string
+          queue_position?: number
+          scheduled_date: string
+          scheduled_end_time?: string | null
+          scheduled_start_time?: string | null
+          shift_number?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          estimated_duration_minutes?: number | null
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          production_stage_id?: string
+          queue_position?: number
+          scheduled_date?: string
+          scheduled_end_time?: string | null
+          scheduled_start_time?: string | null
+          shift_number?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       production_jobs: {
         Row: {
           batch_allocated_at: string | null
@@ -3004,6 +3055,10 @@ export type Database = {
           synced_count: number
           fixed_count: number
         }[]
+      }
+      update_production_schedules_nightly: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       update_stage_workload_tracking: {
         Args: Record<PropertyKey, never>
