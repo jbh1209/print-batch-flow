@@ -3058,7 +3058,7 @@ export type Database = {
       }
       update_production_schedules_nightly: {
         Args: Record<PropertyKey, never>
-        Returns: undefined
+        Returns: Json
       }
       update_stage_workload_tracking: {
         Args: Record<PropertyKey, never>
