@@ -2620,6 +2620,14 @@ export type Database = {
           estimated_hours: number
         }[]
       }
+      calculate_daily_schedules: {
+        Args: {
+          p_start_date?: string
+          p_end_date?: string
+          p_calculation_type?: string
+        }
+        Returns: Json
+      }
       calculate_smart_due_date: {
         Args: { p_estimated_hours: number; p_priority?: number }
         Returns: string
@@ -3119,6 +3127,17 @@ export type Database = {
           batch_name: string
           references_created: number
         }[]
+      }
+      reschedule_job_server_side: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_production_stage_id: string
+          p_new_date: string
+          p_new_queue_position?: number
+          p_reason?: string
+        }
+        Returns: Json
       }
       reset_custom_workflow_stages_to_pending: {
         Args: Record<PropertyKey, never>
