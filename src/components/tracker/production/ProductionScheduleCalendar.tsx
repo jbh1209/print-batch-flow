@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Users, AlertTriangle } from "lucide-react";
-import { useProductionCalendar } from "@/hooks/tracker/useProductionCalendar";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
-import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
+import { scheduleCalculatorService, type ScheduledJob, type JobsByDate } from "@/services/scheduleCalculatorService";
+import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
+import { useQuery } from "@tanstack/react-query";
 
 interface ProductionScheduleCalendarProps {
   selectedWeek?: Date;
@@ -15,20 +16,29 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
   selectedWeek = new Date()
 }) => {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(selectedWeek, { weekStartsOn: 1 }));
-  const { jobsByDate, isLoading, startJob, completeJob } = useProductionCalendar();
-  const { scheduleJob, isCalculating } = useFlowBasedScheduling();
+  
+  // Use the new schedule calculator service
+  const { data: scheduleData, isLoading, refetch } = useQuery({
+    queryKey: ['production-schedule-calendar'],
+    queryFn: () => scheduleCalculatorService.calculateJobSchedules(),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { startJob, completeJob } = useJobActions(
+    () => refetch() // Refresh data after job actions
+  );
+  
+  const jobsByDate = scheduleData?.jobsByDate || {};
 
   // Generate week days
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => addDays(currentWeek, index));
   }, [currentWeek]);
 
-  // Get jobs grouped by date from the custom hook
-
   const handleScheduleJob = async (jobId: string, targetDate: Date) => {
     try {
-      await scheduleJob(jobId, 'production_jobs', 100);
-      // Job will be updated in the database and reflected in the UI
+      await scheduleCalculatorService.rescheduleJob(jobId, targetDate, 1);
+      refetch(); // Refresh the schedule data
     } catch (error) {
       console.error('Error scheduling job:', error);
     }
@@ -103,7 +113,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
                 )}
               </CardHeader>
               <CardContent className="space-y-2">
-                {dayJobs.map((job) => (
+                {dayJobs.map((job: ScheduledJob) => (
                    <div
                     key={job.job_id}
                     className={`p-2 rounded border transition-colors cursor-pointer ${

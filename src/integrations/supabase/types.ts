@@ -2481,15 +2481,18 @@ export type Database = {
         Returns: number
       }
       calculate_stage_queue_workload: {
-        Args: { p_production_stage_id: string } | { stage_ids: string[] }
+        Args: { stage_id?: string } | { stage_ids: string[] }
         Returns: {
-          stage_id: string
-          total_pending_hours: number
-          total_active_hours: number
+          production_stage_id: string
+          stage_name: string
+          pending_hours: number
+          active_hours: number
           pending_jobs_count: number
           active_jobs_count: number
-          earliest_available_slot: string
-          queue_processing_hours: number
+          daily_capacity_hours: number
+          queue_processing_days: number
+          utilization_percentage: number
+          is_bottleneck: boolean
         }[]
       }
       can_user_start_new_job: {
