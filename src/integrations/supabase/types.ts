@@ -541,6 +541,56 @@ export type Database = {
           },
         ]
       }
+      daily_production_schedule: {
+        Row: {
+          allocated_minutes: number
+          available_minutes: number | null
+          created_at: string
+          date: string
+          id: string
+          is_working_day: boolean
+          notes: string | null
+          production_stage_id: string
+          shift_number: number
+          total_capacity_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          allocated_minutes?: number
+          available_minutes?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          is_working_day?: boolean
+          notes?: string | null
+          production_stage_id: string
+          shift_number?: number
+          total_capacity_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          allocated_minutes?: number
+          available_minutes?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          is_working_day?: boolean
+          notes?: string | null
+          production_stage_id?: string
+          shift_number?: number
+          total_capacity_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_production_schedule_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_workload: {
         Row: {
           capacity_utilization: number | null
@@ -875,6 +925,74 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_schedule_assignments: {
+        Row: {
+          actual_end_time: string | null
+          actual_start_time: string | null
+          calculation_run_id: string | null
+          created_at: string
+          created_by: string | null
+          estimated_duration_minutes: number
+          id: string
+          is_expedited: boolean
+          job_id: string
+          job_table_name: string
+          priority_score: number
+          production_stage_id: string
+          queue_position: number
+          scheduled_date: string
+          shift_number: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_end_time?: string | null
+          actual_start_time?: string | null
+          calculation_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimated_duration_minutes: number
+          id?: string
+          is_expedited?: boolean
+          job_id: string
+          job_table_name?: string
+          priority_score?: number
+          production_stage_id: string
+          queue_position?: number
+          scheduled_date: string
+          shift_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_end_time?: string | null
+          actual_start_time?: string | null
+          calculation_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimated_duration_minutes?: number
+          id?: string
+          is_expedited?: boolean
+          job_id?: string
+          job_table_name?: string
+          priority_score?: number
+          production_stage_id?: string
+          queue_position?: number
+          scheduled_date?: string
+          shift_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_schedule_assignments_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -1896,6 +2014,51 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      schedule_calculation_log: {
+        Row: {
+          calculation_run_id: string
+          calculation_type: string
+          completed_at: string | null
+          created_by: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          jobs_processed: number
+          stages_affected: number
+          started_at: string
+          success: boolean
+          trigger_reason: string | null
+        }
+        Insert: {
+          calculation_run_id?: string
+          calculation_type: string
+          completed_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          jobs_processed?: number
+          stages_affected?: number
+          started_at?: string
+          success?: boolean
+          trigger_reason?: string | null
+        }
+        Update: {
+          calculation_run_id?: string
+          calculation_type?: string
+          completed_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          jobs_processed?: number
+          stages_affected?: number
+          started_at?: string
+          success?: boolean
+          trigger_reason?: string | null
         }
         Relationships: []
       }
