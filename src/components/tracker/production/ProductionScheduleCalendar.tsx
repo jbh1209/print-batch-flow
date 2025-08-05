@@ -104,9 +104,13 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
               </CardHeader>
               <CardContent className="space-y-2">
                 {dayJobs.map((job) => (
-                  <div
+                   <div
                     key={job.job_id}
-                    className="p-2 rounded border bg-card hover:bg-accent transition-colors cursor-pointer"
+                    className={`p-2 rounded border transition-colors cursor-pointer ${
+                      job.isBottleneck 
+                        ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' 
+                        : 'bg-card hover:bg-accent'
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-1">
                       <span className="font-medium text-sm">{job.wo_no}</span>
@@ -120,9 +124,17 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
                     <div className="text-xs text-muted-foreground mb-1">
                       {job.customer}
                     </div>
-                    <div className="flex items-center gap-1 text-xs">
+                     <div className="flex items-center gap-1 text-xs">
                       <Clock className="h-3 w-3" />
                       <span>{job.display_stage_name}</span>
+                      {job.queuePosition && (
+                        <Badge variant="outline" className="ml-1 text-xs">
+                          Q{job.queuePosition}
+                        </Badge>
+                      )}
+                      {job.isBottleneck && (
+                        <AlertTriangle className="h-3 w-3 text-amber-500 ml-1" />
+                      )}
                     </div>
                     {job.workflow_progress > 0 && (
                       <div className="mt-1">
