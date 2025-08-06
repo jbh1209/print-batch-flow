@@ -212,8 +212,18 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
 
   // Load data when week changes
   useEffect(() => {
-    loadScheduleData();
-  }, [loadScheduleData]);
+    const initializeSchedules = async () => {
+      await loadScheduleData();
+      
+      // If no assignments found, automatically populate initial schedules
+      if (assignments.length === 0) {
+        console.log('No scheduled assignments found, attempting to populate initial schedules...');
+        await populateInitialSchedules();
+      }
+    };
+    
+    initializeSchedules();
+  }, [loadScheduleData, populateInitialSchedules, assignments.length]);
 
   if (isLoading) {
     return (
