@@ -212,34 +212,32 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
 
   // Load data when week changes
   useEffect(() => {
-    const initializeSchedules = async () => {
-      await loadScheduleData();
-      
-      // If no assignments found, automatically populate initial schedules
-      if (assignments.length === 0) {
-        console.log('No scheduled assignments found, attempting to populate initial schedules...');
-        setIsCalculating(true);
+    loadScheduleData();
+  }, [loadScheduleData]);
+
+  // Auto-populate initial schedules if none exist
+  useEffect(() => {
+    const autoPopulate = async () => {
+      if (assignments.length === 0 && dailySchedules.length === 0 && !isLoading) {
+        console.log('No schedules found, auto-populating...');
         try {
           const { data, error } = await supabase.functions.invoke('production-scheduler', {
-            body: { 
-              action: 'populate_initial',
-              data: { populate: true }
-            }
+            body: { action: 'populate_initial' }
           });
           
           if (data?.success) {
-            await loadScheduleData(); // Reload after population
+            console.log('Auto-population successful:', data.result);
+            toast.success(`Auto-populated ${data.result?.jobs_processed || 0} jobs into schedule`);
+            setTimeout(() => loadScheduleData(), 1000); // Reload after brief delay
           }
         } catch (error) {
           console.error('Auto-populate error:', error);
-        } finally {
-          setIsCalculating(false);
         }
       }
     };
     
-    initializeSchedules();
-  }, [loadScheduleData]);
+    autoPopulate();
+  }, [assignments.length, dailySchedules.length, isLoading, loadScheduleData]);
 
   if (isLoading) {
     return (
