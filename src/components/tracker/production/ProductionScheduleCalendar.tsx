@@ -20,9 +20,13 @@ interface ScheduledJob {
   is_expedited: boolean;
   status: string;
   production_jobs?: {
+    id: string;
     wo_no: string;
     customer: string;
     status: string;
+    proof_approved_at?: string;
+    production_ready?: boolean;
+    queue_calculated_due_date?: string;
   };
   production_stages?: {
     name: string;
@@ -97,15 +101,21 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
     try {
       console.log('Starting schedule calculation process...');
       
-      // First populate initial schedules if needed
-      const populateResponse = await supabase.functions.invoke('production-scheduler', {
-        body: { action: 'populate_initial' }
+      // First trigger due date calculations for all production-ready jobs
+      const dueDateResponse = await supabase.functions.invoke('calculate-due-dates', {
+        body: { 
+          action: 'recalculate_all', 
+          trigger_reason: 'Manual schedule calculation triggered'
+        }
       });
       
-      if (populateResponse.error) {
-        console.warn('Initial population warning:', populateResponse.error);
+      if (dueDateResponse.error) {
+        console.warn('Due date calculation warning:', dueDateResponse.error);
       } else {
-        console.log('Initial schedules populated:', populateResponse.data);
+        console.log('Due dates calculated:', dueDateResponse.data);
+        if (dueDateResponse.data?.success) {
+          toast.success(`Updated due dates for ${dueDateResponse.data.jobs_processed} production-ready jobs`);
+        }
       }
 
       // Then run regular calculation for the current week

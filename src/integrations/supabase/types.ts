@@ -1670,6 +1670,7 @@ export type Database = {
           is_batch_master: boolean | null
           is_expedited: boolean | null
           last_due_date_check: string | null
+          last_queue_recalc_at: string | null
           last_scheduled_at: string | null
           location: string | null
           manual_due_date: string | null
@@ -1678,10 +1679,13 @@ export type Database = {
           paper_specifications: Json | null
           prepress_specifications: Json | null
           printing_specifications: Json | null
+          production_ready: boolean | null
+          proof_approved_at: string | null
           qr_code_data: string | null
           qr_code_url: string | null
           qt_no: string | null
           qty: number | null
+          queue_calculated_due_date: string | null
           queue_position: number | null
           reference: string | null
           rep: string | null
@@ -1725,6 +1729,7 @@ export type Database = {
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
           last_due_date_check?: string | null
+          last_queue_recalc_at?: string | null
           last_scheduled_at?: string | null
           location?: string | null
           manual_due_date?: string | null
@@ -1733,10 +1738,13 @@ export type Database = {
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
+          production_ready?: boolean | null
+          proof_approved_at?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
+          queue_calculated_due_date?: string | null
           queue_position?: number | null
           reference?: string | null
           rep?: string | null
@@ -1780,6 +1788,7 @@ export type Database = {
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
           last_due_date_check?: string | null
+          last_queue_recalc_at?: string | null
           last_scheduled_at?: string | null
           location?: string | null
           manual_due_date?: string | null
@@ -1788,10 +1797,13 @@ export type Database = {
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
+          production_ready?: boolean | null
+          proof_approved_at?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
+          queue_calculated_due_date?: string | null
           queue_position?: number | null
           reference?: string | null
           rep?: string | null
