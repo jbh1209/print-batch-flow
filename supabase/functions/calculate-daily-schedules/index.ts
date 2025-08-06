@@ -22,6 +22,22 @@ serve(async (req) => {
 
     console.log(`Starting daily schedules calculation: ${start_date} to ${end_date}, type: ${calculation_type}`);
 
+    // Clear existing future schedules if this is an initial population to avoid conflicts
+    if (calculation_type === 'initial_population') {
+      console.log('Clearing existing future schedules for initial population...');
+      const { error: clearError } = await supabase
+        .from('job_schedule_assignments')
+        .delete()
+        .gte('scheduled_date', start_date)
+        .lte('scheduled_date', end_date);
+      
+      if (clearError) {
+        console.warn('Warning clearing existing schedules:', clearError);
+      } else {
+        console.log('Successfully cleared existing schedules for date range');
+      }
+    }
+
     // Call the database function to calculate daily schedules
     const { data, error } = await supabase.rpc('calculate_daily_schedules', {
       p_start_date: start_date,

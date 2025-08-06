@@ -60,9 +60,9 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
 
-  // Generate week days
+  // Generate week days (Monday-Friday only)
   const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, index) => addDays(currentWeek, index));
+    return Array.from({ length: 5 }, (_, index) => addDays(currentWeek, index));
   }, [currentWeek]);
 
   // Load schedule data from new job_schedule_assignments table
@@ -70,7 +70,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
     setIsLoading(true);
     try {
       const startDate = format(weekDays[0], 'yyyy-MM-dd');
-      const endDate = format(weekDays[6], 'yyyy-MM-dd');
+      const endDate = format(weekDays[4], 'yyyy-MM-dd');
 
       // Fetch job schedule assignments with related data
       const { data: assignmentsData, error: assignmentsError } = await supabase
@@ -168,7 +168,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
 
       // Then run the daily schedules calculation for the current week
       const startDate = format(weekDays[0], 'yyyy-MM-dd');
-      const endDate = format(weekDays[6], 'yyyy-MM-dd');
+      const endDate = format(weekDays[4], 'yyyy-MM-dd');
 
       const { data, error } = await supabase.functions.invoke('calculate-daily-schedules', {
         body: {
@@ -279,7 +279,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
           const { data, error } = await supabase.functions.invoke('calculate-daily-schedules', {
             body: { 
               start_date: format(weekDays[0], 'yyyy-MM-dd'),
-              end_date: format(weekDays[6], 'yyyy-MM-dd'),
+              end_date: format(weekDays[4], 'yyyy-MM-dd'),
               calculation_type: 'initial_population'
             }
           });
@@ -351,7 +351,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
 
       {/* Weekly Calendar Grid */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-7 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           {weekDays.map((day, index) => {
             const dayJobs = getJobsForDate(day);
             const capacity = getCapacityForDate(day);
