@@ -6,7 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
-import { ProductionScheduleCalendar } from "@/components/tracker/production/ProductionScheduleCalendar";
+import { ProductionCalendarFixed } from "@/components/tracker/production-calendar/ProductionCalendarFixed";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { ProductionJobsView } from "@/components/tracker/production/ProductionJobsView";
 import { ProductionSidebar } from "@/components/tracker/production/ProductionSidebar";
@@ -369,7 +369,7 @@ const TrackerProduction = () => {
                       />
                     }
                   >
-                    <ProductionScheduleCalendar />
+                    <ProductionCalendarFixed />
                   </TrackerErrorBoundary>
                 )}
               </div>
