@@ -32,7 +32,7 @@ export const useProductionCalendarFixed = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch jobs directly from job_schedule_assignments with proper JOINs
+  // Fetch jobs using separate queries to handle polymorphic relationships
   const fetchScheduledJobs = async () => {
     if (!user?.id) {
       setJobs([]);
@@ -42,10 +42,10 @@ export const useProductionCalendarFixed = () => {
 
     try {
       setError(null);
-      console.log("🗓️ Fetching scheduled jobs from job_schedule_assignments...");
+      console.log("🗓️ Fetching scheduled jobs using separate queries...");
 
-      // Get scheduled jobs with full job details - simplified to not filter by user initially
-      const { data: scheduledJobs, error: scheduleError } = await supabase
+      // Step 1: Get all job schedule assignments
+      const { data: scheduleAssignments, error: scheduleError } = await supabase
         .from('job_schedule_assignments')
         .select(`
           job_id,
@@ -57,78 +57,107 @@ export const useProductionCalendarFixed = () => {
           priority_score,
           shift_number,
           status,
-          production_jobs!inner (
-            wo_no,
-            customer,
-            status,
-            user_id
-          ),
-          production_stages!inner (
-            name,
-            color
-          )
+          job_table_name
         `)
         .eq('status', 'scheduled')
-        .gte('scheduled_date', '2025-08-01') // Show jobs from Aug 1st onwards
+        .eq('job_table_name', 'production_jobs')
+        .gte('scheduled_date', '2025-08-01')
         .order('scheduled_date')
         .order('queue_position');
 
       if (scheduleError) {
-        console.error("❌ Error fetching scheduled jobs:", scheduleError);
-        throw new Error(`Failed to fetch scheduled jobs: ${scheduleError.message}`);
+        console.error("❌ Error fetching schedule assignments:", scheduleError);
+        throw new Error(`Failed to fetch schedule assignments: ${scheduleError.message}`);
       }
 
-      console.log("✅ Scheduled jobs fetched:", scheduledJobs?.length || 0);
+      console.log("✅ Schedule assignments fetched:", scheduleAssignments?.length || 0);
 
-      if (!scheduledJobs) {
+      if (!scheduleAssignments || scheduleAssignments.length === 0) {
         setJobs([]);
         return;
       }
 
-      // For now, simplify by showing all jobs and add permission checking later
-      const jobsWithPermissions: ProductionCalendarJob[] = [];
+      // Step 2: Get unique job IDs and stage IDs
+      const jobIds = [...new Set(scheduleAssignments.map(sa => sa.job_id))];
+      const stageIds = [...new Set(scheduleAssignments.map(sa => sa.production_stage_id))];
 
-      for (const schedJob of scheduledJobs) {
-        try {
-          // Simplified: assume user has access to all jobs for now
-          // TODO: Add proper permission checking based on user groups
+      console.log("📋 Fetching data for:", jobIds.length, "jobs and", stageIds.length, "stages");
 
-          // Get current stage status for this job
-          const { data: stageInstance, error: stageError } = await supabase
-            .from('job_stage_instances')
-            .select('status')
-            .eq('job_id', schedJob.job_id)
-            .eq('production_stage_id', schedJob.production_stage_id)
-            .single();
+      // Step 3: Fetch production jobs data
+      const { data: productionJobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, customer, status, user_id')
+        .in('id', jobIds);
 
-          const currentStageStatus = stageInstance?.status || 'pending';
+      if (jobsError) {
+        console.error("❌ Error fetching production jobs:", jobsError);
+        throw new Error(`Failed to fetch production jobs: ${jobsError.message}`);
+      }
 
-          jobsWithPermissions.push({
-            job_id: schedJob.job_id,
-            wo_no: (schedJob.production_jobs as any).wo_no,
-            customer: (schedJob.production_jobs as any).customer,
-            status: (schedJob.production_jobs as any).status,
-            stage_name: (schedJob.production_stages as any).name,
-            stage_color: (schedJob.production_stages as any).color,
-            scheduled_date: schedJob.scheduled_date,
-            queue_position: schedJob.queue_position,
-            estimated_duration_minutes: schedJob.estimated_duration_minutes,
-            is_expedited: schedJob.is_expedited,
-            priority_score: schedJob.priority_score,
-            shift_number: schedJob.shift_number,
+      // Step 4: Fetch production stages data
+      const { data: productionStages, error: stagesError } = await supabase
+        .from('production_stages')
+        .select('id, name, color')
+        .in('id', stageIds);
+
+      if (stagesError) {
+        console.error("❌ Error fetching production stages:", stagesError);
+        throw new Error(`Failed to fetch production stages: ${stagesError.message}`);
+      }
+
+      // Step 5: Fetch job stage instances for current status
+      const { data: stageInstances, error: instancesError } = await supabase
+        .from('job_stage_instances')
+        .select('job_id, production_stage_id, status')
+        .in('job_id', jobIds)
+        .in('production_stage_id', stageIds);
+
+      if (instancesError) {
+        console.error("❌ Error fetching stage instances:", instancesError);
+        // Don't throw here, just log and continue with default status
+      }
+
+      console.log("✅ All data fetched - Jobs:", productionJobs?.length, "Stages:", productionStages?.length, "Instances:", stageInstances?.length);
+
+      // Step 6: Create lookup maps for efficient joining
+      const jobsMap = new Map(productionJobs?.map(job => [job.id, job]) || []);
+      const stagesMap = new Map(productionStages?.map(stage => [stage.id, stage]) || []);
+      const instancesMap = new Map(stageInstances?.map(inst => [`${inst.job_id}-${inst.production_stage_id}`, inst.status]) || []);
+
+      // Step 7: Combine all data
+      const combinedJobs: ProductionCalendarJob[] = [];
+
+      for (const assignment of scheduleAssignments) {
+        const job = jobsMap.get(assignment.job_id);
+        const stage = stagesMap.get(assignment.production_stage_id);
+        const instanceKey = `${assignment.job_id}-${assignment.production_stage_id}`;
+        const currentStageStatus = instancesMap.get(instanceKey) || 'pending';
+
+        if (job && stage) {
+          combinedJobs.push({
+            job_id: assignment.job_id,
+            wo_no: job.wo_no,
+            customer: job.customer,
+            status: job.status,
+            stage_name: stage.name,
+            stage_color: stage.color,
+            scheduled_date: assignment.scheduled_date,
+            queue_position: assignment.queue_position,
+            estimated_duration_minutes: assignment.estimated_duration_minutes,
+            is_expedited: assignment.is_expedited,
+            priority_score: assignment.priority_score,
+            shift_number: assignment.shift_number,
             current_stage_status: currentStageStatus,
-            user_can_work: true, // Already filtered by permission check
-            production_stage_id: schedJob.production_stage_id
+            user_can_work: true, // Simplified for now
+            production_stage_id: assignment.production_stage_id
           });
-
-        } catch (jobError) {
-          console.warn("⚠️ Error processing job:", schedJob.job_id, jobError);
-          continue;
+        } else {
+          console.warn("⚠️ Missing data for assignment:", assignment.job_id, "job found:", !!job, "stage found:", !!stage);
         }
       }
 
-      console.log("✅ Jobs with permissions processed:", jobsWithPermissions.length);
-      setJobs(jobsWithPermissions);
+      console.log("✅ Combined jobs processed:", combinedJobs.length);
+      setJobs(combinedJobs);
 
     } catch (err) {
       console.error('❌ Error in fetchScheduledJobs:', err);
