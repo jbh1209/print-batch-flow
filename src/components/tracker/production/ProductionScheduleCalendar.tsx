@@ -71,6 +71,12 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
     try {
       const startDate = format(weekDays[0], 'yyyy-MM-dd');
       const endDate = format(weekDays[4], 'yyyy-MM-dd');
+      
+      console.log('🔍 DEBUG: Loading schedule data');
+      console.log('📅 Week days:', weekDays.map(d => format(d, 'yyyy-MM-dd')));
+      console.log('📅 Date range:', { startDate, endDate });
+      console.log('📅 Current week start:', format(currentWeek, 'yyyy-MM-dd'));
+      console.log('📅 Selected week prop:', format(selectedWeek, 'yyyy-MM-dd'));
 
       // Fetch job schedule assignments with related data
       const { data: assignmentsData, error: assignmentsError } = await supabase
@@ -94,12 +100,19 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
         .order('scheduled_date', { ascending: true })
         .order('queue_position', { ascending: true });
 
+      console.log('📊 Raw assignments query result:', {
+        count: assignmentsData?.length || 0,
+        error: assignmentsError,
+        sampleData: assignmentsData?.slice(0, 3)
+      });
+
       if (assignmentsError) {
-        console.error('Error loading assignments:', assignmentsError);
+        console.error('❌ Error loading assignments:', assignmentsError);
         setAssignments([]);
       } else {
         // Get unique job IDs for a separate query
         const jobIds = Array.from(new Set((assignmentsData || []).map(item => item.job_id)));
+        console.log('🔢 Unique job IDs found:', jobIds.length, jobIds.slice(0, 5));
         
         // Fetch production jobs separately
         let productionJobsData: any[] = [];
@@ -109,8 +122,14 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
             .select('id, wo_no, customer, status, proof_approved_at, production_ready, queue_calculated_due_date')
             .in('id', jobIds);
           
+          console.log('📊 Production jobs query result:', {
+            count: jobsData?.length || 0,
+            error: jobsError,
+            sampleData: jobsData?.slice(0, 3)
+          });
+
           if (jobsError) {
-            console.error('Error loading production jobs:', jobsError);
+            console.error('❌ Error loading production jobs:', jobsError);
           } else {
             productionJobsData = jobsData || [];
           }
@@ -134,6 +153,16 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
           production_jobs: productionJobsMap.get(item.job_id) || null,
           production_stages: item.production_stages
         }));
+        
+        console.log('✅ Final processed assignments:', {
+          count: typedAssignments.length,
+          sampleData: typedAssignments.slice(0, 3),
+          dateBreakdown: typedAssignments.reduce((acc, job) => {
+            acc[job.scheduled_date] = (acc[job.scheduled_date] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        });
+        
         setAssignments(typedAssignments);
       }
 
@@ -258,9 +287,19 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
   // Get jobs for a specific date
   const getJobsForDate = useCallback((date: Date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    return assignments
+    const jobsForDate = assignments
       .filter(job => job.scheduled_date === dateKey)
       .sort((a, b) => a.queue_position - b.queue_position);
+      
+    console.log(`🔍 Jobs for ${dateKey}:`, {
+      dateKey,
+      assignmentsCount: assignments.length,
+      filteredCount: jobsForDate.length,
+      allDates: assignments.map(a => a.scheduled_date).slice(0, 10),
+      jobs: jobsForDate.slice(0, 3)
+    });
+    
+    return jobsForDate;
   }, [assignments]);
 
   // Get capacity info for a date
