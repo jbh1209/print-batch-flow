@@ -218,12 +218,28 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
       // If no assignments found, automatically populate initial schedules
       if (assignments.length === 0) {
         console.log('No scheduled assignments found, attempting to populate initial schedules...');
-        await populateInitialSchedules();
+        setIsCalculating(true);
+        try {
+          const { data, error } = await supabase.functions.invoke('production-scheduler', {
+            body: { 
+              action: 'populate_initial',
+              data: { populate: true }
+            }
+          });
+          
+          if (data?.success) {
+            await loadScheduleData(); // Reload after population
+          }
+        } catch (error) {
+          console.error('Auto-populate error:', error);
+        } finally {
+          setIsCalculating(false);
+        }
       }
     };
     
     initializeSchedules();
-  }, [loadScheduleData, populateInitialSchedules, assignments.length]);
+  }, [loadScheduleData]);
 
   if (isLoading) {
     return (
