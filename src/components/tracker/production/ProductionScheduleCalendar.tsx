@@ -65,28 +65,76 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
     return Array.from({ length: 7 }, (_, index) => addDays(currentWeek, index));
   }, [currentWeek]);
 
-  // Load schedule data
+  // Load schedule data from new job_schedule_assignments table
   const loadScheduleData = useCallback(async () => {
     setIsLoading(true);
     try {
       const startDate = format(weekDays[0], 'yyyy-MM-dd');
       const endDate = format(weekDays[6], 'yyyy-MM-dd');
 
-      const { data, error } = await supabase.functions.invoke('production-scheduler', {
-        body: {
-          action: 'get_schedule',
-          data: { startDate, endDate }
-        }
-      });
+      // Fetch job schedule assignments with related data
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('job_schedule_assignments')
+        .select(`
+          id,
+          job_id,
+          job_table_name,
+          production_stage_id,
+          scheduled_date,
+          queue_position,
+          estimated_duration_minutes,
+          priority_score,
+          is_expedited,
+          status,
+          production_jobs!inner(id, wo_no, customer, status, proof_approved_at, production_ready, queue_calculated_due_date),
+          production_stages(name, color)
+        `)
+        .gte('scheduled_date', startDate)
+        .lte('scheduled_date', endDate)
+        .eq('status', 'scheduled')
+        .order('scheduled_date', { ascending: true })
+        .order('queue_position', { ascending: true });
 
-      if (error) throw error;
-
-      if (data.success) {
-        setAssignments(data.assignments || []);
-        setDailySchedules(data.dailySchedules || []);
+      if (assignmentsError) {
+        console.error('Error loading assignments:', assignmentsError);
+        setAssignments([]);
       } else {
-        throw new Error(data.error);
+        // Type-safe assignment with explicit typing
+        const typedAssignments: ScheduledJob[] = (assignmentsData || []).map((item: any) => ({
+          id: item.id,
+          job_id: item.job_id,
+          job_table_name: item.job_table_name,
+          production_stage_id: item.production_stage_id,
+          scheduled_date: item.scheduled_date,
+          queue_position: item.queue_position,
+          estimated_duration_minutes: item.estimated_duration_minutes,
+          priority_score: item.priority_score,
+          is_expedited: item.is_expedited,
+          status: item.status,
+          production_jobs: item.production_jobs,
+          production_stages: item.production_stages
+        }));
+        setAssignments(typedAssignments);
       }
+
+      // Fetch daily production schedules
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from('daily_production_schedule')
+        .select(`
+          *,
+          production_stages(name, color)
+        `)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true });
+
+      if (schedulesError) {
+        console.error('Error loading daily schedules:', schedulesError);
+        setDailySchedules([]);
+      } else {
+        setDailySchedules(schedulesData || []);
+      }
+
     } catch (error) {
       console.error('Error loading schedule data:', error);
       toast.error('Failed to load schedule data');
@@ -118,23 +166,23 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
         }
       }
 
-      // Then run regular calculation for the current week
+      // Then run the daily schedules calculation for the current week
       const startDate = format(weekDays[0], 'yyyy-MM-dd');
       const endDate = format(weekDays[6], 'yyyy-MM-dd');
 
-      const { data, error } = await supabase.functions.invoke('production-scheduler', {
+      const { data, error } = await supabase.functions.invoke('calculate-daily-schedules', {
         body: {
-          action: 'calculate',
-          data: { startDate, endDate, calculationType: 'nightly_full' }
+          start_date: startDate,
+          end_date: endDate,
+          calculation_type: 'manual_full'
         }
       });
 
       if (error) throw error;
 
       if (data.success) {
-        const result = data.result;
-        const workingHours = result.working_hours_info;
-        toast.success(`Scheduled ${result.jobs_processed} jobs across ${result.stages_affected} stages (${workingHours?.working_days}, ${workingHours?.working_hours})`);
+        const workingHours = data.working_hours_info;
+        toast.success(`Scheduled ${data.jobs_processed} jobs across ${data.stages_affected} stages (${workingHours?.working_days}, ${workingHours?.working_hours})`);
         await loadScheduleData(); // Reload to see changes
       } else {
         throw new Error(data.error);
@@ -163,27 +211,23 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
     if (!draggedJob) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('production-scheduler', {
-        body: {
-          action: 'reschedule',
-          data: {
-            jobId: draggedJob.job_id,
-            jobTableName: draggedJob.job_table_name,
-            productionStageId: draggedJob.production_stage_id,
-            newDate: destinationDate,
-            newQueuePosition: result.destination.index + 1,
-            reason: 'Drag and drop reschedule'
-          }
-        }
+      // Use the reschedule job server-side function
+      const { data, error } = await supabase.rpc('reschedule_job_server_side', {
+        p_job_id: draggedJob.job_id,
+        p_job_table_name: draggedJob.job_table_name,
+        p_production_stage_id: draggedJob.production_stage_id,
+        p_new_date: destinationDate,
+        p_new_queue_position: result.destination.index + 1,
+        p_reason: 'Drag and drop reschedule'
       });
 
       if (error) throw error;
 
-      if (data.success) {
+      if (data && typeof data === 'object' && (data as any).success) {
         toast.success(`Job rescheduled to ${format(new Date(destinationDate), 'MMM d')}`);
         await loadScheduleData(); // Reload to see changes
       } else {
-        throw new Error(data.error);
+        throw new Error(data && typeof data === 'object' && (data as any).error || 'Failed to reschedule job');
       }
     } catch (error) {
       console.error('Error rescheduling job:', error);
@@ -231,13 +275,18 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
       if (assignments.length === 0 && dailySchedules.length === 0 && !isLoading) {
         console.log('No schedules found, auto-populating...');
         try {
-          const { data, error } = await supabase.functions.invoke('production-scheduler', {
-            body: { action: 'populate_initial' }
+          // Call the calculate-daily-schedules function to populate initial schedules
+          const { data, error } = await supabase.functions.invoke('calculate-daily-schedules', {
+            body: { 
+              start_date: format(weekDays[0], 'yyyy-MM-dd'),
+              end_date: format(weekDays[6], 'yyyy-MM-dd'),
+              calculation_type: 'initial_population'
+            }
           });
           
           if (data?.success) {
-            console.log('Auto-population successful:', data.result);
-            toast.success(`Auto-populated ${data.result?.jobs_processed || 0} jobs into schedule`);
+            console.log('Auto-population successful:', data);
+            toast.success(`Auto-populated ${data.jobs_processed || 0} jobs into schedule`);
             setTimeout(() => loadScheduleData(), 1000); // Reload after brief delay
           }
         } catch (error) {
@@ -247,7 +296,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
     };
     
     autoPopulate();
-  }, [assignments.length, dailySchedules.length, isLoading, loadScheduleData]);
+  }, [assignments.length, dailySchedules.length, isLoading, loadScheduleData, weekDays]);
 
   if (isLoading) {
     return (
