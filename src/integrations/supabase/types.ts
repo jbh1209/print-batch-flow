@@ -989,6 +989,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_job_schedule_assignments_production_stage"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "job_schedule_assignments_production_stage_id_fkey"
             columns: ["production_stage_id"]
             isOneToOne: false
@@ -2732,6 +2739,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      extend_daily_capacity: {
+        Args: {
+          p_date: string
+          p_production_stage_id: string
+          p_additional_hours: number
+          p_reason?: string
+        }
+        Returns: Json
+      }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
         Returns: Json
@@ -3068,6 +3084,10 @@ export type Database = {
       mark_job_ready_for_batching: {
         Args: { p_job_id: string; p_job_table_name: string; p_user_id?: string }
         Returns: boolean
+      }
+      populate_initial_schedules: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       process_due_date_recalculation_queue: {
         Args: Record<PropertyKey, never>

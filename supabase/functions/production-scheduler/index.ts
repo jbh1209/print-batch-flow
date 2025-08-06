@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 interface ScheduleRequest {
-  action: 'calculate' | 'reschedule' | 'get_schedule' | 'update_capacity'
+  action: 'calculate' | 'reschedule' | 'get_schedule' | 'update_capacity' | 'populate_initial'
   data?: any
 }
 
@@ -22,7 +22,11 @@ interface RescheduleData {
 interface CalculateData {
   startDate?: string
   endDate?: string
-  calculationType?: 'nightly_full' | 'job_update' | 'capacity_change'
+  calculationType?: 'nightly_full' | 'job_update' | 'capacity_change' | 'initial_population'
+}
+
+interface PopulateData {
+  populate?: boolean
 }
 
 Deno.serve(async (req) => {
@@ -116,14 +120,10 @@ Deno.serve(async (req) => {
 
         console.log('Fetching schedule data', { start, end })
 
-        // Get job assignments
+        // Get job assignments (simplified to avoid FK issues)
         const { data: assignments, error: assignmentsError } = await supabaseClient
           .from('job_schedule_assignments')
-          .select(`
-            *,
-            production_stages!inner(id, name, color),
-            production_jobs!left(id, wo_no, customer, status, category_id)
-          `)
+          .select('*')
           .gte('scheduled_date', start)
           .lte('scheduled_date', end)
           .eq('status', 'scheduled')
@@ -138,13 +138,44 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Get daily capacity data
+        // Fetch production jobs and stages separately to avoid FK issues
+        const jobIds = assignments?.map(a => a.job_id) || []
+        const stageIds = assignments?.map(a => a.production_stage_id) || []
+        
+        let productionJobs = []
+        let productionStages = []
+        
+        if (jobIds.length > 0) {
+          const { data: jobs } = await supabaseClient
+            .from('production_jobs')
+            .select('id, wo_no, customer, status, category_id, is_expedited')
+            .in('id', jobIds)
+          productionJobs = jobs || []
+        }
+        
+        if (stageIds.length > 0) {
+          const { data: stages } = await supabaseClient
+            .from('production_stages')
+            .select('id, name, color')
+            .in('id', stageIds)
+          productionStages = stages || []
+        }
+
+        // Enrich assignments with job and stage data
+        const enrichedAssignments = assignments?.map(assignment => {
+          const job = productionJobs.find(j => j.id === assignment.job_id)
+          const stage = productionStages.find(s => s.id === assignment.production_stage_id)
+          return {
+            ...assignment,
+            production_jobs: job || null,
+            production_stages: stage || null
+          }
+        }) || []
+
+        // Get daily capacity data (simplified)
         const { data: dailySchedules, error: scheduleError } = await supabaseClient
           .from('daily_production_schedule')
-          .select(`
-            *,
-            production_stages!inner(id, name, color)
-          `)
+          .select('*')
           .gte('date', start)
           .lte('date', end)
           .order('date', { ascending: true })
@@ -157,13 +188,22 @@ Deno.serve(async (req) => {
           )
         }
 
-        console.log(`Fetched ${assignments?.length || 0} assignments and ${dailySchedules?.length || 0} daily schedules`)
+        // Enrich daily schedules with stage data
+        const enrichedSchedules = dailySchedules?.map(schedule => {
+          const stage = productionStages.find(s => s.id === schedule.production_stage_id)
+          return {
+            ...schedule,
+            production_stages: stage || null
+          }
+        }) || []
+
+        console.log(`Fetched ${enrichedAssignments?.length || 0} assignments and ${enrichedSchedules?.length || 0} daily schedules`)
 
         return new Response(
           JSON.stringify({ 
             success: true, 
-            assignments: assignments || [], 
-            dailySchedules: dailySchedules || [] 
+            assignments: enrichedAssignments, 
+            dailySchedules: enrichedSchedules 
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
@@ -213,6 +253,27 @@ Deno.serve(async (req) => {
         console.log('Capacity updated successfully')
         return new Response(
           JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      case 'populate_initial': {
+        console.log('Populating initial schedules for existing jobs')
+
+        const { data: result, error } = await supabaseClient
+          .rpc('populate_initial_schedules')
+
+        if (error) {
+          console.error('Initial population error:', error)
+          return new Response(
+            JSON.stringify({ success: false, error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        console.log('Initial schedules populated:', result)
+        return new Response(
+          JSON.stringify({ success: true, result }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }

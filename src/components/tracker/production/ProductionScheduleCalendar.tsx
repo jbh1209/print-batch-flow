@@ -95,6 +95,20 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
   const calculateSchedules = useCallback(async () => {
     setIsCalculating(true);
     try {
+      console.log('Starting schedule calculation process...');
+      
+      // First populate initial schedules if needed
+      const populateResponse = await supabase.functions.invoke('production-scheduler', {
+        body: { action: 'populate_initial' }
+      });
+      
+      if (populateResponse.error) {
+        console.warn('Initial population warning:', populateResponse.error);
+      } else {
+        console.log('Initial schedules populated:', populateResponse.data);
+      }
+
+      // Then run regular calculation for the current week
       const startDate = format(weekDays[0], 'yyyy-MM-dd');
       const endDate = format(weekDays[6], 'yyyy-MM-dd');
 
@@ -108,7 +122,9 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
       if (error) throw error;
 
       if (data.success) {
-        toast.success(`Scheduled ${data.result.jobs_processed} jobs across ${data.result.stages_affected} stages`);
+        const result = data.result;
+        const workingHours = result.working_hours_info;
+        toast.success(`Scheduled ${result.jobs_processed} jobs across ${result.stages_affected} stages (${workingHours?.working_days}, ${workingHours?.working_hours})`);
         await loadScheduleData(); // Reload to see changes
       } else {
         throw new Error(data.error);
