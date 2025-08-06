@@ -86,7 +86,6 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
           priority_score,
           is_expedited,
           status,
-          production_jobs!inner(id, wo_no, customer, status, proof_approved_at, production_ready, queue_calculated_due_date),
           production_stages(name, color)
         `)
         .gte('scheduled_date', startDate)
@@ -99,6 +98,27 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
         console.error('Error loading assignments:', assignmentsError);
         setAssignments([]);
       } else {
+        // Get unique job IDs for a separate query
+        const jobIds = Array.from(new Set((assignmentsData || []).map(item => item.job_id)));
+        
+        // Fetch production jobs separately
+        let productionJobsData: any[] = [];
+        if (jobIds.length > 0) {
+          const { data: jobsData, error: jobsError } = await supabase
+            .from('production_jobs')
+            .select('id, wo_no, customer, status, proof_approved_at, production_ready, queue_calculated_due_date')
+            .in('id', jobIds);
+          
+          if (jobsError) {
+            console.error('Error loading production jobs:', jobsError);
+          } else {
+            productionJobsData = jobsData || [];
+          }
+        }
+
+        // Create a map for quick lookups
+        const productionJobsMap = new Map(productionJobsData.map(job => [job.id, job]));
+        
         // Type-safe assignment with explicit typing
         const typedAssignments: ScheduledJob[] = (assignmentsData || []).map((item: any) => ({
           id: item.id,
@@ -111,7 +131,7 @@ export const ProductionScheduleCalendar: React.FC<ProductionScheduleCalendarProp
           priority_score: item.priority_score,
           is_expedited: item.is_expedited,
           status: item.status,
-          production_jobs: item.production_jobs,
+          production_jobs: productionJobsMap.get(item.job_id) || null,
           production_stages: item.production_stages
         }));
         setAssignments(typedAssignments);
