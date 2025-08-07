@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Clock, Play, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { CalendarDays, Clock, Play, CheckCircle, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useProductionCalendarFixed } from '@/hooks/tracker/useProductionCalendarFixed';
+import { ViewToggle } from '@/components/tracker/common/ViewToggle';
 import { format, addDays, isSameDay } from 'date-fns';
 import { getBusinessWeekDates, getWeekStartMonday, getNextBusinessDay } from '@/utils/businessDays';
+import { CapacityAwareScheduler } from '@/services/capacityAwareScheduler';
+import { toast } from 'sonner';
 
 interface ProductionCalendarFixedProps {
   selectedStageId?: string | null;
@@ -16,10 +19,12 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
   selectedStageId,
   selectedStageName
 }) => {
-  const { jobs, jobsByDate, isLoading, error, startJob, completeJob, getJobsForDate } = useProductionCalendarFixed(selectedStageId);
+  const { jobs, jobsByDate, isLoading, error, startJob, completeJob, getJobsForDate, refreshJobs } = useProductionCalendarFixed(selectedStageId);
   // Start from next business day by default
   const [selectedDate, setSelectedDate] = useState(() => getNextBusinessDay());
   const [workingOnJobs, setWorkingOnJobs] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<'card' | 'list'>('list'); // Default to list view
+  const [isRescheduling, setIsRescheduling] = useState(false);
 
   // Get business week dates (Monday-Friday only)
   const weekDays = getBusinessWeekDates(selectedDate);
@@ -61,6 +66,25 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
     }
   };
 
+  const handleReschedule = async () => {
+    setIsRescheduling(true);
+    try {
+      toast.info("Rescheduling jobs with capacity-aware logic...");
+      const success = await CapacityAwareScheduler.clearAndReschedule(selectedStageId || undefined);
+      if (success) {
+        toast.success("Jobs rescheduled successfully!");
+        await refreshJobs();
+      } else {
+        toast.error("Failed to reschedule jobs");
+      }
+    } catch (error) {
+      console.error("Error rescheduling:", error);
+      toast.error("Failed to reschedule jobs");
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -93,156 +117,297 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
     <div className="h-full flex flex-col">
       <Card className="flex-1 min-h-0">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CalendarDays className="h-5 w-5" />
-              {selectedStageName ? `${selectedStageName} Schedule` : 'Production Schedule'} - Week of {format(weekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}
-            </CardTitle>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const previousWeek = addDays(weekStart, -7);
-                  setSelectedDate(previousWeek);
-                }}
-              >
-                Previous Week
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedDate(getNextBusinessDay())}
-              >
-                This Week
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const nextWeek = addDays(weekStart, 7);
-                  setSelectedDate(nextWeek);
-                }}
-              >
-                Next Week
-              </Button>
+          <div className="flex flex-col gap-3">
+            {/* Header Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" />
+                <span className="hidden sm:inline">
+                  {selectedStageName ? `${selectedStageName} Schedule` : 'Production Schedule'} - Week of {format(weekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}
+                </span>
+                <span className="sm:hidden">
+                  {selectedStageName || 'Schedule'}
+                </span>
+              </CardTitle>
+              
+              {/* Controls Row */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <ViewToggle view={view} onViewChange={setView} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReschedule}
+                  disabled={isRescheduling}
+                  className="flex items-center gap-1"
+                >
+                  {isRescheduling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Reschedule
+                </Button>
+              </div>
             </div>
-          </div>
-          
-          {/* Week Summary */}
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Total jobs this week: {weekDays.reduce((total, day) => total + getJobsForDate(format(day, 'yyyy-MM-dd')).length, 0)}</span>
+
+            {/* Navigation Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const previousWeek = addDays(weekStart, -7);
+                    setSelectedDate(previousWeek);
+                  }}
+                >
+                  Previous Week
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedDate(getNextBusinessDay())}
+                >
+                  This Week
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const nextWeek = addDays(weekStart, 7);
+                    setSelectedDate(nextWeek);
+                  }}
+                >
+                  Next Week
+                </Button>
+              </div>
+              
+              {/* Week Summary */}
+              <div className="text-sm text-gray-600">
+                Total jobs: {weekDays.reduce((total, day) => total + getJobsForDate(format(day, 'yyyy-MM-dd')).length, 0)}
+              </div>
+            </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-          <div className="h-full grid grid-cols-5 gap-0 border-t">
-            {weekDays.map((day, index) => {
-              const dayJobs = getJobsForDate(format(day, 'yyyy-MM-dd'));
-              const isSelected = isSameDay(day, selectedDate);
-              const isToday = isSameDay(day, new Date());
-              
-              return (
-                <div
-                  key={format(day, 'yyyy-MM-dd')}
-                  className={`border-r last:border-r-0 h-full flex flex-col cursor-pointer transition-colors
-                    ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}
-                    ${isToday ? 'bg-yellow-50' : ''}
-                  `}
-                  onClick={() => setSelectedDate(day)}
-                >
-                  {/* Day Header */}
-                  <div className={`p-3 border-b text-center ${isSelected ? 'bg-blue-100' : 'bg-gray-50'}`}>
-                    <div className="text-xs font-medium text-gray-600">
-                      {format(day, 'EEE')}
+          {view === 'card' ? (
+            /* Card View - Original Grid Layout */
+            <div className="h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-0 border-t">
+              {weekDays.map((day, index) => {
+                const dayJobs = getJobsForDate(format(day, 'yyyy-MM-dd'));
+                const isSelected = isSameDay(day, selectedDate);
+                const isToday = isSameDay(day, new Date());
+                
+                return (
+                  <div
+                    key={format(day, 'yyyy-MM-dd')}
+                    className={`border-r last:border-r-0 h-full flex flex-col cursor-pointer transition-colors
+                      ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}
+                      ${isToday ? 'bg-yellow-50' : ''}
+                    `}
+                    onClick={() => setSelectedDate(day)}
+                  >
+                    {/* Day Header */}
+                    <div className={`p-3 border-b text-center ${isSelected ? 'bg-blue-100' : 'bg-gray-50'}`}>
+                      <div className="text-xs font-medium text-gray-600">
+                        {format(day, 'EEE')}
+                      </div>
+                      <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                        {format(day, 'dd')}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
+                      </div>
                     </div>
-                    <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
-                      {format(day, 'dd')}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
-                    </div>
-                  </div>
 
-                  {/* Jobs Preview */}
-                  <div className="flex-1 p-2 space-y-1 overflow-y-auto">
-                    {dayJobs.slice(0, 3).map((job) => (
-                      <div
-                        key={`${job.job_id}-${job.production_stage_id}`}
-                        className="text-xs bg-white border rounded p-2 shadow-sm"
-                      >
-                        <div className="font-medium text-gray-900 truncate">
-                          {job.wo_no}
-                        </div>
-                        <div className="text-gray-600 truncate">
-                          {job.customer}
-                        </div>
-                        <div className="flex justify-between items-center mt-1">
-                          <Badge 
-                            variant="outline"
-                            className={getStatusColor(job.current_stage_status)}
-                          >
-                            {job.current_stage_status}
-                          </Badge>
-                          <div className="text-gray-500">
-                            {job.estimated_duration_minutes ? `${Math.round(job.estimated_duration_minutes / 60)}h` : '—'}
+                    {/* Jobs Preview */}
+                    <div className="flex-1 p-2 space-y-1 overflow-y-auto">
+                      {dayJobs.slice(0, 3).map((job) => (
+                        <div
+                          key={`${job.job_id}-${job.production_stage_id}`}
+                          className="text-xs bg-white border rounded p-2 shadow-sm"
+                        >
+                          <div className="font-medium text-gray-900 truncate">
+                            {job.wo_no}
+                          </div>
+                          <div className="text-gray-600 truncate">
+                            {job.customer}
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <Badge 
+                              variant="outline"
+                              className={getStatusColor(job.current_stage_status)}
+                            >
+                              {job.current_stage_status}
+                            </Badge>
+                            <div className="text-gray-500">
+                              {job.estimated_duration_minutes ? `${Math.round(job.estimated_duration_minutes / 60)}h` : '—'}
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex gap-1 mt-2">
+                            {job.current_stage_status === 'pending' && job.user_can_work && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartJob(job.job_id, job.production_stage_id);
+                                }}
+                                disabled={workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`)}
+                              >
+                                {workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
+                                <span className="hidden sm:inline ml-1">Start</span>
+                              </Button>
+                            )}
+                            {job.current_stage_status === 'active' && job.user_can_work && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCompleteJob(job.job_id, job.production_stage_id);
+                                }}
+                                disabled={workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`)}
+                              >
+                                {workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3 w-3" />
+                                )}
+                                <span className="hidden sm:inline ml-1">Complete</span>
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        
-                        {/* Action Buttons */}
-                        <div className="flex gap-1 mt-2">
-                          {job.current_stage_status === 'pending' && job.user_can_work && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartJob(job.job_id, job.production_stage_id);
-                              }}
-                              disabled={workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`)}
-                            >
-                              {workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`) ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Play className="h-3 w-3" />
-                              )}
-                              Start
-                            </Button>
-                          )}
-                          {job.current_stage_status === 'active' && job.user_can_work && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCompleteJob(job.job_id, job.production_stage_id);
-                              }}
-                              disabled={workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`)}
-                            >
-                              {workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`) ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-3 w-3" />
-                              )}
-                              Complete
-                            </Button>
-                          )}
+                      ))}
+                      
+                      {dayJobs.length > 3 && (
+                        <div className="text-xs text-gray-500 text-center py-1">
+                          +{dayJobs.length - 3} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* List View - Table Layout */
+            <div className="h-full overflow-auto">
+              <div className="min-w-full">
+                {weekDays.map((day, dayIndex) => {
+                  const dayJobs = getJobsForDate(format(day, 'yyyy-MM-dd'));
+                  const isSelected = isSameDay(day, selectedDate);
+                  const isToday = isSameDay(day, new Date());
+                  
+                  return (
+                    <div key={format(day, 'yyyy-MM-dd')} className="border-b">
+                      {/* Day Header */}
+                      <div 
+                        className={`p-3 cursor-pointer transition-colors flex justify-between items-center
+                          ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}
+                          ${isToday ? 'bg-yellow-50' : 'bg-gray-50'}
+                        `}
+                        onClick={() => setSelectedDate(day)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                            {format(day, 'EEE, MMM dd')}
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {dayJobs.reduce((total, job) => total + (job.estimated_duration_minutes || 0), 0)} min total
                         </div>
                       </div>
-                    ))}
-                    
-                    {dayJobs.length > 3 && (
-                      <div className="text-xs text-gray-500 text-center py-1">
-                        +{dayJobs.length - 3} more
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+
+                      {/* Jobs List */}
+                      {dayJobs.length > 0 && (
+                        <div className="divide-y divide-gray-100">
+                          {dayJobs.map((job, jobIndex) => (
+                            <div
+                              key={`${job.job_id}-${job.production_stage_id}`}
+                              className="p-3 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-gray-900">{job.wo_no}</span>
+                                    <Badge 
+                                      variant="outline"
+                                      className={getStatusColor(job.current_stage_status)}
+                                    >
+                                      {job.current_stage_status}
+                                    </Badge>
+                                    {job.is_expedited && (
+                                      <Badge variant="destructive" className="text-xs">EXPEDITED</Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-gray-600 truncate">{job.customer}</div>
+                                  <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
+                                    <span>Queue: #{job.queue_position}</span>
+                                    <span>{job.estimated_duration_minutes ? `${Math.round(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : '—'}</span>
+                                    <span>Stage: {job.stage_name}</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Action Buttons */}
+                                <div className="flex gap-2 shrink-0">
+                                  {job.current_stage_status === 'pending' && job.user_can_work && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleStartJob(job.job_id, job.production_stage_id)}
+                                      disabled={workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`)}
+                                      className="flex items-center gap-1"
+                                    >
+                                      {workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`) ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Play className="h-4 w-4" />
+                                      )}
+                                      Start
+                                    </Button>
+                                  )}
+                                  {job.current_stage_status === 'active' && job.user_can_work && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleCompleteJob(job.job_id, job.production_stage_id)}
+                                      disabled={workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`)}
+                                      className="flex items-center gap-1"
+                                    >
+                                      {workingOnJobs.has(`${job.job_id}-${job.production_stage_id}`) ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <CheckCircle className="h-4 w-4" />
+                                      )}
+                                      Complete
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
