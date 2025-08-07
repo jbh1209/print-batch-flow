@@ -40,48 +40,51 @@ export const getJobParallelStages = (
 ): ParallelStageInfo[] => {
   if (!jobStages || jobStages.length === 0) return [];
   
-  // Find all active/pending stages for this job
-  const activeStages = jobStages.filter(stage => 
-    stage.job_id === jobId && 
-    (stage.status === 'active' || stage.status === 'pending')
-  );
+  // Get all stages for this job and sort by order
+  const allJobStages = jobStages
+    .filter(stage => stage.job_id === jobId)
+    .sort((a, b) => a.stage_order - b.stage_order);
   
-  if (activeStages.length === 0) return [];
+  if (allJobStages.length === 0) return [];
   
-  // Group stages by dependency group and part assignment
-  const independentStages = activeStages.filter(stage => 
-    !stage.dependency_group && stage.production_stages?.supports_parts
-  );
+  // Find currently active stages
+  const activeStages = allJobStages.filter(stage => stage.status === 'active');
   
-  const dependentStages = activeStages.filter(stage => 
-    stage.dependency_group || !stage.production_stages?.supports_parts
-  );
+  // If there are active stages, return only those
+  if (activeStages.length > 0) {
+    return activeStages.map(stage => ({
+      stage_id: stage.unique_stage_key || stage.production_stage_id,
+      stage_name: stage.production_stages?.name || stage.stage_name,
+      stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
+      stage_status: stage.status,
+      stage_order: stage.stage_order,
+      unique_stage_key: stage.unique_stage_key,
+      production_stage_id: stage.production_stage_id
+    }));
+  }
   
-  const availableStages: any[] = [];
+  // If no active stages, find the next available pending stages
+  // This should only be stages that can actually start (no blocking predecessors)
+  const pendingStages = allJobStages.filter(stage => stage.status === 'pending');
+  const completedStages = allJobStages.filter(stage => stage.status === 'completed');
   
-  // For independent stages (supports_parts = true), group by part assignment
-  if (independentStages.length > 0) {
-    const partGroups = independentStages.reduce((groups, stage) => {
-      const partKey = stage.part_assignment || 'both';
-      if (!groups[partKey]) groups[partKey] = [];
-      groups[partKey].push(stage);
-      return groups;
-    }, {} as Record<string, any[]>);
+  if (pendingStages.length === 0) return [];
+  
+  // Find the earliest pending stage order
+  const earliestPendingOrder = Math.min(...pendingStages.map(s => s.stage_order));
+  
+  // Only return pending stages at the earliest order that can actually start
+  // This prevents showing future parallel stages before their prerequisites are met
+  const availableStages = pendingStages.filter(stage => {
+    // Must be at the earliest pending order
+    if (stage.stage_order !== earliestPendingOrder) return false;
     
-    // For each part, find the next available stage(s)
-    Object.values(partGroups).forEach((partStages: any[]) => {
-      const minOrder = Math.min(...partStages.map((s: any) => s.stage_order));
-      const nextStages = partStages.filter((stage: any) => stage.stage_order === minOrder);
-      availableStages.push(...nextStages);
-    });
-  }
-  
-  // For dependent stages, use original logic (lowest order)
-  if (dependentStages.length > 0) {
-    const currentOrder = Math.min(...dependentStages.map(s => s.stage_order));
-    const nextDependentStages = dependentStages.filter(stage => stage.stage_order === currentOrder);
-    availableStages.push(...nextDependentStages);
-  }
+    // Check if all predecessor stages are completed
+    const predecessors = allJobStages.filter(s => s.stage_order < stage.stage_order);
+    const allPredecessorsCompleted = predecessors.every(p => p.status === 'completed');
+    
+    return allPredecessorsCompleted;
+  });
   
   // Return mapped stage info with unique identifiers
   return availableStages.map(stage => ({
