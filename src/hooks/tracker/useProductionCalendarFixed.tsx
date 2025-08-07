@@ -47,8 +47,9 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
       setError(null);
       console.log("🗓️ Fetching jobs from job_stage_instances (same as list view)...");
 
-      // Step 1: Get job stage instances (same as working list view)
-      let instanceQuery = supabase
+      // Step 1: Get job stage instances - ONLY current working stages
+      // A job should only appear in its current working stage (first pending stage in sequence)
+      const { data: allInstances, error: allInstancesError } = await supabase
         .from('job_stage_instances')
         .select(`
           id,
@@ -63,32 +64,53 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
           job_table_name
         `)
         .in('status', ['pending', 'active'])
-        .eq('job_table_name', 'production_jobs');
+        .eq('job_table_name', 'production_jobs')
+        .order('job_id')
+        .order('stage_order');
 
-      // Apply stage filter if provided (same logic as list view)
+      if (allInstancesError) {
+        console.error("❌ Error fetching all job stage instances:", allInstancesError);
+        throw new Error(`Failed to fetch job instances: ${allInstancesError.message}`);
+      }
+
+      // Filter to get only current working stages (first pending stage per job)
+      const currentWorkingStages = new Map<string, any>();
+      
+      if (allInstances) {
+        for (const instance of allInstances) {
+          const jobId = instance.job_id;
+          
+          // For each job, only show the first pending stage OR any active stage
+          if (instance.status === 'active' || !currentWorkingStages.has(jobId)) {
+            if (instance.status === 'pending' && !currentWorkingStages.has(jobId)) {
+              // First pending stage for this job
+              currentWorkingStages.set(jobId, instance);
+            } else if (instance.status === 'active') {
+              // Always show active stages (override pending if needed)
+              currentWorkingStages.set(jobId, instance);
+            }
+          }
+        }
+      }
+
+      const instances = Array.from(currentWorkingStages.values());
+
+      // Apply stage filter if provided
+      let filteredInstances = instances;
       if (selectedStageId && selectedStageId !== 'batch-processing') {
-        instanceQuery = instanceQuery.eq('production_stage_id', selectedStageId);
+        filteredInstances = instances.filter(inst => inst.production_stage_id === selectedStageId);
       }
 
-      const { data: instances, error: instanceError } = await instanceQuery
-        .order('stage_order')
-        .order('queue_position');
+      console.log("✅ Current working stage instances filtered:", filteredInstances?.length || 0);
 
-      if (instanceError) {
-        console.error("❌ Error fetching job stage instances:", instanceError);
-        throw new Error(`Failed to fetch job instances: ${instanceError.message}`);
-      }
-
-      console.log("✅ Job stage instances fetched:", instances?.length || 0);
-
-      if (!instances || instances.length === 0) {
+      if (!filteredInstances || filteredInstances.length === 0) {
         setJobs([]);
         return;
       }
 
-      // Step 2: Get unique job IDs and stage IDs
-      const jobIds = [...new Set(instances.map(inst => inst.job_id))];
-      const stageIds = [...new Set(instances.map(inst => inst.production_stage_id))];
+      // Step 2: Get unique job IDs and stage IDs from filtered instances
+      const jobIds = [...new Set(filteredInstances.map(inst => inst.job_id))];
+      const stageIds = [...new Set(filteredInstances.map(inst => inst.production_stage_id))];
 
       // Step 3: Fetch production jobs
       const { data: productionJobs, error: jobsError } = await supabase
@@ -117,7 +139,7 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
       const stagesMap = new Map(productionStages?.map(stage => [stage.id, stage]) || []);
 
       // Step 6: Transform data to match expected format
-      const transformedJobs: ProductionCalendarJob[] = instances
+      const transformedJobs: ProductionCalendarJob[] = filteredInstances
         .map(instance => {
           const job = jobsMap.get(instance.job_id);
           const stage = stagesMap.get(instance.production_stage_id);

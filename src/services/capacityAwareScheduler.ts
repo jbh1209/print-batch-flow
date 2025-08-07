@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, isWeekend } from "date-fns";
 import { WorkShiftConfigService } from "./workShiftConfig";
+import { FullWorkflowScheduler } from "./fullWorkflowScheduler";
 
 interface SchedulingJob {
   job_id: string;
@@ -23,13 +24,22 @@ export class CapacityAwareScheduler {
   
   /**
    * Distributes jobs across available time slots respecting daily capacity limits
+   * Now uses full workflow scheduling for complete job sequences
    */
   static async scheduleJobsWithCapacity(stageId?: string): Promise<boolean> {
     try {
-      console.log("🔄 Starting capacity-aware scheduling...");
+      console.log("🔄 Starting full workflow scheduling...");
       
-      // Get all pending jobs that need scheduling
-      let jobQuery = supabase
+      // If no specific stage is requested, schedule complete job workflows
+      if (!stageId) {
+        return await FullWorkflowScheduler.scheduleJobWorkflows();
+      }
+      
+      // If a specific stage is requested, use legacy single-stage scheduling
+      console.log(`📋 Legacy single-stage scheduling for stage: ${stageId}`);
+      
+      // Get all pending jobs that need scheduling for this specific stage
+      const { data: pendingJobs, error: jobsError } = await supabase
         .from('job_stage_instances')
         .select(`
           job_id,
@@ -39,13 +49,8 @@ export class CapacityAwareScheduler {
         `)
         .eq('status', 'pending')
         .eq('job_table_name', 'production_jobs')
-        .is('scheduled_date', null);
-
-      if (stageId) {
-        jobQuery = jobQuery.eq('production_stage_id', stageId);
-      }
-
-      const { data: pendingJobs, error: jobsError } = await jobQuery
+        .eq('production_stage_id', stageId)
+        .is('scheduled_date', null)
         .order('queue_position', { ascending: true });
 
       if (jobsError) {
@@ -54,21 +59,16 @@ export class CapacityAwareScheduler {
       }
 
       if (!pendingJobs || pendingJobs.length === 0) {
-        console.log("ℹ️ No pending jobs to schedule");
+        console.log("ℹ️ No pending jobs to schedule for this stage");
         return true;
       }
 
-      console.log(`📋 Found ${pendingJobs.length} jobs to schedule`);
+      console.log(`📋 Found ${pendingJobs.length} jobs to schedule for stage ${stageId}`);
 
-      // Group jobs by stage
-      const jobsByStage = this.groupJobsByStage(pendingJobs);
-      
-      // Schedule each stage independently
-      for (const [stageId, jobs] of Object.entries(jobsByStage)) {
-        await this.scheduleStageJobs(stageId, jobs);
-      }
+      // Schedule this specific stage
+      await this.scheduleStageJobs(stageId, pendingJobs);
 
-      console.log("✅ Capacity-aware scheduling completed");
+      console.log("✅ Single-stage scheduling completed");
       return true;
 
     } catch (error) {
@@ -209,8 +209,13 @@ export class CapacityAwareScheduler {
     try {
       console.log("🧹 Clearing existing schedules...");
       
-      // Clear scheduled_date for pending jobs
-      let clearQuery = supabase
+      // If no specific stage, use full workflow rescheduling
+      if (!stageId) {
+        return await FullWorkflowScheduler.clearAndRescheduleWorkflows();
+      }
+      
+      // Clear scheduled_date for pending jobs in specific stage
+      const { error: clearError } = await supabase
         .from('job_stage_instances')
         .update({
           scheduled_date: null,
@@ -220,13 +225,8 @@ export class CapacityAwareScheduler {
           time_slot: null
         })
         .eq('status', 'pending')
-        .eq('job_table_name', 'production_jobs');
-
-      if (stageId) {
-        clearQuery = clearQuery.eq('production_stage_id', stageId);
-      }
-
-      const { error: clearError } = await clearQuery;
+        .eq('job_table_name', 'production_jobs')
+        .eq('production_stage_id', stageId);
       
       if (clearError) {
         console.error("❌ Error clearing schedules:", clearError);
@@ -235,7 +235,7 @@ export class CapacityAwareScheduler {
 
       console.log("✅ Existing schedules cleared");
       
-      // Now reschedule everything
+      // Now reschedule this specific stage
       return await this.scheduleJobsWithCapacity(stageId);
       
     } catch (error) {
