@@ -2917,38 +2917,42 @@ export type Database = {
         Returns: string
       }
       get_user_accessible_jobs: {
-        Args: {
-          p_user_id?: string
-          p_permission_type?: string
-          p_status_filter?: string
-          p_stage_filter?: string
-        }
+        Args:
+          | {
+              p_user_id: string
+              p_permission_type?: string
+              p_status_filter?: string
+            }
+          | {
+              p_user_id?: string
+              p_permission_type?: string
+              p_status_filter?: string
+              p_stage_filter?: string
+            }
         Returns: {
           job_id: string
+          job_table_name: string
           wo_no: string
           customer: string
+          reference: string
           status: string
           due_date: string
-          reference: string
-          category_id: string
-          category_name: string
-          category_color: string
+          qty: number
           current_stage_id: string
           current_stage_name: string
-          current_stage_color: string
           current_stage_status: string
-          user_can_view: boolean
-          user_can_edit: boolean
-          user_can_work: boolean
-          user_can_manage: boolean
-          workflow_progress: number
-          total_stages: number
-          completed_stages: number
-          display_stage_name: string
-          qty: number
+          current_stage_color: string
+          can_start: boolean
+          can_complete: boolean
+          stage_order: number
+          started_at: string
           started_by: string
-          started_by_name: string
+          estimated_duration_minutes: number
+          is_expedited: boolean
           proof_emailed_at: string
+          proof_approved_manually_at: string
+          client_email: string
+          client_name: string
         }[]
       }
       get_user_accessible_jobs_with_batch_allocation: {
