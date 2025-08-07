@@ -73,27 +73,7 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
         throw new Error(`Failed to fetch job instances: ${allInstancesError.message}`);
       }
 
-      // Filter to get only current working stages (first pending stage per job)
-      const currentWorkingStages = new Map<string, any>();
-      
-      if (allInstances) {
-        for (const instance of allInstances) {
-          const jobId = instance.job_id;
-          
-          // For each job, only show the first pending stage OR any active stage
-          if (instance.status === 'active' || !currentWorkingStages.has(jobId)) {
-            if (instance.status === 'pending' && !currentWorkingStages.has(jobId)) {
-              // First pending stage for this job
-              currentWorkingStages.set(jobId, instance);
-            } else if (instance.status === 'active') {
-              // Always show active stages (override pending if needed)
-              currentWorkingStages.set(jobId, instance);
-            }
-          }
-        }
-      }
-
-      const instances = Array.from(currentWorkingStages.values());
+      const instances = allInstances;
 
       // Apply stage filter if provided
       let filteredInstances = instances;
