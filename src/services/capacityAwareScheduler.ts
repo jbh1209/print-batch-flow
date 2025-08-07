@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, isWeekend } from "date-fns";
+import { WorkShiftConfigService } from "./workShiftConfig";
 
 interface SchedulingJob {
   job_id: string;
@@ -16,7 +17,9 @@ interface DailyCapacity {
 }
 
 export class CapacityAwareScheduler {
-  private static readonly DAILY_CAPACITY_MINUTES = 480; // 8 hours per day per stage
+  private static readonly SHIFT_START_HOUR = 8; // 8:00 AM
+  private static readonly SHIFT_END_HOUR = 16.5; // 4:30 PM
+  private static readonly DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8AM-4:30PM)
   
   /**
    * Distributes jobs across available time slots respecting daily capacity limits
@@ -87,23 +90,33 @@ export class CapacityAwareScheduler {
     for (const job of jobs) {
       const duration = job.estimated_duration_minutes || 120; // Default 2 hours
       
-      // Check if job fits in current day
+      // Check if job fits within shift boundary (8AM to 4:30PM)
       if (currentDayAllocated + duration > this.DAILY_CAPACITY_MINUTES) {
         // Move to next working day
         currentDate = this.getNextWorkingDay(addDays(currentDate, 1));
         currentDayAllocated = 0;
         queuePosition = 1;
-        console.log(`📅 Moving to next day: ${format(currentDate, 'yyyy-MM-dd')}`);
+        console.log(`📅 Moving to next day: ${format(currentDate, 'yyyy-MM-dd')} - job exceeded shift capacity`);
       }
 
-      // Calculate start and end times for this job
+      // Check if job would finish after 4:30PM
+      const jobEndHour = this.SHIFT_START_HOUR + (currentDayAllocated + duration) / 60;
+      if (jobEndHour > this.SHIFT_END_HOUR) {
+        // Job would run past 4:30PM, move to next day
+        currentDate = this.getNextWorkingDay(addDays(currentDate, 1));
+        currentDayAllocated = 0;
+        queuePosition = 1;
+        console.log(`📅 Moving to next day: ${format(currentDate, 'yyyy-MM-dd')} - job would exceed 4:30PM`);
+      }
+
+      // Calculate start and end times for this job within shift
       const startMinutes = currentDayAllocated;
       const endMinutes = startMinutes + duration;
       
       const startTime = this.minutesToTimeString(startMinutes);
       const endTime = this.minutesToTimeString(endMinutes);
 
-      // Update the job stage instance with scheduling info
+      // Update the job stage instance with scheduling info (status remains 'pending')
       await this.updateJobSchedule(
         job.job_id,
         stageId,
@@ -180,11 +193,12 @@ export class CapacityAwareScheduler {
   }
 
   /**
-   * Convert minutes to time string (HH:MM)
+   * Convert minutes to time string (HH:MM) - starts at 8:00 AM
    */
   private static minutesToTimeString(minutes: number): string {
-    const hours = Math.floor(minutes / 60) + 8; // Start at 8:00 AM
-    const mins = minutes % 60;
+    const totalMinutes = minutes + (this.SHIFT_START_HOUR * 60); // Add 8 hours (480 mins) for 8:00 AM start
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   }
 

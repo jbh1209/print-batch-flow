@@ -192,22 +192,23 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
 
         <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
           {view === 'card' ? (
-            /* Card View - Original Grid Layout */
-            <div className="h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-0 border-t">
-              {weekDays.map((day, index) => {
-                const dayJobs = getJobsForDate(format(day, 'yyyy-MM-dd'));
-                const isSelected = isSameDay(day, selectedDate);
-                const isToday = isSameDay(day, new Date());
-                
-                return (
-                  <div
-                    key={format(day, 'yyyy-MM-dd')}
-                    className={`border-r last:border-r-0 h-full flex flex-col cursor-pointer transition-colors
-                      ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}
-                      ${isToday ? 'bg-yellow-50' : ''}
-                    `}
-                    onClick={() => setSelectedDate(day)}
-                  >
+            /* Card View - Responsive Grid Layout */
+            <div className="h-full overflow-auto">
+              <div className="min-h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 p-4">
+                {weekDays.map((day, index) => {
+                  const dayJobs = getJobsForDate(format(day, 'yyyy-MM-dd'));
+                  const isSelected = isSameDay(day, selectedDate);
+                  const isToday = isSameDay(day, new Date());
+                  
+                  return (
+                    <div
+                      key={format(day, 'yyyy-MM-dd')}
+                      className={`border rounded-lg h-96 flex flex-col cursor-pointer transition-colors shadow-sm
+                        ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50 border-gray-200'}
+                        ${isToday ? 'bg-yellow-50 border-yellow-300' : ''}
+                      `}
+                      onClick={() => setSelectedDate(day)}
+                    >
                     {/* Day Header */}
                     <div className={`p-3 border-b text-center ${isSelected ? 'bg-blue-100' : 'bg-gray-50'}`}>
                       <div className="text-xs font-medium text-gray-600">
@@ -222,7 +223,7 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
                     </div>
 
                     {/* Jobs Preview */}
-                    <div className="flex-1 p-2 space-y-1 overflow-y-auto">
+                    <div className="flex-1 p-2 space-y-1 overflow-y-auto max-h-96">
                       {dayJobs.slice(0, 3).map((job) => (
                         <div
                           key={`${job.job_id}-${job.production_stage_id}`}
@@ -233,6 +234,9 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
                           </div>
                           <div className="text-gray-600 truncate">
                             {job.customer}
+                          </div>
+                          <div className="text-gray-500 text-xs truncate mb-1">
+                            {job.specification || 'No spec'} • {job.qty || 0} sheets
                           </div>
                           <div className="flex justify-between items-center mt-1">
                             <Badge 
@@ -296,9 +300,10 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
                         </div>
                       )}
                     </div>
-                  </div>
-                );
-              })}
+                </div>
+              );
+            })}
+              </div>
             </div>
           ) : (
             /* List View - Table Layout */
@@ -354,12 +359,15 @@ export const ProductionCalendarFixed: React.FC<ProductionCalendarFixedProps> = (
                                       <Badge variant="destructive" className="text-xs">EXPEDITED</Badge>
                                     )}
                                   </div>
-                                  <div className="text-sm text-gray-600 truncate">{job.customer}</div>
-                                  <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
-                                    <span>Queue: #{job.queue_position}</span>
-                                    <span>{job.estimated_duration_minutes ? `${Math.round(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : '—'}</span>
-                                    <span>Stage: {job.stage_name}</span>
-                                  </div>
+                                   <div className="text-sm text-gray-600 truncate">{job.customer}</div>
+                                   <div className="text-sm text-gray-500 truncate mb-1">
+                                     {job.specification || 'No spec'} • {job.qty || 0} sheets
+                                   </div>
+                                   <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
+                                     <span>Queue: #{job.queue_position}</span>
+                                     <span>{job.estimated_duration_minutes ? `${Math.round(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : '—'}</span>
+                                     <span>Stage: {job.stage_name}</span>
+                                   </div>
                                 </div>
                                 
                                 {/* Action Buttons */}

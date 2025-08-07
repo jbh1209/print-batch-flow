@@ -21,6 +21,8 @@ interface ProductionCalendarJob {
   current_stage_status: string;
   user_can_work: boolean;
   production_stage_id: string;
+  specification?: string;
+  qty?: number;
 }
 
 interface JobsByDate {
@@ -91,7 +93,7 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
       // Step 3: Fetch production jobs
       const { data: productionJobs, error: jobsError } = await supabase
         .from('production_jobs')
-        .select('id, wo_no, customer, status, is_expedited')
+        .select('id, wo_no, customer, status, is_expedited, specification, qty')
         .in('id', jobIds);
 
       if (jobsError) {
@@ -140,7 +142,9 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
             shift_number: 1,
             current_stage_status: instance.status,
             user_can_work: true,
-            production_stage_id: instance.production_stage_id
+            production_stage_id: instance.production_stage_id,
+            specification: job.specification,
+            qty: job.qty
           };
         })
         .filter(Boolean) as ProductionCalendarJob[];
