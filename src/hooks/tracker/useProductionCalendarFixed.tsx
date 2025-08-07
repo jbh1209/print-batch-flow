@@ -27,7 +27,7 @@ interface JobsByDate {
   [dateKey: string]: ProductionCalendarJob[];
 }
 
-export const useProductionCalendarFixed = () => {
+export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<ProductionCalendarJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +46,7 @@ export const useProductionCalendarFixed = () => {
       console.log("🗓️ Fetching scheduled jobs using separate queries...");
 
       // Step 1: Get all job schedule assignments
-      const { data: scheduleAssignments, error: scheduleError } = await supabase
+      let scheduleQuery = supabase
         .from('job_schedule_assignments')
         .select(`
           job_id,
@@ -62,7 +62,14 @@ export const useProductionCalendarFixed = () => {
         `)
         .eq('status', 'scheduled')
         .eq('job_table_name', 'production_jobs')
-        .gte('scheduled_date', getCurrentDate())
+        .gte('scheduled_date', getCurrentDate());
+
+      // Add stage filtering if a stage is selected
+      if (selectedStageId && selectedStageId !== 'batch-processing') {
+        scheduleQuery = scheduleQuery.eq('production_stage_id', selectedStageId);
+      }
+
+      const { data: scheduleAssignments, error: scheduleError } = await scheduleQuery
         .order('scheduled_date')
         .order('queue_position');
 
@@ -79,8 +86,8 @@ export const useProductionCalendarFixed = () => {
       }
 
       // Step 2: Get unique job IDs and stage IDs
-      const jobIds = [...new Set(scheduleAssignments.map(sa => sa.job_id))];
-      const stageIds = [...new Set(scheduleAssignments.map(sa => sa.production_stage_id))];
+      const jobIds = [...new Set(scheduleAssignments.map(sa => sa.job_id as string))];
+      const stageIds = [...new Set(scheduleAssignments.map(sa => sa.production_stage_id as string))];
 
       console.log("📋 Fetching data for:", jobIds.length, "jobs and", stageIds.length, "stages");
 
@@ -88,7 +95,7 @@ export const useProductionCalendarFixed = () => {
       const { data: productionJobs, error: jobsError } = await supabase
         .from('production_jobs')
         .select('id, wo_no, customer, status, user_id')
-        .in('id', jobIds);
+        .in('id', jobIds as string[]);
 
       if (jobsError) {
         console.error("❌ Error fetching production jobs:", jobsError);
@@ -99,7 +106,7 @@ export const useProductionCalendarFixed = () => {
       const { data: productionStages, error: stagesError } = await supabase
         .from('production_stages')
         .select('id, name, color')
-        .in('id', stageIds);
+        .in('id', stageIds as string[]);
 
       if (stagesError) {
         console.error("❌ Error fetching production stages:", stagesError);
@@ -110,8 +117,8 @@ export const useProductionCalendarFixed = () => {
       const { data: stageInstances, error: instancesError } = await supabase
         .from('job_stage_instances')
         .select('job_id, production_stage_id, status')
-        .in('job_id', jobIds)
-        .in('production_stage_id', stageIds);
+        .in('job_id', jobIds as string[])
+        .in('production_stage_id', stageIds as string[]);
 
       if (instancesError) {
         console.error("❌ Error fetching stage instances:", instancesError);
@@ -288,7 +295,7 @@ export const useProductionCalendarFixed = () => {
 
   useEffect(() => {
     fetchScheduledJobs();
-  }, [user?.id]);
+  }, [user?.id, selectedStageId]);
 
   return {
     jobs,

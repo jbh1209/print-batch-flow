@@ -369,7 +369,10 @@ const TrackerProduction = () => {
                       />
                     }
                   >
-                    <ProductionCalendarFixed />
+                    <ProductionCalendarFixed 
+                      selectedStageId={selectedStageId}
+                      selectedStageName={selectedStageName}
+                    />
                   </TrackerErrorBoundary>
                 )}
               </div>
