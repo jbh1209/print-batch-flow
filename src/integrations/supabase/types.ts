@@ -1032,14 +1032,19 @@ export type Database = {
           proof_pdf_url: string | null
           qr_scan_data: Json | null
           quantity: number | null
+          queue_position: number | null
           rework_count: number | null
           rework_reason: string | null
+          scheduled_date: string | null
+          scheduled_end_time: string | null
+          scheduled_start_time: string | null
           setup_time_minutes: number | null
           stage_order: number
           stage_specification_id: string | null
           started_at: string | null
           started_by: string | null
           status: string
+          time_slot: string | null
           unique_stage_key: string | null
           updated_at: string
         }
@@ -1070,14 +1075,19 @@ export type Database = {
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           quantity?: number | null
+          queue_position?: number | null
           rework_count?: number | null
           rework_reason?: string | null
+          scheduled_date?: string | null
+          scheduled_end_time?: string | null
+          scheduled_start_time?: string | null
           setup_time_minutes?: number | null
           stage_order: number
           stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
+          time_slot?: string | null
           unique_stage_key?: string | null
           updated_at?: string
         }
@@ -1108,14 +1118,19 @@ export type Database = {
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           quantity?: number | null
+          queue_position?: number | null
           rework_count?: number | null
           rework_reason?: string | null
+          scheduled_date?: string | null
+          scheduled_end_time?: string | null
+          scheduled_start_time?: string | null
           setup_time_minutes?: number | null
           stage_order?: number
           stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
+          time_slot?: string | null
           unique_stage_key?: string | null
           updated_at?: string
         }

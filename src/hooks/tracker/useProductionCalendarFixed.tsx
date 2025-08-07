@@ -33,7 +33,7 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch jobs using separate queries to handle polymorphic relationships
+  // Fetch jobs from the same source as the working list view
   const fetchScheduledJobs = async () => {
     if (!user?.id) {
       setJobs([]);
@@ -43,133 +43,114 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
 
     try {
       setError(null);
-      console.log("🗓️ Fetching scheduled jobs using separate queries...");
+      console.log("🗓️ Fetching jobs from job_stage_instances (same as list view)...");
 
-      // Step 1: Get all job schedule assignments
-      let scheduleQuery = supabase
-        .from('job_schedule_assignments')
+      // Step 1: Get job stage instances (same as working list view)
+      let instanceQuery = supabase
+        .from('job_stage_instances')
         .select(`
+          id,
           job_id,
           production_stage_id,
-          scheduled_date,
+          status,
+          stage_order,
           queue_position,
           estimated_duration_minutes,
-          is_expedited,
-          priority_score,
-          shift_number,
-          status,
+          scheduled_date,
+          time_slot,
           job_table_name
         `)
-        .eq('status', 'scheduled')
-        .eq('job_table_name', 'production_jobs')
-        .gte('scheduled_date', getCurrentDate());
+        .in('status', ['pending', 'active'])
+        .eq('job_table_name', 'production_jobs');
 
-      // Add stage filtering if a stage is selected
+      // Apply stage filter if provided (same logic as list view)
       if (selectedStageId && selectedStageId !== 'batch-processing') {
-        scheduleQuery = scheduleQuery.eq('production_stage_id', selectedStageId);
+        instanceQuery = instanceQuery.eq('production_stage_id', selectedStageId);
       }
 
-      const { data: scheduleAssignments, error: scheduleError } = await scheduleQuery
-        .order('scheduled_date')
+      const { data: instances, error: instanceError } = await instanceQuery
+        .order('stage_order')
         .order('queue_position');
 
-      if (scheduleError) {
-        console.error("❌ Error fetching schedule assignments:", scheduleError);
-        throw new Error(`Failed to fetch schedule assignments: ${scheduleError.message}`);
+      if (instanceError) {
+        console.error("❌ Error fetching job stage instances:", instanceError);
+        throw new Error(`Failed to fetch job instances: ${instanceError.message}`);
       }
 
-      console.log("✅ Schedule assignments fetched:", scheduleAssignments?.length || 0);
+      console.log("✅ Job stage instances fetched:", instances?.length || 0);
 
-      if (!scheduleAssignments || scheduleAssignments.length === 0) {
+      if (!instances || instances.length === 0) {
         setJobs([]);
         return;
       }
 
       // Step 2: Get unique job IDs and stage IDs
-      const jobIds = [...new Set(scheduleAssignments.map(sa => sa.job_id as string))];
-      const stageIds = [...new Set(scheduleAssignments.map(sa => sa.production_stage_id as string))];
+      const jobIds = [...new Set(instances.map(inst => inst.job_id))];
+      const stageIds = [...new Set(instances.map(inst => inst.production_stage_id))];
 
-      console.log("📋 Fetching data for:", jobIds.length, "jobs and", stageIds.length, "stages");
-
-      // Step 3: Fetch production jobs data
+      // Step 3: Fetch production jobs
       const { data: productionJobs, error: jobsError } = await supabase
         .from('production_jobs')
-        .select('id, wo_no, customer, status, user_id')
-        .in('id', jobIds as string[]);
+        .select('id, wo_no, customer, status, is_expedited')
+        .in('id', jobIds);
 
       if (jobsError) {
         console.error("❌ Error fetching production jobs:", jobsError);
         throw new Error(`Failed to fetch production jobs: ${jobsError.message}`);
       }
 
-      // Step 4: Fetch production stages data
+      // Step 4: Fetch production stages
       const { data: productionStages, error: stagesError } = await supabase
         .from('production_stages')
         .select('id, name, color')
-        .in('id', stageIds as string[]);
+        .in('id', stageIds);
 
       if (stagesError) {
         console.error("❌ Error fetching production stages:", stagesError);
         throw new Error(`Failed to fetch production stages: ${stagesError.message}`);
       }
 
-      // Step 5: Fetch job stage instances for current status
-      const { data: stageInstances, error: instancesError } = await supabase
-        .from('job_stage_instances')
-        .select('job_id, production_stage_id, status')
-        .in('job_id', jobIds as string[])
-        .in('production_stage_id', stageIds as string[]);
-
-      if (instancesError) {
-        console.error("❌ Error fetching stage instances:", instancesError);
-        // Don't throw here, just log and continue with default status
-      }
-
-      console.log("✅ All data fetched - Jobs:", productionJobs?.length, "Stages:", productionStages?.length, "Instances:", stageInstances?.length);
-
-      // Step 6: Create lookup maps for efficient joining
+      // Step 5: Create lookup maps
       const jobsMap = new Map(productionJobs?.map(job => [job.id, job]) || []);
       const stagesMap = new Map(productionStages?.map(stage => [stage.id, stage]) || []);
-      const instancesMap = new Map(stageInstances?.map(inst => [`${inst.job_id}-${inst.production_stage_id}`, inst.status]) || []);
 
-      // Step 7: Combine all data
-      const combinedJobs: ProductionCalendarJob[] = [];
+      // Step 6: Transform data to match expected format
+      const transformedJobs: ProductionCalendarJob[] = instances
+        .map(instance => {
+          const job = jobsMap.get(instance.job_id);
+          const stage = stagesMap.get(instance.production_stage_id);
 
-      for (const assignment of scheduleAssignments) {
-        const job = jobsMap.get(assignment.job_id);
-        const stage = stagesMap.get(assignment.production_stage_id);
-        const instanceKey = `${assignment.job_id}-${assignment.production_stage_id}`;
-        const currentStageStatus = instancesMap.get(instanceKey) || 'pending';
+          if (!job || !stage) {
+            console.warn("⚠️ Missing data for instance:", instance.job_id, "job found:", !!job, "stage found:", !!stage);
+            return null;
+          }
 
-        if (job && stage) {
-          combinedJobs.push({
-            job_id: assignment.job_id,
+          return {
+            job_id: job.id,
             wo_no: job.wo_no,
             customer: job.customer,
-            status: job.status,
+            status: instance.status,
             stage_name: stage.name,
-            stage_color: stage.color,
-            scheduled_date: assignment.scheduled_date,
-            queue_position: assignment.queue_position,
-            estimated_duration_minutes: assignment.estimated_duration_minutes,
-            is_expedited: assignment.is_expedited,
-            priority_score: assignment.priority_score,
-            shift_number: assignment.shift_number,
-            current_stage_status: currentStageStatus,
-            user_can_work: true, // Simplified for now
-            production_stage_id: assignment.production_stage_id
-          });
-        } else {
-          console.warn("⚠️ Missing data for assignment:", assignment.job_id, "job found:", !!job, "stage found:", !!stage);
-        }
-      }
+            stage_color: stage.color || '#6B7280',
+            scheduled_date: instance.scheduled_date || format(new Date(), 'yyyy-MM-dd'),
+            queue_position: instance.queue_position || 1,
+            estimated_duration_minutes: instance.estimated_duration_minutes || 120,
+            is_expedited: job.is_expedited || false,
+            priority_score: job.is_expedited ? 0 : 100,
+            shift_number: 1,
+            current_stage_status: instance.status,
+            user_can_work: true,
+            production_stage_id: instance.production_stage_id
+          };
+        })
+        .filter(Boolean) as ProductionCalendarJob[];
 
-      console.log("✅ Combined jobs processed:", combinedJobs.length);
-      setJobs(combinedJobs);
+      console.log("✅ Jobs transformed:", transformedJobs.length);
+      setJobs(transformedJobs);
 
     } catch (err) {
       console.error('❌ Error in fetchScheduledJobs:', err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load scheduled jobs";
+      const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
       setError(errorMessage);
       setJobs([]);
       toast.error(errorMessage);
