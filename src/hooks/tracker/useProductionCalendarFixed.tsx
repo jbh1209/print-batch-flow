@@ -35,7 +35,7 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch jobs from the same source as the working list view
+  // Fetch jobs using the same RPC function as useAccessibleJobs to get current working stages only
   const fetchScheduledJobs = async () => {
     if (!user?.id) {
       setJobs([]);
@@ -45,108 +45,62 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
 
     try {
       setError(null);
-      console.log("🗓️ Fetching jobs from job_stage_instances (same as list view)...");
+      console.log("🗓️ Fetching jobs from get_user_accessible_jobs RPC (same as list view)...");
 
-      // Step 1: Get job stage instances - ONLY current working stages
-      // A job should only appear in its current working stage (first pending stage in sequence)
-      const { data: allInstances, error: allInstancesError } = await supabase
-        .from('job_stage_instances')
-        .select(`
-          id,
-          job_id,
-          production_stage_id,
-          status,
-          stage_order,
-          queue_position,
-          estimated_duration_minutes,
-          scheduled_date,
-          time_slot,
-          job_table_name
-        `)
-        .in('status', ['pending', 'active'])
-        .eq('job_table_name', 'production_jobs')
-        .order('job_id')
-        .order('stage_order');
+      // Use the same RPC function as useAccessibleJobs to get current working stages
+      const { data: accessibleJobs, error: jobsError } = await supabase
+        .rpc('get_user_accessible_jobs', {
+          p_user_id: user.id,
+          p_permission_type: 'job_access',
+          p_status_filter: null
+        });
 
-      if (allInstancesError) {
-        console.error("❌ Error fetching all job stage instances:", allInstancesError);
-        throw new Error(`Failed to fetch job instances: ${allInstancesError.message}`);
+      if (jobsError) {
+        console.error("❌ Error fetching accessible jobs:", jobsError);
+        throw new Error(`Failed to fetch accessible jobs: ${jobsError.message}`);
       }
 
-      const instances = allInstances;
+      console.log("✅ Accessible jobs fetched:", accessibleJobs?.length || 0);
 
-      // Apply stage filter if provided
-      let filteredInstances = instances;
-      if (selectedStageId && selectedStageId !== 'batch-processing') {
-        filteredInstances = instances.filter(inst => inst.production_stage_id === selectedStageId);
-      }
-
-      console.log("✅ Current working stage instances filtered:", filteredInstances?.length || 0);
-
-      if (!filteredInstances || filteredInstances.length === 0) {
+      if (!accessibleJobs || accessibleJobs.length === 0) {
         setJobs([]);
         return;
       }
 
-      // Step 2: Get unique job IDs and stage IDs from filtered instances
-      const jobIds = [...new Set(filteredInstances.map(inst => inst.job_id))];
-      const stageIds = [...new Set(filteredInstances.map(inst => inst.production_stage_id))];
-
-      // Step 3: Fetch production jobs
-      const { data: productionJobs, error: jobsError } = await supabase
-        .from('production_jobs')
-        .select('id, wo_no, customer, status, is_expedited, specification, qty')
-        .in('id', jobIds);
-
-      if (jobsError) {
-        console.error("❌ Error fetching production jobs:", jobsError);
-        throw new Error(`Failed to fetch production jobs: ${jobsError.message}`);
+      // Apply stage filter if provided
+      let filteredJobs = accessibleJobs;
+      if (selectedStageId && selectedStageId !== 'batch-processing') {
+        filteredJobs = accessibleJobs.filter(job => job.current_stage_id === selectedStageId);
       }
 
-      // Step 4: Fetch production stages
-      const { data: productionStages, error: stagesError } = await supabase
-        .from('production_stages')
-        .select('id, name, color')
-        .in('id', stageIds);
+      console.log("✅ Jobs after stage filter:", filteredJobs?.length || 0);
 
-      if (stagesError) {
-        console.error("❌ Error fetching production stages:", stagesError);
-        throw new Error(`Failed to fetch production stages: ${stagesError.message}`);
-      }
-
-      // Step 5: Create lookup maps
-      const jobsMap = new Map(productionJobs?.map(job => [job.id, job]) || []);
-      const stagesMap = new Map(productionStages?.map(stage => [stage.id, stage]) || []);
-
-      // Step 6: Transform data to match expected format
-      const transformedJobs: ProductionCalendarJob[] = filteredInstances
-        .map(instance => {
-          const job = jobsMap.get(instance.job_id);
-          const stage = stagesMap.get(instance.production_stage_id);
-
-          if (!job || !stage) {
-            console.warn("⚠️ Missing data for instance:", instance.job_id, "job found:", !!job, "stage found:", !!stage);
+      // Transform accessible jobs format to calendar format
+      const transformedJobs: ProductionCalendarJob[] = filteredJobs
+        .map(job => {
+          if (!job.current_stage_id || !job.current_stage_name) {
+            console.warn("⚠️ Job missing current stage data:", job.job_id);
             return null;
           }
 
           return {
-            job_id: job.id,
+            job_id: job.job_id,
             wo_no: job.wo_no,
             customer: job.customer,
-            status: instance.status,
-            stage_name: stage.name,
-            stage_color: stage.color || '#6B7280',
-            scheduled_date: instance.scheduled_date || format(new Date(), 'yyyy-MM-dd'),
-            queue_position: instance.queue_position || 1,
-            estimated_duration_minutes: instance.estimated_duration_minutes || 120,
-            is_expedited: job.is_expedited || false,
-            priority_score: job.is_expedited ? 0 : 100,
+            status: job.current_stage_status,
+            stage_name: job.current_stage_name,
+            stage_color: job.current_stage_color || '#6B7280',
+            scheduled_date: job.due_date || format(new Date(), 'yyyy-MM-dd'),
+            queue_position: 1, // RPC doesn't return queue position, default to 1
+            estimated_duration_minutes: 120, // RPC doesn't return duration, default to 2 hours
+            is_expedited: false, // Default to false, expedited info not available in RPC
+            priority_score: 100, // Default priority
             shift_number: 1,
-            current_stage_status: instance.status,
-            user_can_work: true,
-            production_stage_id: instance.production_stage_id,
-            specification: job.specification,
-            qty: job.qty
+            current_stage_status: job.current_stage_status,
+            user_can_work: job.user_can_work || true,
+            production_stage_id: job.current_stage_id,
+            specification: undefined, // Not available in RPC response
+            qty: undefined // Not available in RPC response
           };
         })
         .filter(Boolean) as ProductionCalendarJob[];
