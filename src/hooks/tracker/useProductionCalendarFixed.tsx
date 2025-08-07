@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { getCurrentDate } from '@/utils/businessDays';
 
 interface ProductionCalendarJob {
   job_id: string;
@@ -61,7 +62,7 @@ export const useProductionCalendarFixed = () => {
         `)
         .eq('status', 'scheduled')
         .eq('job_table_name', 'production_jobs')
-        .gte('scheduled_date', '2025-08-01')
+        .gte('scheduled_date', getCurrentDate())
         .order('scheduled_date')
         .order('queue_position');
 

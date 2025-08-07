@@ -4,17 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Clock, Play, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { useProductionCalendarFixed } from '@/hooks/tracker/useProductionCalendarFixed';
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, addDays, isSameDay } from 'date-fns';
+import { getBusinessWeekDates, getWeekStartMonday, getNextBusinessDay } from '@/utils/businessDays';
 
 export const ProductionCalendarFixed: React.FC = () => {
   const { jobs, jobsByDate, isLoading, error, startJob, completeJob, getJobsForDate } = useProductionCalendarFixed();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Start from next business day by default
+  const [selectedDate, setSelectedDate] = useState(() => getNextBusinessDay());
   const [workingOnJobs, setWorkingOnJobs] = useState<Set<string>>(new Set());
 
-  // Get current week dates
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
-  const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 }); // Sunday
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  // Get business week dates (Monday-Friday only)
+  const weekDays = getBusinessWeekDates(selectedDate);
+  const weekStart = weekDays[0]; // Monday
+  const weekEnd = weekDays[4]; // Friday
 
   const handleStartJob = async (jobId: string, stageId: string) => {
     setWorkingOnJobs(prev => new Set(prev).add(jobId));
@@ -105,7 +107,7 @@ export const ProductionCalendarFixed: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Production Calendar - Week of {format(weekStart, 'MMM d')}
+            Production Calendar - Week of {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d')}
           </CardTitle>
           <div className="flex gap-4 text-sm text-muted-foreground">
             <span>Total Jobs This Week: {totalJobsThisWeek}</span>
@@ -130,7 +132,7 @@ export const ProductionCalendarFixed: React.FC = () => {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => setSelectedDate(new Date())}
+              onClick={() => setSelectedDate(getNextBusinessDay())}
             >
               This Week
             </Button>
@@ -142,18 +144,18 @@ export const ProductionCalendarFixed: React.FC = () => {
             </Button>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-4">
+          {/* Calendar Grid - Business Days Only */}
+          <div className="grid grid-cols-5 gap-4 max-h-[600px] overflow-y-auto">
             {weekDays.map(day => {
               const dayKey = format(day, 'yyyy-MM-dd');
               const dayJobs = jobsByDate[dayKey] || [];
               const isToday = isSameDay(day, new Date());
-              const isWeekend = day.getDay() === 0 || day.getDay() === 6;
 
               return (
                 <Card 
                   key={dayKey} 
-                  className={`${isToday ? 'ring-2 ring-primary' : ''} ${isWeekend ? 'bg-muted/50' : ''}`}
+                  className={`${isToday ? 'ring-2 ring-primary' : ''} cursor-pointer hover:shadow-md transition-shadow`}
+                  onClick={() => setSelectedDate(day)}
                 >
                   <CardHeader className="pb-2">
                     <div className="text-center">
@@ -168,7 +170,7 @@ export const ProductionCalendarFixed: React.FC = () => {
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0">
+                  <CardContent className="pt-0 max-h-48 overflow-y-auto">
                     {dayJobs.length === 0 ? (
                       <div className="text-center text-xs text-muted-foreground py-4">
                         No jobs scheduled
