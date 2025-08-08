@@ -20,7 +20,7 @@ export const completeJobStage = async (jobId: string, stageId: string): Promise<
 
     if (error) {
       console.error('❌ Failed to complete job stage:', error);
-      toast.error('Failed to complete job stage');
+      toast.error(`Failed to complete stage: ${error.message || 'Unknown error'}`);
       return false;
     }
 

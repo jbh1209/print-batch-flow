@@ -256,53 +256,98 @@ export const useAccessibleJobs = ({
     try {
       console.log('🔄 Completing job stage:', { jobId, stageId });
 
-      if (!stageId) {
+      // Determine the production_stage_id to use
+      let productionStageId = stageId;
+      if (!productionStageId) {
         const job = jobs.find(j => j.job_id === jobId);
-        stageId = job?.current_stage_id;
+        productionStageId = job?.current_stage_id;
       }
 
-      if (!stageId) {
-        throw new Error('Stage ID is required to complete job');
+      if (!productionStageId) {
+        throw new Error('Production stage ID is required to complete job');
       }
 
-      // Phase 4: Fix UI Display Logic - Enhanced parallel stage detection
-      const { data: parallelCheck } = await supabase
+      // Verify the stage exists and is active for this job
+      const { data: stageInstance, error: stageError } = await supabase
+        .from('job_stage_instances')
+        .select('id, production_stage_id, status, part_assignment, dependency_group')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .eq('production_stage_id', productionStageId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (stageError) {
+        console.error('❌ Error fetching stage instance:', stageError);
+        throw new Error(`Failed to find active stage: ${stageError.message}`);
+      }
+
+      if (!stageInstance) {
+        throw new Error(`No active stage found for job ${jobId} and stage ${productionStageId}`);
+      }
+
+      console.log('📝 Stage validation passed:', {
+        jobId,
+        productionStageId,
+        stageInstanceId: stageInstance.id,
+        status: stageInstance.status,
+        partAssignment: stageInstance.part_assignment
+      });
+
+      // Check for parallel components
+      const { data: parallelCheck, error: parallelError } = await supabase
         .from('job_stage_instances')
         .select('part_assignment, dependency_group, status, stage_order')
         .eq('job_id', jobId)
         .eq('job_table_name', 'production_jobs')
         .neq('part_assignment', 'both');
       
-      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
-      
-      let error;
-      if (hasParallelComponents) {
-        // Use parallel-aware advancement for cover/text jobs
-        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs',
-          p_current_stage_id: stageId,
-          p_completed_by: user?.id
-        });
-        error = result.error;
-      } else {
-        // Use standard advancement for regular jobs
-        const result = await supabase.rpc('advance_job_stage', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs',
-          p_current_stage_id: stageId,
-          p_completed_by: user?.id
-        });
-        error = result.error;
+      if (parallelError) {
+        console.error('❌ Error checking parallel components:', parallelError);
+        throw new Error(`Failed to check parallel components: ${parallelError.message}`);
       }
 
-      if (error) throw error;
+      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
+      
+      console.log('🔀 Parallel check result:', {
+        hasParallelComponents,
+        parallelCount: parallelCheck?.length || 0,
+        currentPartAssignment: stageInstance.part_assignment
+      });
 
+      let result;
+      if (hasParallelComponents) {
+        // Use parallel-aware advancement for cover/text jobs
+        console.log('🔄 Using parallel advancement...');
+        result = await supabase.rpc('advance_parallel_job_stage' as any, {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: productionStageId,
+          p_completed_by: user?.id
+        });
+      } else {
+        // Use standard advancement for regular jobs
+        console.log('🔄 Using standard advancement...');
+        result = await supabase.rpc('advance_job_stage', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: productionStageId,
+          p_completed_by: user?.id
+        });
+      }
+
+      if (result.error) {
+        console.error('❌ RPC Error:', result.error);
+        throw new Error(`Failed to advance stage: ${result.error.message}`);
+      }
+
+      console.log('✅ Stage completion successful');
       await refreshJobs();
       return true;
     } catch (error) {
       console.error('❌ Error completing job:', error);
-      return false;
+      // Re-throw with better error message for UI
+      throw error instanceof Error ? error : new Error('Failed to complete stage');
     }
   }, [jobs, user?.id]);
 
