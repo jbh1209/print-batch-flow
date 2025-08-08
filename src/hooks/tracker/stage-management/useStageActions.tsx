@@ -222,30 +222,46 @@ export const useStageActions = () => {
         name: s.production_stages?.name 
       })));
 
-      // Find the first non-conditional stage using simple pattern matching
-      let nextStageToActivate = null;
+      // Find all non-conditional stages at the lowest stage_order level
+      const nonConditionalStages = [];
+      let lowestStageOrder = null;
       
+      // First pass: find the lowest stage_order with non-conditional stages
       for (const stage of pendingStages) {
         const stageName = stage.production_stages?.name || '';
-        // Skip stages that appear to be conditional based on naming patterns
         const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
                                      stageName.toLowerCase().includes('allocation');
         
-        console.log(`🔍 Checking stage ${stageName}: conditional by pattern=${isConditionalByPattern}`);
-        
         if (!isConditionalByPattern) {
-          nextStageToActivate = stage;
-          break;
+          if (lowestStageOrder === null || stage.stage_order < lowestStageOrder) {
+            lowestStageOrder = stage.stage_order;
+          }
         }
       }
 
-      // If no non-conditional stage found, use the first pending stage as fallback
-      if (!nextStageToActivate && pendingStages.length > 0) {
-        console.log('⚠️ No non-conditional stage found, using first pending stage as fallback');
-        nextStageToActivate = pendingStages[0];
+      // Second pass: collect all non-conditional stages at the lowest order level
+      if (lowestStageOrder !== null) {
+        for (const stage of pendingStages) {
+          const stageName = stage.production_stages?.name || '';
+          const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
+                                       stageName.toLowerCase().includes('allocation');
+          
+          if (!isConditionalByPattern && stage.stage_order === lowestStageOrder) {
+            nonConditionalStages.push(stage);
+          }
+        }
       }
 
-      if (nextStageToActivate) {
+      // If no non-conditional stages found, use the first pending stage as fallback
+      const stagesToActivate = nonConditionalStages.length > 0 ? nonConditionalStages : [pendingStages[0]];
+
+      console.log(`🔍 Found ${stagesToActivate.length} stages to activate at order ${lowestStageOrder}:`, 
+        stagesToActivate.map(s => s.production_stages?.name));
+
+      if (stagesToActivate.length > 0) {
+        // Activate all stages at the same order level (for parallel processing)
+        const stageIds = stagesToActivate.map(s => s.id);
+        
         const { error: activateError } = await supabase
           .from('job_stage_instances')
           .update({
@@ -254,18 +270,25 @@ export const useStageActions = () => {
             started_by: user?.id,
             updated_at: new Date().toISOString()
           })
-          .eq('id', nextStageToActivate.id);
+          .in('id', stageIds);
 
         if (activateError) throw activateError;
 
-        console.log('✅ Stage completed and next stage activated:', {
+        const stageNames = stagesToActivate.map(s => s.production_stages?.name).join(', ');
+        
+        console.log('✅ Stage completed and next stages activated:', {
           completedStage: currentStageInstanceId,
-          activatedStage: nextStageToActivate.id,
-          activatedStageName: nextStageToActivate.production_stages?.name,
-          stageOrder: nextStageToActivate.stage_order
+          activatedStages: stageIds,
+          activatedStageNames: stageNames,
+          stageOrder: lowestStageOrder,
+          parallelStages: stagesToActivate.length > 1
         });
 
-        toast.success(`Stage completed and advanced to: ${nextStageToActivate.production_stages?.name}`);
+        if (stagesToActivate.length > 1) {
+          toast.success(`Stage completed and advanced to parallel stages: ${stageNames}`);
+        } else {
+          toast.success(`Stage completed and advanced to: ${stageNames}`);
+        }
       } else {
         console.log('ℹ️ No more stages to activate - workflow may be complete');
         toast.success("Stage completed - workflow finished");
