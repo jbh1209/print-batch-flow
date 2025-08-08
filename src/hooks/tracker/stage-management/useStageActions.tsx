@@ -226,15 +226,24 @@ export const useStageActions = () => {
       const nonConditionalStages = [];
       let lowestStageOrder = null;
       
+      console.log(`🔍 All pending stages:`, pendingStages.map(s => ({
+        name: s.production_stages?.name,
+        order: s.stage_order,
+        id: s.id
+      })));
+      
       // First pass: find the lowest stage_order with non-conditional stages
       for (const stage of pendingStages) {
         const stageName = stage.production_stages?.name || '';
         const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
                                      stageName.toLowerCase().includes('allocation');
         
+        console.log(`🔍 Checking stage "${stageName}" (order ${stage.stage_order}): conditional=${isConditionalByPattern}`);
+        
         if (!isConditionalByPattern) {
           if (lowestStageOrder === null || stage.stage_order < lowestStageOrder) {
             lowestStageOrder = stage.stage_order;
+            console.log(`📌 New lowest order found: ${lowestStageOrder}`);
           }
         }
       }
@@ -248,6 +257,7 @@ export const useStageActions = () => {
           
           if (!isConditionalByPattern && stage.stage_order === lowestStageOrder) {
             nonConditionalStages.push(stage);
+            console.log(`✅ Added stage to activate: "${stageName}" (order ${stage.stage_order})`);
           }
         }
       }
@@ -255,8 +265,8 @@ export const useStageActions = () => {
       // If no non-conditional stages found, use the first pending stage as fallback
       const stagesToActivate = nonConditionalStages.length > 0 ? nonConditionalStages : [pendingStages[0]];
 
-      console.log(`🔍 Found ${stagesToActivate.length} stages to activate at order ${lowestStageOrder}:`, 
-        stagesToActivate.map(s => s.production_stages?.name));
+      console.log(`🎯 Final stages to activate (${stagesToActivate.length}):`, 
+        stagesToActivate.map(s => ({ name: s.production_stages?.name, order: s.stage_order, id: s.id })));
 
       if (stagesToActivate.length > 0) {
         // Activate all stages at the same order level (for parallel processing)
