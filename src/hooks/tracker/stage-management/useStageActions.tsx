@@ -52,9 +52,9 @@ export const useStageActions = () => {
           production_stage:production_stages(name)
         `)
         .eq('id', stageId)
-        .single();
+        .maybeSingle();
 
-      if (stageInfoError) throw stageInfoError;
+      if (stageInfoError || !stageInfo) throw (stageInfoError || new Error('Stage not found'));
 
       const isProofStage = stageInfo?.production_stage?.name?.toLowerCase().includes('proof');
       
@@ -138,7 +138,7 @@ export const useStageActions = () => {
           production_stage:production_stages(name)
         `)
         .eq('id', currentStageInstanceId)
-        .single();
+        .maybeSingle();
 
       if (currentStageError || !currentStageInstance) {
         throw new Error(`Could not find stage instance with ID ${currentStageInstanceId}: ${currentStageError?.message}`);
