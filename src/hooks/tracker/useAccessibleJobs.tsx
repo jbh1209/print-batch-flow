@@ -45,7 +45,7 @@ export const useAccessibleJobs = ({
         throw error;
       }
 
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!user?.id,
     staleTime: 30000,
@@ -123,61 +123,62 @@ export const useAccessibleJobs = ({
     const individualJobs: AccessibleJob[] = [];
 
     rawJobs.forEach(job => {
+      const j = job as any;
       // Handle batch processing status display
-      let displayStage = job.current_stage_name || job.display_stage_name || 'No Stage';
-      let stageColor = job.current_stage_color || '#6B7280';
+      let displayStage = j.current_stage_name || j.display_stage_name || 'No Stage';
+      let stageColor = j.current_stage_color || '#6B7280';
       
       // Special handling for "In Batch Processing" status
-      if (job.status === 'In Batch Processing') {
+      if (j.status === 'In Batch Processing') {
         displayStage = 'In Batch Processing';
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
 
       // Get parallel stages for this job
-      const parallelStages = getJobParallelStages(jobStages, job.job_id);
+      const parallelStages = getJobParallelStages(jobStages, j.job_id);
       const currentStageOrder = parallelStages.length > 0 
         ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
 
       const processedJob: AccessibleJob = {
-        job_id: job.job_id,
-        id: job.job_id, // Ensure backward compatibility
-        wo_no: job.wo_no || '',
-        customer: job.customer || 'Unknown',
-        status: job.status || 'Unknown',
-        due_date: job.due_date || '',
-        reference: job.reference || '',
-        category_id: job.category_id || '',
-        category_name: job.category_name || 'No Category',
-        category_color: job.category_color || '#6B7280',
-        current_stage_id: job.current_stage_id || '',
-        current_stage_name: job.current_stage_name || 'No Stage',
+        job_id: j.job_id,
+        id: j.job_id, // Ensure backward compatibility
+        wo_no: j.wo_no || '',
+        customer: j.customer || 'Unknown',
+        status: j.status || 'Unknown',
+        due_date: j.due_date || '',
+        reference: j.reference || '',
+        category_id: j.category_id || '',
+        category_name: j.category_name || 'No Category',
+        category_color: j.category_color || '#6B7280',
+        current_stage_id: j.current_stage_id || '',
+        current_stage_name: j.current_stage_name || 'No Stage',
         current_stage_color: stageColor,
-        current_stage_status: job.current_stage_status || 'pending',
+        current_stage_status: j.current_stage_status || 'pending',
         display_stage_name: displayStage,
-        user_can_view: job.user_can_view || false,
-        user_can_edit: job.user_can_edit || false,
-        user_can_work: job.user_can_work || false,
-        user_can_manage: job.user_can_manage || false,
-        workflow_progress: job.workflow_progress || 0,
-        total_stages: job.total_stages || 0,
-        completed_stages: job.completed_stages || 0,
-        qty: job.qty || 0,
-        started_by: job.started_by || null,
-        started_by_name: job.started_by_name || null,
-        proof_emailed_at: job.proof_emailed_at || null,
+        user_can_view: j.user_can_view ?? false,
+        user_can_edit: j.user_can_edit ?? false,
+        user_can_work: j.user_can_work ?? false,
+        user_can_manage: j.user_can_manage ?? false,
+        workflow_progress: j.workflow_progress ?? 0,
+        total_stages: j.total_stages ?? 0,
+        completed_stages: j.completed_stages ?? 0,
+        qty: j.qty || 0,
+        started_by: j.started_by || null,
+        started_by_name: j.started_by_name || null,
+        proof_emailed_at: j.proof_emailed_at || null,
         // Add batch-related fields - use safe property access
-        batch_category: (job as any).batch_category || null,
-        is_in_batch_processing: job.status === 'In Batch Processing',
-        has_custom_workflow: (job as any).has_custom_workflow || false,
-        manual_due_date: (job as any).manual_due_date || null,
+        batch_category: j.batch_category || null,
+        is_in_batch_processing: j.status === 'In Batch Processing',
+        has_custom_workflow: j.has_custom_workflow || false,
+        manual_due_date: j.manual_due_date || null,
         // Parallel stages support
         parallel_stages: parallelStages,
         current_stage_order: currentStageOrder,
         // Production management fields
-        is_expedited: (job as any).is_expedited || false,
-        created_at: (job as any).created_at || '',
-        job_stage_instances: jobStages.filter(stage => stage.job_id === job.job_id)
+        is_expedited: j.is_expedited || false,
+        created_at: j.created_at || '',
+        job_stage_instances: jobStages.filter(stage => stage.job_id === j.job_id)
       };
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")

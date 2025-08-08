@@ -97,7 +97,7 @@ export const useProductionCalendarFixed = (selectedStageId?: string | null) => {
             priority_score: 100, // Default priority
             shift_number: 1,
             current_stage_status: job.current_stage_status,
-            user_can_work: job.user_can_work || true,
+            user_can_work: true,
             production_stage_id: job.current_stage_id,
             specification: undefined, // Not available in RPC response
             qty: undefined // Not available in RPC response

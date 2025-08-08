@@ -68,7 +68,7 @@ class ScheduleCalculatorService {
           );
 
           const scheduledJob: ScheduledJob = {
-            ...job,
+            ...(job as any),
             scheduledDate: format(scheduledDate, 'yyyy-MM-dd'),
             queuePosition: advancedSchedule?.queuePositions?.[0]?.position || 1,
             estimatedStartDate: advancedSchedule?.estimatedStartDate ? 
@@ -78,8 +78,9 @@ class ScheduleCalculatorService {
             isBottleneck: advancedSchedule?.bottleneckStages?.some(
               (stage: any) => stage.stageId === job.current_stage_id
             ) || false,
-            display_stage_name: job.current_stage_name,
-            user_can_work: job.user_can_work || false
+            display_stage_name: (job as any).current_stage_name,
+            workflow_progress: (job as any).workflow_progress ?? 0,
+            user_can_work: Boolean((job as any).user_can_work)
           };
 
           jobsWithScheduling.push(scheduledJob);
@@ -90,12 +91,13 @@ class ScheduleCalculatorService {
           // Fallback to basic job data
           const fallbackDate = new Date();
           const scheduledJob: ScheduledJob = {
-            ...job,
+            ...(job as any),
             scheduledDate: format(fallbackDate, 'yyyy-MM-dd'),
             queuePosition: 1,
             isBottleneck: false,
-            display_stage_name: job.current_stage_name,
-            user_can_work: job.user_can_work || false
+            display_stage_name: (job as any).current_stage_name,
+            workflow_progress: (job as any).workflow_progress ?? 0,
+            user_can_work: Boolean((job as any).user_can_work)
           };
 
           jobsWithScheduling.push(scheduledJob);
