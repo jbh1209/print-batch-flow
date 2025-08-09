@@ -203,8 +203,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onClose();
     } catch (error) {
       console.error('❌ Error sending to batch allocation:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Failed to send job to batch allocation: ${errorMessage}`);
+      toast.error("Failed to send job to batch allocation");
     }
   };
 
@@ -245,8 +244,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onClose();
     } catch (error) {
       console.error('❌ Error advancing to printing stage:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Failed to advance to printing stage: ${errorMessage}`);
+      toast.error("Failed to advance to printing stage");
     }
   };
 

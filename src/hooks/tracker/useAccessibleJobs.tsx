@@ -3,6 +3,7 @@ import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useParallelStageConfig } from "@/hooks/useParallelStageConfig";
 import { getJobParallelStages } from "@/utils/parallelStageUtils";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
 
@@ -12,6 +13,7 @@ export const useAccessibleJobs = ({
 }: UseAccessibleJobsOptions = {}) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { config } = useParallelStageConfig();
 
   // Fetch both jobs and their stage instances for parallel stage support
   const {
@@ -33,7 +35,7 @@ export const useAccessibleJobs = ({
         statusFilter
       });
 
-      const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
+      const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_batch_allocation', {
         p_user_id: user.id,
         p_permission_type: permissionType,
         p_status_filter: statusFilter,
@@ -45,7 +47,7 @@ export const useAccessibleJobs = ({
         throw error;
       }
 
-      return (data || []) as any[];
+      return data || [];
     },
     enabled: !!user?.id,
     staleTime: 30000,
@@ -69,18 +71,16 @@ export const useAccessibleJobs = ({
       const { data, error } = await supabase
         .from('job_stage_instances')
         .select(`
+          id,
           job_id,
           production_stage_id,
           status,
           stage_order,
-          unique_stage_key,
           part_assignment,
-          dependency_group,
           production_stages!inner (
             id,
             name,
-            color,
-            supports_parts
+            color
           )
         `)
         .in('job_id', jobIds)
@@ -93,18 +93,14 @@ export const useAccessibleJobs = ({
       }
 
       return data?.map(stage => ({
+        id: stage.id, // Add the unique job_stage_instances.id
         job_id: stage.job_id,
         production_stage_id: stage.production_stage_id,
         status: stage.status,
         stage_order: stage.stage_order,
-        unique_stage_key: stage.unique_stage_key,
-        part_assignment: stage.part_assignment,
-        dependency_group: stage.dependency_group,
-        proof_emailed_at: (stage as any).proof_emailed_at,
-        proof_approved_manually_at: (stage as any).proof_approved_manually_at,
         stage_name: stage.production_stages?.name,
         stage_color: stage.production_stages?.color,
-        production_stages: stage.production_stages
+        part_assignment: (stage as any).part_assignment || null
       })) || [];
     },
     enabled: !!user?.id && !!rawJobs?.length,
@@ -123,62 +119,57 @@ export const useAccessibleJobs = ({
     const individualJobs: AccessibleJob[] = [];
 
     rawJobs.forEach(job => {
-      const j = job as any;
       // Handle batch processing status display
-      let displayStage = j.current_stage_name || j.display_stage_name || 'No Stage';
-      let stageColor = j.current_stage_color || '#6B7280';
+      let displayStage = job.current_stage_name || job.display_stage_name || 'No Stage';
+      let stageColor = job.current_stage_color || '#6B7280';
       
       // Special handling for "In Batch Processing" status
-      if (j.status === 'In Batch Processing') {
+      if (job.status === 'In Batch Processing') {
         displayStage = 'In Batch Processing';
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
 
-      // Get parallel stages for this job
-      const parallelStages = getJobParallelStages(jobStages, j.job_id);
+      // Get parallel stages for this job (only current stage order)
+      const parallelStages = getJobParallelStages(jobStages, job.job_id);
       const currentStageOrder = parallelStages.length > 0 
         ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
-
+      
+      // Standard processing for all jobs - show jobs once with parallel stage indicators
       const processedJob: AccessibleJob = {
-        job_id: j.job_id,
-        id: j.job_id, // Ensure backward compatibility
-        wo_no: j.wo_no || '',
-        customer: j.customer || 'Unknown',
-        status: j.status || 'Unknown',
-        due_date: j.due_date || '',
-        reference: j.reference || '',
-        category_id: j.category_id || '',
-        category_name: j.category_name || 'No Category',
-        category_color: j.category_color || '#6B7280',
-        current_stage_id: j.current_stage_id || '',
-        current_stage_name: j.current_stage_name || 'No Stage',
+        job_id: job.job_id,
+        id: job.job_id, // Ensure backward compatibility
+        wo_no: job.wo_no || '',
+        customer: job.customer || 'Unknown',
+        status: job.status || 'Unknown',
+        due_date: job.due_date || '',
+        reference: job.reference || '',
+        category_id: job.category_id || '',
+        category_name: job.category_name || 'No Category',
+        category_color: job.category_color || '#6B7280',
+        current_stage_id: job.current_stage_id || '',
+        current_stage_name: job.current_stage_name || 'No Stage',
         current_stage_color: stageColor,
-        current_stage_status: j.current_stage_status || 'pending',
+        current_stage_status: job.current_stage_status || 'pending',
         display_stage_name: displayStage,
-        user_can_view: j.user_can_view ?? false,
-        user_can_edit: j.user_can_edit ?? false,
-        user_can_work: j.user_can_work ?? false,
-        user_can_manage: j.user_can_manage ?? false,
-        workflow_progress: j.workflow_progress ?? 0,
-        total_stages: j.total_stages ?? 0,
-        completed_stages: j.completed_stages ?? 0,
-        qty: j.qty || 0,
-        started_by: j.started_by || null,
-        started_by_name: j.started_by_name || null,
-        proof_emailed_at: j.proof_emailed_at || null,
-        // Add batch-related fields - use safe property access
-        batch_category: j.batch_category || null,
-        is_in_batch_processing: j.status === 'In Batch Processing',
-        has_custom_workflow: j.has_custom_workflow || false,
-        manual_due_date: j.manual_due_date || null,
-        // Parallel stages support
+        user_can_view: job.user_can_view || false,
+        user_can_edit: job.user_can_edit || false,
+        user_can_work: job.user_can_work || false,
+        user_can_manage: job.user_can_manage || false,
+        workflow_progress: job.workflow_progress || 0,
+        total_stages: job.total_stages || 0,
+        completed_stages: job.completed_stages || 0,
+        qty: job.qty || 0,
+        started_by: job.started_by || null,
+        started_by_name: job.started_by_name || null,
+        proof_emailed_at: job.proof_emailed_at || null,
+        batch_category: (job as any).batch_category || null,
+        is_in_batch_processing: job.status === 'In Batch Processing',
+        has_custom_workflow: (job as any).has_custom_workflow || false,
+        manual_due_date: (job as any).manual_due_date || null,
+        // Always add parallel_stages array for proper display
         parallel_stages: parallelStages,
-        current_stage_order: currentStageOrder,
-        // Production management fields
-        is_expedited: j.is_expedited || false,
-        created_at: j.created_at || '',
-        job_stage_instances: jobStages.filter(stage => stage.job_id === j.job_id)
+        current_stage_order: currentStageOrder
       };
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")
@@ -222,14 +213,26 @@ export const useAccessibleJobs = ({
     try {
       console.log('🔄 Starting job stage:', { jobId, stageId });
 
-      if (!stageId) {
-        const job = jobs.find(j => j.job_id === jobId);
-        stageId = job?.current_stage_id;
+      // Find the job entry (could be virtual or real)
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        throw new Error('Job not found');
       }
 
-      if (!stageId) {
+      // For virtual entries, use the parent job ID and stage instance ID
+      const actualJobId = job.parent_job_id || job.job_id;
+      const actualStageId = stageId || job.stage_instance_id || job.current_stage_id;
+
+      if (!actualStageId) {
         throw new Error('Stage ID is required to start job');
       }
+
+      console.log('🔄 Starting stage:', { 
+        virtualJobId: jobId, 
+        actualJobId, 
+        actualStageId,
+        isVirtual: job.is_virtual_stage_entry 
+      });
 
       const { error } = await supabase
         .from('job_stage_instances')
@@ -238,8 +241,8 @@ export const useAccessibleJobs = ({
           started_at: new Date().toISOString(),
           started_by: user?.id
         })
-        .eq('job_id', jobId)
-        .eq('production_stage_id', stageId)
+        .eq('job_id', actualJobId)
+        .eq('production_stage_id', actualStageId)
         .eq('status', 'pending');
 
       if (error) throw error;
@@ -256,110 +259,69 @@ export const useAccessibleJobs = ({
     try {
       console.log('🔄 Completing job stage:', { jobId, stageId });
 
-      // Determine the production_stage_id to use
-      let productionStageId = stageId;
-      if (!productionStageId) {
-        const job = jobs.find(j => j.job_id === jobId);
-        productionStageId = job?.current_stage_id;
+      // Find the job entry (could be virtual or real)
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        throw new Error('Job not found');
       }
 
-      if (!productionStageId) {
-        throw new Error('Production stage ID is required to complete job');
+      // For virtual entries, use the parent job ID and stage instance ID
+      const actualJobId = job.parent_job_id || job.job_id;
+      const actualStageId = stageId || job.stage_instance_id || job.current_stage_id;
+
+      if (!actualStageId) {
+        throw new Error('Stage ID is required to complete job');
       }
 
-      // Verify the stage exists and is active for this job
-      const { data: stageInstance, error: stageError } = await supabase
-        .from('job_stage_instances')
-        .select('id, production_stage_id, status, part_assignment, dependency_group')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .eq('production_stage_id', productionStageId)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (stageError) {
-        console.error('❌ Error fetching stage instance:', stageError);
-        throw new Error(`Failed to find active stage: ${stageError.message}`);
-      }
-
-      if (!stageInstance) {
-        throw new Error(`No active stage found for job ${jobId} and stage ${productionStageId}`);
-      }
-
-      console.log('📝 Stage validation passed:', {
-        jobId,
-        productionStageId,
-        stageInstanceId: stageInstance.id,
-        status: stageInstance.status,
-        partAssignment: stageInstance.part_assignment
+      console.log('🔄 Completing stage:', { 
+        virtualJobId: jobId, 
+        actualJobId, 
+        actualStageId,
+        isVirtual: job.is_virtual_stage_entry 
       });
 
-      // Check for parallel components
-      const { data: parallelCheck, error: parallelError } = await supabase
-        .from('job_stage_instances')
-        .select('part_assignment, dependency_group, status, stage_order')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .neq('part_assignment', 'both');
-      
-      if (parallelError) {
-        console.error('❌ Error checking parallel components:', parallelError);
-        throw new Error(`Failed to check parallel components: ${parallelError.message}`);
-      }
-
-      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
-      
-      console.log('🔀 Parallel check result:', {
-        hasParallelComponents,
-        parallelCount: parallelCheck?.length || 0,
-        currentPartAssignment: stageInstance.part_assignment
+      const { error } = await supabase.rpc('advance_parallel_job_stage', {
+        p_job_id: actualJobId,
+        p_job_table_name: 'production_jobs',
+        p_current_stage_id: actualStageId,
+        p_completed_by: user?.id,
+        p_notes: null
       });
 
-      let result;
-      if (hasParallelComponents) {
-        // Use parallel-aware advancement for cover/text jobs
-        console.log('🔄 Using parallel advancement...');
-        result = await supabase.rpc('advance_parallel_job_stage' as any, {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs',
-          p_current_stage_id: productionStageId,
-          p_completed_by: user?.id
-        });
-      } else {
-        // Use standard advancement for regular jobs
-        console.log('🔄 Using standard advancement...');
-        result = await supabase.rpc('advance_job_stage', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs',
-          p_current_stage_id: productionStageId,
-          p_completed_by: user?.id
-        });
-      }
+      if (error) throw error;
 
-      if (result.error) {
-        console.error('❌ RPC Error:', result.error);
-        throw new Error(`Failed to advance stage: ${result.error.message}`);
-      }
-
-      console.log('✅ Stage completion successful');
       await refreshJobs();
       return true;
     } catch (error) {
       console.error('❌ Error completing job:', error);
-      // Re-throw with better error message for UI
-      throw error instanceof Error ? error : new Error('Failed to complete stage');
+      return false;
     }
   }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
-    console.log('🔄 Refreshing accessible jobs...');
+    console.log('🔄 Refreshing accessible jobs and clearing all related caches...');
+    // Clear all related caches to prevent stale data
+    queryClient.invalidateQueries({ 
+      queryKey: ['accessible-jobs', user?.id] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['job-stages', user?.id] 
+    });
+    // Also clear any derived job queries that might be cached
+    queryClient.invalidateQueries({ 
+      predicate: (query) => 
+        query.queryKey.includes('jobs') || query.queryKey.includes('production')
+    });
     return Promise.all([refetchJobs(), refetchStages()]);
-  }, [refetchJobs, refetchStages]);
+  }, [refetchJobs, refetchStages, queryClient, user?.id]);
 
   const invalidateCache = useCallback(() => {
     console.log('🗑️ Invalidating accessible jobs cache...');
     queryClient.invalidateQueries({ 
       queryKey: ['accessible-jobs', user?.id] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['job-stages', user?.id] 
     });
   }, [queryClient, user?.id]);
 

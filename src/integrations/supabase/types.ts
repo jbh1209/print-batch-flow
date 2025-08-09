@@ -541,56 +541,6 @@ export type Database = {
           },
         ]
       }
-      daily_production_schedule: {
-        Row: {
-          allocated_minutes: number
-          available_minutes: number | null
-          created_at: string
-          date: string
-          id: string
-          is_working_day: boolean
-          notes: string | null
-          production_stage_id: string
-          shift_number: number
-          total_capacity_minutes: number
-          updated_at: string
-        }
-        Insert: {
-          allocated_minutes?: number
-          available_minutes?: number | null
-          created_at?: string
-          date: string
-          id?: string
-          is_working_day?: boolean
-          notes?: string | null
-          production_stage_id: string
-          shift_number?: number
-          total_capacity_minutes?: number
-          updated_at?: string
-        }
-        Update: {
-          allocated_minutes?: number
-          available_minutes?: number | null
-          created_at?: string
-          date?: string
-          id?: string
-          is_working_day?: boolean
-          notes?: string | null
-          production_stage_id?: string
-          shift_number?: number
-          total_capacity_minutes?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "daily_production_schedule_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "production_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       daily_workload: {
         Row: {
           capacity_utilization: number | null
@@ -929,81 +879,6 @@ export type Database = {
           },
         ]
       }
-      job_schedule_assignments: {
-        Row: {
-          actual_end_time: string | null
-          actual_start_time: string | null
-          calculation_run_id: string | null
-          created_at: string
-          created_by: string | null
-          estimated_duration_minutes: number
-          id: string
-          is_expedited: boolean
-          job_id: string
-          job_table_name: string
-          priority_score: number
-          production_stage_id: string
-          queue_position: number
-          scheduled_date: string
-          shift_number: number
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          actual_end_time?: string | null
-          actual_start_time?: string | null
-          calculation_run_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          estimated_duration_minutes: number
-          id?: string
-          is_expedited?: boolean
-          job_id: string
-          job_table_name?: string
-          priority_score?: number
-          production_stage_id: string
-          queue_position?: number
-          scheduled_date: string
-          shift_number?: number
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          actual_end_time?: string | null
-          actual_start_time?: string | null
-          calculation_run_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          estimated_duration_minutes?: number
-          id?: string
-          is_expedited?: boolean
-          job_id?: string
-          job_table_name?: string
-          priority_score?: number
-          production_stage_id?: string
-          queue_position?: number
-          scheduled_date?: string
-          shift_number?: number
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_job_schedule_assignments_production_stage"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "production_stages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "job_schedule_assignments_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "production_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
@@ -1032,19 +907,14 @@ export type Database = {
           proof_pdf_url: string | null
           qr_scan_data: Json | null
           quantity: number | null
-          queue_position: number | null
           rework_count: number | null
           rework_reason: string | null
-          scheduled_date: string | null
-          scheduled_end_time: string | null
-          scheduled_start_time: string | null
           setup_time_minutes: number | null
           stage_order: number
           stage_specification_id: string | null
           started_at: string | null
           started_by: string | null
           status: string
-          time_slot: string | null
           unique_stage_key: string | null
           updated_at: string
         }
@@ -1075,19 +945,14 @@ export type Database = {
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           quantity?: number | null
-          queue_position?: number | null
           rework_count?: number | null
           rework_reason?: string | null
-          scheduled_date?: string | null
-          scheduled_end_time?: string | null
-          scheduled_start_time?: string | null
           setup_time_minutes?: number | null
           stage_order: number
           stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
-          time_slot?: string | null
           unique_stage_key?: string | null
           updated_at?: string
         }
@@ -1118,19 +983,14 @@ export type Database = {
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           quantity?: number | null
-          queue_position?: number | null
           rework_count?: number | null
           rework_reason?: string | null
-          scheduled_date?: string | null
-          scheduled_end_time?: string | null
-          scheduled_start_time?: string | null
           setup_time_minutes?: number | null
           stage_order?: number
           stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
-          time_slot?: string | null
           unique_stage_key?: string | null
           updated_at?: string
         }
@@ -1672,8 +1532,6 @@ export type Database = {
           due_date_buffer_days: number | null
           due_date_locked: boolean | null
           due_date_warning_level: string | null
-          estimated_completion_date: string | null
-          estimated_start_date: string | null
           expedite_reason: string | null
           expedited_at: string | null
           expedited_by: string | null
@@ -1685,8 +1543,6 @@ export type Database = {
           is_batch_master: boolean | null
           is_expedited: boolean | null
           last_due_date_check: string | null
-          last_queue_recalc_at: string | null
-          last_scheduled_at: string | null
           location: string | null
           manual_due_date: string | null
           manual_sla_days: number | null
@@ -1694,18 +1550,12 @@ export type Database = {
           paper_specifications: Json | null
           prepress_specifications: Json | null
           printing_specifications: Json | null
-          production_ready: boolean | null
-          proof_approved_at: string | null
           qr_code_data: string | null
           qr_code_url: string | null
           qt_no: string | null
           qty: number | null
-          queue_calculated_due_date: string | null
-          queue_position: number | null
           reference: string | null
           rep: string | null
-          scheduled_date: string | null
-          scheduling_priority: number | null
           size: string | null
           so_no: string | null
           specification: string | null
@@ -1731,8 +1581,6 @@ export type Database = {
           due_date_buffer_days?: number | null
           due_date_locked?: boolean | null
           due_date_warning_level?: string | null
-          estimated_completion_date?: string | null
-          estimated_start_date?: string | null
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
@@ -1744,8 +1592,6 @@ export type Database = {
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
           last_due_date_check?: string | null
-          last_queue_recalc_at?: string | null
-          last_scheduled_at?: string | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1753,18 +1599,12 @@ export type Database = {
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
-          production_ready?: boolean | null
-          proof_approved_at?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
-          queue_calculated_due_date?: string | null
-          queue_position?: number | null
           reference?: string | null
           rep?: string | null
-          scheduled_date?: string | null
-          scheduling_priority?: number | null
           size?: string | null
           so_no?: string | null
           specification?: string | null
@@ -1790,8 +1630,6 @@ export type Database = {
           due_date_buffer_days?: number | null
           due_date_locked?: boolean | null
           due_date_warning_level?: string | null
-          estimated_completion_date?: string | null
-          estimated_start_date?: string | null
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
@@ -1803,8 +1641,6 @@ export type Database = {
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
           last_due_date_check?: string | null
-          last_queue_recalc_at?: string | null
-          last_scheduled_at?: string | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1812,18 +1648,12 @@ export type Database = {
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
-          production_ready?: boolean | null
-          proof_approved_at?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
-          queue_calculated_due_date?: string | null
-          queue_position?: number | null
           reference?: string | null
           rep?: string | null
-          scheduled_date?: string | null
-          scheduling_priority?: number | null
           size?: string | null
           so_no?: string | null
           specification?: string | null
@@ -2048,51 +1878,6 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      schedule_calculation_log: {
-        Row: {
-          calculation_run_id: string
-          calculation_type: string
-          completed_at: string | null
-          created_by: string | null
-          error_message: string | null
-          execution_time_ms: number | null
-          id: string
-          jobs_processed: number
-          stages_affected: number
-          started_at: string
-          success: boolean
-          trigger_reason: string | null
-        }
-        Insert: {
-          calculation_run_id?: string
-          calculation_type: string
-          completed_at?: string | null
-          created_by?: string | null
-          error_message?: string | null
-          execution_time_ms?: number | null
-          id?: string
-          jobs_processed?: number
-          stages_affected?: number
-          started_at?: string
-          success?: boolean
-          trigger_reason?: string | null
-        }
-        Update: {
-          calculation_run_id?: string
-          calculation_type?: string
-          completed_at?: string | null
-          created_by?: string | null
-          error_message?: string | null
-          execution_time_ms?: number | null
-          id?: string
-          jobs_processed?: number
-          stages_affected?: number
-          started_at?: string
-          success?: boolean
-          trigger_reason?: string | null
         }
         Relationships: []
       }
@@ -2591,7 +2376,6 @@ export type Database = {
               p_job_table_name: string
               p_current_stage_id: string
               p_notes?: string
-              p_completed_by?: string
             }
         Returns: boolean
       }
@@ -2606,6 +2390,23 @@ export type Database = {
         Returns: boolean
       }
       advance_job_stage_with_parallel_support: {
+        Args:
+          | {
+              p_job_id: string
+              p_job_table_name: string
+              p_current_stage_id: string
+              p_completed_by?: string
+              p_notes?: string
+            }
+          | {
+              p_job_id: string
+              p_job_table_name: string
+              p_current_stage_id: string
+              p_notes?: string
+            }
+        Returns: boolean
+      }
+      advance_job_stage_with_part_support: {
         Args: {
           p_job_id: string
           p_job_table_name: string
@@ -2642,6 +2443,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      advance_parallel_job_stage_no_auto_start: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_completed_by?: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -2654,14 +2465,6 @@ export type Database = {
           new_due_date: string
           estimated_hours: number
         }[]
-      }
-      calculate_daily_schedules: {
-        Args: {
-          p_start_date?: string
-          p_end_date?: string
-          p_calculation_type?: string
-        }
-        Returns: Json
       }
       calculate_smart_due_date: {
         Args: { p_estimated_hours: number; p_priority?: number }
@@ -2687,19 +2490,26 @@ export type Database = {
         Returns: number
       }
       calculate_stage_queue_workload: {
-        Args: { stage_id?: string } | { stage_ids: string[] }
+        Args: { p_production_stage_id: string } | { stage_ids: string[] }
         Returns: {
-          production_stage_id: string
-          stage_name: string
-          pending_hours: number
-          active_hours: number
+          stage_id: string
+          total_pending_hours: number
+          total_active_hours: number
           pending_jobs_count: number
           active_jobs_count: number
-          daily_capacity_hours: number
-          queue_processing_days: number
-          utilization_percentage: number
-          is_bottleneck: boolean
+          earliest_available_slot: string
+          queue_processing_hours: number
         }[]
+      }
+      can_stage_start_parallel_aware: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_stage_instance_id: string
+          p_part_assignment: string
+          p_dependency_group: string
+        }
+        Returns: boolean
       }
       can_user_start_new_job: {
         Args: { p_user_id: string; p_department_id: string }
@@ -2707,6 +2517,10 @@ export type Database = {
       }
       check_admin_exists: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      check_and_activate_parallel_stages: {
+        Args: { p_job_id: string; p_job_table_name: string }
         Returns: boolean
       }
       check_dependency_completion: {
@@ -2766,15 +2580,6 @@ export type Database = {
           p_expedited_by?: string
         }
         Returns: boolean
-      }
-      extend_daily_capacity: {
-        Args: {
-          p_date: string
-          p_production_stage_id: string
-          p_additional_hours: number
-          p_reason?: string
-        }
-        Returns: Json
       }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
@@ -2918,53 +2723,14 @@ export type Database = {
         Returns: string
       }
       get_user_accessible_jobs: {
-        Args:
-          | {
-              p_user_id: string
-              p_permission_type?: string
-              p_status_filter?: string
-            }
-          | {
-              p_user_id?: string
-              p_permission_type?: string
-              p_status_filter?: string
-              p_stage_filter?: string
-            }
-        Returns: {
-          job_id: string
-          job_table_name: string
-          wo_no: string
-          customer: string
-          reference: string
-          status: string
-          due_date: string
-          qty: number
-          current_stage_id: string
-          current_stage_name: string
-          current_stage_status: string
-          current_stage_color: string
-          can_start: boolean
-          can_complete: boolean
-          stage_order: number
-          started_at: string
-          started_by: string
-          estimated_duration_minutes: number
-          is_expedited: boolean
-          proof_emailed_at: string
-          proof_approved_manually_at: string
-          client_email: string
-          client_name: string
-        }[]
-      }
-      get_user_accessible_jobs_with_batch_allocation: {
         Args: {
           p_user_id?: string
           p_permission_type?: string
           p_status_filter?: string
-          p_stage_filter?: string
         }
         Returns: {
           job_id: string
+          id: string
           wo_no: string
           customer: string
           status: string
@@ -2977,7 +2743,6 @@ export type Database = {
           current_stage_name: string
           current_stage_color: string
           current_stage_status: string
-          display_stage_name: string
           user_can_view: boolean
           user_can_edit: boolean
           user_can_work: boolean
@@ -2985,15 +2750,78 @@ export type Database = {
           workflow_progress: number
           total_stages: number
           completed_stages: number
+          display_stage_name: string
           qty: number
+          has_custom_workflow: boolean
+          manual_due_date: string
+          batch_category: string
+          is_in_batch_processing: boolean
           started_by: string
           started_by_name: string
           proof_emailed_at: string
+          is_batch_master: boolean
+          batch_name: string
+          constituent_job_count: number
+          current_stage_order: number
+          is_virtual_stage_entry: boolean
+          stage_instance_id: string
+          parent_job_id: string
+          part_assignment: string
+        }[]
+      }
+      get_user_accessible_jobs_with_batch_allocation: {
+        Args:
+          | {
+              p_user_id?: string
+              p_permission_type?: string
+              p_status_filter?: string
+              p_stage_filter?: string
+            }
+          | {
+              p_user_id?: string
+              p_permission_type?: string
+              p_status_filter?: string
+              p_stage_filter?: string
+            }
+        Returns: {
+          job_id: string
+          id: string
+          wo_no: string
+          customer: string
+          status: string
+          due_date: string
+          reference: string
+          category_id: string
+          category_name: string
+          category_color: string
+          current_stage_id: string
+          current_stage_name: string
+          current_stage_color: string
+          current_stage_status: string
+          user_can_view: boolean
+          user_can_edit: boolean
+          user_can_work: boolean
+          user_can_manage: boolean
+          workflow_progress: number
+          total_stages: number
+          completed_stages: number
+          display_stage_name: string
+          qty: number
           has_custom_workflow: boolean
           manual_due_date: string
-          manual_sla_days: number
-          categories: Json
-          sla_target_days: number
+          batch_category: string
+          is_in_batch_processing: boolean
+          started_by: string
+          started_by_name: string
+          proof_emailed_at: string
+          is_batch_master: boolean
+          batch_name: string
+          constituent_job_count: number
+          current_stage_order: number
+          is_virtual_stage_entry: boolean
+          stage_instance_id: string
+          parent_job_id: string
+          part_assignment: string
         }[]
       }
       get_user_accessible_stages: {
@@ -3117,10 +2945,6 @@ export type Database = {
         Args: { p_job_id: string; p_job_table_name: string; p_user_id?: string }
         Returns: boolean
       }
-      populate_initial_schedules: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
       process_due_date_recalculation_queue: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -3172,6 +2996,16 @@ export type Database = {
           stages_created: number
         }[]
       }
+      repair_missed_parallel_activations: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          job_id: string
+          wo_no: string
+          stage_name: string
+          stage_id: string
+          action_taken: string
+        }[]
+      }
       repair_missing_batch_references_fixed: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -3179,17 +3013,6 @@ export type Database = {
           batch_name: string
           references_created: number
         }[]
-      }
-      reschedule_job_server_side: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_production_stage_id: string
-          p_new_date: string
-          p_new_queue_position?: number
-          p_reason?: string
-        }
-        Returns: Json
       }
       reset_custom_workflow_stages_to_pending: {
         Args: Record<PropertyKey, never>
@@ -3259,10 +3082,6 @@ export type Database = {
           synced_count: number
           fixed_count: number
         }[]
-      }
-      update_production_schedules_nightly: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
       }
       update_stage_workload_tracking: {
         Args: Record<PropertyKey, never>

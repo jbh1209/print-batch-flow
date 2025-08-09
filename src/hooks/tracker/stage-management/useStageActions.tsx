@@ -52,9 +52,9 @@ export const useStageActions = () => {
           production_stage:production_stages(name)
         `)
         .eq('id', stageId)
-        .maybeSingle();
+        .single();
 
-      if (stageInfoError || !stageInfo) throw (stageInfoError || new Error('Stage not found'));
+      if (stageInfoError) throw stageInfoError;
 
       const isProofStage = stageInfo?.production_stage?.name?.toLowerCase().includes('proof');
       
@@ -138,7 +138,7 @@ export const useStageActions = () => {
           production_stage:production_stages(name)
         `)
         .eq('id', currentStageInstanceId)
-        .maybeSingle();
+        .single();
 
       if (currentStageError || !currentStageInstance) {
         throw new Error(`Could not find stage instance with ID ${currentStageInstanceId}: ${currentStageError?.message}`);
@@ -222,56 +222,30 @@ export const useStageActions = () => {
         name: s.production_stages?.name 
       })));
 
-      // Find all non-conditional stages at the lowest stage_order level
-      const nonConditionalStages = [];
-      let lowestStageOrder = null;
+      // Find the first non-conditional stage using simple pattern matching
+      let nextStageToActivate = null;
       
-      console.log(`🔍 All pending stages:`, pendingStages.map(s => ({
-        name: s.production_stages?.name,
-        order: s.stage_order,
-        id: s.id
-      })));
-      
-      // First pass: find the lowest stage_order with non-conditional stages
       for (const stage of pendingStages) {
         const stageName = stage.production_stages?.name || '';
+        // Skip stages that appear to be conditional based on naming patterns
         const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
                                      stageName.toLowerCase().includes('allocation');
         
-        console.log(`🔍 Checking stage "${stageName}" (order ${stage.stage_order}): conditional=${isConditionalByPattern}`);
+        console.log(`🔍 Checking stage ${stageName}: conditional by pattern=${isConditionalByPattern}`);
         
         if (!isConditionalByPattern) {
-          if (lowestStageOrder === null || stage.stage_order < lowestStageOrder) {
-            lowestStageOrder = stage.stage_order;
-            console.log(`📌 New lowest order found: ${lowestStageOrder}`);
-          }
+          nextStageToActivate = stage;
+          break;
         }
       }
 
-      // Second pass: collect all non-conditional stages at the lowest order level
-      if (lowestStageOrder !== null) {
-        for (const stage of pendingStages) {
-          const stageName = stage.production_stages?.name || '';
-          const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
-                                       stageName.toLowerCase().includes('allocation');
-          
-          if (!isConditionalByPattern && stage.stage_order === lowestStageOrder) {
-            nonConditionalStages.push(stage);
-            console.log(`✅ Added stage to activate: "${stageName}" (order ${stage.stage_order})`);
-          }
-        }
+      // If no non-conditional stage found, use the first pending stage as fallback
+      if (!nextStageToActivate && pendingStages.length > 0) {
+        console.log('⚠️ No non-conditional stage found, using first pending stage as fallback');
+        nextStageToActivate = pendingStages[0];
       }
 
-      // If no non-conditional stages found, use the first pending stage as fallback
-      const stagesToActivate = nonConditionalStages.length > 0 ? nonConditionalStages : [pendingStages[0]];
-
-      console.log(`🎯 Final stages to activate (${stagesToActivate.length}):`, 
-        stagesToActivate.map(s => ({ name: s.production_stages?.name, order: s.stage_order, id: s.id })));
-
-      if (stagesToActivate.length > 0) {
-        // Activate all stages at the same order level (for parallel processing)
-        const stageIds = stagesToActivate.map(s => s.id);
-        
+      if (nextStageToActivate) {
         const { error: activateError } = await supabase
           .from('job_stage_instances')
           .update({
@@ -280,25 +254,18 @@ export const useStageActions = () => {
             started_by: user?.id,
             updated_at: new Date().toISOString()
           })
-          .in('id', stageIds);
+          .eq('id', nextStageToActivate.id);
 
         if (activateError) throw activateError;
 
-        const stageNames = stagesToActivate.map(s => s.production_stages?.name).join(', ');
-        
-        console.log('✅ Stage completed and next stages activated:', {
+        console.log('✅ Stage completed and next stage activated:', {
           completedStage: currentStageInstanceId,
-          activatedStages: stageIds,
-          activatedStageNames: stageNames,
-          stageOrder: lowestStageOrder,
-          parallelStages: stagesToActivate.length > 1
+          activatedStage: nextStageToActivate.id,
+          activatedStageName: nextStageToActivate.production_stages?.name,
+          stageOrder: nextStageToActivate.stage_order
         });
 
-        if (stagesToActivate.length > 1) {
-          toast.success(`Stage completed and advanced to parallel stages: ${stageNames}`);
-        } else {
-          toast.success(`Stage completed and advanced to: ${stageNames}`);
-        }
+        toast.success(`Stage completed and advanced to: ${nextStageToActivate.production_stages?.name}`);
       } else {
         console.log('ℹ️ No more stages to activate - workflow may be complete');
         toast.success("Stage completed - workflow finished");

@@ -1,10 +1,12 @@
 
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
+import { LinkIcon } from "lucide-react";
 import { 
   processJobStatus, 
   isJobOverdue, 
@@ -56,9 +58,18 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
           {/* Header Row */}
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <h4 className="font-bold text-sm text-gray-900 truncate">
-                {job.wo_no}
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-sm text-gray-900 truncate">
+                  {job.wo_no}
+                </h4>
+                {/* Virtual Entry Indicator for Parallel Stages */}
+                {job.is_virtual_stage_entry && job.parallel_stages && job.parallel_stages.length > 1 && (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs flex items-center gap-1">
+                    <LinkIcon className="h-3 w-3" />
+                    {job.parallel_stages.length} Parts
+                  </Badge>
+                )}
+              </div>
               {job.customer && (
                 <p className="text-xs text-gray-600 truncate">
                   {job.customer}
@@ -66,6 +77,23 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
               )}
             </div>
           </div>
+
+          {/* Part Assignment for Virtual Entries */}
+          {job.is_virtual_stage_entry && job.part_assignment && (
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="secondary" 
+                className="bg-indigo-50 text-indigo-700 border-indigo-300 text-xs font-medium"
+              >
+                {job.part_assignment === 'cover' ? 'Cover' : 
+                 job.part_assignment === 'text' ? 'Text' : 
+                 job.part_assignment.charAt(0).toUpperCase() + job.part_assignment.slice(1)}
+              </Badge>
+              <span className="text-xs text-gray-500">
+                Part of {job.wo_no}
+              </span>
+            </div>
+          )}
 
           {/* Status Display */}
           <JobStatusDisplay 

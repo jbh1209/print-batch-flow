@@ -53,7 +53,7 @@ export class StageQueueManager {
       // Use the database function to calculate workload
       const { data: workloadData, error: workloadError } = await supabase
         .rpc('calculate_stage_queue_workload', {
-          stage_id: capacity.production_stage_id
+          p_production_stage_id: capacity.production_stage_id
         });
 
       if (workloadError) {
@@ -64,19 +64,19 @@ export class StageQueueManager {
       const workload = workloadData?.[0];
       if (workload) {
         const dailyCapacity = capacity.daily_capacity_hours * (capacity.efficiency_factor || 0.85);
-        const queueDaysToProcess = workload.pending_hours / dailyCapacity;
+        const queueDaysToProcess = workload.total_pending_hours / dailyCapacity;
 
         workloads.push({
           stageId: capacity.production_stage_id,
           stageName: (capacity as any).production_stages.name,
-          totalPendingHours: parseFloat(String(workload.pending_hours || '0')),
-          totalActiveHours: parseFloat(String(workload.active_hours || '0')),
+          totalPendingHours: parseFloat(String(workload.total_pending_hours || '0')),
+          totalActiveHours: parseFloat(String(workload.total_active_hours || '0')),
           pendingJobsCount: workload.pending_jobs_count || 0,
           activeJobsCount: workload.active_jobs_count || 0,
           dailyCapacityHours: dailyCapacity,
           maxParallelJobs: capacity.max_parallel_jobs,
           isBottleneck: capacity.is_bottleneck,
-          earliestAvailableSlot: new Date(),
+          earliestAvailableSlot: new Date(workload.earliest_available_slot),
           queueDaysToProcess: Math.ceil(queueDaysToProcess)
         });
       }

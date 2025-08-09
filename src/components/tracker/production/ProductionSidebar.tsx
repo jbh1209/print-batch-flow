@@ -12,6 +12,7 @@ import {
   Play
 } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { getJobCountForStage } from "@/utils/tracker/stageFiltering";
 
 interface ProductionSidebarProps {
   jobs: AccessibleJob[];
@@ -29,22 +30,9 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
   onStageSelect
 }) => {
 
-  const getJobCountForStage = (stageName: string) => {
-    return jobs.filter(job => {
-      const currentStage = job.current_stage_name || job.display_stage_name;
-      
-      // Check if job's current stage matches
-      if (currentStage === stageName) {
-        return true;
-      }
-      
-      // Check if job has parallel stages that match
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        return job.parallel_stages.some(stage => stage.stage_name === stageName);
-      }
-      
-      return false;
-    }).length;
+  // Use the shared filtering utility for consistent counts
+  const getJobCountForStageLocal = (stageName: string) => {
+    return getJobCountForStage(jobs, stageName);
   };
 
   const getJobCountByStatus = (status: string) => {
@@ -68,13 +56,21 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
   };
 
   const handleStageClick = (stageId: string, stageName: string) => {
-    console.log('Sidebar stage clicked:', { stageId, stageName, selectedStageId, selectedStageName });
+    console.log('🖱️ Sidebar stage clicked:', { 
+      stageId, 
+      stageName, 
+      current: { selectedStageId, selectedStageName },
+      isReclick: selectedStageId === stageId
+    });
     
-    if (selectedStageId === stageId) {
+    // Prevent rapid clicking issues with debounce-like behavior
+    if (selectedStageId === stageId && selectedStageName === stageName) {
       // Clicking the same stage - deselect it
+      console.log('🔄 Deselecting current stage');
       onStageSelect(null, null);
     } else {
-      // Select the new stage
+      // Select the new stage - ensure atomic update
+      console.log('✅ Selecting new stage:', { stageId, stageName });
       onStageSelect(stageId, stageName);
     }
   };
@@ -113,7 +109,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
             </Badge>
           </Button>
           {consolidatedStages.map(stage => {
-            const jobCount = getJobCountForStage(stage.stage_name);
+            const jobCount = getJobCountForStageLocal(stage.stage_name);
             const isSelected = selectedStageId === stage.stage_id;
             return (
               <Button 

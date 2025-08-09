@@ -2,72 +2,94 @@ import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
+import { specificationUnificationService } from "@/services/SpecificationUnificationService";
+import { isPrintingStage } from "@/utils/stageUtils";
 import { supabase } from "@/integrations/supabase/client";
-import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
   stageId?: string | null;
   compact?: boolean;
   className?: string;
+  partAssignment?: string;
 }
 
-interface JobPrintSpecification {
-  category: string;
-  specification_id: string;
-  name: string;
-  display_name: string;
-  properties: any;
-}
 
 export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   jobId,
   stageId,
   compact = false,
-  className = ""
+  className = "",
+  partAssignment
 }) => {
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
-  const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
+  const [unifiedSpecs, setUnifiedSpecs] = useState<any>(null);
   const [paperLoading, setPaperLoading] = useState(false);
 
-  // Fetch paper specifications for the job
+  // Fetch unified specifications with paper details from stage notes
   useEffect(() => {
-    const fetchPaperSpecs = async () => {
+    const fetchUnifiedSpecs = async () => {
       if (!jobId) return;
       
       setPaperLoading(true);
       try {
-        const { data, error } = await supabase.rpc('get_job_specifications', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs'
-        });
-
-        if (error) throw error;
+        const result = await specificationUnificationService.getUnifiedSpecifications(jobId, 'production_jobs');
         
-        const paperSpecs = (data || []).filter((spec: JobPrintSpecification) => 
-          spec.category === 'paper_type' || spec.category === 'paper_weight'
-        );
+        // Also get paper specs from stage notes for the current stage
+        if (stageId && partAssignment) {
+          const { data: stageData } = await supabase
+            .from('job_stage_instances')
+            .select('notes, part_assignment')
+            .eq('job_id', jobId)
+            .eq('production_stage_id', stageId)
+            .eq('part_assignment', partAssignment)
+            .maybeSingle();
+            
+          if (stageData?.notes) {
+            // Parse paper info from notes (format: "Bond 080gsm" or "FBB 230gsm")
+            const paperMatch = stageData.notes.match(/([A-Za-z\s]+)\s+(\d+gsm)/);
+            if (paperMatch) {
+              const [, paperType, weight] = paperMatch;
+              // Set the paper display in the result
+              if (!result.textPaperDisplay) {
+                result.textPaperDisplay = `${paperType.trim()} ${weight}`;
+              }
+              if (!result.coverPaperDisplay) {
+                result.coverPaperDisplay = `${paperType.trim()} ${weight}`;
+              }
+            }
+          }
+        }
         
-        setPaperSpecs(paperSpecs);
+        setUnifiedSpecs(result);
       } catch (error) {
-        console.error('Error fetching paper specifications:', error);
+        console.error('Error fetching unified specifications:', error);
       } finally {
         setPaperLoading(false);
       }
     };
 
-    fetchPaperSpecs();
-  }, [jobId]);
+    fetchUnifiedSpecs();
+  }, [jobId, stageId, partAssignment]);
 
-  if (isLoading || paperLoading) {
+  if (isLoading || paperLoading || !unifiedSpecs) {
     return (
-      <div className="animate-pulse">
-        <div className="h-5 bg-gray-200 rounded w-16"></div>
-      </div>
+      <Badge variant="outline" className={`text-xs animate-pulse ${className}`}>
+        Loading...
+      </Badge>
     );
   }
 
+  // Early return for non-printing stages with basic stage name
   if (!specifications || !specifications.length) {
+    // If we have a stage ID but no specifications, try to get the stage name
+    if (stageId) {
+      return (
+        <Badge variant="outline" className={`text-xs bg-gray-50 border-gray-200 text-gray-700 ${className}`}>
+          Stage
+        </Badge>
+      );
+    }
     return (
       <Badge variant="secondary" className={`text-xs ${className}`}>
         No specs
@@ -75,25 +97,60 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
-  // Get paper details for display - first try from job_print_specifications, then from notes
-  const paperType = paperSpecs.find(spec => spec.category === 'paper_type')?.display_name;
-  const paperWeight = paperSpecs.find(spec => spec.category === 'paper_weight')?.display_name;
-  let paperDisplay = [paperWeight, paperType].filter(Boolean).join(' ');
+  // Filter specifications by part assignment if specified - no aggressive fallback
+  const filteredSpecifications = partAssignment && partAssignment !== 'both' 
+    ? specifications.filter(spec => {
+        const specPart = spec.part_name || 'both';
+        return specPart === 'both' || specPart === partAssignment;
+      })
+    : specifications;
+
+  // Check if this is a printing stage that should show paper specs
+  const shouldShowPaperSpecs = filteredSpecifications.some(spec => 
+    isPrintingStage(spec.stage_name)
+  );
   
-  // If no paper specs from job_print_specifications, try to extract from notes
-  if (!paperDisplay && specifications.length > 0) {
-    const notesWithPaper = specifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
-    if (notesWithPaper) {
-      const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
-      paperDisplay = formatPaperDisplay(parsedPaper) || '';
+  console.log(`🎯 SubSpecificationBadge Debug for job ${jobId}:`, {
+    stageId,
+    filteredSpecifications: filteredSpecifications.length,
+    shouldShowPaperSpecs,
+    hasUnifiedSpecs: !!unifiedSpecs,
+    paperDisplay: unifiedSpecs?.textPaperDisplay || unifiedSpecs?.coverPaperDisplay,
+    partAssignment
+  });
+
+  // Get part-specific paper specifications for printing stages
+  let paperDisplay = '';
+  if (shouldShowPaperSpecs && unifiedSpecs) {
+    // First try to get from unifiedSpecs
+    const stagePartAssignment = filteredSpecifications[0]?.part_name;
+    paperDisplay = specificationUnificationService.getPartSpecificPaper(unifiedSpecs, stagePartAssignment);
+  }
+  
+  // If no paperDisplay from unifiedSpecs, try to extract from notes field  
+  if (!paperDisplay && filteredSpecifications.length > 0) {
+    const notesWithPaper = filteredSpecifications.find(spec => spec.notes?.includes('Paper:'));
+    if (notesWithPaper && notesWithPaper.notes) {
+      const paperMatch = notesWithPaper.notes.match(/Paper:\s*(.+)/);
+      if (paperMatch) {
+        paperDisplay = paperMatch[1].trim();
+      }
     }
   }
 
   if (compact) {
     // Show stage + sub-spec + paper in compact mode
-    const primary = specifications[0];
+    const primary = filteredSpecifications[0];
+    if (!primary) {
+      // Fallback to stage name if available
+      return (
+        <Badge variant="outline" className={`text-xs bg-gray-50 border-gray-200 text-gray-700 ${className}`}>
+          {unifiedSpecs?.textPaperDisplay || unifiedSpecs?.coverPaperDisplay || 'Stage'}
+        </Badge>
+      );
+    }
     const subSpec = primary.sub_specification || primary.stage_name;
-    const displayText = paperDisplay ? `${subSpec} | ${paperDisplay}` : subSpec;
+    const displayText = paperDisplay && shouldShowPaperSpecs ? `${subSpec} | ${paperDisplay}` : subSpec;
     
     return (
       <TooltipProvider>
@@ -108,14 +165,14 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
           </TooltipTrigger>
           <TooltipContent>
             <div className="space-y-2">
-              {specifications.map((spec, index) => (
+              {filteredSpecifications.map((spec, index) => (
                 <div key={index} className="text-sm">
                   <strong>{spec.stage_name}:</strong> {spec.sub_specification || 'Standard'}
                   {spec.part_name && <div className="text-xs opacity-75">Part: {spec.part_name}</div>}
                   {spec.quantity && <div className="text-xs opacity-75">Qty: {spec.quantity}</div>}
                 </div>
               ))}
-              {paperDisplay && (
+              {paperDisplay && shouldShowPaperSpecs && (
                 <div className="text-sm border-t pt-1">
                   <strong>Paper:</strong> {paperDisplay}
                 </div>
@@ -130,7 +187,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   // Full view - show all specifications with paper details
   return (
     <div className={`space-y-2 ${className}`}>
-      {specifications.map((spec, index) => (
+      {filteredSpecifications.map((spec, index) => (
         <div key={index} className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge 
@@ -150,7 +207,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
               </span>
             )}
           </div>
-          {paperDisplay && index === 0 && (
+          {paperDisplay && shouldShowPaperSpecs && (
             <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
               {paperDisplay}
             </Badge>

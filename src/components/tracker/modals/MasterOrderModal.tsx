@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
+import { JobSpecificationCard } from "../common/JobSpecificationCard";
 import { RealTimeStageTimingDisplay } from "@/components/tracker/RealTimeStageTimingDisplay";
 
 interface MasterOrderModalProps {
@@ -339,6 +340,19 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Job Specifications */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Job Specifications
+              </h3>
+              <JobSpecificationCard
+                jobId={job.job_id}
+                jobTableName="production_jobs"
+                compact={false}
+              />
             </div>
 
             {/* Workflow Progress */}

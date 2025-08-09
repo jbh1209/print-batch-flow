@@ -100,45 +100,13 @@ export const useBatchAwareStageActions = () => {
       const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../utils/proofStageUtils');
       const stageInfo = await getStageInfoForProofCheck(stageId);
       
-      // Check if this job has parallel components (cover/text workflow)
-      const { data: parallelCheck } = await supabase
-        .from('job_stage_instances')
-        .select('part_assignment, dependency_group')
-        .eq('job_id', options.jobId)
-        .eq('job_table_name', options.jobTableName)
-        .neq('part_assignment', 'both');
-      
-      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
-      
-      // Use parallel-aware advancement for jobs with cover/text components
-      console.log(`🔄 Job advancement decision`, {
-        hasParallelComponents,
-        parallelComponentsFound: parallelCheck?.length || 0,
-        functionToUse: hasParallelComponents ? 'advance_parallel_job_stage' : 'advance_job_stage'
+      // Complete the stage using the standard advancement function
+      const { error: advanceError } = await supabase.rpc('advance_job_stage_with_parallel_support', {
+        p_job_id: options.jobId,
+        p_job_table_name: options.jobTableName,
+        p_current_stage_id: stageId,
+        p_notes: notes
       });
-      
-      let advanceError;
-      if (hasParallelComponents) {
-        // Use parallel-aware advancement for cover/text jobs
-        const { error } = await supabase.rpc('advance_parallel_job_stage' as any, {
-          p_job_id: options.jobId,
-          p_job_table_name: options.jobTableName,
-          p_current_stage_id: stageId,
-          p_completed_by: user?.id,
-          p_notes: notes
-        });
-        advanceError = error;
-      } else {
-        // Use standard advancement for regular jobs
-        const { error } = await supabase.rpc('advance_job_stage', {
-          p_job_id: options.jobId,
-          p_job_table_name: options.jobTableName,
-          p_current_stage_id: stageId,
-          p_completed_by: user?.id,
-          p_notes: notes
-        });
-        advanceError = error;
-      }
 
       if (advanceError) throw advanceError;
 

@@ -22,7 +22,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { categorizeJobs, calculateJobCounts } from "@/utils/tracker/jobProcessing";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
-
+import { ProductionCalendar } from "@/components/production/ProductionCalendar";
 import { ProductionAdminDashboard } from "@/components/production/ProductionAdminDashboard";
 import { toast } from "sonner";
 
