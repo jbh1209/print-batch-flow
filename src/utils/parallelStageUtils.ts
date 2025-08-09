@@ -100,103 +100,148 @@ export const getJobParallelStages = (
     }
   }
   
-  // For part-supporting stages (like HP 12000, T250) - process independently of sequential stages
+  // For part-supporting stages (like HP 12000, T250) - process ALL order levels independently
   if (partSupportingStages.length > 0) {
-    const partStageOrder = Math.min(...partSupportingStages.map(s => s.stage_order));
+    // Group part-supporting stages by order level
+    const stagesByOrder = partSupportingStages.reduce((orders, stage) => {
+      const order = stage.stage_order;
+      if (!orders[order]) orders[order] = [];
+      orders[order].push(stage);
+      return orders;
+    }, {} as Record<number, any[]>);
     
-    // Check if all lower order stages are completed
-    const hasPrerequisites = checkStagePrerequisites(partStageOrder, completedStageOrders, allJobStages);
+    // Get all completed part assignments per order for prerequisite checking
+    const completedPartsByOrder = allJobStages
+      .filter(stage => stage.status === 'completed' && stage.production_stages?.supports_parts)
+      .reduce((byOrder, stage) => {
+        const order = stage.stage_order;
+        if (!byOrder[order]) byOrder[order] = new Set();
+        byOrder[order].add(stage.part_assignment || 'both');
+        return byOrder;
+      }, {} as Record<number, Set<string>>);
     
-    if (hasPrerequisites) {
-      // Group by part assignment for parallel processing
-      const partGroups = partSupportingStages
-        .filter(stage => stage.stage_order === partStageOrder)
-        .reduce((groups, stage) => {
+    // Get currently active part assignments per order
+    const activePartsByOrder = allJobStages
+      .filter(stage => stage.status === 'active' && stage.production_stages?.supports_parts)
+      .reduce((byOrder, stage) => {
+        const order = stage.stage_order;
+        if (!byOrder[order]) byOrder[order] = new Set();
+        byOrder[order].add(stage.part_assignment || 'both');
+        return byOrder;
+      }, {} as Record<number, Set<string>>);
+    
+    console.log(`[Stage Debug] Multi-order part processing:`, {
+      orderLevels: Object.keys(stagesByOrder).map(Number).sort((a, b) => a - b),
+      completedByOrder: Object.fromEntries(
+        Object.entries(completedPartsByOrder).map(([order, parts]) => [order, Array.from(parts as Set<string>)])
+      ),
+      activeByOrder: Object.fromEntries(
+        Object.entries(activePartsByOrder).map(([order, parts]) => [order, Array.from(parts as Set<string>)])
+      )
+    });
+    
+    // Process each order level independently
+    Object.entries(stagesByOrder)
+      .map(([orderStr, stages]) => [Number(orderStr), stages] as [number, any[]])
+      .sort(([a], [b]) => a - b) // Process in order
+      .forEach(([currentOrder, stagesAtOrder]) => {
+        
+        // Check if all lower order stages are completed for this order level
+        const hasPrerequisites = checkStagePrerequisites(currentOrder, completedStageOrders, allJobStages);
+        
+        if (!hasPrerequisites) {
+          console.log(`[Stage Debug] Order ${currentOrder} blocked - prerequisites not met`);
+          return;
+        }
+        
+        // Group stages by part assignment for this order
+        const partGroups = stagesAtOrder.reduce((groups, stage) => {
           const partKey = stage.part_assignment || 'both';
           if (!groups[partKey]) groups[partKey] = [];
           groups[partKey].push(stage);
           return groups;
         }, {} as Record<string, any[]>);
-      
-      // For printing stages, allow parallel processing for different part assignments (per-part completion aware)
-      const activePrintingStages = allJobStages.filter(stage => 
-        stage.status === 'active' && stage.production_stages?.supports_parts && stage.stage_order === partStageOrder
-      );
-
-      // Track completed printing per part at this order to avoid resurrecting finished parts
-      const completedPrintingStages = allJobStages.filter(stage => 
-        stage.status === 'completed' && stage.production_stages?.supports_parts && stage.stage_order === partStageOrder
-      );
-      const completedPartAssignments = new Set(
-        completedPrintingStages.map(stage => stage.part_assignment || 'both')
-      );
-      
-      if (activePrintingStages.length === 0) {
-        // No printing stages active - show next stages for completed parts that can proceed
-        Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
-          if (!completedPartAssignments.has(partKey)) {
-            availableStages.push(...partStages);
-          }
-        });
         
-        // Also check for next stages that should be available for completed parts
-        const nextStageOrder = partStageOrder + 1;
-        const nextStages = allJobStages.filter(stage => 
-          stage.stage_order > partStageOrder && 
-          stage.status === 'pending' &&
-          completedPartAssignments.size > 0
-        );
+        const activePartsAtOrder = activePartsByOrder[currentOrder] || new Set();
+        const completedPartsAtOrder = completedPartsByOrder[currentOrder] || new Set();
         
-        nextStages.forEach(nextStage => {
-          const nextPartAssignment = nextStage.part_assignment || 'both';
-          // If this is a 'both' stage, check if all parts are completed at previous order
-          if (nextPartAssignment === 'both') {
+        // Check for part-specific prerequisite completion
+        const checkPartPrerequisites = (partAssignment: string, targetOrder: number): boolean => {
+          if (partAssignment === 'both') {
+            // For 'both' stages, check if both text and cover have completed their previous order stages
             const requiredParts = ['text', 'cover'];
-            const allRequiredPartsCompleted = requiredParts.every(part => completedPartAssignments.has(part));
-            if (allRequiredPartsCompleted && checkStagePrerequisites(nextStage.stage_order, completedStageOrders, allJobStages)) {
-              availableStages.push(nextStage);
-            }
+            return requiredParts.every(part => {
+              // Find the highest completed order for this part
+              const partCompletedOrders = Object.entries(completedPartsByOrder)
+                .filter(([, parts]) => (parts as Set<string>).has(part))
+                .map(([order]) => Number(order));
+              
+              if (partCompletedOrders.length === 0) return false;
+              
+              const highestCompletedOrder = Math.max(...partCompletedOrders);
+              // The part must have completed the immediately previous order that had stages for this part
+              const previousOrdersWithPart = Object.entries(stagesByOrder)
+                .filter(([order, stages]) => 
+                  Number(order) < targetOrder && 
+                  (stages as any[]).some(s => (s.part_assignment || 'both') === part || (s.part_assignment || 'both') === 'both')
+                )
+                .map(([order]) => Number(order));
+              
+              if (previousOrdersWithPart.length === 0) return true;
+              const requiredOrder = Math.max(...previousOrdersWithPart);
+              return highestCompletedOrder >= requiredOrder;
+            });
           } else {
-            // For specific part stages, check if that part is completed at previous order
-            if (completedPartAssignments.has(nextPartAssignment) && checkStagePrerequisites(nextStage.stage_order, completedStageOrders, allJobStages)) {
-              availableStages.push(nextStage);
-            }
+            // For specific part stages, check if this part completed its previous order
+            const partCompletedOrders = Object.entries(completedPartsByOrder)
+              .filter(([, parts]) => (parts as Set<string>).has(partAssignment))
+              .map(([order]) => Number(order));
+            
+            if (partCompletedOrders.length === 0) return false;
+            
+            const highestCompletedOrder = Math.max(...partCompletedOrders);
+            const previousOrdersWithPart = Object.entries(stagesByOrder)
+              .filter(([order, stages]) => 
+                Number(order) < targetOrder && 
+                (stages as any[]).some(s => (s.part_assignment || 'both') === partAssignment || (s.part_assignment || 'both') === 'both')
+              )
+              .map(([order]) => Number(order));
+            
+            if (previousOrdersWithPart.length === 0) return true;
+            const requiredOrder = Math.max(...previousOrdersWithPart);
+            return highestCompletedOrder >= requiredOrder;
           }
-        });
-        console.log(`[Stage Debug] Part-supporting stages available (no active)`, {
-          completedAssignments: Array.from(completedPartAssignments),
-          available: availableStages.map(s => ({ name: s.production_stages?.name, part: s.part_assignment || 'both' }))
-        });
-      } else {
-        // Some printing stages are active - show available stages for each part assignment
-        const activePartAssignments = new Set(activePrintingStages.map(stage => stage.part_assignment || 'both'));
+        };
         
+        // Process each part group at this order
         Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
-          if (activePartAssignments.has(partKey)) {
-            // This part assignment has active stages - only show the active ones
-            const activeStagesForPart = activePrintingStages.filter(stage => 
+          const hasPartPrerequisites = checkPartPrerequisites(partKey, currentOrder);
+          
+          if (!hasPartPrerequisites) {
+            console.log(`[Stage Debug] Part ${partKey} at order ${currentOrder} blocked - part prerequisites not met`);
+            return;
+          }
+          
+          if (activePartsAtOrder.has(partKey)) {
+            // This part has active stages at this order - show them
+            const activeStagesForPart = allJobStages.filter(stage => 
+              stage.status === 'active' && 
+              stage.stage_order === currentOrder &&
               (stage.part_assignment || 'both') === partKey
             );
             availableStages.push(...activeStagesForPart);
-          } else if (!completedPartAssignments.has(partKey)) {
-            // This part assignment has no active stages and is not completed - show all options for this part
+            console.log(`[Stage Debug] Active stages for ${partKey} at order ${currentOrder}:`, 
+              activeStagesForPart.map(s => s.production_stages?.name));
+          } else if (!completedPartsAtOrder.has(partKey)) {
+            // This part has no active stages and is not completed at this order - show available stages
             availableStages.push(...partStages);
+            console.log(`[Stage Debug] Available stages for ${partKey} at order ${currentOrder}:`, 
+              partStages.map(s => s.production_stages?.name));
+          } else {
+            console.log(`[Stage Debug] Part ${partKey} completed at order ${currentOrder} - skipping`);
           }
-          // else: skip completed parts
         });
-        
-        console.log(`[Stage Debug] Parallel printing stages by part`, {
-          activeAssignments: Array.from(activePartAssignments),
-          completedAssignments: Array.from(completedPartAssignments),
-          available: availableStages.map(s => ({ 
-            name: s.production_stages?.name, 
-            part: s.part_assignment || 'both' 
-          }))
-        });
-      }
-    } else {
-      console.log(`[Stage Debug] Part-supporting stage order ${partStageOrder} blocked - prerequisites not met`);
-    }
+      });
   }
   
   // Return mapped stage info with unique identifiers
