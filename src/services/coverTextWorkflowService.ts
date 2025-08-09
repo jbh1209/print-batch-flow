@@ -93,82 +93,54 @@ export class CoverTextWorkflowService {
     dependencyGroupId: string,
     categoryId: string
   ): Promise<any[]> {
-    const stageInstances = [];
     
-    for (const stage of categoryStages) {
-      const production_stage_name = stage.production_stages.name;
+    const componentName = component.type.charAt(0).toUpperCase() + component.type.slice(1);
+    const stageInstances: any[] = [];
+
+    for (const [index, categoryStage] of categoryStages.entries()) {
+      const stage = categoryStage.production_stages;
+      const isFirstStage = index === 0;
       
-      // Determine if this stage should wait for dependencies (synchronization stages)
-      const shouldWaitForDependency = this.shouldWaitForDependency(production_stage_name);
-      
-      // Parallel stages (Cover/Text printing) get no dependency group
-      // Synchronization stages (Hunkeler, Perfect Binding, etc.) get the dependency group
-      const assignedDependencyGroup = shouldWaitForDependency ? dependencyGroupId : null;
+      // Phase 3: Fix Stage Instance Creation - Only assign dependency groups to true synchronization points
+      const needsSynchronization = this.shouldWaitForDependency(stage.supports_parts);
       
       const stageInstance = {
         job_id: jobId,
         job_table_name: 'production_jobs',
         category_id: categoryId,
-        production_stage_id: stage.production_stage_id,
-        stage_order: stage.stage_order,
-        status: 'pending', // All stages start as pending
-        part_assignment: component.type, // 'cover' or 'text'
-        quantity: component.quantity || component.printing?.wo_qty,
-        dependency_group: assignedDependencyGroup,
-        part_name: `${component.type} - ${component.description || component.type}`,
-        notes: `Part: ${component.type}, Quantity: ${component.quantity || component.printing?.wo_qty}${shouldWaitForDependency ? ' [Waits for both Cover & Text]' : ''}`,
-        estimated_duration_minutes: stage.estimated_duration_hours ? stage.estimated_duration_hours * 60 : null,
-        setup_time_minutes: 10 // Default setup time
+        production_stage_id: stage.id,
+        stage_order: categoryStage.stage_order,
+        part_name: componentName,
+        part_type: 'printing_component',
+        part_assignment: componentName.toLowerCase(), // Cover or Text
+        // Independent finishing stages get null dependency_group, synchronization stages get the group
+        dependency_group: needsSynchronization ? dependencyGroupId : null,
+        quantity: component.printing.wo_qty,
+        status: isFirstStage ? 'active' : 'pending',
+        started_at: isFirstStage ? new Date().toISOString() : null,
+        started_by: isFirstStage ? null : null // Will be set by the system
       };
 
-      const { data, error } = await supabase
+      const { data: insertedStage, error } = await supabase
         .from('job_stage_instances')
         .insert(stageInstance)
         .select()
         .single();
 
       if (error) {
-        this.logger.addDebugInfo(`Failed to create stage instance: ${error.message}`);
-        throw error;
+        throw new Error(`Failed to create stage instance for ${componentName}: ${error.message}`);
       }
 
-      this.logger.addDebugInfo(`Created stage instance: ${production_stage_name} for ${component.type} with dependency group: ${assignedDependencyGroup}`);
-
-      stageInstances.push(data);
+      stageInstances.push(insertedStage);
+      this.logger.addDebugInfo(`Created ${componentName} stage: ${stage.name} (order: ${categoryStage.stage_order})`);
     }
 
     return stageInstances;
   }
 
-  private shouldWaitForDependency(stageName: string): boolean {
-    // TRUE synchronization stages that require both cover and text to be completed
-    // These are stages where cover and text parts come together
-    const trueSynchronizationStages = [
-      'Perfect Binding', 
-      'Saddle Stitching',
-      'Collating',
-      'Assembly',
-      'Binding',
-      'Final Assembly',
-      'Quality Check',
-      'Packing',
-      'Dispatch',
-      'Gathering',
-      'Collection',
-      'Delivery',
-      'Final Trimming', // Final trimming after gathering
-      'Inspection', // Final inspection of assembled product
-      'Packaging' // Final packaging of complete product
-    ];
-    
-    // Part-specific finishing stages that should NOT wait for dependencies:
-    // - Hunkeler (text-specific finishing)
-    // - UV Varnishing (cover-specific finishing) 
-    // - Laminating (part-specific)
-    // - Die Cutting (part-specific)
-    
-    return trueSynchronizationStages.some(depStage => 
-      stageName.toLowerCase().includes(depStage.toLowerCase())
-    );
+  private shouldWaitForDependency(stageSupportsparts: boolean): boolean {
+    // If stage supports parts (independent finishing stages), no dependency group needed
+    // If stage doesn't support parts (complete job stages), dependency group needed for synchronization
+    return !stageSupportsparts;
   }
 }

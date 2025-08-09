@@ -82,8 +82,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
     badgeVariant = "destructive";
     badgeClassName = "bg-red-100 text-red-800 border-red-300";
   } else {
-    // For virtual stage entries, use the display_stage_name which includes part info
-    displayStatus = job.display_stage_name || job.current_stage_name || job.current_stage_id || job.status || 'Unknown';
+    displayStatus = job.current_stage_name || job.current_stage_id || job.status || 'Unknown';
     badgeVariant = statusBadgeInfo.variant;
     badgeClassName = statusBadgeInfo.className;
   }

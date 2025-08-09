@@ -3,10 +3,10 @@ import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { filterJobsByStage } from "@/utils/tracker/stageFiltering";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
+import { WeeklyProductionSchedule } from "@/components/tracker/production/WeeklyProductionSchedule";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { ProductionJobsView } from "@/components/tracker/production/ProductionJobsView";
 import { ProductionSidebar } from "@/components/tracker/production/ProductionSidebar";
@@ -20,16 +20,14 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 interface TrackerProductionContext {
   activeTab: string;
   filters: any;
-  selectedStageId?: string | null;
-  selectedStageName?: string | null;
-  onStageSelect?: (stageId: string | null, stageName: string | null) => void;
+  selectedStageId?: string;
+  onStageSelect?: (stageId: string | null) => void;
   onFilterChange?: (filters: any) => void;
   setSidebarData?: (data: any) => void;
 }
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
-  const { selectedStageId, selectedStageName, onStageSelect } = context;
   const isMobile = useIsMobile();
   
   const { 
@@ -44,50 +42,68 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
-  const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
+  const [sortBy, setSortBy] = useState<'wo_no' | 'due_date' | 'proof_approval'>('proof_approval');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Enhanced filtering with state validation
+  // Enhanced filtering to handle batch processing jobs and parallel stages
   const filteredJobs = useMemo(() => {
-    console.log('🔍 Filtering jobs:', { 
-      selectedStageId, 
-      selectedStageName, 
-      jobsCount: jobs.length 
-    });
-
-    // State validation guard
-    if (selectedStageId && !selectedStageName) {
-      console.warn('⚠️ State mismatch: stageId without stageName, showing all jobs');
-      return jobs;
-    }
-    
     if (!selectedStageName) {
-      console.log('📋 No stage selected, showing all jobs');
       return jobs;
     }
 
-    // Special handling for batch processing
-    if (selectedStageName === 'In Batch Processing') {
-      const batchJobs = jobs.filter(job => job.status === 'In Batch Processing');
-      console.log('🔄 Batch processing filter:', batchJobs.length);
-      return batchJobs;
-    }
-    
-    // Use unified filtering logic for all other stages
-    const filtered = filterJobsByStage(jobs, selectedStageName);
-    console.log('🎯 Stage filter result:', { stageName: selectedStageName, count: filtered.length });
-    return filtered;
-  }, [jobs, selectedStageName, selectedStageId]);
+    return jobs.filter(job => {
+      // Special handling for batch processing
+      if (selectedStageName === 'In Batch Processing') {
+        return job.status === 'In Batch Processing';
+      }
+      
+      // Check if job should appear in this stage based on parallel stages
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        return job.parallel_stages.some(stage => stage.stage_name === selectedStageName);
+      }
+      
+      // Fallback to original logic for jobs without parallel stage data
+      const currentStage = job.current_stage_name || job.display_stage_name;
+      return currentStage === selectedStageName;
+    });
+  }, [jobs, selectedStageName]);
 
-  // Enhanced sorting with batch processing awareness
+  // Enhanced sorting with proof approval order (first come, first served)
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
       let aValue, bValue;
       
-      if (sortBy === 'wo_no') {
+      if (sortBy === 'proof_approval') {
+        // Get proof approval timestamp from job stages
+        const aProofApproval = a.job_stage_instances?.find(stage => 
+          stage.proof_approved_manually_at
+        )?.proof_approved_manually_at;
+        const bProofApproval = b.job_stage_instances?.find(stage => 
+          stage.proof_approved_manually_at
+        )?.proof_approved_manually_at;
+        
+        // Jobs with proof approval get priority, sorted by approval time
+        if (aProofApproval && bProofApproval) {
+          aValue = new Date(aProofApproval).getTime();
+          bValue = new Date(bProofApproval).getTime();
+          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        } else if (aProofApproval && !bProofApproval) {
+          return -1; // a comes first (has approval)
+        } else if (!aProofApproval && bProofApproval) {
+          return 1; // b comes first (has approval)
+        } else {
+          // Neither has approval, sort by creation date
+          aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+      } else if (sortBy === 'wo_no') {
         aValue = a.wo_no || '';
         bValue = b.wo_no || '';
         const comparison = aValue.localeCompare(bValue);
@@ -143,6 +159,11 @@ const TrackerProduction = () => {
     return Array.from(stageMap.values());
   }, [jobs]);
 
+  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
+    console.log('Stage selected:', { stageId, stageName });
+    setSelectedStageId(stageId);
+    setSelectedStageName(stageName);
+  };
 
   const handleJobClick = (job: AccessibleJob) => {
     setSelectedJob(job);
@@ -194,13 +215,17 @@ const TrackerProduction = () => {
     toast.info('Stage configuration - navigate to Admin section');
   };
 
-  const handleSort = (field: 'wo_no' | 'due_date') => {
+  const handleSort = (field: 'wo_no' | 'due_date' | 'proof_approval') => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(field);
       setSortOrder('asc');
     }
+  };
+
+  const handleViewModeChange = (mode: 'list' | 'calendar') => {
+    setViewMode(mode);
   };
 
   const handleRefresh = async () => {
@@ -253,7 +278,7 @@ const TrackerProduction = () => {
             consolidatedStages={consolidatedStages}
             selectedStageId={selectedStageId}
             selectedStageName={selectedStageName}
-            onStageSelect={onStageSelect}
+            onStageSelect={handleStageSelect}
           />
         </div>
 
@@ -298,38 +323,61 @@ const TrackerProduction = () => {
                   sortBy={sortBy}
                   sortOrder={sortOrder}
                   onSort={handleSort}
+                  viewMode={viewMode}
+                  onViewModeChange={handleViewModeChange}
                 />
               </TrackerErrorBoundary>
               
               <div className="flex-1 overflow-hidden">
-                <div className="h-full overflow-auto bg-white rounded-lg border">
+                {viewMode === 'list' ? (
+                  <div className="h-full overflow-auto bg-white rounded-lg border">
+                    <TrackerErrorBoundary 
+                      componentName="Jobs View"
+                      fallback={
+                        <DataLoadingFallback
+                          componentName="production jobs"
+                          onRetry={handleRefresh}
+                          showDetails={false}
+                        />
+                      }
+                    >
+                      <div className="flex gap-4 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
+                        <span className="w-8 text-center">Due</span>
+                        <span className="flex-1">Job Name / Number</span>
+                        <span className="w-32">Due Date</span>
+                        <span className="w-40">Current Stage</span>
+                        <span className="w-24">Progress</span>
+                        <span className="w-24 text-right">Actions</span>
+                      </div>
+                      <ProductionJobsView
+                        jobs={sortedJobs}
+                        selectedStage={selectedStageName}
+                        isLoading={isLoading}
+                        onJobClick={handleJobClick}
+                        onStageAction={handleStageAction}
+                      />
+                    </TrackerErrorBoundary>
+                  </div>
+                ) : (
                   <TrackerErrorBoundary 
-                    componentName="Jobs View"
+                    componentName="Weekly Schedule"
                     fallback={
                       <DataLoadingFallback
-                        componentName="production jobs"
+                        componentName="weekly production schedule"
                         onRetry={handleRefresh}
                         showDetails={false}
                       />
                     }
                   >
-                    <div className="flex gap-4 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
-                      <span className="w-8 text-center">Due</span>
-                      <span className="flex-1">Job Name / Number</span>
-                      <span className="w-32">Due Date</span>
-                      <span className="w-40">Current Stage</span>
-                      <span className="w-24">Progress</span>
-                      <span className="w-24 text-right">Actions</span>
-                    </div>
-                    <ProductionJobsView
+                    <WeeklyProductionSchedule
                       jobs={sortedJobs}
                       selectedStage={selectedStageName}
-                      isLoading={isLoading}
                       onJobClick={handleJobClick}
                       onStageAction={handleStageAction}
+                      onRefresh={handleRefresh}
                     />
                   </TrackerErrorBoundary>
-                </div>
+                )}
               </div>
             </div>
           </div>

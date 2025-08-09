@@ -34,9 +34,8 @@ interface ContextSidebarProps {
     getJobCountByStatus: (status: string) => number;
     totalActiveJobs: number;
   };
-  onStageSelect?: (stageId: string | null, stageName: string | null) => void;
+  onStageSelect?: (stageId: string | null) => void;
   selectedStageId?: string | null;
-  selectedStageName?: string | null;
 }
 
 export const ContextSidebar = ({
@@ -44,8 +43,7 @@ export const ContextSidebar = ({
   onFilterChange,
   productionSidebarData,
   onStageSelect,
-  selectedStageId,
-  selectedStageName
+  selectedStageId
 }: ContextSidebarProps) => {
   // Early return: never render for dashboard or production
   if (activeTab === 'dashboard' || activeTab === 'production') return null;
@@ -183,7 +181,7 @@ export const ContextSidebar = ({
         jobs={[]} // This will be passed from the actual production page
         consolidatedStages={productionSidebarData.consolidatedStages}
         selectedStageId={selectedStageId}
-        selectedStageName={selectedStageName}
+        selectedStageName={null}
         onStageSelect={onStageSelect || (() => {})}
       />
     );

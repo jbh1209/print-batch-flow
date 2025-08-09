@@ -1,151 +1,189 @@
-import { debugService } from '@/services/DebugService';
+// Utility functions for handling parallel/concurrent stages and dependency chains
 
-// Define interface for parallel stage information  
 export interface ParallelStageInfo {
-  id: string;
   stage_id: string;
   stage_name: string;
   stage_color: string;
   stage_status: string;
   stage_order: number;
-  part_assignment: string | null;
+  unique_stage_key?: string;
+  production_stage_id?: string;
+  is_critical_path?: boolean;
+  dependency_type?: 'sequential' | 'parallel' | 'merge';
+  predecessor_stages?: string[];
+  successor_stages?: string[];
 }
 
 export interface JobWithParallelStages {
-  id: string;
-  stages: ParallelStageInfo[];
-  dependencies: DependencyChain[];
+  job_id: string;
+  wo_no: string;
+  parallel_stages: ParallelStageInfo[];
+  current_stage_order?: number;
+  critical_path?: string[];
+  dependency_chains?: DependencyChain[];
 }
 
 export interface DependencyChain {
-  stageId: string;
-  predecessors: string[];
-  successors: string[];
-  isCriticalPath: boolean;
+  job_id: string;
+  stage_id: string;
+  predecessor_stage_ids: string[];
+  successor_stage_ids: string[];
+  dependency_type: 'sequential' | 'parallel' | 'merge';
+  is_critical_path: boolean;
+  estimated_start_date?: Date;
+  estimated_completion_date?: Date;
 }
 
-/**
- * ENHANCED PARALLEL STAGE PROCESSING WITH DEPENDENCY GROUPS
- * 
- * This function identifies stages that are ready to be worked on based on:
- * 1. Currently active stages (being worked on)
- * 2. Pending stages whose prerequisites are met (ready to start)
- */
 export const getJobParallelStages = (
   jobStages: any[], 
   jobId: string
 ): ParallelStageInfo[] => {
   if (!jobStages || jobStages.length === 0) return [];
   
-  // Find all stages for this job
-  const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
+  // Find all active/pending stages for this job
+  const activeStages = jobStages.filter(stage => 
+    stage.job_id === jobId && 
+    (stage.status === 'active' || stage.status === 'pending')
+  );
   
-  if (allJobStages.length === 0) return [];
+  if (activeStages.length === 0) return [];
   
-  // Always include active stages
-  const activeStages = allJobStages.filter(stage => stage.status === 'active');
+  // Group stages by dependency group and part assignment
+  const independentStages = activeStages.filter(stage => 
+    !stage.dependency_group && stage.production_stages?.supports_parts
+  );
   
-  // Find pending stages that are ready to start
-  const pendingStages = allJobStages.filter(stage => stage.status === 'pending');
-  const readyStages = [];
+  const dependentStages = activeStages.filter(stage => 
+    stage.dependency_group || !stage.production_stages?.supports_parts
+  );
   
-  for (const pendingStage of pendingStages) {
-    const isReadyToStart = canStageStartBasedOnDependencies(pendingStage, allJobStages);
-    if (isReadyToStart) {
-      readyStages.push(pendingStage);
-    }
+  const availableStages: any[] = [];
+  
+  // For independent stages (supports_parts = true), group by part assignment
+  if (independentStages.length > 0) {
+    const partGroups = independentStages.reduce((groups, stage) => {
+      const partKey = stage.part_assignment || 'both';
+      if (!groups[partKey]) groups[partKey] = [];
+      groups[partKey].push(stage);
+      return groups;
+    }, {} as Record<string, any[]>);
+    
+    // For each part, find the next available stage(s)
+    Object.values(partGroups).forEach((partStages: any[]) => {
+      const minOrder = Math.min(...partStages.map((s: any) => s.stage_order));
+      const nextStages = partStages.filter((stage: any) => stage.stage_order === minOrder);
+      availableStages.push(...nextStages);
+    });
   }
   
-  // Combine active and ready stages
-  const availableStages = [...activeStages, ...readyStages];
+  // For dependent stages, use original logic (lowest order)
+  if (dependentStages.length > 0) {
+    const currentOrder = Math.min(...dependentStages.map(s => s.stage_order));
+    const nextDependentStages = dependentStages.filter(stage => stage.stage_order === currentOrder);
+    availableStages.push(...nextDependentStages);
+  }
   
-  // Convert to ParallelStageInfo format
+  // Return mapped stage info with unique identifiers
   return availableStages.map(stage => ({
-    id: stage.id,
-    stage_id: stage.production_stage_id,
-    stage_name: stage.stage_name,
-    stage_color: stage.stage_color || '#6B7280',
+    stage_id: stage.unique_stage_key || stage.production_stage_id,
+    stage_name: stage.production_stages?.name || stage.stage_name,
+    stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
     stage_status: stage.status,
     stage_order: stage.stage_order,
-    part_assignment: stage.part_assignment || null
+    unique_stage_key: stage.unique_stage_key,
+    production_stage_id: stage.production_stage_id
   }));
 };
 
-/**
- * Check if a pending stage can start based on dependency logic
- */
-const canStageStartBasedOnDependencies = (pendingStage: any, allJobStages: any[]): boolean => {
-  // If stage has no dependency group, check if prerequisite stages for the same part are completed
-  if (!pendingStage.dependency_group) {
-    return canPartSpecificStageStart(pendingStage, allJobStages);
-  }
-  
-  // For dependency group stages, check if prerequisites for THIS part are met
-  // This allows part-specific stages (like Hunkeler for text) to proceed when text prerequisites are complete
-  // without waiting for cover stages to be ready
-  return canPartSpecificStageStart(pendingStage, allJobStages);
-};
-
-/**
- * Check if a part-specific stage can start (no dependency group)
- */
-const canPartSpecificStageStart = (pendingStage: any, allJobStages: any[]): boolean => {
-  const partAssignment = pendingStage.part_assignment;
-  const stageOrder = pendingStage.stage_order;
-  
-  // Find the previous stage in the workflow for the same part assignment
-  const previousStages = allJobStages.filter(stage => 
-    stage.part_assignment === partAssignment &&
-    stage.stage_order < stageOrder &&
-    !stage.dependency_group // Only consider stages without dependency groups for linear progression
+export const shouldJobAppearInStage = (
+  parallelStages: ParallelStageInfo[],
+  targetStageId: string
+): boolean => {
+  return parallelStages.some(stage => 
+    stage.stage_id === targetStageId || 
+    stage.production_stage_id === targetStageId ||
+    stage.unique_stage_key === targetStageId
   );
-  
-  if (previousStages.length === 0) {
-    // No previous stages for this part, so this can start
-    return true;
-  }
-  
-  // Check if the immediate previous stage for this part is completed
-  const sortedPreviousStages = previousStages.sort((a, b) => b.stage_order - a.stage_order);
-  const immediatePrevious = sortedPreviousStages[0];
-  
-  return immediatePrevious.status === 'completed';
 };
 
-export const shouldJobAppearInStage = (parallelStages: ParallelStageInfo[], targetStageId: string): boolean => {
-  return parallelStages.some(stage => stage.stage_id === targetStageId);
-};
-
-export const getJobsForStage = (jobs: any[], jobStagesMap: Map<string, any[]>, stageId: string): any[] => {
+export const getJobsForStage = (
+  jobs: any[],
+  jobStagesMap: Map<string, any[]>,
+  stageId: string
+): any[] => {
   return jobs.filter(job => {
-    const stages = jobStagesMap.get(job.id);
-    if (!stages) return false;
-    
-    const parallelStages = getJobParallelStages(stages, job.id);
+    const jobStages = jobStagesMap.get(job.job_id) || [];
+    const parallelStages = getJobParallelStages(jobStages, job.job_id);
     return shouldJobAppearInStage(parallelStages, stageId);
   });
 };
 
-// Legacy functions kept for compatibility but simplified
-export const buildDependencyChain = (jobStages: any[], jobId: string): DependencyChain[] => {
-  const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
+export const buildDependencyChain = (
+  jobStages: any[], 
+  jobId: string
+): DependencyChain[] => {
+  if (!jobStages || jobStages.length === 0) return [];
   
-  return allJobStages.map(stage => ({
-    stageId: stage.production_stage_id,
-    predecessors: [],
-    successors: [],
-    isCriticalPath: false
-  }));
+  const dependencies: DependencyChain[] = [];
+  const stagesByOrder = jobStages
+    .filter(stage => stage.job_id === jobId)
+    .sort((a, b) => a.stage_order - b.stage_order);
+  
+  stagesByOrder.forEach((stage, index) => {
+    const predecessors = index > 0 ? [stagesByOrder[index - 1].production_stage_id] : [];
+    const successors = index < stagesByOrder.length - 1 ? [stagesByOrder[index + 1].production_stage_id] : [];
+    
+    dependencies.push({
+      job_id: jobId,
+      stage_id: stage.production_stage_id,
+      predecessor_stage_ids: predecessors,
+      successor_stage_ids: successors,
+      dependency_type: 'sequential',
+      is_critical_path: true, // All stages are critical in linear workflow
+      estimated_start_date: stage.started_at ? new Date(stage.started_at) : undefined,
+      estimated_completion_date: stage.completed_at ? new Date(stage.completed_at) : undefined
+    });
+  });
+  
+  return dependencies;
 };
 
 export const findCriticalPath = (dependencies: DependencyChain[]): string[] => {
-  return [];
+  // Find the longest path through the dependency chain
+  const criticalStages = dependencies
+    .filter(dep => dep.is_critical_path)
+    .sort((a, b) => (a.estimated_start_date?.getTime() || 0) - (b.estimated_start_date?.getTime() || 0))
+    .map(dep => dep.stage_id);
+  
+  return criticalStages;
 };
 
-export const canStageStart = (stageId: string, dependencies: DependencyChain[], completedStages: string[]): boolean => {
-  return true; // Database function handles this logic now
+export const canStageStart = (
+  stageId: string, 
+  dependencies: DependencyChain[], 
+  completedStages: string[]
+): boolean => {
+  const stageDependency = dependencies.find(dep => dep.stage_id === stageId);
+  if (!stageDependency) return true;
+  
+  // Check if all predecessor stages are completed
+  return stageDependency.predecessor_stage_ids.every(predId => 
+    completedStages.includes(predId)
+  );
 };
 
-export const getNextAvailableStages = (dependencies: DependencyChain[], completedStages: string[], activeStages: string[]): string[] => {
-  return []; // Database function handles this logic now
+export const getNextAvailableStages = (
+  dependencies: DependencyChain[], 
+  completedStages: string[], 
+  activeStages: string[]
+): string[] => {
+  const availableStages = dependencies
+    .filter(dep => 
+      !completedStages.includes(dep.stage_id) && 
+      !activeStages.includes(dep.stage_id) &&
+      canStageStart(dep.stage_id, dependencies, completedStages)
+    )
+    .map(dep => dep.stage_id);
+  
+  return availableStages;
 };

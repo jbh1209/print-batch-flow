@@ -218,7 +218,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
     }
   }, [user?.id, fetchJobs]);
 
-  const completeStage = useCallback(async (jobId: string, stageId: string, notes?: string) => {
+  const completeStage = useCallback(async (jobId: string, stageId: string) => {
     try {
       console.log('🔄 [useEnhancedProductionJobs] Completing stage:', { jobId, stageId });
       
@@ -226,12 +226,34 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
       const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('./utils/proofStageUtils');
       const stageInfo = await getStageInfoForProofCheck(stageId);
       
-      const { error } = await supabase.rpc('advance_job_stage_with_parallel_support', {
-        p_job_id: jobId,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: stageId,
-        p_notes: notes
-      });
+      // Check if this job has parallel components (cover/text workflow)
+      const { data: parallelCheck } = await supabase
+        .from('job_stage_instances')
+        .select('part_assignment')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .neq('part_assignment', 'both');
+      
+      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
+      
+      let error;
+      if (hasParallelComponents) {
+        // Use parallel-aware advancement for cover/text jobs
+        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: stageId
+        });
+        error = result.error;
+      } else {
+        // Use standard advancement for regular jobs
+        const result = await supabase.rpc('advance_job_stage', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: stageId
+        });
+        error = result.error;
+      }
 
       if (error) throw error;
 

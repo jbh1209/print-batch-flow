@@ -116,7 +116,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
                 {job.qty && (
                   <div className="flex items-center gap-1 text-sm">
                     <Package className="h-3 w-3 text-gray-400" />
-                    <span title={`Sheets: ${job.qty}`}>{job.qty}</span>
+                    <span>{job.qty}</span>
                   </div>
                 )}
               </div>
@@ -134,7 +134,6 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
                   jobId={job.job_id}
                   stageId={stageContext.stageId}
                   compact={true}
-                  partAssignment={job.is_virtual_stage_entry ? job.part_assignment : undefined}
                 />
               </div>
 

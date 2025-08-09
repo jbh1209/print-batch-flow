@@ -1,9 +1,15 @@
--- Update initialize_custom_job_stages_with_specs to support parallel processing for cover/text workflows
-CREATE OR REPLACE FUNCTION public.initialize_custom_job_stages_with_specs(p_job_id uuid, p_job_table_name text, p_stage_mappings jsonb)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
+-- Fix the initialize_custom_job_stages_with_specs function to use supports_parts instead of hardcoded stage names
+-- This aligns with the fix made to coverTextWorkflowService.ts
+
+CREATE OR REPLACE FUNCTION public.initialize_custom_job_stages_with_specs(
+  p_job_id uuid,
+  p_job_table_name text,
+  p_stage_mappings jsonb
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   stage_mapping RECORD;
   stage_counter INTEGER := 1;
@@ -11,6 +17,7 @@ DECLARE
   has_text_parts BOOLEAN := false;
   dependency_group_id UUID := NULL;
   current_part_assignment TEXT;
+  stage_supports_parts BOOLEAN;
 BEGIN
   -- Validate input parameters
   IF p_job_id IS NULL OR p_job_table_name IS NULL THEN
@@ -42,7 +49,7 @@ BEGIN
     RAISE LOG 'Cover/Text workflow detected for job %, creating dependency group: %', p_job_id, dependency_group_id;
   END IF;
 
-  -- Second pass: create stage instances with proper dependency groups
+  -- Second pass: create stage instances with proper dependency groups based on supports_parts
   FOR stage_mapping IN
     SELECT 
       (value->>'stage_id')::uuid as stage_id,
@@ -55,6 +62,11 @@ BEGIN
     FROM jsonb_array_elements(p_stage_mappings)
     ORDER BY (value->>'stage_order')::integer
   LOOP
+    -- Get the supports_parts flag from the production_stages table
+    SELECT ps.supports_parts INTO stage_supports_parts
+    FROM public.production_stages ps
+    WHERE ps.id = stage_mapping.stage_id;
+    
     -- Determine part assignment based on part_name
     IF stage_mapping.part_name ILIKE '%cover%' THEN
       current_part_assignment := 'cover';
@@ -90,7 +102,7 @@ BEGIN
       stage_mapping.quantity,
       'pending', -- All stages start as pending
       CASE 
-        WHEN dependency_group_id IS NOT NULL AND current_part_assignment = 'both' THEN dependency_group_id
+        WHEN dependency_group_id IS NOT NULL AND NOT COALESCE(stage_supports_parts, false) THEN dependency_group_id
         ELSE NULL
       END,
       CASE 
@@ -111,62 +123,4 @@ BEGIN
   
   RETURN TRUE;
 END;
-$function$;
-
--- Fix existing jobs that should have dependency groups but don't
-CREATE OR REPLACE FUNCTION public.fix_existing_cover_text_workflows()
- RETURNS TABLE(fixed_job_id uuid, wo_no text, dependency_group_assigned uuid, stages_updated integer)
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-  job_record RECORD;
-  new_dependency_group UUID;
-  updated_stages INTEGER;
-  has_cover BOOLEAN;
-  has_text BOOLEAN;
-BEGIN
-  -- Find jobs with custom workflows that have both cover and text parts but no dependency groups
-  FOR job_record IN
-    SELECT DISTINCT 
-      pj.id,
-      pj.wo_no
-    FROM public.production_jobs pj
-    INNER JOIN public.job_stage_instances jsi ON pj.id = jsi.job_id
-    WHERE pj.has_custom_workflow = true
-      AND jsi.job_table_name = 'production_jobs'
-      AND jsi.dependency_group IS NULL
-    GROUP BY pj.id, pj.wo_no
-    HAVING 
-      COUNT(CASE WHEN jsi.part_assignment = 'cover' THEN 1 END) > 0 AND
-      COUNT(CASE WHEN jsi.part_assignment = 'text' THEN 1 END) > 0
-  LOOP
-    -- Generate new dependency group for this job
-    new_dependency_group := gen_random_uuid();
-    
-    -- Update stages that should have dependency groups (part_assignment = 'both')
-    UPDATE public.job_stage_instances
-    SET 
-      dependency_group = new_dependency_group,
-      updated_at = now()
-    WHERE job_id = job_record.id
-      AND job_table_name = 'production_jobs'
-      AND part_assignment = 'both'
-      AND dependency_group IS NULL;
-    
-    GET DIAGNOSTICS updated_stages = ROW_COUNT;
-    
-    -- Only return if we actually updated stages
-    IF updated_stages > 0 THEN
-      RETURN QUERY SELECT 
-        job_record.id,
-        job_record.wo_no,
-        new_dependency_group,
-        updated_stages;
-    END IF;
-  END LOOP;
-END;
-$function$;
-
--- Run the fix for existing jobs
-SELECT * FROM public.fix_existing_cover_text_workflows();
+$$;
