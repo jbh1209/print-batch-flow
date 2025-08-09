@@ -907,8 +907,13 @@ export type Database = {
           proof_pdf_url: string | null
           qr_scan_data: Json | null
           quantity: number | null
+          queue_position: number | null
           rework_count: number | null
           rework_reason: string | null
+          schedule_status: string | null
+          scheduled_end_at: string | null
+          scheduled_minutes: number | null
+          scheduled_start_at: string | null
           setup_time_minutes: number | null
           stage_order: number
           stage_specification_id: string | null
@@ -945,8 +950,13 @@ export type Database = {
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           quantity?: number | null
+          queue_position?: number | null
           rework_count?: number | null
           rework_reason?: string | null
+          schedule_status?: string | null
+          scheduled_end_at?: string | null
+          scheduled_minutes?: number | null
+          scheduled_start_at?: string | null
           setup_time_minutes?: number | null
           stage_order: number
           stage_specification_id?: string | null
@@ -983,8 +993,13 @@ export type Database = {
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           quantity?: number | null
+          queue_position?: number | null
           rework_count?: number | null
           rework_reason?: string | null
+          schedule_status?: string | null
+          scheduled_end_at?: string | null
+          scheduled_minutes?: number | null
+          scheduled_start_at?: string | null
           setup_time_minutes?: number | null
           stage_order?: number
           stage_specification_id?: string | null
@@ -1560,6 +1575,7 @@ export type Database = {
           so_no: string | null
           specification: string | null
           status: string | null
+          tentative_due_date: string | null
           updated_at: string | null
           user_id: string
           user_name: string | null
@@ -1609,6 +1625,7 @@ export type Database = {
           so_no?: string | null
           specification?: string | null
           status?: string | null
+          tentative_due_date?: string | null
           updated_at?: string | null
           user_id: string
           user_name?: string | null
@@ -1658,6 +1675,7 @@ export type Database = {
           so_no?: string | null
           specification?: string | null
           status?: string | null
+          tentative_due_date?: string | null
           updated_at?: string | null
           user_id?: string
           user_name?: string | null
