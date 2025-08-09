@@ -50,9 +50,19 @@ export const getJobParallelStages = (
   // Find currently active stages
   const activeStages = allJobStages.filter(stage => stage.status === 'active');
   
-  // If there are active stages, return only those
+  // If there are active stages, return the full parallel group at that active order (active + pending siblings)
   if (activeStages.length > 0) {
-    return activeStages.map(stage => ({
+    const activeOrder = Math.min(...activeStages.map(s => s.stage_order));
+    const activeGroup = allJobStages.filter(s => 
+      s.stage_order === activeOrder && (s.status === 'active' || s.status === 'pending')
+    );
+
+    if (activeGroup.length > 0) {
+      // Minimal debug to help validate parallel visibility
+      try { console.debug('[parallelStages] activeOrder', activeOrder, 'group size', activeGroup.length); } catch {}
+    }
+
+    return activeGroup.map(stage => ({
       stage_id: stage.unique_stage_key || stage.production_stage_id,
       stage_name: stage.production_stages?.name || stage.stage_name,
       stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
