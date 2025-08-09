@@ -118,7 +118,7 @@ export const getJobParallelStages = (
           return groups;
         }, {} as Record<string, any[]>);
       
-      // For printing stages, ensure only one type can be active at a time
+      // For printing stages, allow parallel processing for different part assignments
       const activePrintingStages = allJobStages.filter(stage => 
         stage.status === 'active' && stage.production_stages?.supports_parts
       );
@@ -130,9 +130,29 @@ export const getJobParallelStages = (
         });
         console.log(`[Stage Debug] Part-supporting stages available:`, availableStages.map(s => s.production_stages?.name));
       } else {
-        // A printing stage is already active - only show that one
-        availableStages.push(...activePrintingStages);
-        console.log(`[Stage Debug] Printing stage already active:`, activePrintingStages.map(s => s.production_stages?.name));
+        // Some printing stages are active - show available stages for each part assignment
+        const activePartAssignments = new Set(activePrintingStages.map(stage => stage.part_assignment || 'both'));
+        
+        Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
+          if (!activePartAssignments.has(partKey)) {
+            // This part assignment has no active stages - show all options for this part
+            availableStages.push(...partStages);
+          } else {
+            // This part assignment has active stages - only show the active ones
+            const activeStagesForPart = activePrintingStages.filter(stage => 
+              (stage.part_assignment || 'both') === partKey
+            );
+            availableStages.push(...activeStagesForPart);
+          }
+        });
+        
+        console.log(`[Stage Debug] Parallel printing stages by part:`, {
+          activeAssignments: Array.from(activePartAssignments),
+          availableStages: availableStages.map(s => ({ 
+            name: s.production_stages?.name, 
+            part: s.part_assignment || 'both' 
+          }))
+        });
       }
     } else {
       console.log(`[Stage Debug] Part-supporting stage order ${partStageOrder} blocked - prerequisites not met`);
