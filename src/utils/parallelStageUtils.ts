@@ -165,51 +165,45 @@ export const getJobParallelStages = (
         const activePartsAtOrder = activePartsByOrder[currentOrder] || new Set();
         const completedPartsAtOrder = completedPartsByOrder[currentOrder] || new Set();
         
-        // Check for part-specific prerequisite completion
+        // Simplified part prerequisite checking - focus on direct order progression
         const checkPartPrerequisites = (partAssignment: string, targetOrder: number): boolean => {
           if (partAssignment === 'both') {
-            // For 'both' stages, check if both text and cover have completed their previous order stages
+            // For 'both' stages, check if both text and cover have completed their immediate previous order
             const requiredParts = ['text', 'cover'];
             return requiredParts.every(part => {
-              // Find the highest completed order for this part
               const partCompletedOrders = Object.entries(completedPartsByOrder)
                 .filter(([, parts]) => (parts as Set<string>).has(part))
                 .map(([order]) => Number(order));
               
-              if (partCompletedOrders.length === 0) return false;
+              if (partCompletedOrders.length === 0) {
+                // If no completed orders for this part, check if this is the first order
+                const allOrdersForPart = Object.entries(stagesByOrder)
+                  .filter(([, stages]) => 
+                    (stages as any[]).some(s => (s.part_assignment || 'both') === part || (s.part_assignment || 'both') === 'both')
+                  )
+                  .map(([order]) => Number(order))
+                  .sort((a, b) => a - b);
+                
+                return allOrdersForPart.length === 0 || allOrdersForPart[0] === targetOrder;
+              }
               
               const highestCompletedOrder = Math.max(...partCompletedOrders);
-              // The part must have completed the immediately previous order that had stages for this part
-              const previousOrdersWithPart = Object.entries(stagesByOrder)
-                .filter(([order, stages]) => 
-                  Number(order) < targetOrder && 
-                  (stages as any[]).some(s => (s.part_assignment || 'both') === part || (s.part_assignment || 'both') === 'both')
-                )
-                .map(([order]) => Number(order));
-              
-              if (previousOrdersWithPart.length === 0) return true;
-              const requiredOrder = Math.max(...previousOrdersWithPart);
-              return highestCompletedOrder >= requiredOrder;
+              return highestCompletedOrder >= targetOrder - 1; // Simple progression check
             });
           } else {
-            // For specific part stages, check if this part completed its previous order
+            // For specific part stages, check if this part has progressed properly
             const partCompletedOrders = Object.entries(completedPartsByOrder)
               .filter(([, parts]) => (parts as Set<string>).has(partAssignment))
               .map(([order]) => Number(order));
             
-            if (partCompletedOrders.length === 0) return false;
+            if (partCompletedOrders.length === 0) {
+              // If no completed orders for this part, this could be the first available order
+              return true;
+            }
             
             const highestCompletedOrder = Math.max(...partCompletedOrders);
-            const previousOrdersWithPart = Object.entries(stagesByOrder)
-              .filter(([order, stages]) => 
-                Number(order) < targetOrder && 
-                (stages as any[]).some(s => (s.part_assignment || 'both') === partAssignment || (s.part_assignment || 'both') === 'both')
-              )
-              .map(([order]) => Number(order));
-            
-            if (previousOrdersWithPart.length === 0) return true;
-            const requiredOrder = Math.max(...previousOrdersWithPart);
-            return highestCompletedOrder >= requiredOrder;
+            // Allow progression to next available order for this part
+            return true;
           }
         };
         
