@@ -100,8 +100,8 @@ export const getJobParallelStages = (
     }
   }
   
-  // For part-supporting stages (like HP 12000, T250) - only if no sequential stages are pending
-  if (partSupportingStages.length > 0 && availableStages.length === 0) {
+  // For part-supporting stages (like HP 12000, T250) - process independently of sequential stages
+  if (partSupportingStages.length > 0) {
     const partStageOrder = Math.min(...partSupportingStages.map(s => s.stage_order));
     
     // Check if all lower order stages are completed
@@ -132,10 +132,35 @@ export const getJobParallelStages = (
       );
       
       if (activePrintingStages.length === 0) {
-        // No printing stages active - allow parallel options for parts not yet completed
+        // No printing stages active - show next stages for completed parts that can proceed
         Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
           if (!completedPartAssignments.has(partKey)) {
             availableStages.push(...partStages);
+          }
+        });
+        
+        // Also check for next stages that should be available for completed parts
+        const nextStageOrder = partStageOrder + 1;
+        const nextStages = allJobStages.filter(stage => 
+          stage.stage_order > partStageOrder && 
+          stage.status === 'pending' &&
+          completedPartAssignments.size > 0
+        );
+        
+        nextStages.forEach(nextStage => {
+          const nextPartAssignment = nextStage.part_assignment || 'both';
+          // If this is a 'both' stage, check if all parts are completed at previous order
+          if (nextPartAssignment === 'both') {
+            const requiredParts = ['text', 'cover'];
+            const allRequiredPartsCompleted = requiredParts.every(part => completedPartAssignments.has(part));
+            if (allRequiredPartsCompleted && checkStagePrerequisites(nextStage.stage_order, completedStageOrders, allJobStages)) {
+              availableStages.push(nextStage);
+            }
+          } else {
+            // For specific part stages, check if that part is completed at previous order
+            if (completedPartAssignments.has(nextPartAssignment) && checkStagePrerequisites(nextStage.stage_order, completedStageOrders, allJobStages)) {
+              availableStages.push(nextStage);
+            }
           }
         });
         console.log(`[Stage Debug] Part-supporting stages available (no active)`, {
