@@ -83,19 +83,33 @@ export const DynamicFactoryFloorView = () => {
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Group jobs by their display stage name (use display_stage_name for master queues)
+    // Group jobs by parallel stage group at current order (active + pending siblings)
     const stageJobGroups = new Map<string, AccessibleJob[]>();
     
     filtered.forEach(job => {
-      const stageName = job.display_stage_name || job.current_stage_name || 'Unknown Stage';
-      
-      if (!stageJobGroups.has(stageName)) {
-        stageJobGroups.set(stageName, []);
-      }
-      stageJobGroups.get(stageName)!.push(job);
+      // Collect all sibling stage names at the current parallel order
+      const parallel = job.parallel_stages || [];
+      const order = job.current_stage_order;
+      const siblingNames = (order != null)
+        ? parallel
+            .filter(s => s.stage_order === order && (s.stage_status === 'active' || s.stage_status === 'pending'))
+            .map(s => s.stage_name)
+            .filter(Boolean)
+        : [];
+
+      // Fallback to display/current stage when no parallel info
+      const baseName = job.display_stage_name || job.current_stage_name || 'Unknown Stage';
+      const names = siblingNames.length > 0 ? Array.from(new Set(siblingNames)) : [baseName];
+
+      names.forEach(stageName => {
+        if (!stageJobGroups.has(stageName)) {
+          stageJobGroups.set(stageName, []);
+        }
+        stageJobGroups.get(stageName)!.push(job);
+      });
     });
 
-    console.log('📊 Stage job groups:', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
+    console.log('📊 Stage job groups (parallel-aware):', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
       stageName: name,
       jobCount: jobs.length
     })));
