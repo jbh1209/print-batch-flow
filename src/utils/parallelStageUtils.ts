@@ -118,37 +118,52 @@ export const getJobParallelStages = (
           return groups;
         }, {} as Record<string, any[]>);
       
-      // For printing stages, allow parallel processing for different part assignments
+      // For printing stages, allow parallel processing for different part assignments (per-part completion aware)
       const activePrintingStages = allJobStages.filter(stage => 
-        stage.status === 'active' && stage.production_stages?.supports_parts
+        stage.status === 'active' && stage.production_stages?.supports_parts && stage.stage_order === partStageOrder
+      );
+
+      // Track completed printing per part at this order to avoid resurrecting finished parts
+      const completedPrintingStages = allJobStages.filter(stage => 
+        stage.status === 'completed' && stage.production_stages?.supports_parts && stage.stage_order === partStageOrder
+      );
+      const completedPartAssignments = new Set(
+        completedPrintingStages.map(stage => stage.part_assignment || 'both')
       );
       
       if (activePrintingStages.length === 0) {
-        // No printing stages active - allow all parallel options
-        Object.values(partGroups).forEach((partStages: any[]) => {
-          availableStages.push(...partStages);
+        // No printing stages active - allow parallel options for parts not yet completed
+        Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
+          if (!completedPartAssignments.has(partKey)) {
+            availableStages.push(...partStages);
+          }
         });
-        console.log(`[Stage Debug] Part-supporting stages available:`, availableStages.map(s => s.production_stages?.name));
+        console.log(`[Stage Debug] Part-supporting stages available (no active)`, {
+          completedAssignments: Array.from(completedPartAssignments),
+          available: availableStages.map(s => ({ name: s.production_stages?.name, part: s.part_assignment || 'both' }))
+        });
       } else {
         // Some printing stages are active - show available stages for each part assignment
         const activePartAssignments = new Set(activePrintingStages.map(stage => stage.part_assignment || 'both'));
         
         Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
-          if (!activePartAssignments.has(partKey)) {
-            // This part assignment has no active stages - show all options for this part
-            availableStages.push(...partStages);
-          } else {
+          if (activePartAssignments.has(partKey)) {
             // This part assignment has active stages - only show the active ones
             const activeStagesForPart = activePrintingStages.filter(stage => 
               (stage.part_assignment || 'both') === partKey
             );
             availableStages.push(...activeStagesForPart);
+          } else if (!completedPartAssignments.has(partKey)) {
+            // This part assignment has no active stages and is not completed - show all options for this part
+            availableStages.push(...partStages);
           }
+          // else: skip completed parts
         });
         
-        console.log(`[Stage Debug] Parallel printing stages by part:`, {
+        console.log(`[Stage Debug] Parallel printing stages by part`, {
           activeAssignments: Array.from(activePartAssignments),
-          availableStages: availableStages.map(s => ({ 
+          completedAssignments: Array.from(completedPartAssignments),
+          available: availableStages.map(s => ({ 
             name: s.production_stages?.name, 
             part: s.part_assignment || 'both' 
           }))
