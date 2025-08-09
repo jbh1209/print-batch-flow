@@ -1,4 +1,3 @@
-
 project_id = "kgizusgqexmlfcqfjopk"
 
 [functions.get-all-users]
@@ -12,3 +11,10 @@ verify_jwt = false
 
 [functions.calculate-due-dates]
 verify_jwt = true
+
+# Public functions used by scheduling engine (invoked by DB trigger and cron)
+[functions.schedule-on-approval]
+verify_jwt = false
+
+[functions.recalc-tentative-due-dates]
+verify_jwt = false
