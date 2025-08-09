@@ -40,47 +40,103 @@ export const getJobParallelStages = (
 ): ParallelStageInfo[] => {
   if (!jobStages || jobStages.length === 0) return [];
   
-  // Find all active/pending stages for this job
-  const activeStages = jobStages.filter(stage => 
-    stage.job_id === jobId && 
-    (stage.status === 'active' || stage.status === 'pending')
+  // Get all stages for this job (active, pending, completed)
+  const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
+  
+  if (allJobStages.length === 0) return [];
+  
+  // Get completed stages to check prerequisites
+  const completedStages = allJobStages.filter(stage => stage.status === 'completed');
+  const completedStageOrders = completedStages.map(stage => stage.stage_order);
+  
+  // Get active and pending stages
+  const activeOrPendingStages = allJobStages.filter(stage => 
+    stage.status === 'active' || stage.status === 'pending'
   );
   
-  if (activeStages.length === 0) return [];
+  if (activeOrPendingStages.length === 0) return [];
   
-  // Group stages by dependency group and part assignment
-  const independentStages = activeStages.filter(stage => 
-    !stage.dependency_group && stage.production_stages?.supports_parts
-  );
+  console.log(`[Stage Debug] Job ${jobId}:`, {
+    totalStages: allJobStages.length,
+    completedOrders: completedStageOrders,
+    activeOrPending: activeOrPendingStages.map(s => ({ order: s.stage_order, status: s.status, name: s.production_stages?.name }))
+  });
   
-  const dependentStages = activeStages.filter(stage => 
-    stage.dependency_group || !stage.production_stages?.supports_parts
-  );
-  
+  // Check if all prerequisite stages are completed for a given stage order
+  const checkStagePrerequisites = (targetOrder: number, completedOrders: number[], allStages: any[]): boolean => {
+    // Get all unique stage orders that should be completed before this stage
+    const allStageOrders = [...new Set(allStages.map(s => s.stage_order))].sort((a, b) => a - b);
+    const requiredOrders = allStageOrders.filter(order => order < targetOrder);
+    
+    // All required orders must have at least one completed stage
+    return requiredOrders.every(requiredOrder => completedOrders.includes(requiredOrder));
+  };
+
+  // Find the next available stages based on sequential dependencies
   const availableStages: any[] = [];
   
-  // For independent stages (supports_parts = true), group by part assignment
-  if (independentStages.length > 0) {
-    const partGroups = independentStages.reduce((groups, stage) => {
-      const partKey = stage.part_assignment || 'both';
-      if (!groups[partKey]) groups[partKey] = [];
-      groups[partKey].push(stage);
-      return groups;
-    }, {} as Record<string, any[]>);
+  // Group stages by supports_parts flag
+  const partSupportingStages = activeOrPendingStages.filter(stage => 
+    stage.production_stages?.supports_parts
+  );
+  
+  const sequentialStages = activeOrPendingStages.filter(stage => 
+    !stage.production_stages?.supports_parts
+  );
+  
+  // For sequential stages (like DTP, PROOF, Batch Allocation)
+  if (sequentialStages.length > 0) {
+    const minSequentialOrder = Math.min(...sequentialStages.map(s => s.stage_order));
     
-    // For each part, find the next available stage(s)
-    Object.values(partGroups).forEach((partStages: any[]) => {
-      const minOrder = Math.min(...partStages.map((s: any) => s.stage_order));
-      const nextStages = partStages.filter((stage: any) => stage.stage_order === minOrder);
-      availableStages.push(...nextStages);
-    });
+    // Check if all lower order stages are completed
+    const hasPrerequisites = checkStagePrerequisites(minSequentialOrder, completedStageOrders, allJobStages);
+    
+    if (hasPrerequisites) {
+      const nextSequentialStages = sequentialStages.filter(stage => stage.stage_order === minSequentialOrder);
+      availableStages.push(...nextSequentialStages);
+      console.log(`[Stage Debug] Sequential stages available:`, nextSequentialStages.map(s => s.production_stages?.name));
+    } else {
+      console.log(`[Stage Debug] Sequential stage order ${minSequentialOrder} blocked - prerequisites not met`);
+    }
   }
   
-  // For dependent stages, use original logic (lowest order)
-  if (dependentStages.length > 0) {
-    const currentOrder = Math.min(...dependentStages.map(s => s.stage_order));
-    const nextDependentStages = dependentStages.filter(stage => stage.stage_order === currentOrder);
-    availableStages.push(...nextDependentStages);
+  // For part-supporting stages (like HP 12000, T250) - only if no sequential stages are pending
+  if (partSupportingStages.length > 0 && availableStages.length === 0) {
+    const partStageOrder = Math.min(...partSupportingStages.map(s => s.stage_order));
+    
+    // Check if all lower order stages are completed
+    const hasPrerequisites = checkStagePrerequisites(partStageOrder, completedStageOrders, allJobStages);
+    
+    if (hasPrerequisites) {
+      // Group by part assignment for parallel processing
+      const partGroups = partSupportingStages
+        .filter(stage => stage.stage_order === partStageOrder)
+        .reduce((groups, stage) => {
+          const partKey = stage.part_assignment || 'both';
+          if (!groups[partKey]) groups[partKey] = [];
+          groups[partKey].push(stage);
+          return groups;
+        }, {} as Record<string, any[]>);
+      
+      // For printing stages, ensure only one type can be active at a time
+      const activePrintingStages = allJobStages.filter(stage => 
+        stage.status === 'active' && stage.production_stages?.supports_parts
+      );
+      
+      if (activePrintingStages.length === 0) {
+        // No printing stages active - allow all parallel options
+        Object.values(partGroups).forEach((partStages: any[]) => {
+          availableStages.push(...partStages);
+        });
+        console.log(`[Stage Debug] Part-supporting stages available:`, availableStages.map(s => s.production_stages?.name));
+      } else {
+        // A printing stage is already active - only show that one
+        availableStages.push(...activePrintingStages);
+        console.log(`[Stage Debug] Printing stage already active:`, activePrintingStages.map(s => s.production_stages?.name));
+      }
+    } else {
+      console.log(`[Stage Debug] Part-supporting stage order ${partStageOrder} blocked - prerequisites not met`);
+    }
   }
   
   // Return mapped stage info with unique identifiers
