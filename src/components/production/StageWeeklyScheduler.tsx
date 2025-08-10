@@ -204,7 +204,7 @@ export const StageWeeklyScheduler: React.FC = () => {
   const { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch } = useStageSchedule();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<ScheduledStageItem | null>(null);
-
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const activeStageIds = useMemo(() => new Set(items.map(i => i.production_stage_id)), [items]);
@@ -218,6 +218,13 @@ export const StageWeeklyScheduler: React.FC = () => {
     });
   }, [stages, activeStageIds, stageCountMap]);
 
+  useEffect(() => {
+    if (!selectedStageId || !filteredStages.some(s => s.id === selectedStageId)) {
+      setSelectedStageId(filteredStages[0]?.id ?? null);
+    }
+  }, [filteredStages, selectedStageId]);
+
+  const selectedStage = useMemo(() => filteredStages.find(s => s.id === selectedStageId) || null, [filteredStages, selectedStageId]);
   // Build buckets per stage/day
   const buckets: Record<string, StageDayBucket> = useMemo(() => {
     const map: Record<string, StageDayBucket> = {};
@@ -241,7 +248,19 @@ export const StageWeeklyScheduler: React.FC = () => {
     });
     return map;
   }, [filteredStages, days, capacities, items]);
-
+  
+  const weeklySummary = useMemo(() => {
+    if (!selectedStage) return { used: 0, cap: 0, jobs: 0, util: 0 };
+    let used = 0; let cap = 0; const jobIds = new Set<string>();
+    days.forEach(d => {
+      const key = `${selectedStage.id}|${format(d,'yyyy-MM-dd')}`;
+      const b = buckets[key];
+      if (b) { used += b.usedMinutes || 0; cap += b.capacityMinutes || 0; b.items.forEach(i => jobIds.add(i.id)); }
+    });
+    const util = cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0;
+    return { used, cap, jobs: jobIds.size, util };
+  }, [selectedStage, buckets, days]);
+  
   const onDragStart = (e: DragStartEvent) => {
     const id = e.active.id as string;
     const found = items.find(i => i.id === id) || null;
@@ -322,52 +341,91 @@ export const StageWeeklyScheduler: React.FC = () => {
       </CardHeader>
       <CardContent>
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          {filteredStages.length === 0 && (
+          {filteredStages.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
-              No active stages for this week. Try a different week or schedule jobs.
+              No relevant stages for this week. Try a different week or schedule jobs.
+            </div>
+          ) : (
+            <div className="flex gap-4">
+              {/* Sidebar */}
+              <aside className="w-64 border-r pr-2">
+                <div className="space-y-1">
+                  {filteredStages.map(stage => {
+                    const isSelected = selectedStageId === stage.id;
+                    const counts = stageCountMap[stage.id];
+                    return (
+                      <button
+                        key={stage.id}
+                        onClick={() => setSelectedStageId(stage.id)}
+                        className={`w-full rounded-md text-left transition-colors border p-1.5 ${isSelected ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-accent'}`}
+                        aria-pressed={isSelected}
+                      >
+                        <StageHeaderCell 
+                          name={stage.name} 
+                          color={stage.color}
+                          counts={counts ? { active_jobs: counts.active_jobs, pending_jobs: counts.pending_jobs } : undefined}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              {/* Main content for selected stage */}
+              <main className="flex-1">
+                {!selectedStage ? (
+                  <div className="py-12 text-center text-muted-foreground">Select a stage from the left to view its schedule.</div>
+                ) : (
+                  <div>
+                    {/* Weekly summary */}
+                    <div className="mb-3 text-sm text-muted-foreground flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: selectedStage.color || 'hsl(var(--primary))' }} />
+                        <span className="font-medium text-foreground">{selectedStage.name}</span>
+                      </div>
+                      <span>Jobs: {weeklySummary.jobs}</span>
+                      <span>Used {Math.round(weeklySummary.used/60)}h / Cap {Math.round(weeklySummary.cap/60)}h</span>
+                      <span>Util {weeklySummary.util}%</span>
+                    </div>
+
+                    {/* Day headers */}
+                    <div className="grid mb-2" style={{ gridTemplateColumns: `repeat(5, 1fr)` }}>
+                      {days.map(d => (
+                        <div key={d.toISOString()} className="px-3 py-2 font-medium text-sm">{format(d, 'EEE d')}</div>
+                      ))}
+                    </div>
+
+                    {/* Day columns */}
+                    <div className="grid" style={{ gridTemplateColumns: `repeat(5, 1fr)` }}>
+                      {days.map(d => {
+                        const dateStr = format(d,'yyyy-MM-dd');
+                        const key = `${selectedStage.id}|${dateStr}`;
+                        const b = buckets[key];
+                        return (
+                          <div key={key} className="p-2 space-y-2">
+                            <CapacityBar used={b?.usedMinutes || 0} cap={b?.capacityMinutes || 480} />
+                            <StageCellContainer id={key}>
+                              <SortableContext items={(b?.items || []).map(i => i.id)} strategy={verticalListSortingStrategy}>
+                                <div className="space-y-2">
+                                  {(b?.items || []).length === 0 ? (
+                                    <div className="text-xs text-muted-foreground text-center py-4">
+                                      No items{((stageCountMap[selectedStage.id]?.pending_jobs ?? 0) + (stageCountMap[selectedStage.id]?.active_jobs ?? 0) > 0) ? ' • jobs waiting to be scheduled' : ''}
+                                    </div>
+                                  ) : (
+                                    (b?.items || []).map(it => <DraggableStageItem key={it.id} item={it} />)
+                                  )}
+                                </div>
+                              </SortableContext>
+                            </StageCellContainer>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </main>
             </div>
           )}
-          <div className="grid" style={{ gridTemplateColumns: `220px repeat(5, 1fr)` }}>
-            {/* Header Row */}
-            <div />
-            {days.map(d => (
-              <div key={d.toISOString()} className="px-3 py-2 font-medium text-sm">{format(d, 'EEE d')}</div>
-            ))}
-
-            {/* Rows per stage */}
-            {filteredStages.map(stage => (
-              <React.Fragment key={stage.id}>
-                <StageHeaderCell 
-                  name={stage.name} 
-                  color={stage.color}
-                  counts={stageCountMap[stage.id] ? { active_jobs: stageCountMap[stage.id].active_jobs, pending_jobs: stageCountMap[stage.id].pending_jobs } : undefined}
-                />
-                {days.map(d => {
-                  const dateStr = format(d, 'yyyy-MM-dd');
-                  const key = `${stage.id}|${dateStr}`;
-                  const b = buckets[key];
-                  return (
-                    <div key={key} className="p-2 space-y-2">
-                      <CapacityBar used={b?.usedMinutes || 0} cap={b?.capacityMinutes || 480} />
-                      <StageCellContainer id={key}>
-                        <SortableContext items={(b?.items || []).map(i => i.id)} strategy={verticalListSortingStrategy}>
-                          <div className="space-y-2">
-                            {(b?.items || []).length === 0 ? (
-                              <div className="text-xs text-muted-foreground text-center py-4">
-                                No items{((stageCountMap[stage.id]?.pending_jobs ?? 0) + (stageCountMap[stage.id]?.active_jobs ?? 0) > 0) ? ' • jobs waiting to be scheduled' : ''}
-                              </div>
-                            ) : (
-                              (b?.items || []).map(it => <DraggableStageItem key={it.id} item={it} />)
-                            )}
-                          </div>
-                        </SortableContext>
-                      </StageCellContainer>
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
 
           <DragOverlay>
             {activeId && dragItem ? (
