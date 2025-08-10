@@ -2107,6 +2107,7 @@ export type Database = {
           id: string
           pending_jobs_count: number
           production_stage_id: string
+          queue_ends_at: string | null
           queue_length_hours: number
           updated_at: string
         }
@@ -2119,6 +2120,7 @@ export type Database = {
           id?: string
           pending_jobs_count?: number
           production_stage_id: string
+          queue_ends_at?: string | null
           queue_length_hours?: number
           updated_at?: string
         }
@@ -2131,6 +2133,7 @@ export type Database = {
           id?: string
           pending_jobs_count?: number
           production_stage_id?: string
+          queue_ends_at?: string | null
           queue_length_hours?: number
           updated_at?: string
         }
@@ -2699,6 +2702,10 @@ export type Database = {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
       }
+      get_stage_queue_end_time: {
+        Args: { p_stage_id: string; p_date?: string }
+        Returns: string
+      }
       get_user_accessible_jobs: {
         Args: {
           p_user_id?: string
@@ -3022,6 +3029,10 @@ export type Database = {
           synced_count: number
           fixed_count: number
         }[]
+      }
+      update_stage_queue_end_time: {
+        Args: { p_stage_id: string; p_new_end_time: string; p_date?: string }
+        Returns: boolean
       }
       update_stage_workload_tracking: {
         Args: Record<PropertyKey, never>

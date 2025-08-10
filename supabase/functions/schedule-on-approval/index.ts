@@ -114,68 +114,36 @@ async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
   return current;
 }
 
-async function getStageQueueEnd(stageId: UUID, jobDurationMinutes: number): Promise<Date> {
-  // Get all existing scheduled jobs for this stage, ordered by start time
-  const { data } = await supabase
-    .from("job_stage_instances")
-    .select("scheduled_start_at, scheduled_end_at")
-    .eq("production_stage_id", stageId)
-    .not("scheduled_start_at", "is", null)
-    .not("scheduled_end_at", "is", null)
-    .order("scheduled_start_at", { ascending: true });
-
-  const now = new Date();
-  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-  let searchDate = new Date(midnight);
-
-  console.log(`[getStageQueueEnd] Finding slot for ${jobDurationMinutes} min job in stage ${stageId}`);
-
-  // Find the first day with enough capacity
-  for (let dayOffset = 0; dayOffset < 365; dayOffset++) {
-    const dayStart = await nextWorkingStart(withTime(searchDate, WORK_START_HOUR, 0));
-    const dayEnd = withTime(dayStart, WORK_END_HOUR, WORK_END_MINUTE);
-    
-    // Get existing jobs for this day
-    const dayJobs = (data || [])
-      .filter(job => {
-        const jobStart = new Date(job.scheduled_start_at as string);
-        return jobStart >= dayStart && jobStart < dayEnd;
-      })
-      .sort((a, b) => new Date(a.scheduled_start_at as string).getTime() - new Date(b.scheduled_start_at as string).getTime());
-
-    console.log(`[getStageQueueEnd] Checking ${dayStart.toISOString().split('T')[0]}, existing jobs: ${dayJobs.length}`);
-
-    // Calculate total minutes used this day
-    let totalUsedMinutes = 0;
-    for (const job of dayJobs) {
-      const start = new Date(job.scheduled_start_at as string);
-      const end = new Date(job.scheduled_end_at as string);
-      totalUsedMinutes += Math.floor((end.getTime() - start.getTime()) / 60000);
-    }
-
-    const remainingCapacity = DAILY_CAPACITY_MINUTES - totalUsedMinutes;
-    console.log(`[getStageQueueEnd] Day capacity: ${totalUsedMinutes}/${DAILY_CAPACITY_MINUTES} min, remaining: ${remainingCapacity} min`);
-
-    // Check if new job fits in remaining capacity
-    if (jobDurationMinutes <= remainingCapacity) {
-      // Find the next available slot after existing jobs
-      let nextSlot = dayStart;
-      for (const job of dayJobs) {
-        const jobEnd = new Date(job.scheduled_end_at as string);
-        if (jobEnd > nextSlot) {
-          nextSlot = jobEnd;
-        }
-      }
-      console.log(`[getStageQueueEnd] Found slot starting at: ${nextSlot.toISOString()}`);
-      return nextSlot;
-    }
-
-    // Move to next day
-    searchDate.setUTCDate(searchDate.getUTCDate() + 1);
+async function getStageQueueEndTime(stageId: UUID): Promise<Date> {
+  // Use the new database function to get queue end time
+  const { data, error } = await supabase.rpc('get_stage_queue_end_time', {
+    p_stage_id: stageId,
+    p_date: toDateOnly(new Date())
+  });
+  
+  if (error || !data) {
+    console.error('Error getting stage queue end time:', error);
+    // Fallback to start of next working day
+    return await nextWorkingStart(new Date());
   }
+  
+  console.log(`[getStageQueueEndTime] Stage ${stageId} queue ends at: ${data}`);
+  return new Date(data);
+}
 
-  // Fallback to current time if nothing found
-  return new Date();
+async function updateStageQueueEndTime(stageId: UUID, newEndTime: Date): Promise<void> {
+  // Use the new database function to update queue end time
+  const { error } = await supabase.rpc('update_stage_queue_end_time', {
+    p_stage_id: stageId,
+    p_new_end_time: newEndTime.toISOString(),
+    p_date: toDateOnly(newEndTime)
+  });
+  
+  if (error) {
+    console.error('Error updating stage queue end time:', error);
+  } else {
+    console.log(`[updateStageQueueEndTime] Updated stage ${stageId} queue to end at: ${newEndTime.toISOString()}`);
+  }
 }
 
 async function getJobIsExpedited(jobId: UUID): Promise<boolean> {
@@ -232,22 +200,22 @@ serve(async (req) => {
       const minutes = s.estimated_duration_minutes ?? 60; // default 1h
       console.log(`[schedule-on-approval] Stage: ${s.production_stage_id}, Duration: ${minutes} min`);
       
-      // Get next available slot for this stage, considering daily capacity
-      const queueEnd = await getStageQueueEnd(s.production_stage_id, minutes);
-      let startCandidate = new Date(Math.max(pointer.getTime(), queueEnd.getTime()));
+      // Get current queue end time for this stage
+      const queueEnd = await getStageQueueEndTime(s.production_stage_id);
+      let scheduledStart = queueEnd;
       
       if (expedited) {
         console.log(`[schedule-on-approval] Job ${jobId} is expedited - prioritizing`);
-        // For expedited: try to schedule immediately after queue end (skip pointer)
-        startCandidate = queueEnd;
+        // For expedited jobs, schedule immediately at queue end
       }
 
-      const scheduledStart = await nextWorkingStart(startCandidate);
+      // Ensure scheduled start is within working hours
+      scheduledStart = await nextWorkingStart(scheduledStart);
       const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
 
       console.log(`[schedule-on-approval] Scheduled: ${scheduledStart.toISOString()} - ${scheduledEnd.toISOString()}`);
 
-      // update DB for this stage instance
+      // Update the stage instance in the database
       const { error: updateErr } = await supabase
         .from("job_stage_instances")
         .update({
@@ -263,20 +231,10 @@ serve(async (req) => {
         continue; // proceed with others
       }
 
+      // Update the stage queue end time for consecutive scheduling
+      await updateStageQueueEndTime(s.production_stage_id, scheduledEnd);
+
       scheduleResults.push({ stage_instance_id: s.id, start: scheduledStart.toISOString(), end: scheduledEnd.toISOString(), minutes });
-      
-      // For consecutive scheduling within the same day, update pointer
-      // But only if the job ended within working hours of the same day
-      const sameDayEnd = withTime(scheduledStart, WORK_END_HOUR, WORK_END_MINUTE);
-      if (scheduledEnd <= sameDayEnd) {
-        pointer = new Date(scheduledEnd);
-        console.log(`[schedule-on-approval] Updated pointer to: ${pointer.toISOString()}`);
-      } else {
-        // Job moved to next day, reset pointer to allow other stages to find their optimal slots
-        pointer = new Date();
-        console.log(`[schedule-on-approval] Job moved to next day, reset pointer`);
-      }
-      
       lastEnd = new Date(scheduledEnd);
     }
 

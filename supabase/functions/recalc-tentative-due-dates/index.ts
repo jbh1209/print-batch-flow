@@ -78,62 +78,20 @@ async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
   return current;
 }
 
-async function getStageQueueEnd(stageId: UUID, jobDurationMinutes: number): Promise<Date> {
-  // Get all existing scheduled jobs for this stage, ordered by start time
-  const { data } = await supabase
-    .from("job_stage_instances")
-    .select("scheduled_start_at, scheduled_end_at")
-    .eq("production_stage_id", stageId)
-    .not("scheduled_start_at", "is", null)
-    .not("scheduled_end_at", "is", null)
-    .order("scheduled_start_at", { ascending: true });
-
-  const now = new Date();
-  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-  let searchDate = new Date(midnight);
-
-  // Find the first day with enough capacity
-  for (let dayOffset = 0; dayOffset < 365; dayOffset++) {
-    const dayStart = await nextWorkingStart(withTime(searchDate, WORK_START_HOUR, 0));
-    const dayEnd = withTime(dayStart, WORK_END_HOUR, WORK_END_MINUTE);
-    
-    // Get existing jobs for this day
-    const dayJobs = (data || [])
-      .filter(job => {
-        const jobStart = new Date(job.scheduled_start_at as string);
-        return jobStart >= dayStart && jobStart < dayEnd;
-      })
-      .sort((a, b) => new Date(a.scheduled_start_at as string).getTime() - new Date(b.scheduled_start_at as string).getTime());
-
-    // Calculate total minutes used this day
-    let totalUsedMinutes = 0;
-    for (const job of dayJobs) {
-      const start = new Date(job.scheduled_start_at as string);
-      const end = new Date(job.scheduled_end_at as string);
-      totalUsedMinutes += Math.floor((end.getTime() - start.getTime()) / 60000);
-    }
-
-    const remainingCapacity = DAILY_CAPACITY_MINUTES - totalUsedMinutes;
-
-    // Check if new job fits in remaining capacity
-    if (jobDurationMinutes <= remainingCapacity) {
-      // Find the next available slot after existing jobs
-      let nextSlot = dayStart;
-      for (const job of dayJobs) {
-        const jobEnd = new Date(job.scheduled_end_at as string);
-        if (jobEnd > nextSlot) {
-          nextSlot = jobEnd;
-        }
-      }
-      return nextSlot;
-    }
-
-    // Move to next day
-    searchDate.setUTCDate(searchDate.getUTCDate() + 1);
+async function getStageQueueEndTime(stageId: UUID): Promise<Date> {
+  // Use the new database function to get queue end time
+  const { data, error } = await supabase.rpc('get_stage_queue_end_time', {
+    p_stage_id: stageId,
+    p_date: toDateOnly(new Date())
+  });
+  
+  if (error || !data) {
+    console.error('Error getting stage queue end time:', error);
+    // Fallback to start of next working day
+    return await nextWorkingStart(new Date());
   }
-
-  // Fallback to current time if nothing found
-  return new Date();
+  
+  return new Date(data);
 }
 
 serve(async (req) => {
@@ -181,20 +139,14 @@ serve(async (req) => {
 
       for (const s of stages ?? []) {
         const minutes = (s as any).estimated_duration_minutes ?? 60;
-        const queueEnd = await getStageQueueEnd((s as any).production_stage_id, minutes);
-        const startCandidate = new Date(Math.max(pointer.getTime(), queueEnd.getTime()));
-        const scheduledStart = await nextWorkingStart(startCandidate);
+        
+        // Get current queue end time for this stage (simulation only - don't update)
+        const queueEnd = await getStageQueueEndTime((s as any).production_stage_id);
+        const scheduledStart = await nextWorkingStart(queueEnd);
         const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
         
-        // For consecutive scheduling within the same day, update pointer
-        const sameDayEnd = withTime(scheduledStart, WORK_END_HOUR, WORK_END_MINUTE);
-        if (scheduledEnd <= sameDayEnd) {
-          pointer = new Date(scheduledEnd);
-        } else {
-          // Job moved to next day, reset pointer
-          pointer = new Date(midnight);
-        }
-        
+        // Update pointer for next stage in this job simulation
+        pointer = new Date(scheduledEnd);
         lastEnd = new Date(scheduledEnd);
       }
 
