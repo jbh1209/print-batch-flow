@@ -37,6 +37,9 @@ export interface ScheduledStageItem {
   is_expedited?: boolean;
   wo_no?: string;
   customer?: string;
+  qty?: number;
+  paper_specs?: any;
+  printing_specs?: any;
 }
 
 interface StageDayBucket {
@@ -98,10 +101,34 @@ export function useStageSchedule() {
         .order("scheduled_start_at", { ascending: true });
       if (jsiErr) throw jsiErr;
 
-      // Fetch job info for display via RPC (admin gets all)
+      // Fetch enhanced job info with specifications
       const { data: jobsInfo } = await supabase.rpc("get_user_accessible_jobs", {});
-      const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean }> = {};
-      (jobsInfo || []).forEach((j: any) => { jobMap[j.job_id] = { wo_no: j.wo_no, customer: j.customer, is_expedited: j.user_can_manage ? j.is_expedited : j.is_expedited } as any; });
+      const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean; qty?: number; paper_specs?: any; printing_specs?: any }> = {};
+      (jobsInfo || []).forEach((j: any) => { 
+        jobMap[j.job_id] = { 
+          wo_no: j.wo_no, 
+          customer: j.customer, 
+          is_expedited: j.user_can_manage ? j.is_expedited : j.is_expedited,
+          qty: j.qty
+        } as any; 
+      });
+
+      // Fetch detailed specifications for jobs
+      const jobIds = (jsiRows || []).map(r => r.job_id);
+      if (jobIds.length > 0) {
+        const { data: jobSpecs } = await supabase
+          .from("production_jobs")
+          .select("id,qty,paper_specifications,printing_specifications")
+          .in("id", jobIds);
+        
+        (jobSpecs || []).forEach((spec: any) => {
+          if (jobMap[spec.id]) {
+            jobMap[spec.id].qty = spec.qty;
+            jobMap[spec.id].paper_specs = spec.paper_specifications;
+            jobMap[spec.id].printing_specs = spec.printing_specifications;
+          }
+        });
+      }
 
       const mapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => ({
         id: r.id,
@@ -114,6 +141,9 @@ export function useStageSchedule() {
         wo_no: jobMap[r.job_id]?.wo_no,
         customer: jobMap[r.job_id]?.customer,
         is_expedited: jobMap[r.job_id]?.is_expedited,
+        qty: jobMap[r.job_id]?.qty,
+        paper_specs: jobMap[r.job_id]?.paper_specs,
+        printing_specs: jobMap[r.job_id]?.printing_specs,
       }));
 
       setItems(mapped);
@@ -178,6 +208,13 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
   = ({ item }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 } as React.CSSProperties;
+  
+  // Format specifications for display
+  const paperSpec = item.paper_specs?.weight || item.paper_specs?.type || 'Paper';
+  const printSpec = item.printing_specs?.printer || item.printing_specs?.color_mode || 'Print';
+  const actualMinutes = item.scheduled_minutes || 60;
+  const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
+  
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="p-2 rounded-md border bg-card hover:shadow-sm cursor-grab active:cursor-grabbing">
       <div className="flex items-center justify-between">
@@ -187,7 +224,12 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
       <div className="text-xs text-muted-foreground truncate">{item.customer || "Customer"}</div>
       <div className="flex items-center gap-1 text-xs mt-1">
         <Clock className="h-3 w-3" />
-        <span>{Math.max(1, Math.round((item.scheduled_minutes || 60)/60))}h</span>
+        <span>{exactTime}</span>
+        {item.qty && <span className="text-muted-foreground">• Qty: {item.qty}</span>}
+      </div>
+      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+        <div className="truncate">{paperSpec}</div>
+        <div className="truncate">{printSpec}</div>
       </div>
     </div>
   );

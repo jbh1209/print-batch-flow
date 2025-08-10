@@ -99,13 +99,24 @@ async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
     console.log(`[addWorkingMinutes] Day: ${current.toISOString()}, Available: ${availableInDay} min, Remaining: ${remaining} min`);
     
     if (remaining <= availableInDay) {
+      // Job fits in current day - schedule consecutively
       const endTime = new Date(current.getTime() + remaining * 60000);
       console.log(`[addWorkingMinutes] Job fits in day, ending at: ${endTime.toISOString()}`);
+      
+      // Validate end time is within working hours
+      if (endTime > dayEnd) {
+        console.log(`[addWorkingMinutes] End time ${endTime.toISOString()} exceeds day end ${dayEnd.toISOString()}, moving to next day`);
+        const nextDay = new Date(current);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
+        continue; // Try again on next day
+      }
+      
       return endTime;
     }
     
     // Job doesn't fit - move ENTIRE job to next working day start
-    console.log(`[addWorkingMinutes] Job doesn't fit (${remaining} > ${availableInDay}), moving to next day`);
+    console.log(`[addWorkingMinutes] Job doesn't fit (${remaining} > ${availableInDay}), moving entire job to next day`);
     const nextDay = new Date(current);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
     current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
@@ -198,22 +209,51 @@ serve(async (req) => {
 
     for (const s of (stages as StageInstance[])) {
       const minutes = s.estimated_duration_minutes ?? 60; // default 1h
-      console.log(`[schedule-on-approval] Stage: ${s.production_stage_id}, Duration: ${minutes} min`);
+      console.log(`[schedule-on-approval] Stage: ${s.production_stage_id}, Duration: ${minutes} min, Order: ${s.stage_order}`);
+      
+      // SEQUENTIAL STAGE DEPENDENCY: Check if previous stages are scheduled
+      if (s.stage_order > 1) {
+        const { data: prevStages } = await supabase
+          .from("job_stage_instances")
+          .select("scheduled_end_at")
+          .eq("job_id", jobId)
+          .eq("job_table_name", jobTable)
+          .lt("stage_order", s.stage_order)
+          .order("stage_order", { ascending: false })
+          .limit(1);
+        
+        if (prevStages && prevStages.length > 0 && prevStages[0].scheduled_end_at) {
+          const prevEndTime = new Date(prevStages[0].scheduled_end_at);
+          console.log(`[schedule-on-approval] Previous stage ends at: ${prevEndTime.toISOString()}`);
+          
+          // Current stage cannot start before previous stage ends
+          pointer = prevEndTime;
+        }
+      }
       
       // Get current queue end time for this stage
       const queueEnd = await getStageQueueEndTime(s.production_stage_id);
-      let scheduledStart = queueEnd;
+      
+      // Schedule at the later of: queue end OR previous stage completion
+      let scheduledStart = new Date(Math.max(queueEnd.getTime(), pointer.getTime()));
       
       if (expedited) {
-        console.log(`[schedule-on-approval] Job ${jobId} is expedited - prioritizing`);
-        // For expedited jobs, schedule immediately at queue end
+        console.log(`[schedule-on-approval] Job ${jobId} is expedited - using queue position`);
+        // For expedited jobs, still respect workflow dependencies
       }
 
       // Ensure scheduled start is within working hours
       scheduledStart = await nextWorkingStart(scheduledStart);
       const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
 
-      console.log(`[schedule-on-approval] Scheduled: ${scheduledStart.toISOString()} - ${scheduledEnd.toISOString()}`);
+      console.log(`[schedule-on-approval] Stage ${s.stage_order} scheduled: ${scheduledStart.toISOString()} - ${scheduledEnd.toISOString()}`);
+
+      // VALIDATION: Ensure no overnight spanning
+      const startDay = toDateOnly(scheduledStart);
+      const endDay = toDateOnly(scheduledEnd);
+      if (startDay !== endDay) {
+        console.error(`[schedule-on-approval] ERROR: Job spans days ${startDay} to ${endDay} - this should not happen!`);
+      }
 
       // Update the stage instance in the database
       const { error: updateErr } = await supabase
@@ -236,6 +276,7 @@ serve(async (req) => {
 
       scheduleResults.push({ stage_instance_id: s.id, start: scheduledStart.toISOString(), end: scheduledEnd.toISOString(), minutes });
       lastEnd = new Date(scheduledEnd);
+      pointer = lastEnd; // Update pointer for next stage dependency
     }
 
     if (lastEnd) {
