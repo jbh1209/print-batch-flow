@@ -6,7 +6,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, u
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, Calendar, Clock, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Clock, Zap, RefreshCcw } from "lucide-react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { schedulingService } from "@/services/schedulingService";
@@ -86,15 +86,15 @@ export function useStageSchedule() {
 
       // Scheduled items in week
       const startIso = new Date(weekStart).toISOString();
-      const endIso = new Date(addDays(weekStart, 6)).toISOString();
-      const orFilter = `and(scheduled_start_at.gte.${startIso},scheduled_start_at.lt.${endIso}),and(scheduled_end_at.gte.${startIso},scheduled_end_at.lt.${endIso})`;
+      const endIso = new Date(addDays(weekStart, 5)).toISOString();
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
         .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,status")
         .eq("job_table_name", "production_jobs")
-        .in("status", ["active", "pending"])
+        .in("status", ["active", "pending"]) 
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"]) // guard
-        .or(orFilter)
+        .lt("scheduled_start_at", endIso)
+        .gte("scheduled_end_at", startIso)
         .order("scheduled_start_at", { ascending: true });
       if (jsiErr) throw jsiErr;
 
@@ -208,10 +208,15 @@ export const StageWeeklyScheduler: React.FC = () => {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const activeStageIds = useMemo(() => new Set(items.map(i => i.production_stage_id)), [items]);
-  const filteredStages = useMemo(() => stages.filter(s => activeStageIds.has(s.id)), [stages, activeStageIds]);
-
   const { stageCounts } = useProductionStageCounts();
   const stageCountMap = useMemo(() => Object.fromEntries(stageCounts.map((c: any) => [c.stage_id, c])), [stageCounts]);
+  const filteredStages = useMemo(() => {
+    return stages.filter(s => {
+      const counts = stageCountMap[s.id];
+      const hasJobs = counts && ((counts.active_jobs ?? 0) + (counts.pending_jobs ?? 0)) > 0;
+      return activeStageIds.has(s.id) || hasJobs;
+    });
+  }, [stages, activeStageIds, stageCountMap]);
 
   // Build buckets per stage/day
   const buckets: Record<string, StageDayBucket> = useMemo(() => {
@@ -221,12 +226,14 @@ export const StageWeeklyScheduler: React.FC = () => {
         const dateStr = format(d, 'yyyy-MM-dd');
         const key = `${s.id}|${dateStr}`;
         const cap = capacities[s.id] ?? 8*60;
+        const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+        const nextDay = addDays(dayStart, 1);
         const dayItems = items.filter(it => {
           if (it.production_stage_id !== s.id) return false;
-          const dt = it.scheduled_start_at || it.scheduled_end_at;
-          if (!dt) return false;
-          const itemDateStr = format(new Date(dt), "yyyy-MM-dd");
-          return itemDateStr === dateStr;
+          if (!it.scheduled_start_at || !it.scheduled_end_at) return false;
+          const start = new Date(it.scheduled_start_at);
+          const end = new Date(it.scheduled_end_at);
+          return start < nextDay && end >= dayStart;
         });
         const used = dayItems.reduce((sum, it) => sum + (it.scheduled_minutes || 0), 0);
         map[key] = { date: dateStr, items: dayItems, usedMinutes: used, capacityMinutes: cap };
@@ -306,14 +313,20 @@ export const StageWeeklyScheduler: React.FC = () => {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2"><Calendar className="h-5 w-5" />Stage Weekly Planner</CardTitle>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-sm font-medium min-w-[140px] text-center">Week of {format(weekStart, 'MMM dd, yyyy')}</span>
-            <Button variant="outline" size="sm" onClick={() => navigateWeek('next')}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')} aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm font-medium min-w-[160px] text-center">Week of {format(weekStart, 'MMM dd, yyyy')}</span>
+            <Button variant="outline" size="sm" onClick={() => navigateWeek('next')} aria-label="Next week"><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="secondary" size="sm" onClick={refetch} aria-label="Refresh schedule"><RefreshCcw className="h-4 w-4" /></Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          {filteredStages.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground">
+              No active stages for this week. Try a different week or schedule jobs.
+            </div>
+          )}
           <div className="grid" style={{ gridTemplateColumns: `220px repeat(5, 1fr)` }}>
             {/* Header Row */}
             <div />
@@ -340,7 +353,9 @@ export const StageWeeklyScheduler: React.FC = () => {
                         <SortableContext items={(b?.items || []).map(i => i.id)} strategy={verticalListSortingStrategy}>
                           <div className="space-y-2">
                             {(b?.items || []).length === 0 ? (
-                              <div className="text-xs text-muted-foreground text-center py-4">No items</div>
+                              <div className="text-xs text-muted-foreground text-center py-4">
+                                No items{((stageCountMap[stage.id]?.pending_jobs ?? 0) + (stageCountMap[stage.id]?.active_jobs ?? 0) > 0) ? ' • jobs waiting to be scheduled' : ''}
+                              </div>
                             ) : (
                               (b?.items || []).map(it => <DraggableStageItem key={it.id} item={it} />)
                             )}
