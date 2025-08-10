@@ -202,6 +202,18 @@ export const StageWeeklyScheduler: React.FC = () => {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  const runAutoScheduler = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("auto-schedule-approved", { body: { source: "manual" } });
+      if (error || !(data as any)?.ok) throw new Error(error?.message || (data as any)?.error || "Failed");
+      toast.success("Auto-scheduler ran");
+      await refetch();
+    } catch (e: any) {
+      console.error("auto-schedule-approved invoke failed", e);
+      toast.error("Auto-scheduler failed");
+    }
+  }, [refetch]);
+
   const activeStageIds = useMemo(() => new Set(items.map(i => i.production_stage_id)), [items]);
   const { stageCounts } = useProductionStageCounts();
   const stageCountMap = useMemo(() => Object.fromEntries(stageCounts.map((c: any) => [c.stage_id, c])), [stageCounts]);
@@ -333,6 +345,7 @@ export const StageWeeklyScheduler: React.FC = () => {
             <span className="text-sm font-medium min-w-[160px] text-center">Week of {format(weekStart, 'MMM dd, yyyy')}</span>
             <Button variant="outline" size="sm" onClick={() => navigateWeek('next')} aria-label="Next week"><ChevronRight className="h-4 w-4" /></Button>
             <Button variant="secondary" size="sm" onClick={refetch} aria-label="Refresh schedule"><RefreshCcw className="h-4 w-4" /></Button>
+            <Button variant="default" size="sm" onClick={runAutoScheduler} aria-label="Run auto-scheduler"><Zap className="h-4 w-4 mr-1" />Run auto-scheduler</Button>
           </div>
         </div>
       </CardHeader>
@@ -405,7 +418,7 @@ export const StageWeeklyScheduler: React.FC = () => {
                                 <div className="space-y-2">
                                   {(b?.items || []).length === 0 ? (
                                     <div className="text-xs text-muted-foreground text-center py-4">
-                                      No items{((stageCountMap[selectedStage.id]?.pending_jobs ?? 0) + (stageCountMap[selectedStage.id]?.active_jobs ?? 0) > 0) ? ' • jobs waiting to be scheduled' : ''}
+                                      No items
                                     </div>
                                   ) : (
                                     (b?.items || []).map(it => <DraggableStageItem key={it.id} item={it} />)

@@ -209,16 +209,22 @@ function App() {
                   <Route path="mobile" element={<MobileFactory />} />
                 </Route>
                 
-                {/* Admin routes with Layout */}
+                {/* Admin routes without BatchFlow layout */}
                 <Route path="/admin" element={
                   <ProtectedRoute>
-                    <Layout />
+                    <AdminDashboard />
                   </ProtectedRoute>
-                }>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="schedule" element={<AdminSchedulePage />} />
-                  <Route path="excel-mapping" element={<ExcelMapping />} />
-                </Route>
+                } />
+                <Route path="/admin/schedule" element={
+                  <ProtectedRoute>
+                    <AdminSchedulePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/excel-mapping" element={
+                  <ProtectedRoute>
+                    <ExcelMapping />
+                  </ProtectedRoute>
+                } />
 
               </Routes>
             </TrackerErrorBoundary>
