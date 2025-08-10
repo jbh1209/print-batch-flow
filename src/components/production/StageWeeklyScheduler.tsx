@@ -205,6 +205,50 @@ export const StageWeeklyScheduler: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<ScheduledStageItem | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [backlogItems, setBacklogItems] = useState<ScheduledStageItem[]>([]);
+  const [backlogLoading, setBacklogLoading] = useState(false);
+
+  const fetchBacklog = useCallback(async () => {
+    try {
+      if (!selectedStageId) { setBacklogItems([]); return; }
+      setBacklogLoading(true);
+      const { data: rows, error } = await supabase
+        .from('job_stage_instances')
+        .select('id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,status')
+        .eq('job_table_name', 'production_jobs')
+        .eq('production_stage_id', selectedStageId)
+        .is('scheduled_start_at', null)
+        .in('status', ['active','pending'])
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+
+      const { data: jobsInfo } = await supabase.rpc('get_user_accessible_jobs', {});
+      const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean }> = {};
+      (jobsInfo || []).forEach((j: any) => { jobMap[j.job_id] = { wo_no: j.wo_no, customer: j.customer, is_expedited: j.is_expedited } as any; });
+
+      const mapped: ScheduledStageItem[] = (rows || []).map((r: any) => ({
+        id: r.id,
+        job_id: r.job_id,
+        production_stage_id: r.production_stage_id,
+        scheduled_start_at: r.scheduled_start_at,
+        scheduled_end_at: r.scheduled_end_at,
+        scheduled_minutes: r.scheduled_minutes,
+        status: r.status,
+        wo_no: jobMap[r.job_id]?.wo_no,
+        customer: jobMap[r.job_id]?.customer,
+        is_expedited: jobMap[r.job_id]?.is_expedited,
+      }));
+      setBacklogItems(mapped);
+    } catch (e) {
+      console.error('Backlog load failed', e);
+      setBacklogItems([]);
+    } finally {
+      setBacklogLoading(false);
+    }
+  }, [selectedStageId]);
+
+  useEffect(() => { fetchBacklog(); }, [fetchBacklog]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const activeStageIds = useMemo(() => new Set(items.map(i => i.production_stage_id)), [items]);
@@ -212,6 +256,8 @@ export const StageWeeklyScheduler: React.FC = () => {
   const stageCountMap = useMemo(() => Object.fromEntries(stageCounts.map((c: any) => [c.stage_id, c])), [stageCounts]);
   const filteredStages = useMemo(() => {
     return stages.filter(s => {
+      const n = (s.name || '').toLowerCase();
+      if (n === 'dtp' || n === 'proof') return false; // Hide pre-approval stages
       const counts = stageCountMap[s.id];
       const hasJobs = counts && ((counts.active_jobs ?? 0) + (counts.pending_jobs ?? 0)) > 0;
       return activeStageIds.has(s.id) || hasJobs;
@@ -263,7 +309,7 @@ export const StageWeeklyScheduler: React.FC = () => {
   
   const onDragStart = (e: DragStartEvent) => {
     const id = e.active.id as string;
-    const found = items.find(i => i.id === id) || null;
+    const found = items.find(i => i.id === id) || backlogItems.find(i => i.id === id) || null;
     setActiveId(id);
     setDragItem(found);
   };
@@ -291,6 +337,7 @@ export const StageWeeklyScheduler: React.FC = () => {
       if (!res.ok) throw new Error(res.error || 'Failed');
       toast.success("Rescheduled successfully");
       await refetch();
+      await fetchBacklog();
     } catch (err: any) {
       console.error(err);
       toast.error("Reschedule failed");
@@ -386,6 +433,25 @@ export const StageWeeklyScheduler: React.FC = () => {
                       <span>Jobs: {weeklySummary.jobs}</span>
                       <span>Used {Math.round(weeklySummary.used/60)}h / Cap {Math.round(weeklySummary.cap/60)}h</span>
                       <span>Util {weeklySummary.util}%</span>
+                    </div>
+
+                    {/* Unscheduled backlog */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-foreground">Unscheduled backlog</div>
+                        <Badge variant="secondary">{backlogItems.length}</Badge>
+                      </div>
+                      <SortableContext items={backlogItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-2">
+                          {backlogLoading ? (
+                            <div className="text-xs text-muted-foreground">Loading backlog…</div>
+                          ) : backlogItems.length === 0 ? (
+                            <div className="text-xs text-muted-foreground">No unscheduled items for this stage</div>
+                          ) : (
+                            backlogItems.map(it => <DraggableStageItem key={it.id} item={it} />)
+                          )}
+                        </div>
+                      </SortableContext>
                     </div>
 
                     {/* Day headers */}
