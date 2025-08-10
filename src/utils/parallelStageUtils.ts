@@ -48,40 +48,9 @@ export const getJobParallelStages = (
   
   if (activeStages.length === 0) return [];
   
-  // Group stages by dependency group and part assignment
-  const independentStages = activeStages.filter(stage => 
-    !stage.dependency_group && stage.production_stages?.supports_parts
-  );
-  
-  const dependentStages = activeStages.filter(stage => 
-    stage.dependency_group || !stage.production_stages?.supports_parts
-  );
-  
-  const availableStages: any[] = [];
-  
-  // For independent stages (supports_parts = true), group by part assignment
-  if (independentStages.length > 0) {
-    const partGroups = independentStages.reduce((groups, stage) => {
-      const partKey = stage.part_assignment || 'both';
-      if (!groups[partKey]) groups[partKey] = [];
-      groups[partKey].push(stage);
-      return groups;
-    }, {} as Record<string, any[]>);
-    
-    // For each part, find the next available stage(s)
-    Object.values(partGroups).forEach((partStages: any[]) => {
-      const minOrder = Math.min(...partStages.map((s: any) => s.stage_order));
-      const nextStages = partStages.filter((stage: any) => stage.stage_order === minOrder);
-      availableStages.push(...nextStages);
-    });
-  }
-  
-  // For dependent stages, use original logic (lowest order)
-  if (dependentStages.length > 0) {
-    const currentOrder = Math.min(...dependentStages.map(s => s.stage_order));
-    const nextDependentStages = dependentStages.filter(stage => stage.stage_order === currentOrder);
-    availableStages.push(...nextDependentStages);
-  }
+  // Simple rule: only return stages with minimum stage_order among all active/pending stages
+  const minOrder = Math.min(...activeStages.map(s => s.stage_order));
+  const availableStages = activeStages.filter(stage => stage.stage_order === minOrder);
   
   // Return mapped stage info with unique identifiers
   return availableStages.map(stage => ({
