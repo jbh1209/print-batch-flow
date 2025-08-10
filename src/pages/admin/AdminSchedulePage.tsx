@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
@@ -6,6 +6,9 @@ import { ProductionPlanningCalendar } from "@/components/production/ProductionPl
 import { StageWeeklyScheduler } from "@/components/production/StageWeeklyScheduler";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminSchedulePage: React.FC = () => {
   const { isAdmin, isLoading } = useAdminAuth();
@@ -13,6 +16,21 @@ const AdminSchedulePage: React.FC = () => {
   useEffect(() => {
     document.title = "Admin Schedule Board | Weekly Production";
   }, []);
+
+  const [isRunning, setIsRunning] = useState(false);
+  const runAutoScheduler = async () => {
+    try {
+      setIsRunning(true);
+      const { data, error } = await supabase.functions.invoke("auto-schedule-approved", { body: {} });
+      if (error) throw error;
+      const d = (data as any) || {};
+      toast.success(`Auto-scheduler complete: checked ${d.checked ?? 0}, scheduled ${d.scheduled ?? 0}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to run auto-scheduler");
+    } finally {
+      setIsRunning(false);
+    }
+  };
 
   if (isLoading) {
     return <LoadingState />;
@@ -32,6 +50,12 @@ const AdminSchedulePage: React.FC = () => {
         title="Weekly Schedule Board"
         subtitle="Stage-centric planner showing active stages for the selected week."
       />
+
+      <div className="mb-4 flex justify-end">
+        <Button size="sm" variant="secondary" onClick={runAutoScheduler} disabled={isRunning} aria-label="Run auto-scheduler">
+          {isRunning ? "Running..." : "Run auto-scheduler"}
+        </Button>
+      </div>
 
       <main>
         <Tabs defaultValue="stages">
