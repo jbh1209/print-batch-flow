@@ -57,18 +57,23 @@ async function nextWorkingStart(from: Date): Promise<Date> {
 }
 
 async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
+  const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
   let remaining = minutes;
   let current = await nextWorkingStart(start);
+  
   while (remaining > 0) {
     const dayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
-    const diffMin = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
-    if (remaining <= diffMin) {
+    const availableInDay = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
+    
+    if (remaining <= availableInDay) {
       return new Date(current.getTime() + remaining * 60000);
     }
-    remaining -= diffMin;
-    const n = new Date(current);
-    n.setUTCDate(n.getUTCDate() + 1);
-    current = await nextWorkingStart(withTime(n, WORK_START_HOUR, 0));
+    
+    // Job doesn't fit - move entire remaining duration to next working day
+    const nextDay = new Date(current);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
+    // Keep full remaining duration for next day
   }
   return current;
 }
