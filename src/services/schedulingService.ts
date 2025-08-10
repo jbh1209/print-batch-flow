@@ -27,6 +27,14 @@ export class SchedulingService {
     if (error) return { ok: false, error: error.message };
     return data as any;
   }
+
+  static async manualRescheduleStage(req: { stage_instance_id: string; target_date: string; production_stage_id?: string; job_table_name?: string }): Promise<{ ok: boolean; scheduled_start_at?: string; scheduled_end_at?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("manual-reschedule-stage", {
+      body: req,
+    });
+    if (error) return { ok: false, error: error.message };
+    return data as any;
+  }
 }
 
 export const schedulingService = SchedulingService;
