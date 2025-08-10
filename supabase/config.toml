@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.manual-reschedule-stage]
 verify_jwt = true
+
+[functions.auto-schedule-approved]
+verify_jwt = false

@@ -5,6 +5,7 @@ import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMess
 import { ProductionPlanningCalendar } from "@/components/production/ProductionPlanningCalendar";
 import { StageWeeklyScheduler } from "@/components/production/StageWeeklyScheduler";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AdminHeader from "@/components/admin/AdminHeader";
 
 const AdminSchedulePage: React.FC = () => {
   const { isAdmin, isLoading } = useAdminAuth();
@@ -27,12 +28,11 @@ const AdminSchedulePage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Weekly Schedule Board</h1>
-        <p className="text-muted-foreground text-sm">
-          Stage-centric planner showing active stages for the selected week.
-        </p>
-      </header>
+      <AdminHeader
+        title="Weekly Schedule Board"
+        subtitle="Stage-centric planner showing active stages for the selected week."
+      />
+
       <main>
         <Tabs defaultValue="stages">
           <TabsList>
