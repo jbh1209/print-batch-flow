@@ -135,20 +135,14 @@ export function useStageSchedule() {
 }
 
 // UI building blocks
-const StageHeaderCell: React.FC<{ name: string; color?: string | null; counts?: { active_jobs: number; pending_jobs: number } }>
-  = ({ name, color, counts }) => (
+const StageHeaderCell: React.FC<{ name: string; color?: string | null }>
+  = ({ name, color }) => (
   <div className="px-3 py-2">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color || 'hsl(var(--primary))' }} />
         <span className="font-medium text-sm text-foreground">{name}</span>
       </div>
-      {counts && (
-        <div className="flex items-center gap-1">
-          <Badge variant="secondary">A {counts.active_jobs}</Badge>
-          <Badge variant="outline">P {counts.pending_jobs}</Badge>
-        </div>
-      )}
     </div>
   </div>
 );
@@ -205,49 +199,6 @@ export const StageWeeklyScheduler: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<ScheduledStageItem | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
-  const [backlogItems, setBacklogItems] = useState<ScheduledStageItem[]>([]);
-  const [backlogLoading, setBacklogLoading] = useState(false);
-
-  const fetchBacklog = useCallback(async () => {
-    try {
-      if (!selectedStageId) { setBacklogItems([]); return; }
-      setBacklogLoading(true);
-      const { data: rows, error } = await supabase
-        .from('job_stage_instances')
-        .select('id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,status')
-        .eq('job_table_name', 'production_jobs')
-        .eq('production_stage_id', selectedStageId)
-        .is('scheduled_start_at', null)
-        .in('status', ['active','pending'])
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-
-      const { data: jobsInfo } = await supabase.rpc('get_user_accessible_jobs', {});
-      const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean }> = {};
-      (jobsInfo || []).forEach((j: any) => { jobMap[j.job_id] = { wo_no: j.wo_no, customer: j.customer, is_expedited: j.is_expedited } as any; });
-
-      const mapped: ScheduledStageItem[] = (rows || []).map((r: any) => ({
-        id: r.id,
-        job_id: r.job_id,
-        production_stage_id: r.production_stage_id,
-        scheduled_start_at: r.scheduled_start_at,
-        scheduled_end_at: r.scheduled_end_at,
-        scheduled_minutes: r.scheduled_minutes,
-        status: r.status,
-        wo_no: jobMap[r.job_id]?.wo_no,
-        customer: jobMap[r.job_id]?.customer,
-        is_expedited: jobMap[r.job_id]?.is_expedited,
-      }));
-      setBacklogItems(mapped);
-    } catch (e) {
-      console.error('Backlog load failed', e);
-      setBacklogItems([]);
-    } finally {
-      setBacklogLoading(false);
-    }
-  }, [selectedStageId]);
-
-  useEffect(() => { fetchBacklog(); }, [fetchBacklog]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -337,7 +288,6 @@ export const StageWeeklyScheduler: React.FC = () => {
       if (!res.ok) throw new Error(res.error || 'Failed');
       toast.success("Rescheduled successfully");
       await refetch();
-      await fetchBacklog();
     } catch (err: any) {
       console.error(err);
       toast.error("Reschedule failed");
@@ -399,7 +349,6 @@ export const StageWeeklyScheduler: React.FC = () => {
                 <div className="space-y-1">
                   {filteredStages.map(stage => {
                     const isSelected = selectedStageId === stage.id;
-                    const counts = stageCountMap[stage.id];
                     return (
                       <button
                         key={stage.id}
@@ -410,7 +359,6 @@ export const StageWeeklyScheduler: React.FC = () => {
                         <StageHeaderCell 
                           name={stage.name} 
                           color={stage.color}
-                          counts={counts ? { active_jobs: counts.active_jobs, pending_jobs: counts.pending_jobs } : undefined}
                         />
                       </button>
                     );
@@ -435,24 +383,6 @@ export const StageWeeklyScheduler: React.FC = () => {
                       <span>Util {weeklySummary.util}%</span>
                     </div>
 
-                    {/* Unscheduled backlog */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-medium text-foreground">Unscheduled backlog</div>
-                        <Badge variant="secondary">{backlogItems.length}</Badge>
-                      </div>
-                      <SortableContext items={backlogItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-2">
-                          {backlogLoading ? (
-                            <div className="text-xs text-muted-foreground">Loading backlog…</div>
-                          ) : backlogItems.length === 0 ? (
-                            <div className="text-xs text-muted-foreground">No unscheduled items for this stage</div>
-                          ) : (
-                            backlogItems.map(it => <DraggableStageItem key={it.id} item={it} />)
-                          )}
-                        </div>
-                      </SortableContext>
-                    </div>
 
                     {/* Day headers */}
                     <div className="grid mb-2" style={{ gridTemplateColumns: `repeat(5, 1fr)` }}>

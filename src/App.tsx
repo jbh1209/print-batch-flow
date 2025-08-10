@@ -81,6 +81,7 @@ import { productConfigs } from "@/config/productTypes";
 import AdminDashboard from "@/pages/admin";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
+import Layout from "@/components/Layout";
 
 import "./App.css";
 
@@ -208,22 +209,16 @@ function App() {
                   <Route path="mobile" element={<MobileFactory />} />
                 </Route>
                 
-                {/* Admin routes */}
+                {/* Admin routes with Layout */}
                 <Route path="/admin" element={
                   <ProtectedRoute>
-                    <AdminDashboard />
+                    <Layout />
                   </ProtectedRoute>
-                } />
-                <Route path="/admin/schedule" element={
-                  <ProtectedRoute>
-                    <AdminSchedulePage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin/excel-mapping" element={
-                  <ProtectedRoute>
-                    <ExcelMapping />
-                  </ProtectedRoute>
-                } />
+                }>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="schedule" element={<AdminSchedulePage />} />
+                  <Route path="excel-mapping" element={<ExcelMapping />} />
+                </Route>
 
               </Routes>
             </TrackerErrorBoundary>

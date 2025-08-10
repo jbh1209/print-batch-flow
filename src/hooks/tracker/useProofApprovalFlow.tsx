@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { schedulingService } from "@/services/schedulingService";
 import { toast } from "sonner";
 
 /**
@@ -63,8 +64,14 @@ export const useProofApprovalFlow = () => {
         throw completeError;
       }
 
-      // Trigger queue-based due date calculation
+      // Trigger queue-based due date calculation and auto-schedule downstream stages
       await triggerQueueBasedCalculation(jobId);
+      try {
+        await schedulingService.scheduleOnApproval({ job_id: jobId, job_table_name: 'production_jobs' });
+        console.log('🗓️ Auto-scheduled approved job', jobId);
+      } catch (e) {
+        console.warn('Auto-schedule invoke failed', e);
+      }
 
       // Find and activate next stage
       const { data: nextStage, error: nextStageError } = await supabase
