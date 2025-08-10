@@ -80,6 +80,7 @@ import { productConfigs } from "@/config/productTypes";
 // Admin imports
 import AdminDashboard from "@/pages/admin";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
+import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 
 import "./App.css";
 
@@ -213,11 +214,17 @@ function App() {
                     <AdminDashboard />
                   </ProtectedRoute>
                 } />
+                <Route path="/admin/schedule" element={
+                  <ProtectedRoute>
+                    <AdminSchedulePage />
+                  </ProtectedRoute>
+                } />
                 <Route path="/admin/excel-mapping" element={
                   <ProtectedRoute>
                     <ExcelMapping />
                   </ProtectedRoute>
                 } />
+
               </Routes>
             </TrackerErrorBoundary>
           </BrowserRouter>
