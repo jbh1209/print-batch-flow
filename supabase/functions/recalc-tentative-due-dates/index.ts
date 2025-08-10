@@ -12,6 +12,7 @@ type UUID = string;
 const WORK_START_HOUR = 8;
 const WORK_END_HOUR = 16;
 const WORK_END_MINUTE = 30;
+const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -57,7 +58,6 @@ async function nextWorkingStart(from: Date): Promise<Date> {
 }
 
 async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
-  const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
   let remaining = minutes;
   let current = await nextWorkingStart(start);
   
@@ -69,25 +69,71 @@ async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
       return new Date(current.getTime() + remaining * 60000);
     }
     
-    // Job doesn't fit - move entire remaining duration to next working day
+    // Job doesn't fit - move ENTIRE job to next working day start
     const nextDay = new Date(current);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
     current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
-    // Keep full remaining duration for next day
+    // Keep full remaining duration for next day (don't subtract anything)
   }
   return current;
 }
 
-async function getStageQueueEnd(stageId: UUID): Promise<Date | null> {
+async function getStageQueueEnd(stageId: UUID, jobDurationMinutes: number): Promise<Date> {
+  // Get all existing scheduled jobs for this stage, ordered by start time
   const { data } = await supabase
     .from("job_stage_instances")
-    .select("scheduled_end_at")
+    .select("scheduled_start_at, scheduled_end_at")
     .eq("production_stage_id", stageId)
+    .not("scheduled_start_at", "is", null)
     .not("scheduled_end_at", "is", null)
-    .order("scheduled_end_at", { ascending: false })
-    .limit(1);
-  if (!data || data.length === 0) return null;
-  return new Date(data[0].scheduled_end_at as string);
+    .order("scheduled_start_at", { ascending: true });
+
+  const now = new Date();
+  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+  let searchDate = new Date(midnight);
+
+  // Find the first day with enough capacity
+  for (let dayOffset = 0; dayOffset < 365; dayOffset++) {
+    const dayStart = await nextWorkingStart(withTime(searchDate, WORK_START_HOUR, 0));
+    const dayEnd = withTime(dayStart, WORK_END_HOUR, WORK_END_MINUTE);
+    
+    // Get existing jobs for this day
+    const dayJobs = (data || [])
+      .filter(job => {
+        const jobStart = new Date(job.scheduled_start_at as string);
+        return jobStart >= dayStart && jobStart < dayEnd;
+      })
+      .sort((a, b) => new Date(a.scheduled_start_at as string).getTime() - new Date(b.scheduled_start_at as string).getTime());
+
+    // Calculate total minutes used this day
+    let totalUsedMinutes = 0;
+    for (const job of dayJobs) {
+      const start = new Date(job.scheduled_start_at as string);
+      const end = new Date(job.scheduled_end_at as string);
+      totalUsedMinutes += Math.floor((end.getTime() - start.getTime()) / 60000);
+    }
+
+    const remainingCapacity = DAILY_CAPACITY_MINUTES - totalUsedMinutes;
+
+    // Check if new job fits in remaining capacity
+    if (jobDurationMinutes <= remainingCapacity) {
+      // Find the next available slot after existing jobs
+      let nextSlot = dayStart;
+      for (const job of dayJobs) {
+        const jobEnd = new Date(job.scheduled_end_at as string);
+        if (jobEnd > nextSlot) {
+          nextSlot = jobEnd;
+        }
+      }
+      return nextSlot;
+    }
+
+    // Move to next day
+    searchDate.setUTCDate(searchDate.getUTCDate() + 1);
+  }
+
+  // Fallback to current time if nothing found
+  return new Date();
 }
 
 serve(async (req) => {
@@ -135,11 +181,20 @@ serve(async (req) => {
 
       for (const s of stages ?? []) {
         const minutes = (s as any).estimated_duration_minutes ?? 60;
-        const queueEnd = (await getStageQueueEnd((s as any).production_stage_id)) ?? new Date(midnight);
+        const queueEnd = await getStageQueueEnd((s as any).production_stage_id, minutes);
         const startCandidate = new Date(Math.max(pointer.getTime(), queueEnd.getTime()));
         const scheduledStart = await nextWorkingStart(startCandidate);
         const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
-        pointer = new Date(scheduledEnd);
+        
+        // For consecutive scheduling within the same day, update pointer
+        const sameDayEnd = withTime(scheduledStart, WORK_END_HOUR, WORK_END_MINUTE);
+        if (scheduledEnd <= sameDayEnd) {
+          pointer = new Date(scheduledEnd);
+        } else {
+          // Job moved to next day, reset pointer
+          pointer = new Date(midnight);
+        }
+        
         lastEnd = new Date(scheduledEnd);
       }
 

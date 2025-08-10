@@ -28,6 +28,7 @@ interface StageInstance {
 const WORK_START_HOUR = 8; // 08:00
 const WORK_END_HOUR = 16; // 16:30 handled via minutes
 const WORK_END_MINUTE = 30;
+const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -86,96 +87,95 @@ async function nextWorkingStart(from: Date): Promise<Date> {
 }
 
 async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
-  const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
   let remaining = minutes;
   let current = await nextWorkingStart(start);
   
-  console.log(`[addWorkingMinutes] Adding ${minutes} minutes from ${current.toISOString()}`);
+  console.log(`[addWorkingMinutes] Adding ${minutes} minutes to ${current.toISOString()}`);
   
   while (remaining > 0) {
-    const dayStart = withTime(current, WORK_START_HOUR, 0);
     const dayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
-    
-    // Calculate available time remaining in current day
     const availableInDay = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
     
-    console.log(`[addWorkingMinutes] Day ${toDateOnly(current)}: Available=${availableInDay}min, Needed=${remaining}min`);
+    console.log(`[addWorkingMinutes] Day: ${current.toISOString()}, Available: ${availableInDay} min, Remaining: ${remaining} min`);
     
     if (remaining <= availableInDay) {
-      // Job fits in current day
-      const result = new Date(current.getTime() + remaining * 60000);
-      console.log(`[addWorkingMinutes] Job fits: ending at ${result.toISOString()}`);
-      return result;
+      const endTime = new Date(current.getTime() + remaining * 60000);
+      console.log(`[addWorkingMinutes] Job fits in day, ending at: ${endTime.toISOString()}`);
+      return endTime;
     }
     
-    // Job doesn't fit - move entire remaining duration to next working day
-    console.log(`[addWorkingMinutes] Job doesn't fit in current day, moving to next working day`);
+    // Job doesn't fit - move ENTIRE job to next working day start
+    console.log(`[addWorkingMinutes] Job doesn't fit (${remaining} > ${availableInDay}), moving to next day`);
     const nextDay = new Date(current);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
     current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
-    // Don't reduce remaining - keep full duration for next day
+    // Keep full remaining duration for next day (don't subtract anything)
   }
   return current;
 }
 
-async function getStageQueueEnd(stageId: UUID): Promise<Date | null> {
-  const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
-  
-  // Get all scheduled jobs for this stage, ordered by start time
-  const { data, error } = await supabase
+async function getStageQueueEnd(stageId: UUID, jobDurationMinutes: number): Promise<Date> {
+  // Get all existing scheduled jobs for this stage, ordered by start time
+  const { data } = await supabase
     .from("job_stage_instances")
-    .select("scheduled_start_at, scheduled_end_at, scheduled_minutes")
+    .select("scheduled_start_at, scheduled_end_at")
     .eq("production_stage_id", stageId)
     .not("scheduled_start_at", "is", null)
     .not("scheduled_end_at", "is", null)
     .order("scheduled_start_at", { ascending: true });
-    
-  if (error || !data || data.length === 0) {
-    console.log(`[getStageQueueEnd] No scheduled jobs for stage ${stageId}`);
-    return null;
-  }
-  
-  console.log(`[getStageQueueEnd] Found ${data.length} scheduled jobs for stage ${stageId}`);
-  
-  // Find the next available slot that can accommodate a new job
-  // Check for gaps between jobs or after the last job
+
   const now = new Date();
-  const startSearchFrom = await nextWorkingStart(now);
-  
-  for (let i = 0; i < data.length; i++) {
-    const currentJob = data[i];
-    const currentStart = new Date(currentJob.scheduled_start_at!);
-    const currentEnd = new Date(currentJob.scheduled_end_at!);
+  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+  let searchDate = new Date(midnight);
+
+  console.log(`[getStageQueueEnd] Finding slot for ${jobDurationMinutes} min job in stage ${stageId}`);
+
+  // Find the first day with enough capacity
+  for (let dayOffset = 0; dayOffset < 365; dayOffset++) {
+    const dayStart = await nextWorkingStart(withTime(searchDate, WORK_START_HOUR, 0));
+    const dayEnd = withTime(dayStart, WORK_END_HOUR, WORK_END_MINUTE);
     
-    // Check if there's a gap before this job
-    if (i === 0 && startSearchFrom < currentStart) {
-      const gapStart = await nextWorkingStart(startSearchFrom);
-      if (gapStart < currentStart) {
-        console.log(`[getStageQueueEnd] Found gap before first job: ${gapStart.toISOString()}`);
-        return gapStart;
-      }
+    // Get existing jobs for this day
+    const dayJobs = (data || [])
+      .filter(job => {
+        const jobStart = new Date(job.scheduled_start_at as string);
+        return jobStart >= dayStart && jobStart < dayEnd;
+      })
+      .sort((a, b) => new Date(a.scheduled_start_at as string).getTime() - new Date(b.scheduled_start_at as string).getTime());
+
+    console.log(`[getStageQueueEnd] Checking ${dayStart.toISOString().split('T')[0]}, existing jobs: ${dayJobs.length}`);
+
+    // Calculate total minutes used this day
+    let totalUsedMinutes = 0;
+    for (const job of dayJobs) {
+      const start = new Date(job.scheduled_start_at as string);
+      const end = new Date(job.scheduled_end_at as string);
+      totalUsedMinutes += Math.floor((end.getTime() - start.getTime()) / 60000);
     }
-    
-    // Check gap between current and next job
-    if (i < data.length - 1) {
-      const nextJob = data[i + 1];
-      const nextStart = new Date(nextJob.scheduled_start_at!);
-      const gapStart = await nextWorkingStart(currentEnd);
-      
-      if (gapStart < nextStart) {
-        console.log(`[getStageQueueEnd] Found gap between jobs: ${gapStart.toISOString()}`);
-        return gapStart;
+
+    const remainingCapacity = DAILY_CAPACITY_MINUTES - totalUsedMinutes;
+    console.log(`[getStageQueueEnd] Day capacity: ${totalUsedMinutes}/${DAILY_CAPACITY_MINUTES} min, remaining: ${remainingCapacity} min`);
+
+    // Check if new job fits in remaining capacity
+    if (jobDurationMinutes <= remainingCapacity) {
+      // Find the next available slot after existing jobs
+      let nextSlot = dayStart;
+      for (const job of dayJobs) {
+        const jobEnd = new Date(job.scheduled_end_at as string);
+        if (jobEnd > nextSlot) {
+          nextSlot = jobEnd;
+        }
       }
+      console.log(`[getStageQueueEnd] Found slot starting at: ${nextSlot.toISOString()}`);
+      return nextSlot;
     }
+
+    // Move to next day
+    searchDate.setUTCDate(searchDate.getUTCDate() + 1);
   }
-  
-  // No gaps found, return end of last job
-  const lastJob = data[data.length - 1];
-  const queueEnd = new Date(lastJob.scheduled_end_at!);
-  const nextSlot = await nextWorkingStart(queueEnd);
-  
-  console.log(`[getStageQueueEnd] Queue ends at: ${nextSlot.toISOString()}`);
-  return nextSlot;
+
+  // Fallback to current time if nothing found
+  return new Date();
 }
 
 async function getJobIsExpedited(jobId: UUID): Promise<boolean> {
@@ -226,14 +226,14 @@ serve(async (req) => {
     let lastEnd: Date | null = null;
     const scheduleResults: Array<{ stage_instance_id: UUID; start: string; end: string; minutes: number }> = [];
 
+    console.log(`[schedule-on-approval] Scheduling ${stages?.length} stages for job ${jobId}`);
+
     for (const s of (stages as StageInstance[])) {
       const minutes = s.estimated_duration_minutes ?? 60; // default 1h
-      console.log(`[schedule-on-approval] Scheduling stage ${s.id}: ${minutes} minutes`);
+      console.log(`[schedule-on-approval] Stage: ${s.production_stage_id}, Duration: ${minutes} min`);
       
-      // Get next available slot for this stage (considering existing queue)
-      const queueEnd = (await getStageQueueEnd(s.production_stage_id)) ?? pointer;
-
-      // Schedule consecutively: after previous job in this scheduling batch AND after existing queue
+      // Get next available slot for this stage, considering daily capacity
+      const queueEnd = await getStageQueueEnd(s.production_stage_id, minutes);
       let startCandidate = new Date(Math.max(pointer.getTime(), queueEnd.getTime()));
       
       if (expedited) {
@@ -244,8 +244,8 @@ serve(async (req) => {
 
       const scheduledStart = await nextWorkingStart(startCandidate);
       const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
-      
-      console.log(`[schedule-on-approval] Stage ${s.id} scheduled: ${scheduledStart.toISOString()} - ${scheduledEnd.toISOString()}`);
+
+      console.log(`[schedule-on-approval] Scheduled: ${scheduledStart.toISOString()} - ${scheduledEnd.toISOString()}`);
 
       // update DB for this stage instance
       const { error: updateErr } = await supabase
@@ -265,8 +265,18 @@ serve(async (req) => {
 
       scheduleResults.push({ stage_instance_id: s.id, start: scheduledStart.toISOString(), end: scheduledEnd.toISOString(), minutes });
       
-      // Move pointer to end of this job for consecutive scheduling
-      pointer = new Date(scheduledEnd);
+      // For consecutive scheduling within the same day, update pointer
+      // But only if the job ended within working hours of the same day
+      const sameDayEnd = withTime(scheduledStart, WORK_END_HOUR, WORK_END_MINUTE);
+      if (scheduledEnd <= sameDayEnd) {
+        pointer = new Date(scheduledEnd);
+        console.log(`[schedule-on-approval] Updated pointer to: ${pointer.toISOString()}`);
+      } else {
+        // Job moved to next day, reset pointer to allow other stages to find their optimal slots
+        pointer = new Date();
+        console.log(`[schedule-on-approval] Job moved to next day, reset pointer`);
+      }
+      
       lastEnd = new Date(scheduledEnd);
     }
 
