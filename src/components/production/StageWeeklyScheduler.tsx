@@ -84,7 +84,25 @@ export function useStageSchedule() {
       (capRows || []).forEach((c: any) => { capMap[c.production_stage_id] = (c.daily_capacity_hours || 8) * 60; });
       setCapacities(capMap);
 
-      // Scheduled items in week
+      // Get jobs that have completed proof (approved jobs)
+      const { data: approvedJobs, error: approvedError } = await supabase
+        .from("job_stage_instances")
+        .select("job_id, production_stages!inner(name)")
+        .eq("job_table_name", "production_jobs")
+        .eq("status", "completed")
+        .ilike("production_stages.name", "%proof%")
+        .order("job_id");
+      
+      if (approvedError) throw approvedError;
+      
+      const approvedJobIds = [...new Set((approvedJobs || []).map((p: any) => p.job_id))];
+      
+      if (approvedJobIds.length === 0) {
+        setItems([]);
+        return;
+      }
+
+      // Scheduled items in week - ONLY for approved jobs
       const startIso = new Date(weekStart).toISOString();
       const endIso = new Date(addDays(weekStart, 5)).toISOString();
       const { data: jsiRows, error: jsiErr } = await supabase
@@ -92,7 +110,10 @@ export function useStageSchedule() {
         .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,status")
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending"]) 
+        .in("job_id", approvedJobIds) // ONLY approved jobs
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"]) // guard
+        .not("scheduled_start_at", "is", null)
+        .not("scheduled_end_at", "is", null)
         .lt("scheduled_start_at", endIso)
         .gte("scheduled_end_at", startIso)
         .order("scheduled_start_at", { ascending: true });

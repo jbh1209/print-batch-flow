@@ -24,10 +24,10 @@ Deno.serve(async (req) => {
     // 1) Find jobs whose PROOF stage is completed
     const { data: proofs, error: proofsError } = await supabase
       .from('job_stage_instances')
-      .select('job_id, job_table_name, stage_order, production_stages(name)')
+      .select('job_id, job_table_name, stage_order, production_stages!inner(name)')
       .eq('job_table_name', 'production_jobs')
       .eq('status', 'completed')
-      .filter('production_stages.name', 'ilike', '%proof%');
+      .ilike('production_stages.name', '%proof%');
 
     if (proofsError) throw proofsError;
 
@@ -37,6 +37,8 @@ Deno.serve(async (req) => {
     });
 
     let checked = 0; let scheduled = 0; const errors: string[] = [];
+
+    console.log(`Found ${uniqueJobs.size} jobs with completed proof stages`);
 
     // 2) For each job, see if there are unscheduled downstream stages; if so, schedule
     for (const { job_id, stage_order } of uniqueJobs.values()) {
@@ -48,14 +50,33 @@ Deno.serve(async (req) => {
         .eq('job_table_name', 'production_jobs')
         .in('status', ['pending', 'active'])
         .is('scheduled_start_at', null);
-      if (pendErr) { errors.push(`pending-q failed ${job_id}: ${pendErr.message}`); continue; }
-      if (!pending || pending.length === 0) continue;
+      if (pendErr) { 
+        errors.push(`pending-q failed ${job_id}: ${pendErr.message}`); 
+        console.error(`Failed to check pending stages for job ${job_id}:`, pendErr);
+        continue; 
+      }
+      if (!pending || pending.length === 0) {
+        console.log(`Job ${job_id} already scheduled - skipping`);
+        continue;
+      }
 
+      console.log(`Scheduling job ${job_id} with ${pending.length} unscheduled stages`);
+      
       const { data: resp, error: invErr } = await supabase.functions.invoke('schedule-on-approval', {
         body: { job_id, job_table_name: 'production_jobs' }
       });
-      if (invErr) { errors.push(`invoke failed ${job_id}: ${invErr.message}`); continue; }
-      if ((resp as any)?.ok) scheduled++;
+      if (invErr) { 
+        errors.push(`invoke failed ${job_id}: ${invErr.message}`); 
+        console.error(`Failed to invoke schedule-on-approval for job ${job_id}:`, invErr);
+        continue; 
+      }
+      if ((resp as any)?.ok) {
+        scheduled++;
+        console.log(`Successfully scheduled job ${job_id}`);
+      } else {
+        errors.push(`schedule failed ${job_id}: ${(resp as any)?.error || 'unknown'}`);
+        console.error(`Schedule-on-approval returned error for job ${job_id}:`, resp);
+      }
     }
 
     const result = { ok: true, startedAt, checked, scheduled, errors };

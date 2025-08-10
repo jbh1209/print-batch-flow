@@ -73,26 +73,15 @@ export const getJobParallelStages = (
     s.status === 'active' || s.status === 'pending'
   );
   
-  // Determine if all prerequisite sequential stages are complete
-  // Find the minimum stage order among part-based stages (parallel work start point)
-  const parallelWorkStartOrder = partBasedStages.length > 0 
-    ? Math.min(...partBasedStages.map(s => s.stage_order))
-    : Infinity;
-  
-  // Find all sequential stages that come BEFORE parallel work
-  const prerequisiteSequentialStages = sequentialStages.filter(s => 
-    s.stage_order < parallelWorkStartOrder
-  );
-  
-  // Check if all prerequisite sequential stages are completed
-  const allPrerequisitesComplete = prerequisiteSequentialStages.every(s => 
-    s.status === 'completed'
+  // Check if we have parallel work available at current level
+  const parallelWorkAtCurrentLevel = pendingPartBasedStages.some(s => 
+    s.stage_order > highestCompletedOrder
   );
   
   // PHASE LOGIC: Only return stages from ONE phase at a time
   
-  // PHASE 1: Sequential stages BEFORE parallel work (must complete first)
-  if (!allPrerequisitesComplete && pendingSequentialStages.length > 0) {
+  // PHASE 1 & 3: Sequential stages (before and after parallel work)
+  if (!parallelWorkAtCurrentLevel && pendingSequentialStages.length > 0) {
     // Find next sequential stage after highest completed
     const nextSequentialStages = pendingSequentialStages.filter(s => 
       s.stage_order > highestCompletedOrder
@@ -114,8 +103,8 @@ export const getJobParallelStages = (
     }
   }
   
-  // PHASE 2: Parallel part-based stages (only when prerequisites complete)
-  if (allPrerequisitesComplete && pendingPartBasedStages.length > 0) {
+  // PHASE 2: Parallel part-based stages
+  if (parallelWorkAtCurrentLevel) {
     const availableStages: any[] = [];
     
     // Group part-based stages by part assignment
