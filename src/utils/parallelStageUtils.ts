@@ -44,7 +44,7 @@ export const getJobParallelStages = (
   const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
   if (allJobStages.length === 0) return [];
   
-  // Separate completed and pending stages
+  // Separate stages by status
   const completedStages = allJobStages.filter(stage => stage.status === 'completed');
   const pendingStages = allJobStages.filter(stage => 
     stage.status === 'active' || stage.status === 'pending'
@@ -52,89 +52,119 @@ export const getJobParallelStages = (
   
   if (pendingStages.length === 0) return [];
   
-  // Group ALL stages by whether they support parts
-  const allPartBasedStages = allJobStages.filter(stage => 
+  // Find the highest completed stage order across ALL stages
+  const highestCompletedOrder = completedStages.length > 0 
+    ? Math.max(...completedStages.map(s => s.stage_order))
+    : -1;
+  
+  // Group stages by type
+  const partBasedStages = allJobStages.filter(stage => 
     stage.production_stages?.supports_parts === true
   );
-  
-  const allSequentialStages = allJobStages.filter(stage => 
+  const sequentialStages = allJobStages.filter(stage => 
     !stage.production_stages?.supports_parts
   );
   
-  const availableStages: any[] = [];
+  // Determine current workflow phase
+  const pendingPartBasedStages = partBasedStages.filter(s => 
+    s.status === 'active' || s.status === 'pending'
+  );
+  const pendingSequentialStages = sequentialStages.filter(s => 
+    s.status === 'active' || s.status === 'pending'
+  );
   
-  // For part-based stages, group by part assignment and find next available stage per part
-  if (allPartBasedStages.length > 0) {
-    const partGroups = allPartBasedStages.reduce((groups, stage) => {
+  // Check if we have parallel work available at current level
+  const parallelWorkAtCurrentLevel = pendingPartBasedStages.some(s => 
+    s.stage_order > highestCompletedOrder
+  );
+  
+  // PHASE LOGIC: Only return stages from ONE phase at a time
+  
+  // PHASE 1 & 3: Sequential stages (before and after parallel work)
+  if (!parallelWorkAtCurrentLevel && pendingSequentialStages.length > 0) {
+    // Find next sequential stage after highest completed
+    const nextSequentialStages = pendingSequentialStages.filter(s => 
+      s.stage_order > highestCompletedOrder
+    );
+    
+    if (nextSequentialStages.length > 0) {
+      const minNextOrder = Math.min(...nextSequentialStages.map(s => s.stage_order));
+      const nextStages = nextSequentialStages.filter(s => s.stage_order === minNextOrder);
+      
+      return nextStages.map(stage => ({
+        stage_id: stage.unique_stage_key || stage.production_stage_id,
+        stage_name: stage.production_stages?.name || stage.stage_name,
+        stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
+        stage_status: stage.status,
+        stage_order: stage.stage_order,
+        unique_stage_key: stage.unique_stage_key,
+        production_stage_id: stage.production_stage_id
+      }));
+    }
+  }
+  
+  // PHASE 2: Parallel part-based stages
+  if (parallelWorkAtCurrentLevel) {
+    const availableStages: any[] = [];
+    
+    // Group part-based stages by part assignment
+    const partGroups = partBasedStages.reduce((groups, stage) => {
       const partKey = stage.part_assignment || 'both';
       if (!groups[partKey]) groups[partKey] = [];
       groups[partKey].push(stage);
       return groups;
     }, {} as Record<string, any[]>);
     
-    // For each part, find the next available stage after completed stages
+    // For each part, find the next available stage
     Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
       const completedPartStages = partStages.filter(s => s.status === 'completed');
       const pendingPartStages = partStages.filter(s => s.status === 'active' || s.status === 'pending');
       
       if (pendingPartStages.length === 0) return;
       
-      if (completedPartStages.length === 0) {
-        // No completed stages for this part, return lowest order pending stage
-        const minOrder = Math.min(...pendingPartStages.map(s => s.stage_order));
-        const nextStages = pendingPartStages.filter(s => s.stage_order === minOrder);
+      // Find highest completed order for this specific part
+      const partHighestCompleted = completedPartStages.length > 0 
+        ? Math.max(...completedPartStages.map(s => s.stage_order))
+        : highestCompletedOrder; // Use global highest if no part-specific completed stages
+      
+      // Find next pending stage for this part after its highest completed
+      const nextPartStages = pendingPartStages.filter(s => s.stage_order > partHighestCompleted);
+      
+      if (nextPartStages.length > 0) {
+        const minOrder = Math.min(...nextPartStages.map(s => s.stage_order));
+        const nextStages = nextPartStages.filter(s => s.stage_order === minOrder);
         availableStages.push(...nextStages);
-      } else {
-        // Find the highest completed stage order for this part
-        const maxCompletedOrder = Math.max(...completedPartStages.map(s => s.stage_order));
-        // Find the next pending stage(s) after the highest completed stage
-        const nextOrderStages = pendingPartStages.filter(s => s.stage_order > maxCompletedOrder);
-        
-        if (nextOrderStages.length > 0) {
-          const minNextOrder = Math.min(...nextOrderStages.map(s => s.stage_order));
-          const nextStages = nextOrderStages.filter(s => s.stage_order === minNextOrder);
-          availableStages.push(...nextStages);
-        }
       }
     });
-  }
-  
-  // For sequential stages, find next stage after highest completed sequential stage
-  if (allSequentialStages.length > 0) {
-    const completedSequentialStages = allSequentialStages.filter(s => s.status === 'completed');
-    const pendingSequentialStages = allSequentialStages.filter(s => s.status === 'active' || s.status === 'pending');
     
-    if (pendingSequentialStages.length > 0) {
-      if (completedSequentialStages.length === 0) {
-        // No completed sequential stages, return lowest order pending stage
-        const minOrder = Math.min(...pendingSequentialStages.map(s => s.stage_order));
-        const nextStages = pendingSequentialStages.filter(s => s.stage_order === minOrder);
-        availableStages.push(...nextStages);
-      } else {
-        // Find the highest completed sequential stage order
-        const maxCompletedOrder = Math.max(...completedSequentialStages.map(s => s.stage_order));
-        // Find the next pending stage(s) after the highest completed stage
-        const nextOrderStages = pendingSequentialStages.filter(s => s.stage_order > maxCompletedOrder);
-        
-        if (nextOrderStages.length > 0) {
-          const minNextOrder = Math.min(...nextOrderStages.map(s => s.stage_order));
-          const nextStages = nextOrderStages.filter(s => s.stage_order === minNextOrder);
-          availableStages.push(...nextStages);
-        }
-      }
-    }
+    return availableStages.map(stage => ({
+      stage_id: stage.unique_stage_key || stage.production_stage_id,
+      stage_name: stage.production_stages?.name || stage.stage_name,
+      stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
+      stage_status: stage.status,
+      stage_order: stage.stage_order,
+      unique_stage_key: stage.unique_stage_key,
+      production_stage_id: stage.production_stage_id
+    }));
   }
   
-  // Return mapped stage info with unique identifiers
-  return availableStages.map(stage => ({
-    stage_id: stage.unique_stage_key || stage.production_stage_id,
-    stage_name: stage.production_stages?.name || stage.stage_name,
-    stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
-    stage_status: stage.status,
-    stage_order: stage.stage_order,
-    unique_stage_key: stage.unique_stage_key,
-    production_stage_id: stage.production_stage_id
-  }));
+  // Fallback: Return first pending stage if no logic applies
+  if (pendingStages.length > 0) {
+    const minOrder = Math.min(...pendingStages.map(s => s.stage_order));
+    const firstStages = pendingStages.filter(s => s.stage_order === minOrder);
+    
+    return firstStages.map(stage => ({
+      stage_id: stage.unique_stage_key || stage.production_stage_id,
+      stage_name: stage.production_stages?.name || stage.stage_name,
+      stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
+      stage_status: stage.status,
+      stage_order: stage.stage_order,
+      unique_stage_key: stage.unique_stage_key,
+      production_stage_id: stage.production_stage_id
+    }));
+  }
+  
+  return [];
 };
 
 export const shouldJobAppearInStage = (
