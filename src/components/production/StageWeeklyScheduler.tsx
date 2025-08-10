@@ -260,7 +260,7 @@ export const StageWeeklyScheduler: React.FC = () => {
   
   const onDragStart = (e: DragStartEvent) => {
     const id = e.active.id as string;
-    const found = items.find(i => i.id === id) || backlogItems.find(i => i.id === id) || null;
+    const found = items.find(i => i.id === id) || null;
     setActiveId(id);
     setDragItem(found);
   };
