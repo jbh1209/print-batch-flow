@@ -30,7 +30,7 @@ const AdminSchedulePage: React.FC = () => {
       <header className="mb-6">
         <h1 className="text-2xl font-semibold">Weekly Schedule Board</h1>
         <p className="text-muted-foreground text-sm">
-          Stage-centric planner (by day) with drag-and-drop rescheduling. Toggle to calendar if needed.
+          Stage-centric planner showing active stages for the selected week.
         </p>
       </header>
       <main>

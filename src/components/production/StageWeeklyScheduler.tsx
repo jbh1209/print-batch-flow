@@ -11,6 +11,7 @@ import { format, addDays, startOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { schedulingService } from "@/services/schedulingService";
 import { supabase } from "@/integrations/supabase/client";
+import { useProductionStageCounts } from "@/hooks/tracker/useProductionStageCounts";
 
 // Types
 export interface StageInfo {
@@ -86,12 +87,15 @@ export function useStageSchedule() {
       // Scheduled items in week
       const startIso = new Date(weekStart).toISOString();
       const endIso = new Date(addDays(weekStart, 6)).toISOString();
+      const orFilter = `and(scheduled_start_at.gte.${startIso},scheduled_start_at.lt.${endIso}),and(scheduled_end_at.gte.${startIso},scheduled_end_at.lt.${endIso})`;
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
         .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,status")
+        .eq("job_table_name", "production_jobs")
+        .in("status", ["active", "pending"])
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"]) // guard
-        .gte("scheduled_start_at", startIso)
-        .lt("scheduled_start_at", endIso);
+        .or(orFilter)
+        .order("scheduled_start_at", { ascending: true });
       if (jsiErr) throw jsiErr;
 
       // Fetch job info for display via RPC (admin gets all)
@@ -131,9 +135,22 @@ export function useStageSchedule() {
 }
 
 // UI building blocks
-const StageHeaderCell: React.FC<{ name: string }>
-  = ({ name }) => (
-  <div className="px-3 py-2 font-medium text-sm text-muted-foreground">{name}</div>
+const StageHeaderCell: React.FC<{ name: string; color?: string | null; counts?: { active_jobs: number; pending_jobs: number } }>
+  = ({ name, color, counts }) => (
+  <div className="px-3 py-2">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color || 'hsl(var(--primary))' }} />
+        <span className="font-medium text-sm text-foreground">{name}</span>
+      </div>
+      {counts && (
+        <div className="flex items-center gap-1">
+          <Badge variant="secondary">A {counts.active_jobs}</Badge>
+          <Badge variant="outline">P {counts.pending_jobs}</Badge>
+        </div>
+      )}
+    </div>
+  </div>
 );
 
 const CapacityBar: React.FC<{ used: number; cap: number }>
@@ -190,21 +207,33 @@ export const StageWeeklyScheduler: React.FC = () => {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  const activeStageIds = useMemo(() => new Set(items.map(i => i.production_stage_id)), [items]);
+  const filteredStages = useMemo(() => stages.filter(s => activeStageIds.has(s.id)), [stages, activeStageIds]);
+
+  const { stageCounts } = useProductionStageCounts();
+  const stageCountMap = useMemo(() => Object.fromEntries(stageCounts.map((c: any) => [c.stage_id, c])), [stageCounts]);
+
   // Build buckets per stage/day
   const buckets: Record<string, StageDayBucket> = useMemo(() => {
     const map: Record<string, StageDayBucket> = {};
-    stages.forEach(s => {
+    filteredStages.forEach(s => {
       days.forEach(d => {
         const dateStr = format(d, 'yyyy-MM-dd');
         const key = `${s.id}|${dateStr}`;
         const cap = capacities[s.id] ?? 8*60;
-        const dayItems = items.filter(it => it.production_stage_id === s.id && it.scheduled_start_at && it.scheduled_start_at.startsWith(dateStr));
+        const dayItems = items.filter(it => {
+          if (it.production_stage_id !== s.id) return false;
+          const dt = it.scheduled_start_at || it.scheduled_end_at;
+          if (!dt) return false;
+          const itemDateStr = format(new Date(dt), "yyyy-MM-dd");
+          return itemDateStr === dateStr;
+        });
         const used = dayItems.reduce((sum, it) => sum + (it.scheduled_minutes || 0), 0);
         map[key] = { date: dateStr, items: dayItems, usedMinutes: used, capacityMinutes: cap };
       });
     });
     return map;
-  }, [stages, days, capacities, items]);
+  }, [filteredStages, days, capacities, items]);
 
   const onDragStart = (e: DragStartEvent) => {
     const id = e.active.id as string;
@@ -293,9 +322,13 @@ export const StageWeeklyScheduler: React.FC = () => {
             ))}
 
             {/* Rows per stage */}
-            {stages.map(stage => (
+            {filteredStages.map(stage => (
               <React.Fragment key={stage.id}>
-                <StageHeaderCell name={stage.name} />
+                <StageHeaderCell 
+                  name={stage.name} 
+                  color={stage.color}
+                  counts={stageCountMap[stage.id] ? { active_jobs: stageCountMap[stage.id].active_jobs, pending_jobs: stageCountMap[stage.id].pending_jobs } : undefined}
+                />
                 {days.map(d => {
                   const dateStr = format(d, 'yyyy-MM-dd');
                   const key = `${stage.id}|${dateStr}`;
