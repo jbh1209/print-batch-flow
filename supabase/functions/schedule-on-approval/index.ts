@@ -91,13 +91,13 @@ async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
   
   console.log(`[addWorkingMinutes] Adding ${minutes} minutes to ${current.toISOString()}`);
   
-  // PHASE 2 FIX: Calculate if job fits BEFORE scheduling
+  // Calculate if job fits in current day BEFORE scheduling
   const dayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
   const availableInDay = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
   
   console.log(`[addWorkingMinutes] Day: ${current.toISOString()}, Available: ${availableInDay} min, Required: ${minutes} min`);
   
-  // If job doesn't fit in current day, move ENTIRE job to next working day start
+  // If job doesn't fit, move ENTIRE job to next working day start
   if (minutes > availableInDay) {
     console.log(`[addWorkingMinutes] Job doesn't fit (${minutes} > ${availableInDay}), moving entire job to next day`);
     const nextDay = new Date(current);
@@ -106,11 +106,11 @@ async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
     console.log(`[addWorkingMinutes] Job moved to next day: ${current.toISOString()}`);
   }
   
-  // Job fits in current day - schedule consecutively from start time
+  // Job fits in current day - schedule from start time
   const endTime = new Date(current.getTime() + minutes * 60000);
   console.log(`[addWorkingMinutes] Job scheduled: ${current.toISOString()} → ${endTime.toISOString()}`);
   
-  // VALIDATION: Ensure end time is within working hours (should never happen now)
+  // VALIDATION: Ensure end time is within working hours
   const finalDayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
   if (endTime > finalDayEnd) {
     console.error(`[addWorkingMinutes] CRITICAL ERROR: End time ${endTime.toISOString()} exceeds day end ${finalDayEnd.toISOString()}`);
@@ -195,91 +195,89 @@ serve(async (req) => {
     }
 
     const expedited = await getJobIsExpedited(jobId);
-
-    let pointer = new Date();
-    let lastEnd: Date | null = null;
     const scheduleResults: Array<{ stage_instance_id: UUID; start: string; end: string; minutes: number }> = [];
 
-    console.log(`[schedule-on-approval] Scheduling ${stages?.length} stages for job ${jobId}`);
+    console.log(`[schedule-on-approval] === SEQUENTIAL WORKFLOW SCHEDULING ===`);
+    console.log(`[schedule-on-approval] Scheduling ${stages?.length} stages for job ${jobId} (expedited: ${expedited})`);
+
+    // COMPLETE REWRITE: STRICT SEQUENTIAL WORKFLOW PROCESSING
+    let previousStageEndTime: Date | null = null;
 
     for (const s of (stages as StageInstance[])) {
       const minutes = s.estimated_duration_minutes ?? 60; // default 1h
       console.log(`[schedule-on-approval] === STAGE ${s.stage_order}: ${s.production_stage_id}, Duration: ${minutes} min ===`);
       
-      // PHASE 1 FIX: STRICT WORKFLOW-FIRST SCHEDULING
-      // Step 1: Get workflow dependency start time (previous stage completion)
-      let workflowStartTime = pointer; // Default to current pointer
+      // STEP 1: Determine earliest start time based on workflow dependencies
+      let earliestWorkflowStart: Date;
       
-      if (s.stage_order > 1) {
-        const { data: prevStages } = await supabase
-          .from("job_stage_instances")
-          .select("scheduled_end_at, stage_order, production_stage_id")
-          .eq("job_id", jobId)
-          .eq("job_table_name", jobTable)
-          .lt("stage_order", s.stage_order)
-          .order("stage_order", { ascending: false })
-          .limit(1);
-        
-        if (prevStages && prevStages.length > 0 && prevStages[0].scheduled_end_at) {
-          workflowStartTime = new Date(prevStages[0].scheduled_end_at);
-          console.log(`[schedule-on-approval] WORKFLOW DEPENDENCY: Previous stage (order ${prevStages[0].stage_order}) ends at: ${workflowStartTime.toISOString()}`);
-        } else {
-          console.error(`[schedule-on-approval] ERROR: Stage ${s.stage_order} missing previous stage completion time - workflow dependency violated!`);
-          // Force to use pointer as fallback
+      if (s.stage_order === 1) {
+        // First stage: can start immediately (subject to queue)
+        earliestWorkflowStart = new Date();
+        console.log(`[schedule-on-approval] FIRST STAGE: Can start immediately`);
+      } else {
+        // Subsequent stages: MUST wait for previous stage to complete
+        if (!previousStageEndTime) {
+          console.error(`[schedule-on-approval] CRITICAL ERROR: Stage ${s.stage_order} has no previous stage completion time!`);
+          throw new Error(`Workflow dependency violation: Stage ${s.stage_order} missing previous stage data`);
         }
+        earliestWorkflowStart = new Date(previousStageEndTime);
+        console.log(`[schedule-on-approval] WORKFLOW DEPENDENCY: Stage ${s.stage_order} cannot start before ${earliestWorkflowStart.toISOString()}`);
       }
       
-      // Step 2: Get current queue end time for this stage
-      const queueEnd = await getStageQueueEndTime(s.production_stage_id);
-      console.log(`[schedule-on-approval] QUEUE STATUS: Stage ${s.production_stage_id} queue ends at: ${queueEnd.toISOString()}`);
+      // STEP 2: Get current queue end time for this specific stage
+      const stageQueueEndTime = await getStageQueueEndTime(s.production_stage_id);
+      console.log(`[schedule-on-approval] STAGE QUEUE: Stage ${s.production_stage_id} queue ends at ${stageQueueEndTime.toISOString()}`);
       
-      // PHASE 1 FIX: WORKFLOW DEPENDENCIES TAKE PRIORITY
-      // Schedule at the LATER of: workflow dependency OR queue end
-      let scheduledStart = new Date(Math.max(workflowStartTime.getTime(), queueEnd.getTime()));
-      console.log(`[schedule-on-approval] SCHEDULING CONSTRAINT: Workflow=${workflowStartTime.toISOString()}, Queue=${queueEnd.toISOString()}, Chosen=${scheduledStart.toISOString()}`);
+      // STEP 3: ENFORCE SEQUENTIAL WORKFLOW - stage starts at LATER of workflow dependency OR queue end
+      let actualStartTime = new Date(Math.max(earliestWorkflowStart.getTime(), stageQueueEndTime.getTime()));
+      console.log(`[schedule-on-approval] SCHEDULING CONSTRAINT: Workflow=${earliestWorkflowStart.toISOString()}, Queue=${stageQueueEndTime.toISOString()}`);
+      console.log(`[schedule-on-approval] CHOSEN START TIME: ${actualStartTime.toISOString()}`);
       
-      if (expedited) {
-        console.log(`[schedule-on-approval] Job ${jobId} is expedited - but still respecting workflow dependencies`);
-        // Expedited jobs jump queue but cannot start before workflow allows
-        scheduledStart = new Date(Math.max(workflowStartTime.getTime(), queueEnd.getTime()));
+      // Handle expedited jobs (they can jump their stage queue but still respect workflow)
+      if (expedited && s.stage_order > 1) {
+        // Expedited jobs skip queue but CANNOT start before workflow allows
+        actualStartTime = earliestWorkflowStart;
+        console.log(`[schedule-on-approval] EXPEDITED: Stage starts at workflow dependency time: ${actualStartTime.toISOString()}`);
       }
 
-      // Ensure scheduled start is within working hours
-      scheduledStart = await nextWorkingStart(scheduledStart);
-      console.log(`[schedule-on-approval] WORKING HOURS ADJUSTED: ${scheduledStart.toISOString()}`);
+      // STEP 4: Ensure start time is within working hours
+      actualStartTime = await nextWorkingStart(actualStartTime);
+      console.log(`[schedule-on-approval] WORKING HOURS ADJUSTED: ${actualStartTime.toISOString()}`);
       
-      const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
-      console.log(`[schedule-on-approval] FINAL SCHEDULE: Stage ${s.stage_order} → ${scheduledStart.toISOString()} to ${scheduledEnd.toISOString()}`);
+      // STEP 5: Calculate end time (with proper day boundary handling)
+      const actualEndTime = await addWorkingMinutes(actualStartTime, minutes);
+      console.log(`[schedule-on-approval] FINAL SCHEDULE: Stage ${s.stage_order} → ${actualStartTime.toISOString()} to ${actualEndTime.toISOString()}`);
 
-      // PHASE 4 VALIDATION: Comprehensive checks
-      const startDay = toDateOnly(scheduledStart);
-      const endDay = toDateOnly(scheduledEnd);
+      // STEP 6: COMPREHENSIVE VALIDATION
+      // Validate no overnight spanning
+      const startDay = toDateOnly(actualStartTime);
+      const endDay = toDateOnly(actualEndTime);
       if (startDay !== endDay) {
-        console.error(`[schedule-on-approval] VALIDATION ERROR: Job spans days ${startDay} to ${endDay} - WORKFLOW DEPENDENCY VIOLATION!`);
+        console.error(`[schedule-on-approval] VALIDATION ERROR: Stage spans days ${startDay} to ${endDay}`);
         throw new Error(`Stage ${s.stage_order} spans overnight: ${startDay} to ${endDay}`);
       }
       
       // Validate working hours
-      const startHour = scheduledStart.getUTCHours();
-      const endHour = scheduledEnd.getUTCHours();
-      const endMinute = scheduledEnd.getUTCMinutes();
+      const startHour = actualStartTime.getUTCHours();
+      const endHour = actualEndTime.getUTCHours();
+      const endMinute = actualEndTime.getUTCMinutes();
       if (startHour < WORK_START_HOUR || endHour > WORK_END_HOUR || (endHour === WORK_END_HOUR && endMinute > WORK_END_MINUTE)) {
-        console.error(`[schedule-on-approval] VALIDATION ERROR: Stage outside working hours: ${scheduledStart.toISOString()} to ${scheduledEnd.toISOString()}`);
+        console.error(`[schedule-on-approval] VALIDATION ERROR: Stage outside working hours: ${actualStartTime.toISOString()} to ${actualEndTime.toISOString()}`);
         throw new Error(`Stage ${s.stage_order} scheduled outside working hours (08:00-16:30)`);
       }
       
-      // Validate workflow dependency
-      if (s.stage_order > 1 && scheduledStart < workflowStartTime) {
-        console.error(`[schedule-on-approval] VALIDATION ERROR: Stage ${s.stage_order} starts before workflow allows: ${scheduledStart.toISOString()} < ${workflowStartTime.toISOString()}`);
-        throw new Error(`Stage ${s.stage_order} violates workflow dependency`);
+      // Validate workflow dependency (critical check)
+      if (s.stage_order > 1 && actualStartTime < earliestWorkflowStart) {
+        console.error(`[schedule-on-approval] VALIDATION ERROR: Stage ${s.stage_order} starts before workflow allows`);
+        throw new Error(`Stage ${s.stage_order} violates workflow dependency: starts at ${actualStartTime.toISOString()} but must wait until ${earliestWorkflowStart.toISOString()}`);
       }
 
-      // Update the stage instance in the database
+      // STEP 7: Update stage instance in database
       const { error: updateErr } = await supabase
         .from("job_stage_instances")
         .update({
-          scheduled_start_at: scheduledStart.toISOString(),
-          scheduled_end_at: scheduledEnd.toISOString(),
+          scheduled_start_at: actualStartTime.toISOString(),
+          scheduled_end_at: actualEndTime.toISOString(),
           scheduled_minutes: minutes,
           schedule_status: "scheduled",
         })
@@ -290,20 +288,27 @@ serve(async (req) => {
         continue; // proceed with others
       }
 
-      // PHASE 3 FIX: Update queue end time AFTER workflow enforcement
-      await updateStageQueueEndTime(s.production_stage_id, scheduledEnd);
-      console.log(`[schedule-on-approval] QUEUE UPDATED: Stage ${s.production_stage_id} queue now ends at: ${scheduledEnd.toISOString()}`);
+      // STEP 8: Update stage queue end time for future jobs in same stage
+      await updateStageQueueEndTime(s.production_stage_id, actualEndTime);
+      console.log(`[schedule-on-approval] QUEUE UPDATED: Stage ${s.production_stage_id} queue now ends at ${actualEndTime.toISOString()}`);
 
-      scheduleResults.push({ stage_instance_id: s.id, start: scheduledStart.toISOString(), end: scheduledEnd.toISOString(), minutes });
-      lastEnd = new Date(scheduledEnd);
-      pointer = lastEnd; // Update pointer for next stage workflow dependency
-      console.log(`[schedule-on-approval] POINTER UPDATED: Next stage will start after: ${pointer.toISOString()}`);
+      // STEP 9: Record results and update pointer for next stage
+      scheduleResults.push({ 
+        stage_instance_id: s.id, 
+        start: actualStartTime.toISOString(), 
+        end: actualEndTime.toISOString(), 
+        minutes 
+      });
+      
+      // CRITICAL: Update previousStageEndTime for sequential workflow
+      previousStageEndTime = new Date(actualEndTime);
+      console.log(`[schedule-on-approval] WORKFLOW POINTER UPDATED: Next stage (${s.stage_order + 1}) cannot start before: ${previousStageEndTime.toISOString()}`);
     }
 
-    if (lastEnd) {
-      // Update job dates: internal_completion_date and due_date (+1 working day buffer)
-      const internalCompletionDate = toDateOnly(lastEnd);
-      const dueDate = await computeDueDateFromCompletion(lastEnd);
+    // Update job completion and due dates
+    if (previousStageEndTime) {
+      const internalCompletionDate = toDateOnly(previousStageEndTime);
+      const dueDate = await computeDueDateFromCompletion(previousStageEndTime);
 
       // Fetch job lock status
       const { data: jobData } = await supabase
@@ -329,6 +334,9 @@ serve(async (req) => {
         console.error("Failed updating job dates", jobUpdateErr);
       }
     }
+
+    console.log(`[schedule-on-approval] === SCHEDULING COMPLETE ===`);
+    console.log(`[schedule-on-approval] Job ${jobId} scheduled ${scheduleResults.length} stages sequentially`);
 
     return new Response(JSON.stringify({ ok: true, scheduled: scheduleResults }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
