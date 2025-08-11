@@ -541,6 +541,42 @@ export type Database = {
           },
         ]
       }
+      daily_stage_capacity: {
+        Row: {
+          available_minutes: number | null
+          created_at: string | null
+          date: string
+          id: string
+          overflow_to_next_day: number | null
+          planned_capacity_minutes: number
+          production_stage_id: string
+          scheduled_minutes: number
+          updated_at: string | null
+        }
+        Insert: {
+          available_minutes?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          overflow_to_next_day?: number | null
+          planned_capacity_minutes?: number
+          production_stage_id: string
+          scheduled_minutes?: number
+          updated_at?: string | null
+        }
+        Update: {
+          available_minutes?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          overflow_to_next_day?: number | null
+          planned_capacity_minutes?: number
+          production_stage_id?: string
+          scheduled_minutes?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       daily_workload: {
         Row: {
           capacity_utilization: number | null
@@ -888,6 +924,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
+          daily_completion_minutes: number | null
           dependency_group: string | null
           estimated_duration_minutes: number | null
           id: string
@@ -896,6 +933,7 @@ export type Database = {
           job_order_in_stage: number
           job_table_name: string
           notes: string | null
+          parent_split_id: string | null
           part_assignment: string | null
           part_name: string | null
           part_type: string | null
@@ -908,6 +946,7 @@ export type Database = {
           qr_scan_data: Json | null
           quantity: number | null
           queue_position: number | null
+          remaining_minutes: number | null
           rework_count: number | null
           rework_reason: string | null
           schedule_status: string | null
@@ -915,11 +954,14 @@ export type Database = {
           scheduled_minutes: number | null
           scheduled_start_at: string | null
           setup_time_minutes: number | null
+          split_sequence: number | null
+          split_status: string | null
           stage_order: number
           stage_specification_id: string | null
           started_at: string | null
           started_by: string | null
           status: string
+          total_splits: number | null
           unique_stage_key: string | null
           updated_at: string
         }
@@ -931,6 +973,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          daily_completion_minutes?: number | null
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
           id?: string
@@ -939,6 +982,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name: string
           notes?: string | null
+          parent_split_id?: string | null
           part_assignment?: string | null
           part_name?: string | null
           part_type?: string | null
@@ -951,6 +995,7 @@ export type Database = {
           qr_scan_data?: Json | null
           quantity?: number | null
           queue_position?: number | null
+          remaining_minutes?: number | null
           rework_count?: number | null
           rework_reason?: string | null
           schedule_status?: string | null
@@ -958,11 +1003,14 @@ export type Database = {
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
           setup_time_minutes?: number | null
+          split_sequence?: number | null
+          split_status?: string | null
           stage_order: number
           stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
+          total_splits?: number | null
           unique_stage_key?: string | null
           updated_at?: string
         }
@@ -974,6 +1022,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          daily_completion_minutes?: number | null
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
           id?: string
@@ -982,6 +1031,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name?: string
           notes?: string | null
+          parent_split_id?: string | null
           part_assignment?: string | null
           part_name?: string | null
           part_type?: string | null
@@ -994,6 +1044,7 @@ export type Database = {
           qr_scan_data?: Json | null
           quantity?: number | null
           queue_position?: number | null
+          remaining_minutes?: number | null
           rework_count?: number | null
           rework_reason?: string | null
           schedule_status?: string | null
@@ -1001,11 +1052,14 @@ export type Database = {
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
           setup_time_minutes?: number | null
+          split_sequence?: number | null
+          split_status?: string | null
           stage_order?: number
           stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
+          total_splits?: number | null
           unique_stage_key?: string | null
           updated_at?: string
         }
@@ -1015,6 +1069,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_parent_split_id_fkey"
+            columns: ["parent_split_id"]
+            isOneToOne: false
+            referencedRelation: "job_stage_instances"
             referencedColumns: ["id"]
           },
           {
@@ -2702,6 +2763,18 @@ export type Database = {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
       }
+      get_or_create_daily_capacity: {
+        Args: {
+          p_stage_id: string
+          p_date: string
+          p_capacity_minutes?: number
+        }
+        Returns: {
+          id: string
+          scheduled_minutes: number
+          available_minutes: number
+        }[]
+      }
       get_stage_queue_end_time: {
         Args: { p_stage_id: string; p_date?: string }
         Returns: string
@@ -2820,6 +2893,18 @@ export type Database = {
       get_user_role_safe: {
         Args: { user_id_param: string }
         Returns: string
+      }
+      get_working_hours_config: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          work_start_hour: number
+          work_end_hour: number
+          work_end_minute: number
+          busy_period_active: boolean
+          busy_start_hour: number
+          busy_end_hour: number
+          busy_end_minute: number
+        }[]
       }
       initialize_custom_job_stages: {
         Args: {
@@ -3029,6 +3114,14 @@ export type Database = {
           synced_count: number
           fixed_count: number
         }[]
+      }
+      update_daily_capacity_after_scheduling: {
+        Args: {
+          p_stage_id: string
+          p_date: string
+          p_additional_minutes: number
+        }
+        Returns: boolean
       }
       update_stage_queue_end_time: {
         Args: { p_stage_id: string; p_new_end_time: string; p_date?: string }

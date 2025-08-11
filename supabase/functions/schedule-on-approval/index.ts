@@ -11,7 +11,17 @@ type UUID = string;
 
 interface SchedulingRequest {
   job_id: UUID;
-  job_table_name?: string; // default 'production_jobs'
+  job_table_name?: string;
+}
+
+interface WorkingHoursConfig {
+  work_start_hour: number;
+  work_end_hour: number;
+  work_end_minute: number;
+  busy_period_active: boolean;
+  busy_start_hour: number;
+  busy_end_hour: number;
+  busy_end_minute: number;
 }
 
 interface StageInstance {
@@ -20,24 +30,56 @@ interface StageInstance {
   stage_order: number;
   status: string;
   estimated_duration_minutes: number | null;
-  started_at: string | null;
-  proof_approved_manually_at: string | null;
+  part_assignment: string | null;
+  dependency_group: UUID | null;
+  production_stages: {
+    id: UUID;
+    name: string;
+    supports_parts: boolean;
+  };
 }
 
-// Working hours configuration (can be extended from DB later)
-const WORK_START_HOUR = 8; // 08:00
-const WORK_END_HOUR = 16; // 16:30 handled via minutes
-const WORK_END_MINUTE = 30;
-const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
+interface JobSplit {
+  stage_id: UUID;
+  date: string;
+  start_time: Date;
+  end_time: Date;
+  minutes: number;
+  split_sequence: number;
+  total_splits: number;
+  remaining_minutes: number;
+  is_continuation: boolean;
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 if (!SERVICE_ROLE_KEY) {
-  console.warn("SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY not set - updates may fail due to RLS");
+  console.warn("SERVICE_ROLE_KEY not set - updates may fail due to RLS");
 }
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "");
+
+// ============= PHASE 1: WORKING HOURS CONFIGURATION SYSTEM =============
+
+async function getWorkingHoursConfig(): Promise<WorkingHoursConfig> {
+  const { data, error } = await supabase.rpc('get_working_hours_config');
+  
+  if (error || !data || data.length === 0) {
+    console.warn("Failed to get working hours config, using defaults:", error);
+    return {
+      work_start_hour: 8,
+      work_end_hour: 16,
+      work_end_minute: 30,
+      busy_period_active: false,
+      busy_start_hour: 8,
+      busy_end_hour: 18,
+      busy_end_minute: 0
+    };
+  }
+  
+  return data[0] as WorkingHoursConfig;
+}
 
 function toDateOnly(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -56,117 +98,432 @@ async function isHoliday(date: Date): Promise<boolean> {
 }
 
 async function isWorkingDay(date: Date): Promise<boolean> {
-  const day = date.getUTCDay(); // 0 Sun .. 6 Sat (UTC)
+  const day = date.getUTCDay();
   if (day === 0 || day === 6) return false;
   return !(await isHoliday(date));
 }
 
-function withTime(date: Date, hour: number, minute = 0) {
+function withTime(date: Date, hour: number, minute = 0): Date {
   const d = new Date(date);
   d.setUTCHours(hour, minute, 0, 0);
   return d;
 }
 
 async function nextWorkingStart(from: Date): Promise<Date> {
+  const config = await getWorkingHoursConfig();
+  const startHour = config.busy_period_active ? config.busy_start_hour : config.work_start_hour;
+  
   let d = new Date(from);
-  // Align to working window
   while (!(await isWorkingDay(d))) {
     d.setUTCDate(d.getUTCDate() + 1);
-    d = withTime(d, WORK_START_HOUR, 0);
+    d = withTime(d, startHour, 0);
   }
-  const workStart = withTime(d, WORK_START_HOUR, 0);
-  const workEnd = withTime(d, WORK_END_HOUR, WORK_END_MINUTE);
+  
+  const workStart = withTime(d, startHour, 0);
+  const workEnd = config.busy_period_active 
+    ? withTime(d, config.busy_end_hour, config.busy_end_minute)
+    : withTime(d, config.work_end_hour, config.work_end_minute);
+    
   if (d < workStart) return workStart;
   if (d > workEnd) {
-    // move to next day start
     const n = new Date(d);
     n.setUTCDate(n.getUTCDate() + 1);
-    return nextWorkingStart(withTime(n, WORK_START_HOUR, 0));
+    return nextWorkingStart(withTime(n, startHour, 0));
   }
   return d;
 }
 
-async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
+// ============= PHASE 2: MULTI-DAY JOB SPLITTING ENGINE =============
+
+async function calculateDailyWorkingMinutes(): Promise<number> {
+  const config = await getWorkingHoursConfig();
+  
+  if (config.busy_period_active) {
+    const busyHours = config.busy_end_hour - config.busy_start_hour;
+    const busyMinutes = config.busy_end_minute;
+    return busyHours * 60 + busyMinutes;
+  }
+  
+  const normalHours = config.work_end_hour - config.work_start_hour;
+  const normalMinutes = config.work_end_minute;
+  return normalHours * 60 + normalMinutes;
+}
+
+async function addWorkingMinutesWithSplitting(
+  start: Date, 
+  totalMinutes: number,
+  stageId: UUID,
+  stageInstanceId: UUID
+): Promise<JobSplit[]> {
+  const config = await getWorkingHoursConfig();
+  const dailyCapacityMinutes = await calculateDailyWorkingMinutes();
+  
+  console.log(`[MULTI-DAY ENGINE] Adding ${totalMinutes} minutes from ${start.toISOString()}, daily capacity: ${dailyCapacityMinutes}`);
+  
   let current = await nextWorkingStart(start);
+  let remaining = totalMinutes;
+  const splits: JobSplit[] = [];
+  let splitSequence = 1;
   
-  console.log(`[addWorkingMinutes] Adding ${minutes} minutes to ${current.toISOString()}`);
-  
-  // Calculate if job fits in current day BEFORE scheduling
-  const dayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
-  const availableInDay = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
-  
-  console.log(`[addWorkingMinutes] Day: ${current.toISOString()}, Available: ${availableInDay} min, Required: ${minutes} min`);
-  
-  // If job doesn't fit, move ENTIRE job to next working day start
-  if (minutes > availableInDay) {
-    console.log(`[addWorkingMinutes] Job doesn't fit (${minutes} > ${availableInDay}), moving entire job to next day`);
-    const nextDay = new Date(current);
-    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
-    console.log(`[addWorkingMinutes] Job moved to next day: ${current.toISOString()}`);
+  while (remaining > 0) {
+    const currentDate = toDateOnly(current);
+    
+    // Get daily capacity info for this stage and date
+    const { data: capacityData } = await supabase.rpc('get_or_create_daily_capacity', {
+      p_stage_id: stageId,
+      p_date: currentDate,
+      p_capacity_minutes: dailyCapacityMinutes
+    });
+    
+    const availableToday = capacityData?.[0]?.available_minutes || dailyCapacityMinutes;
+    console.log(`[MULTI-DAY ENGINE] Date: ${currentDate}, Available: ${availableToday}, Remaining: ${remaining}`);
+    
+    const endHour = config.busy_period_active ? config.busy_end_hour : config.work_end_hour;
+    const endMinute = config.busy_period_active ? config.busy_end_minute : config.work_end_minute;
+    const dayEnd = withTime(current, endHour, endMinute);
+    
+    const minutesToScheduleToday = Math.min(remaining, availableToday);
+    const endTime = new Date(current.getTime() + minutesToScheduleToday * 60000);
+    
+    // Ensure we don't exceed working hours
+    const actualEndTime = endTime > dayEnd ? dayEnd : endTime;
+    const actualMinutesToday = Math.floor((actualEndTime.getTime() - current.getTime()) / 60000);
+    
+    console.log(`[MULTI-DAY ENGINE] Split ${splitSequence}: ${current.toISOString()} → ${actualEndTime.toISOString()} (${actualMinutesToday} min)`);
+    
+    splits.push({
+      stage_id: stageId,
+      date: currentDate,
+      start_time: new Date(current),
+      end_time: new Date(actualEndTime),
+      minutes: actualMinutesToday,
+      split_sequence: splitSequence,
+      total_splits: 0, // Will be set after all splits calculated
+      remaining_minutes: remaining - actualMinutesToday,
+      is_continuation: splitSequence > 1
+    });
+    
+    // Update daily capacity
+    await supabase.rpc('update_daily_capacity_after_scheduling', {
+      p_stage_id: stageId,
+      p_date: currentDate,
+      p_additional_minutes: actualMinutesToday
+    });
+    
+    remaining -= actualMinutesToday;
+    splitSequence++;
+    
+    if (remaining > 0) {
+      // Move to next working day
+      const nextDay = new Date(current);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      current = await nextWorkingStart(nextDay);
+    }
   }
   
-  // Job fits in current day - schedule from start time
-  const endTime = new Date(current.getTime() + minutes * 60000);
-  console.log(`[addWorkingMinutes] Job scheduled: ${current.toISOString()} → ${endTime.toISOString()}`);
+  // Update total_splits for all splits
+  splits.forEach(split => split.total_splits = splits.length);
   
-  // VALIDATION: Ensure end time is within working hours
-  const finalDayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
-  if (endTime > finalDayEnd) {
-    console.error(`[addWorkingMinutes] CRITICAL ERROR: End time ${endTime.toISOString()} exceeds day end ${finalDayEnd.toISOString()}`);
-    throw new Error(`Job scheduling error: Job would end at ${endTime.toISOString()} but day ends at ${finalDayEnd.toISOString()}`);
-  }
-  
-  return endTime;
+  console.log(`[MULTI-DAY ENGINE] Job split into ${splits.length} parts across ${splits.length} days`);
+  return splits;
 }
 
-async function getStageQueueEndTime(stageId: UUID): Promise<Date> {
-  // Use the new database function to get queue end time
-  const { data, error } = await supabase.rpc('get_stage_queue_end_time', {
-    p_stage_id: stageId,
-    p_date: toDateOnly(new Date())
+// ============= PHASE 3: WORKFLOW-FIRST DEPENDENCY PROCESSOR =============
+
+function analyzeWorkflowStructure(stages: StageInstance[]): {
+  parallelPaths: Record<string, StageInstance[]>;
+  convergenceStages: StageInstance[];
+} {
+  const parallelPaths: Record<string, StageInstance[]> = {};
+  const convergenceStages: StageInstance[] = [];
+  
+  console.log(`[WORKFLOW ANALYZER] Analyzing ${stages.length} stages`);
+  
+  for (const stage of stages) {
+    const partAssignment = stage.part_assignment || 'main';
+    const stageName = stage.production_stages.name;
+    
+    console.log(`[WORKFLOW ANALYZER] Stage: ${stageName} (order ${stage.stage_order}, part: ${partAssignment})`);
+    
+    if (partAssignment === 'both') {
+      convergenceStages.push(stage);
+      console.log(`[WORKFLOW ANALYZER] → Added to convergence stages`);
+    } else {
+      if (!parallelPaths[partAssignment]) {
+        parallelPaths[partAssignment] = [];
+      }
+      parallelPaths[partAssignment].push(stage);
+      console.log(`[WORKFLOW ANALYZER] → Added to parallel path '${partAssignment}'`);
+    }
+  }
+  
+  // Sort each path by stage_order
+  Object.values(parallelPaths).forEach(path => {
+    path.sort((a, b) => a.stage_order - b.stage_order);
   });
   
-  if (error || !data) {
-    console.error('Error getting stage queue end time:', error);
-    // Fallback to start of next working day
-    return await nextWorkingStart(new Date());
+  // Sort convergence stages by stage_order
+  convergenceStages.sort((a, b) => a.stage_order - b.stage_order);
+  
+  console.log(`[WORKFLOW ANALYZER] Result: ${Object.keys(parallelPaths).length} parallel paths, ${convergenceStages.length} convergence stages`);
+  
+  return { parallelPaths, convergenceStages };
+}
+
+async function processParallelWorkflowPath(
+  pathName: string,
+  pathStages: StageInstance[],
+  expedited: boolean
+): Promise<{ pathCompletionTime: Date; scheduleResults: any[] }> {
+  console.log(`\n[PARALLEL PROCESSOR] === PROCESSING PATH: ${pathName.toUpperCase()} ===`);
+  
+  let pathCurrentTime = await nextWorkingStart(new Date());
+  const scheduleResults: any[] = [];
+  
+  for (const stage of pathStages) {
+    const stageId = stage.production_stage_id;
+    const stageName = stage.production_stages.name;
+    const minutes = stage.estimated_duration_minutes ?? 60;
+    
+    console.log(`[PARALLEL PROCESSOR] Scheduling ${stageName} (${minutes} min)`);
+    
+    // Get stage queue end time (existing capacity-aware system)
+    const { data: queueData } = await supabase.rpc('get_stage_queue_end_time', {
+      p_stage_id: stageId,
+      p_date: toDateOnly(new Date())
+    });
+    
+    const stageQueueEndTime = queueData ? new Date(queueData) : await nextWorkingStart(new Date());
+    console.log(`[PARALLEL PROCESSOR] Stage queue ends at: ${stageQueueEndTime.toISOString()}`);
+    console.log(`[PARALLEL PROCESSOR] Path workflow time: ${pathCurrentTime.toISOString()}`);
+    
+    // WORKFLOW-FIRST: Start time is the later of workflow sequence OR stage queue
+    let actualStartTime = new Date(Math.max(pathCurrentTime.getTime(), stageQueueEndTime.getTime()));
+    
+    if (expedited) {
+      actualStartTime = pathCurrentTime;
+      console.log(`[PARALLEL PROCESSOR] EXPEDITED: Using workflow time`);
+    }
+    
+    actualStartTime = await nextWorkingStart(actualStartTime);
+    
+    // Calculate job splits across multiple days
+    const jobSplits = await addWorkingMinutesWithSplitting(
+      actualStartTime,
+      minutes,
+      stageId,
+      stage.id
+    );
+    
+    // Update stage instances for each split
+    for (let i = 0; i < jobSplits.length; i++) {
+      const split = jobSplits[i];
+      const isOriginal = i === 0;
+      let instanceId = stage.id;
+      
+      // Create continuation stage instances for multi-day jobs
+      if (!isOriginal) {
+        const { data: newInstance, error } = await supabase
+          .from("job_stage_instances")
+          .insert({
+            job_id: (stage as any).job_id,
+            job_table_name: (stage as any).job_table_name,
+            category_id: (stage as any).category_id,
+            production_stage_id: stageId,
+            stage_order: stage.stage_order,
+            status: 'pending',
+            part_assignment: stage.part_assignment,
+            dependency_group: stage.dependency_group,
+            estimated_duration_minutes: split.minutes,
+            split_sequence: split.split_sequence,
+            total_splits: split.total_splits,
+            parent_split_id: stage.id,
+            remaining_minutes: split.remaining_minutes,
+            split_status: 'continuation'
+          })
+          .select('id')
+          .single();
+          
+        if (error) {
+          console.error(`Failed to create continuation stage:`, error);
+          continue;
+        }
+        instanceId = newInstance.id;
+      }
+      
+      // Update the stage instance with scheduling info
+      const { error: updateErr } = await supabase
+        .from("job_stage_instances")
+        .update({
+          scheduled_start_at: split.start_time.toISOString(),
+          scheduled_end_at: split.end_time.toISOString(),
+          scheduled_minutes: split.minutes,
+          schedule_status: "scheduled",
+          split_sequence: split.split_sequence,
+          total_splits: split.total_splits,
+          remaining_minutes: split.remaining_minutes,
+          daily_completion_minutes: split.minutes,
+          split_status: isOriginal ? (jobSplits.length > 1 ? 'partial' : 'complete') : 'continuation',
+          job_order_in_stage: expedited ? 0 : null
+        })
+        .eq("id", instanceId);
+      
+      if (updateErr) {
+        console.error(`Failed updating stage instance:`, updateErr);
+        continue;
+      }
+      
+      scheduleResults.push({
+        stage_instance_id: instanceId,
+        start: split.start_time.toISOString(),
+        end: split.end_time.toISOString(),
+        minutes: split.minutes,
+        split_sequence: split.split_sequence,
+        total_splits: split.total_splits
+      });
+    }
+    
+    // Update stage queue end time with final completion
+    const finalSplit = jobSplits[jobSplits.length - 1];
+    await supabase.rpc('update_stage_queue_end_time', {
+      p_stage_id: stageId,
+      p_new_end_time: finalSplit.end_time.toISOString(),
+      p_date: toDateOnly(finalSplit.end_time)
+    });
+    
+    // Update path pointer for next stage (workflow dependency)
+    pathCurrentTime = new Date(finalSplit.end_time);
+    console.log(`[PARALLEL PROCESSOR] Path updated: Next stage waits until ${pathCurrentTime.toISOString()}`);
   }
   
-  console.log(`[getStageQueueEndTime] Stage ${stageId} queue ends at: ${data}`);
-  return new Date(data);
+  console.log(`[PARALLEL PROCESSOR] Path '${pathName}' completed at: ${pathCurrentTime.toISOString()}`);
+  return { pathCompletionTime: pathCurrentTime, scheduleResults };
 }
 
-async function updateStageQueueEndTime(stageId: UUID, newEndTime: Date): Promise<void> {
-  // Use the new database function to update queue end time
-  const { error } = await supabase.rpc('update_stage_queue_end_time', {
-    p_stage_id: stageId,
-    p_new_end_time: newEndTime.toISOString(),
-    p_date: toDateOnly(newEndTime)
-  });
+async function processConvergenceStages(
+  convergenceStages: StageInstance[],
+  pathCompletionTimes: Record<string, Date>,
+  expedited: boolean
+): Promise<any[]> {
+  if (convergenceStages.length === 0) return [];
   
-  if (error) {
-    console.error('Error updating stage queue end time:', error);
-  } else {
-    console.log(`[updateStageQueueEndTime] Updated stage ${stageId} queue to end at: ${newEndTime.toISOString()}`);
+  console.log(`\n[CONVERGENCE PROCESSOR] === PROCESSING CONVERGENCE STAGES ===`);
+  
+  // Find latest completion time from all parallel paths
+  const latestPathCompletion = Object.values(pathCompletionTimes).reduce(
+    (latest, current) => current > latest ? current : latest, 
+    new Date()
+  );
+  
+  console.log(`[CONVERGENCE PROCESSOR] All paths converge at: ${latestPathCompletion.toISOString()}`);
+  
+  let convergenceCurrentTime = latestPathCompletion;
+  const scheduleResults: any[] = [];
+  
+  for (const stage of convergenceStages) {
+    const stageId = stage.production_stage_id;
+    const stageName = stage.production_stages.name;
+    const minutes = stage.estimated_duration_minutes ?? 60;
+    
+    console.log(`[CONVERGENCE PROCESSOR] Scheduling ${stageName} (${minutes} min)`);
+    
+    const { data: queueData } = await supabase.rpc('get_stage_queue_end_time', {
+      p_stage_id: stageId,
+      p_date: toDateOnly(new Date())
+    });
+    
+    const stageQueueEndTime = queueData ? new Date(queueData) : await nextWorkingStart(new Date());
+    
+    let actualStartTime = new Date(Math.max(convergenceCurrentTime.getTime(), stageQueueEndTime.getTime()));
+    
+    if (expedited) {
+      actualStartTime = convergenceCurrentTime;
+    }
+    
+    actualStartTime = await nextWorkingStart(actualStartTime);
+    
+    // Handle multi-day convergence stages
+    const jobSplits = await addWorkingMinutesWithSplitting(
+      actualStartTime,
+      minutes,
+      stageId,
+      stage.id
+    );
+    
+    // Update convergence stage instances
+    for (let i = 0; i < jobSplits.length; i++) {
+      const split = jobSplits[i];
+      const isOriginal = i === 0;
+      let instanceId = stage.id;
+      
+      if (!isOriginal) {
+        const { data: newInstance, error } = await supabase
+          .from("job_stage_instances")
+          .insert({
+            job_id: (stage as any).job_id,
+            job_table_name: (stage as any).job_table_name,
+            category_id: (stage as any).category_id,
+            production_stage_id: stageId,
+            stage_order: stage.stage_order,
+            status: 'pending',
+            part_assignment: stage.part_assignment,
+            dependency_group: stage.dependency_group,
+            estimated_duration_minutes: split.minutes,
+            split_sequence: split.split_sequence,
+            total_splits: split.total_splits,
+            parent_split_id: stage.id,
+            remaining_minutes: split.remaining_minutes,
+            split_status: 'continuation'
+          })
+          .select('id')
+          .single();
+          
+        if (error) continue;
+        instanceId = newInstance.id;
+      }
+      
+      const { error: updateErr } = await supabase
+        .from("job_stage_instances")
+        .update({
+          scheduled_start_at: split.start_time.toISOString(),
+          scheduled_end_at: split.end_time.toISOString(),
+          scheduled_minutes: split.minutes,
+          schedule_status: "scheduled",
+          split_sequence: split.split_sequence,
+          total_splits: split.total_splits,
+          remaining_minutes: split.remaining_minutes,
+          daily_completion_minutes: split.minutes,
+          split_status: isOriginal ? (jobSplits.length > 1 ? 'partial' : 'complete') : 'continuation',
+          job_order_in_stage: expedited ? 0 : null
+        })
+        .eq("id", instanceId);
+      
+      if (!updateErr) {
+        scheduleResults.push({
+          stage_instance_id: instanceId,
+          start: split.start_time.toISOString(),
+          end: split.end_time.toISOString(),
+          minutes: split.minutes,
+          split_sequence: split.split_sequence,
+          total_splits: split.total_splits
+        });
+      }
+    }
+    
+    const finalSplit = jobSplits[jobSplits.length - 1];
+    await supabase.rpc('update_stage_queue_end_time', {
+      p_stage_id: stageId,
+      p_new_end_time: finalSplit.end_time.toISOString(),
+      p_date: toDateOnly(finalSplit.end_time)
+    });
+    
+    convergenceCurrentTime = new Date(finalSplit.end_time);
   }
+  
+  return scheduleResults;
 }
 
-async function getJobIsExpedited(jobId: UUID): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("production_jobs")
-    .select("is_expedited")
-    .eq("id", jobId)
-    .single();
-  if (error || !data) return false;
-  return Boolean(data.is_expedited);
-}
-
-async function computeDueDateFromCompletion(completion: Date): Promise<string> {
-  // Add 1 working day buffer
-  const withBuffer = await addWorkingMinutes(completion, (8 * 60));
-  return toDateOnly(withBuffer);
-}
+// ============= MAIN SCHEDULING ORCHESTRATOR =============
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -178,9 +535,9 @@ serve(async (req) => {
     const jobId = body.job_id;
     const jobTable = body.job_table_name ?? "production_jobs";
 
-    console.log("🚀 [PARALLEL-AWARE SCHEDULING] Starting job", jobId, jobTable);
+    console.log("🚀 [WORKFLOW-FIRST SCHEDULER] Starting job", jobId, jobTable);
 
-    // Fetch stages for this job WITH parallel processing information
+    // Fetch stages with parallel processing information
     const { data: stages, error: stagesError } = await supabase
       .from("job_stage_instances")
       .select(`
@@ -191,6 +548,9 @@ serve(async (req) => {
         estimated_duration_minutes, 
         part_assignment,
         dependency_group,
+        job_id,
+        job_table_name,
+        category_id,
         production_stages!inner (
           id,
           name,
@@ -204,230 +564,68 @@ serve(async (req) => {
 
     if (stagesError) {
       console.error("❌ Failed to fetch stages", stagesError);
-      return new Response(JSON.stringify({ error: stagesError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: stagesError.message }), { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
     }
 
     if (!stages || stages.length === 0) {
       console.log("ℹ️ No pending stages found for job");
-      return new Response(JSON.stringify({ ok: true, scheduled: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, scheduled: [] }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
     }
 
-    const expedited = await getJobIsExpedited(jobId);
-    const scheduleResults: Array<{ stage_instance_id: UUID; start: string; end: string; minutes: number }> = [];
+    const { data: jobData } = await supabase
+      .from("production_jobs")
+      .select("is_expedited")
+      .eq("id", jobId)
+      .single();
 
+    const expedited = jobData?.is_expedited ?? false;
     console.log(`📋 Found ${stages.length} stages to schedule (expedited: ${expedited})`);
 
-    // STEP 1: ANALYZE WORKFLOW STRUCTURE - Group stages by workflow path
-    const workflowPaths: Record<string, any[]> = {};
-    const convergenceStages: any[] = [];
+    // STEP 1: Analyze workflow structure
+    const { parallelPaths, convergenceStages } = analyzeWorkflowStructure(stages as StageInstance[]);
 
-    for (const stage of stages) {
-      const partAssignment = stage.part_assignment || 'main';
-      const stageName = stage.production_stages?.name || 'Unknown';
-      
-      console.log(`🔍 Analyzing stage: ${stageName} (order ${stage.stage_order}, part: ${partAssignment})`);
-      
-      if (partAssignment === 'both') {
-        // Convergence points - wait for ALL parallel paths to complete
-        convergenceStages.push(stage);
-        console.log(`🔗 Added to convergence stages: ${stageName}`);
-      } else {
-        // Parallel workflow paths
-        if (!workflowPaths[partAssignment]) {
-          workflowPaths[partAssignment] = [];
-        }
-        workflowPaths[partAssignment].push(stage);
-        console.log(`🛤️ Added to workflow path '${partAssignment}': ${stageName}`);
-      }
-    }
-
-    console.log(`🔀 Workflow analysis complete:`);
-    console.log(`   • Parallel paths: ${Object.keys(workflowPaths).length} (${Object.keys(workflowPaths).join(', ')})`);
-    console.log(`   • Convergence stages: ${convergenceStages.length}`);
-
-    // STEP 2: PROCESS PARALLEL PATHS SEPARATELY
+    let allScheduleResults: any[] = [];
     const pathCompletionTimes: Record<string, Date> = {};
 
-    for (const [pathName, pathStages] of Object.entries(workflowPaths)) {
-      console.log(`\n🛤️ === PROCESSING WORKFLOW PATH: ${pathName.toUpperCase()} ===`);
-      
-      // Sort stages in this path by stage_order to enforce workflow sequence
-      pathStages.sort((a, b) => a.stage_order - b.stage_order);
-      console.log(`📊 Path stages: ${pathStages.map(s => `${s.production_stages?.name}(${s.stage_order})`).join(' → ')}`);
-      
-      let pathCurrentTime = await nextWorkingStart(new Date());
-      
-      for (const stage of pathStages) {
-        const stageId = stage.production_stage_id;
-        const stageName = stage.production_stages?.name || 'Unknown';
-        const minutes = stage.estimated_duration_minutes ?? 60;
-        
-        console.log(`\n📅 Scheduling ${stageName} (${pathName} path, order ${stage.stage_order})`);
-        console.log(`⏱️ Duration: ${minutes} minutes`);
-        
-        // Get current queue end time for this stage
-        const stageQueueEndTime = await getStageQueueEndTime(stageId);
-        console.log(`🕐 Stage queue ends at: ${stageQueueEndTime.toISOString()}`);
-        console.log(`🕐 Path workflow time: ${pathCurrentTime.toISOString()}`);
-        
-        // WORKFLOW-FIRST LOGIC: Start time is the later of workflow sequence OR stage queue
-        let actualStartTime = new Date(Math.max(pathCurrentTime.getTime(), stageQueueEndTime.getTime()));
-        console.log(`🚀 Calculated start time: ${actualStartTime.toISOString()}`);
-        
-        // Handle expedited jobs (skip queue but respect workflow)
-        if (expedited && stage.stage_order > 1) {
-          actualStartTime = pathCurrentTime;
-          console.log(`⚡ EXPEDITED: Using workflow time: ${actualStartTime.toISOString()}`);
-        }
-
-        // Ensure start time is within working hours
-        actualStartTime = await nextWorkingStart(actualStartTime);
-        console.log(`🕰️ Working hours adjusted: ${actualStartTime.toISOString()}`);
-        
-        // Calculate end time with proper working hours handling
-        const actualEndTime = await addWorkingMinutes(actualStartTime, minutes);
-        console.log(`🏁 Final schedule: ${actualStartTime.toISOString()} → ${actualEndTime.toISOString()}`);
-
-        // STEP 5: COMPREHENSIVE WORKFLOW VALIDATION
-        const startDay = toDateOnly(actualStartTime);
-        const endDay = toDateOnly(actualEndTime);
-        if (startDay !== endDay) {
-          throw new Error(`Path ${pathName} stage ${stageName} spans overnight: ${startDay} to ${endDay}`);
-        }
-
-        // Update stage instance in database
-        const { error: updateErr } = await supabase
-          .from("job_stage_instances")
-          .update({
-            scheduled_start_at: actualStartTime.toISOString(),
-            scheduled_end_at: actualEndTime.toISOString(),
-            scheduled_minutes: minutes,
-            schedule_status: "scheduled",
-            job_order_in_stage: expedited ? 0 : null
-          })
-          .eq("id", stage.id);
-
-        if (updateErr) {
-          console.error(`❌ Failed updating stage ${stageName}:`, updateErr);
-          continue;
-        }
-
-        // STEP 4: IMPLEMENT ATOMIC QUEUE UPDATES
-        await updateStageQueueEndTime(stageId, actualEndTime);
-        console.log(`✅ Updated queue end time for ${stageName} to ${actualEndTime.toISOString()}`);
-
-        // Track scheduled stage
-        scheduleResults.push({ 
-          stage_instance_id: stage.id, 
-          start: actualStartTime.toISOString(), 
-          end: actualEndTime.toISOString(), 
-          minutes 
-        });
-        
-        // ENFORCE WORKFLOW SEQUENCE: Next stage in this path waits for this one
-        pathCurrentTime = new Date(actualEndTime);
-        console.log(`🔄 Path pointer updated: Next stage waits until ${pathCurrentTime.toISOString()}`);
-      }
-      
-      // Store completion time for this workflow path
-      pathCompletionTimes[pathName] = pathCurrentTime;
-      console.log(`✅ Workflow path '${pathName}' completes at: ${pathCurrentTime.toISOString()}`);
-    }
-
-    // STEP 3: HANDLE CONVERGENCE POINTS
-    if (convergenceStages.length > 0) {
-      console.log(`\n🔗 === PROCESSING CONVERGENCE STAGES ===`);
-      
-      // Find the latest completion time from all parallel paths
-      const latestPathCompletion = Object.values(pathCompletionTimes).reduce((latest, current) => 
-        current > latest ? current : latest, new Date()
+    // STEP 2: Process parallel workflow paths
+    for (const [pathName, pathStages] of Object.entries(parallelPaths)) {
+      const { pathCompletionTime, scheduleResults } = await processParallelWorkflowPath(
+        pathName,
+        pathStages,
+        expedited
       );
-      
-      console.log(`⏰ All parallel paths converge at: ${latestPathCompletion.toISOString()}`);
-      
-      // Sort convergence stages by stage_order
-      convergenceStages.sort((a, b) => a.stage_order - b.stage_order);
-      
-      let convergenceCurrentTime = latestPathCompletion;
-      
-      for (const stage of convergenceStages) {
-        const stageId = stage.production_stage_id;
-        const stageName = stage.production_stages?.name || 'Unknown';
-        const minutes = stage.estimated_duration_minutes ?? 60;
-        
-        console.log(`\n📅 Scheduling convergence stage: ${stageName} (order ${stage.stage_order})`);
-        
-        // Get current queue end time for this stage
-        const stageQueueEndTime = await getStageQueueEndTime(stageId);
-        console.log(`🕐 Stage queue ends at: ${stageQueueEndTime.toISOString()}`);
-        console.log(`🕐 Convergence time: ${convergenceCurrentTime.toISOString()}`);
-        
-        // Start time is the later of: convergence time OR stage queue time
-        let actualStartTime = new Date(Math.max(convergenceCurrentTime.getTime(), stageQueueEndTime.getTime()));
-        console.log(`🚀 Calculated start time: ${actualStartTime.toISOString()}`);
-        
-        // Handle expedited jobs
-        if (expedited) {
-          actualStartTime = convergenceCurrentTime;
-          console.log(`⚡ EXPEDITED: Using convergence time: ${actualStartTime.toISOString()}`);
-        }
-
-        // Ensure start time is within working hours
-        actualStartTime = await nextWorkingStart(actualStartTime);
-        console.log(`🕰️ Working hours adjusted: ${actualStartTime.toISOString()}`);
-        
-        // Calculate end time with proper working hours handling
-        const actualEndTime = await addWorkingMinutes(actualStartTime, minutes);
-        console.log(`🏁 Final schedule: ${actualStartTime.toISOString()} → ${actualEndTime.toISOString()}`);
-
-        // Update stage instance in database
-        const { error: updateErr } = await supabase
-          .from("job_stage_instances")
-          .update({
-            scheduled_start_at: actualStartTime.toISOString(),
-            scheduled_end_at: actualEndTime.toISOString(),
-            scheduled_minutes: minutes,
-            schedule_status: "scheduled",
-            job_order_in_stage: expedited ? 0 : null
-          })
-          .eq("id", stage.id);
-
-        if (updateErr) {
-          console.error(`❌ Failed updating convergence stage ${stageName}:`, updateErr);
-          continue;
-        }
-
-        // Update stage queue end time atomically
-        await updateStageQueueEndTime(stageId, actualEndTime);
-        console.log(`✅ Updated queue end time for ${stageName} to ${actualEndTime.toISOString()}`);
-
-        // Track scheduled stage
-        scheduleResults.push({ 
-          stage_instance_id: stage.id, 
-          start: actualStartTime.toISOString(), 
-          end: actualEndTime.toISOString(), 
-          minutes 
-        });
-
-        // Update convergence time for next convergence stage
-        convergenceCurrentTime = new Date(actualEndTime);
-      }
+      pathCompletionTimes[pathName] = pathCompletionTime;
+      allScheduleResults.push(...scheduleResults);
     }
 
-    // Update job completion and due dates
-    if (scheduleResults.length > 0) {
+    // STEP 3: Process convergence stages
+    const convergenceResults = await processConvergenceStages(
+      convergenceStages as StageInstance[],
+      pathCompletionTimes,
+      expedited
+    );
+    allScheduleResults.push(...convergenceResults);
+
+    // STEP 4: Update job completion and due dates
+    if (allScheduleResults.length > 0) {
       const finalCompletionDate = new Date(Math.max(
-        ...scheduleResults.map(s => new Date(s.end).getTime())
+        ...allScheduleResults.map(s => new Date(s.end).getTime())
       ));
       
       const internalCompletionDate = toDateOnly(finalCompletionDate);
-      const dueDate = await computeDueDateFromCompletion(finalCompletionDate);
+      const dailyCapacity = await calculateDailyWorkingMinutes();
+      const bufferEnd = await addWorkingMinutesWithSplitting(finalCompletionDate, dailyCapacity, stages[0].production_stage_id, stages[0].id);
+      const dueDate = toDateOnly(bufferEnd[bufferEnd.length - 1].end_time);
 
       console.log(`📅 Final job completion: ${finalCompletionDate.toISOString()}`);
       console.log(`📅 Computed due date: ${dueDate}`);
 
-      // Fetch job lock status
-      const { data: jobData } = await supabase
+      const { data: jobLockData } = await supabase
         .from("production_jobs")
         .select("due_date_locked")
         .eq("id", jobId)
@@ -437,37 +635,35 @@ serve(async (req) => {
         internal_completion_date: internalCompletionDate,
         last_due_date_check: new Date().toISOString(),
       };
-      if (!jobData || jobData.due_date_locked !== true) {
+      
+      if (!jobLockData?.due_date_locked) {
         updatePayload.due_date = dueDate;
         updatePayload.due_date_warning_level = "green";
       }
 
-      const { error: jobUpdateErr } = await supabase
+      await supabase
         .from("production_jobs")
         .update(updatePayload)
         .eq("id", jobId);
-      if (jobUpdateErr) {
-        console.error("❌ Failed updating job dates", jobUpdateErr);
-      } else {
-        console.log("✅ Updated job completion and due dates");
-      }
     }
 
-    // STEP 5: FINAL VALIDATION AND LOGGING
-    console.log(`\n✅ === PARALLEL-AWARE SCHEDULING COMPLETE ===`);
-    console.log(`📊 Total stages scheduled: ${scheduleResults.length}`);
-    console.log(`🛤️ Workflow paths processed: ${Object.keys(workflowPaths).length}`);
-    console.log(`🔗 Convergence stages processed: ${convergenceStages.length}`);
-    console.log(`⚡ Job expedited: ${expedited}`);
+    console.log(`✅ [WORKFLOW-FIRST SCHEDULER] Successfully scheduled ${allScheduleResults.length} stage instances`);
 
-    return new Response(JSON.stringify({ ok: true, scheduled: scheduleResults }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ 
+      ok: true, 
+      scheduled: allScheduleResults 
+    }), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
-  } catch (e: any) {
-    console.error("❌ [PARALLEL-AWARE SCHEDULING] Error:", e);
-    return new Response(JSON.stringify({ error: e?.message ?? "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+  } catch (error: any) {
+    console.error("❌ [WORKFLOW-FIRST SCHEDULER] Error:", error);
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      error: error.message 
+    }), { 
+      status: 500, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   }
 });
