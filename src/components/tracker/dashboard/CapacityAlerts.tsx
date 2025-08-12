@@ -14,7 +14,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
-import { stageQueueManager } from "@/services/stageQueueManager";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface CapacityAlert {
@@ -37,20 +37,34 @@ export const CapacityAlerts: React.FC = () => {
 
   const generateAlerts = async () => {
     try {
-      const workloads = await stageQueueManager.getAllStageWorkloads();
-      const bottlenecks = await stageQueueManager.getBottleneckStages(5);
+      // Get stage workloads from tracking table
+      const { data: workloads, error } = await supabase
+        .from('stage_workload_tracking')
+        .select(`
+          production_stage_id,
+          committed_hours,
+          available_hours,
+          queue_length_hours,
+          pending_jobs_count,
+          active_jobs_count,
+          production_stages(name)
+        `)
+        .gte('date', new Date().toISOString().split('T')[0]);
+      
+      if (error) throw error;
+      
       const newAlerts: CapacityAlert[] = [];
 
-      // Critical capacity alerts (>95% utilization)
-      workloads.forEach(workload => {
-        const utilization = ((workload.totalPendingHours + workload.totalActiveHours) / 
-          (workload.dailyCapacityHours * 7)) * 100;
+      // Process workloads for alerts
+      (workloads || []).forEach(workload => {
+        const stageName = (workload.production_stages as any)?.name || 'Unknown Stage';
+        const utilization = ((workload.committed_hours || 0) / (workload.available_hours || 8)) * 100;
 
         if (utilization > 95) {
           newAlerts.push({
-            id: `critical-${workload.stageId}-${Date.now()}`,
+            id: `critical-${workload.production_stage_id}-${Date.now()}`,
             type: 'critical',
-            stage: workload.stageName,
+            stage: stageName,
             message: `Critical capacity overload: ${utilization.toFixed(1)}% utilization`,
             metric: utilization,
             threshold: 95,
@@ -59,9 +73,9 @@ export const CapacityAlerts: React.FC = () => {
           });
         } else if (utilization > 80) {
           newAlerts.push({
-            id: `warning-${workload.stageId}-${Date.now()}`,
+            id: `warning-${workload.production_stage_id}-${Date.now()}`,
             type: 'warning',
-            stage: workload.stageName,
+            stage: stageName,
             message: `High capacity usage: ${utilization.toFixed(1)}% utilization`,
             metric: utilization,
             threshold: 80,
@@ -70,45 +84,32 @@ export const CapacityAlerts: React.FC = () => {
           });
         }
 
-        // Queue length alerts
-        if (workload.queueDaysToProcess > 7) {
+        // Queue length alerts (simplified)
+        const queueDays = (workload.queue_length_hours || 0) / 8;
+        if (queueDays > 7) {
           newAlerts.push({
-            id: `queue-${workload.stageId}-${Date.now()}`,
+            id: `queue-${workload.production_stage_id}-${Date.now()}`,
             type: 'critical',
-            stage: workload.stageName,
-            message: `Excessive queue length: ${workload.queueDaysToProcess.toFixed(1)} days to process`,
-            metric: workload.queueDaysToProcess,
+            stage: stageName,
+            message: `Excessive queue length: ${queueDays.toFixed(1)} days to process`,
+            metric: queueDays,
             threshold: 7,
             timestamp: new Date(),
             isNew: true
           });
-        } else if (workload.queueDaysToProcess > 3) {
+        } else if (queueDays > 3) {
           newAlerts.push({
-            id: `queue-warning-${workload.stageId}-${Date.now()}`,
+            id: `queue-warning-${workload.production_stage_id}-${Date.now()}`,
             type: 'warning',
-            stage: workload.stageName,
-            message: `Growing queue: ${workload.queueDaysToProcess.toFixed(1)} days to process`,
-            metric: workload.queueDaysToProcess,
+            stage: stageName,
+            message: `Growing queue: ${queueDays.toFixed(1)} days to process`,
+            metric: queueDays,
             threshold: 3,
             timestamp: new Date(),
             isNew: true
           });
         }
       });
-
-      // Bottleneck trend alerts
-      if (bottlenecks.length > 3) {
-        newAlerts.push({
-          id: `bottleneck-trend-${Date.now()}`,
-          type: 'warning',
-          stage: 'Production System',
-          message: `Multiple bottlenecks detected: ${bottlenecks.length} stages need attention`,
-          metric: bottlenecks.length,
-          threshold: 3,
-          timestamp: new Date(),
-          isNew: true
-        });
-      }
 
       // Capacity trend info
       if (workloadSummary && workloadSummary.capacityUtilization > 85) {

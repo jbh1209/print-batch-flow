@@ -13,7 +13,7 @@ import {
   Calendar,
   BarChart3
 } from 'lucide-react';
-import { stageQueueManager } from '@/services/stageQueueManager';
+import { supabase } from "@/integrations/supabase/client";
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 

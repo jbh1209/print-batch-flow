@@ -16,7 +16,7 @@ import {
   Target
 } from "lucide-react";
 import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
-import { stageQueueManager } from "@/services/stageQueueManager";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface StageFlow {

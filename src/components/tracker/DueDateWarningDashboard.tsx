@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Calendar, Clock, RefreshCw } from 'lucide-react';
-import { dynamicDueDateService } from '@/services/dynamicDueDateService';
+import { useWorkflowFirstScheduling } from '@/hooks/tracker/useWorkflowFirstScheduling';
+import { supabase } from "@/integrations/supabase/client";
 
 interface JobWithWarning {
   id: string;
@@ -26,11 +27,35 @@ export const DueDateWarningDashboard: React.FC = () => {
   const [warningJobs, setWarningJobs] = useState<JobWithWarning[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { recalculateAllJobs } = useWorkflowFirstScheduling();
 
   const loadWarningJobs = async () => {
     try {
-      const jobs = await dynamicDueDateService.getJobsWithWarnings();
-      setWarningJobs(jobs);
+      // Get jobs with warning levels from production_jobs
+      const { data: jobs, error } = await supabase
+        .from('production_jobs')
+        .select(`
+          id,
+          wo_no,
+          customer,
+          due_date,
+          internal_completion_date,
+          due_date_warning_level
+        `)
+        .neq('due_date_warning_level', 'green')
+        .neq('status', 'Completed')
+        .order('due_date_warning_level', { ascending: false });
+      
+      if (error) throw error;
+      
+      const jobsWithWarnings = (jobs || []).map(job => ({
+        ...job,
+        days_overdue: job.internal_completion_date && job.due_date
+          ? Math.max(0, Math.ceil((new Date(job.internal_completion_date).getTime() - new Date(job.due_date).getTime()) / (24 * 60 * 60 * 1000)))
+          : 0
+      }));
+      
+      setWarningJobs(jobsWithWarnings);
     } catch (error) {
       console.error('Failed to load warning jobs:', error);
     } finally {
@@ -41,7 +66,7 @@ export const DueDateWarningDashboard: React.FC = () => {
   const refreshDueDates = async () => {
     setIsRefreshing(true);
     try {
-      await dynamicDueDateService.recalculateJobDueDates();
+      await recalculateAllJobs();
       await loadWarningJobs();
     } catch (error) {
       console.error('Failed to refresh due dates:', error);

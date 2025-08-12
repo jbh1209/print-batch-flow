@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, TrendingUp } from 'lucide-react';
-import { ProductionScheduler } from '@/services/productionScheduler';
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
 
 interface DailyWorkload {
@@ -30,8 +30,34 @@ export const ProductionCalendar: React.FC = () => {
       endDate.setDate(endDate.getDate() + 10);
       const endDateStr = endDate.toISOString().split('T')[0];
       
-      const data = await ProductionScheduler.getScheduleOverview(startDate, endDateStr);
-      setWorkloadData(data);
+      // Get workload overview from stage workload tracking
+      const { data, error } = await supabase
+        .from('stage_workload_tracking')
+        .select('date, committed_hours, available_hours, pending_jobs_count')
+        .gte('date', startDate)
+        .lte('date', endDateStr)
+        .order('date');
+      
+      if (error) throw error;
+      
+      // Aggregate data by date
+      const aggregatedData = (data || []).reduce((acc: any[], item) => {
+        const existing = acc.find(d => d.date === item.date);
+        if (existing) {
+          existing.total_estimated_hours += item.committed_hours || 0;
+          existing.total_jobs += item.pending_jobs_count || 0;
+        } else {
+          acc.push({
+            date: item.date,
+            total_jobs: item.pending_jobs_count || 0,
+            total_estimated_hours: item.committed_hours || 0,
+            capacity_utilization: Math.round(((item.committed_hours || 0) / (item.available_hours || 8)) * 100)
+          });
+        }
+        return acc;
+      }, []);
+      
+      setWorkloadData(aggregatedData);
     } catch (error) {
       console.error('Error loading schedule data:', error);
       toast.error('Failed to load production schedule');
