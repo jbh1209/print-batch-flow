@@ -13,6 +13,13 @@ export interface ScheduleOnApprovalResponse {
 
 export class SchedulingService {
   static async scheduleOnApproval(req: ScheduleOnApprovalRequest): Promise<ScheduleOnApprovalResponse> {
+    // Try v2 first
+    const { data: v2, error: v2Err } = await supabase.functions.invoke("schedule-v2", {
+      body: req,
+    });
+    if (!v2Err && (v2 as any)?.ok) return v2 as ScheduleOnApprovalResponse;
+
+    // Fallback to legacy
     const { data, error } = await supabase.functions.invoke("schedule-on-approval", {
       body: req,
     });

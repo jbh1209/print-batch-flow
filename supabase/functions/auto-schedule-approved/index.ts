@@ -51,11 +51,21 @@ Deno.serve(async (req) => {
       if (pendErr) { errors.push(`pending-q failed ${job_id}: ${pendErr.message}`); continue; }
       if (!pending || pending.length === 0) continue;
 
-      const { data: resp, error: invErr } = await supabase.functions.invoke('schedule-on-approval', {
+      // Prefer v2 scheduler; gracefully fallback to legacy
+      let ok = false;
+      const { data: v2, error: v2Err } = await supabase.functions.invoke('schedule-v2', {
         body: { job_id, job_table_name: 'production_jobs' }
       });
-      if (invErr) { errors.push(`invoke failed ${job_id}: ${invErr.message}`); continue; }
-      if ((resp as any)?.ok) scheduled++;
+      if (!v2Err && (v2 as any)?.ok) {
+        ok = true;
+      } else {
+        const { data: resp, error: invErr } = await supabase.functions.invoke('schedule-on-approval', {
+          body: { job_id, job_table_name: 'production_jobs' }
+        });
+        if (invErr) { errors.push(`invoke failed ${job_id}: ${invErr.message}`); continue; }
+        ok = Boolean((resp as any)?.ok || (resp as any)?.success);
+      }
+      if (ok) scheduled++;
     }
 
     const result = { ok: true, startedAt, checked, scheduled, errors };

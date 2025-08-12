@@ -24,3 +24,11 @@ verify_jwt = true
 
 [functions.auto-schedule-approved]
 verify_jwt = false
+
+# New deterministic scheduler wrapper
+[functions.schedule-v2]
+verify_jwt = false
+
+# Maintenance utilities (protected)
+[functions.scheduler-maintenance]
+verify_jwt = true

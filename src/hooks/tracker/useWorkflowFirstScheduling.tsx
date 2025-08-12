@@ -22,24 +22,40 @@ export const useWorkflowFirstScheduling = () => {
     setIsScheduling(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('schedule-on-approval', {
+      // Try new scheduler first, fallback to legacy
+      const { data: v2, error: v2Err } = await supabase.functions.invoke('schedule-v2', {
         body: {
-          jobId,
-          jobTableName,
-          forceRecalculation: false
+          job_id: jobId,
+          job_table_name: jobTableName
         }
       });
 
-      if (error) {
-        throw new Error(error.message);
+      let ok = false;
+      let payload: any = v2;
+
+      if (!v2Err && v2?.ok) {
+        ok = true;
+      } else {
+        const { data, error } = await supabase.functions.invoke('schedule-on-approval', {
+          body: {
+            job_id: jobId,
+            job_table_name: jobTableName,
+            forceRecalculation: false
+          }
+        });
+        if (error) {
+          throw new Error(error.message);
+        }
+        payload = data;
+        ok = Boolean((data as any)?.success || (data as any)?.ok);
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || 'Scheduling failed');
+      if (!ok) {
+        throw new Error((payload as any)?.error || 'Scheduling failed');
       }
 
-      toast.success(`Job scheduled successfully with workflow-first engine`);
-      return data as WorkflowSchedulingResult;
+      toast.success(`Job scheduled successfully`);
+      return (payload as any) as WorkflowSchedulingResult;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown scheduling error';
