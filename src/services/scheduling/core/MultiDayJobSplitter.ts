@@ -89,6 +89,7 @@ export class MultiDayJobSplitter {
 
   /**
    * Create job stage instance entries for multi-day splits
+   * CRITICAL: Prevents duplicate queue entries by marking original as split
    */
   async createSplitStageInstances(
     originalStageInstanceId: string,
@@ -106,7 +107,8 @@ export class MultiDayJobSplitter {
       throw new Error(`Failed to fetch original stage instance: ${error?.message}`);
     }
 
-    // Update original instance with first split info
+    // CRITICAL FIX: Mark original instance as split to hide from production queue
+    // This prevents duplicate entries - original becomes invisible, first split takes over
     const firstSplit = splits[0];
     await supabase
       .from('job_stage_instances')
@@ -116,7 +118,9 @@ export class MultiDayJobSplitter {
         estimated_duration_minutes: firstSplit.durationMinutes,
         split_sequence: firstSplit.sequence,
         total_splits: firstSplit.totalSplits,
-        is_split: splits.length > 1,
+        is_split: true, // Mark as split
+        split_status: 'original_split', // CRITICAL: Mark as original that was split
+        job_order_in_stage: originalInstance.job_order_in_stage || 1,
         updated_at: new Date().toISOString()
       })
       .eq('id', originalStageInstanceId);
@@ -145,6 +149,7 @@ export class MultiDayJobSplitter {
           split_sequence: split.sequence,
           total_splits: split.totalSplits,
           is_split: true,
+          split_status: 'continuation', // Mark as continuation split
           parent_split_id: originalStageInstanceId,
           unique_stage_key: `${originalInstance.job_id}-${originalInstance.production_stage_id}-${split.sequence}`
         })
