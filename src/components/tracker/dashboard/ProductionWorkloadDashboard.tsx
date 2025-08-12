@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
+import { RescheduleAllJobsButton } from '@/components/admin/RescheduleAllJobsButton';
 
 interface StageWorkload {
   stageId: string;
@@ -160,6 +161,7 @@ export const ProductionWorkloadDashboard: React.FC = () => {
               Updated: {lastUpdated.toLocaleTimeString()}
             </div>
           )}
+          <RescheduleAllJobsButton />
           <Button onClick={refreshWorkloads} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
