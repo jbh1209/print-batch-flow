@@ -88,8 +88,8 @@ export class MultiDayJobSplitter {
   }
 
   /**
-   * Create job stage instance entries for multi-day splits
-   * CRITICAL: Prevents duplicate queue entries by marking original as split
+   * PHASE 2: Store split information as JSON metadata on master instance
+   * NO MORE CONTINUATION INSTANCES - single master instance with split metadata
    */
   async createSplitStageInstances(
     originalStageInstanceId: string,
@@ -107,63 +107,39 @@ export class MultiDayJobSplitter {
       throw new Error(`Failed to fetch original stage instance: ${error?.message}`);
     }
 
-    // CRITICAL FIX: Mark original instance as split to hide from production queue
-    // This prevents duplicate entries - original becomes invisible, first split takes over
+    // CRITICAL NEW APPROACH: Store ALL split information as JSON metadata
+    // Update master instance to span entire multi-day duration
     const firstSplit = splits[0];
+    const lastSplit = splits[splits.length - 1];
+    
     await supabase
       .from('job_stage_instances')
       .update({
         scheduled_start_at: firstSplit.startTime.toISOString(),
-        scheduled_end_at: firstSplit.endTime.toISOString(),
-        estimated_duration_minutes: firstSplit.durationMinutes,
-        split_sequence: firstSplit.sequence,
-        total_splits: firstSplit.totalSplits,
-        is_split: true, // Mark as split
-        split_status: 'original_split', // CRITICAL: Mark as original that was split
+        scheduled_end_at: lastSplit.endTime.toISOString(),
+        estimated_duration_minutes: splits.reduce((total, split) => total + split.durationMinutes, 0),
+        split_metadata: {
+          totalSplits: splits.length,
+          splits: splits.map(split => ({
+            sequence: split.sequence,
+            startTime: split.startTime.toISOString(),
+            endTime: split.endTime.toISOString(),
+            durationMinutes: split.durationMinutes,
+            remainingMinutes: split.remainingMinutes,
+            isPartial: split.isPartial
+          })),
+          createdAt: new Date().toISOString(),
+          spansDays: splits.length
+        },
+        is_split: splits.length > 1,
+        split_status: splits.length > 1 ? 'master_with_splits' : 'complete',
         job_order_in_stage: originalInstance.job_order_in_stage || 1,
         updated_at: new Date().toISOString()
       })
       .eq('id', originalStageInstanceId);
 
-    const createdInstanceIds = [originalStageInstanceId];
-
-    // Create continuation instances for remaining splits
-    for (let i = 1; i < splits.length; i++) {
-      const split = splits[i];
-      
-      const { data: newInstance, error: insertError } = await supabase
-        .from('job_stage_instances')
-        .insert({
-          job_id: originalInstance.job_id,
-          job_table_name: originalInstance.job_table_name,
-          category_id: originalInstance.category_id,
-          production_stage_id: originalInstance.production_stage_id,
-          stage_order: originalInstance.stage_order,
-          part_assignment: originalInstance.part_assignment,
-          dependency_group: originalInstance.dependency_group,
-          job_order_in_stage: originalInstance.job_order_in_stage || 1,
-          estimated_duration_minutes: split.durationMinutes,
-          scheduled_start_at: split.startTime.toISOString(),
-          scheduled_end_at: split.endTime.toISOString(),
-          status: 'pending',
-          split_sequence: split.sequence,
-          total_splits: split.totalSplits,
-          is_split: true,
-          split_status: 'continuation', // Mark as continuation split
-          parent_split_id: originalStageInstanceId,
-          unique_stage_key: `${originalInstance.job_id}-${originalInstance.production_stage_id}-${split.sequence}`
-        })
-        .select('id')
-        .single();
-
-      if (insertError || !newInstance) {
-        throw new Error(`Failed to create split instance: ${insertError?.message}`);
-      }
-
-      createdInstanceIds.push(newInstance.id);
-    }
-
-    return createdInstanceIds;
+    // CRITICAL: Return only the master instance ID - no continuation instances created
+    return [originalStageInstanceId];
   }
 
   /**

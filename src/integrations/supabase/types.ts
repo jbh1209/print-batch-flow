@@ -930,7 +930,7 @@ export type Database = {
           id: string
           is_rework: boolean | null
           job_id: string
-          job_order_in_stage: number
+          job_order_in_stage: number | null
           job_table_name: string
           notes: string | null
           parent_split_id: string | null
@@ -954,6 +954,7 @@ export type Database = {
           scheduled_minutes: number | null
           scheduled_start_at: string | null
           setup_time_minutes: number | null
+          split_metadata: Json | null
           split_sequence: number | null
           split_status: string | null
           stage_order: number
@@ -979,7 +980,7 @@ export type Database = {
           id?: string
           is_rework?: boolean | null
           job_id: string
-          job_order_in_stage?: number
+          job_order_in_stage?: number | null
           job_table_name: string
           notes?: string | null
           parent_split_id?: string | null
@@ -1003,6 +1004,7 @@ export type Database = {
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
           setup_time_minutes?: number | null
+          split_metadata?: Json | null
           split_sequence?: number | null
           split_status?: string | null
           stage_order: number
@@ -1028,7 +1030,7 @@ export type Database = {
           id?: string
           is_rework?: boolean | null
           job_id?: string
-          job_order_in_stage?: number
+          job_order_in_stage?: number | null
           job_table_name?: string
           notes?: string | null
           parent_split_id?: string | null
@@ -1052,6 +1054,7 @@ export type Database = {
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
           setup_time_minutes?: number | null
+          split_metadata?: Json | null
           split_sequence?: number | null
           split_status?: string | null
           stage_order?: number

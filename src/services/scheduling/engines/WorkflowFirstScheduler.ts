@@ -51,30 +51,56 @@ export class WorkflowFirstScheduler {
         convergenceStages: workflow.convergencePath.stages.length
       });
 
-      // Step 2: Schedule cover path completely (including multi-day splits)
+      // PHASE 3: TRUE PARALLEL PROCESSING - Both paths start simultaneously
+      console.log(`🔀 Starting PARALLEL path processing - Cover and Text begin simultaneously`);
+      
+      const parallelTasks = [];
+      
+      // Schedule cover path if it exists
       if (workflow.coverPath.stages.length > 0) {
-        console.log(`🔗 Processing cover path (${workflow.coverPath.stages.length} stages)`);
-        const coverResult = await parallelPathProcessor.processPath(workflow.coverPath);
-        result.pathResults.coverPathEnd = coverResult.pathCompletionDate;
-        result.totalDurationMinutes += coverResult.totalDurationMinutes;
-        
-        if (!coverResult.success) {
-          result.errors.push(...coverResult.errors);
-        }
-        console.log(`✅ Cover path complete: ${coverResult.pathCompletionDate.toISOString()}`);
+        console.log(`🔗 Queuing cover path (${workflow.coverPath.stages.length} stages)`);
+        parallelTasks.push(
+          parallelPathProcessor.processPath(workflow.coverPath).then(coverResult => ({
+            type: 'cover',
+            result: coverResult
+          }))
+        );
       }
 
-      // Step 3: Schedule text path completely (including multi-day splits)
+      // Schedule text path if it exists  
       if (workflow.textPath.stages.length > 0) {
-        console.log(`📝 Processing text path (${workflow.textPath.stages.length} stages)`);
-        const textResult = await parallelPathProcessor.processPath(workflow.textPath);
-        result.pathResults.textPathEnd = textResult.pathCompletionDate;
-        result.totalDurationMinutes += textResult.totalDurationMinutes;
+        console.log(`📝 Queuing text path (${workflow.textPath.stages.length} stages)`);
+        parallelTasks.push(
+          parallelPathProcessor.processPath(workflow.textPath).then(textResult => ({
+            type: 'text', 
+            result: textResult
+          }))
+        );
+      }
+
+      // Execute both paths in parallel using Promise.all
+      if (parallelTasks.length > 0) {
+        console.log(`⚡ Executing ${parallelTasks.length} paths in parallel`);
+        const parallelResults = await Promise.all(parallelTasks);
         
-        if (!textResult.success) {
-          result.errors.push(...textResult.errors);
+        // Process results
+        for (const pathResult of parallelResults) {
+          if (pathResult.type === 'cover') {
+            result.pathResults.coverPathEnd = pathResult.result.pathCompletionDate;
+            result.totalDurationMinutes += pathResult.result.totalDurationMinutes;
+            if (!pathResult.result.success) {
+              result.errors.push(...pathResult.result.errors);
+            }
+            console.log(`✅ Cover path complete: ${pathResult.result.pathCompletionDate.toISOString()}`);
+          } else if (pathResult.type === 'text') {
+            result.pathResults.textPathEnd = pathResult.result.pathCompletionDate;
+            result.totalDurationMinutes += pathResult.result.totalDurationMinutes;
+            if (!pathResult.result.success) {
+              result.errors.push(...pathResult.result.errors);
+            }
+            console.log(`✅ Text path complete: ${pathResult.result.pathCompletionDate.toISOString()}`);
+          }
         }
-        console.log(`✅ Text path complete: ${textResult.pathCompletionDate.toISOString()}`);
       }
 
       // Step 4: Calculate convergence start time = MAX(cover end, text end)

@@ -36,17 +36,43 @@ export class CapacityTracker {
   }
 
   /**
-   * Update queue end time after scheduling a job
+   * PHASE 4: Resource-specific queue management with multi-day split support
    */
   async updateStageQueueEndTime(
     stageId: string, 
     newEndTime: Date,
-    durationMinutes: number
+    durationMinutes: number,
+    splitMetadata?: any
   ): Promise<void> {
     const dateStr = newEndTime.toISOString().split('T')[0];
     const config = await workingHoursManager.getWorkingHoursConfig();
     const durationHours = durationMinutes / 60;
 
+    // PHASE 4: Handle multi-day jobs with split metadata
+    if (splitMetadata && splitMetadata.totalSplits > 1) {
+      // Update capacity for each day the job spans
+      for (const split of splitMetadata.splits) {
+        const splitDate = new Date(split.startTime).toISOString().split('T')[0];
+        const splitHours = split.durationMinutes / 60;
+        
+        await this.updateSingleDayCapacity(stageId, splitDate, splitHours);
+      }
+    } else {
+      // Single day job - update normally
+      await this.updateSingleDayCapacity(stageId, dateStr, durationHours);
+    }
+  }
+
+  /**
+   * Helper method to update capacity for a single day
+   */
+  private async updateSingleDayCapacity(
+    stageId: string,
+    dateStr: string, 
+    durationHours: number
+  ): Promise<void> {
+    const config = await workingHoursManager.getWorkingHoursConfig();
+    
     // Get or create capacity record
     const { data: existing } = await supabase
       .from('stage_workload_tracking')
@@ -60,7 +86,6 @@ export class CapacityTracker {
       await supabase
         .from('stage_workload_tracking')
         .update({
-          queue_ends_at: newEndTime.toISOString(),
           committed_hours: (existing.committed_hours || 0) + durationHours,
           queue_length_hours: (existing.queue_length_hours || 0) + durationHours,
           pending_jobs_count: (existing.pending_jobs_count || 0) + 1,
@@ -76,7 +101,6 @@ export class CapacityTracker {
         .insert({
           production_stage_id: stageId,
           date: dateStr,
-          queue_ends_at: newEndTime.toISOString(),
           committed_hours: durationHours,
           available_hours: config.dailyWorkingMinutes / 60,
           queue_length_hours: durationHours,

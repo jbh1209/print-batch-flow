@@ -61,17 +61,25 @@ export class ParallelPathProcessor {
             stage.estimated_duration_minutes
           );
 
-          // Create split stage instances
+          // Create split stage instances (now stores metadata only)
           await multiDayJobSplitter.createSplitStageInstances(stage.id, splitResult.splits);
 
-          // Update capacity tracking for each split
-          for (const split of splitResult.splits) {
-            await capacityTracker.updateStageQueueEndTime(
-              stage.production_stage_id,
-              split.endTime,
-              split.durationMinutes
-            );
-          }
+          // PHASE 4: Update capacity tracking with split metadata  
+          const splitMetadata = {
+            totalSplits: splitResult.splits.length,
+            splits: splitResult.splits.map(split => ({
+              startTime: split.startTime.toISOString(),
+              endTime: split.endTime.toISOString(),
+              durationMinutes: split.durationMinutes
+            }))
+          };
+
+          await capacityTracker.updateStageQueueEndTime(
+            stage.production_stage_id,
+            splitResult.finalCompletionDate,
+            splitResult.totalDuration,
+            splitMetadata
+          );
 
           pathCompletionTime = splitResult.finalCompletionDate;
           
