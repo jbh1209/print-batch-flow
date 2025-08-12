@@ -175,19 +175,37 @@ async function addWorkingMinutesWithSplitting(
       p_capacity_minutes: dailyCapacityMinutes
     });
     
-    const availableToday = capacityData?.[0]?.available_minutes || dailyCapacityMinutes;
+    const rawAvailable = capacityData?.[0]?.available_minutes;
+    const availableToday = Math.max(0, typeof rawAvailable === 'number' ? rawAvailable : dailyCapacityMinutes);
     console.log(`[MULTI-DAY ENGINE] Date: ${currentDate}, Available: ${availableToday}, Remaining: ${remaining}`);
     
     const endHour = config.busy_period_active ? config.busy_end_hour : config.work_end_hour;
     const endMinute = config.busy_period_active ? config.busy_end_minute : config.work_end_minute;
     const dayEnd = withTime(current, endHour, endMinute);
     
-    const minutesToScheduleToday = Math.min(remaining, availableToday);
+    const minutesToScheduleToday = Math.max(0, Math.min(remaining, availableToday));
+
+    if (minutesToScheduleToday <= 0 || current >= dayEnd) {
+      // No capacity left today or we are past end of day: move to next working day
+      const nextDay = new Date(current);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      current = await nextWorkingStart(nextDay);
+      continue;
+    }
+    
     const endTime = new Date(current.getTime() + minutesToScheduleToday * 60000);
     
     // Ensure we don't exceed working hours
     const actualEndTime = endTime > dayEnd ? dayEnd : endTime;
-    const actualMinutesToday = Math.floor((actualEndTime.getTime() - current.getTime()) / 60000);
+    const actualMinutesToday = Math.max(0, Math.floor((actualEndTime.getTime() - current.getTime()) / 60000));
+
+    if (actualMinutesToday <= 0) {
+      // Safety: advance to next working day
+      const nextDay = new Date(current);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      current = await nextWorkingStart(nextDay);
+      continue;
+    }
     
     console.log(`[MULTI-DAY ENGINE] Split ${splitSequence}: ${current.toISOString()} → ${actualEndTime.toISOString()} (${actualMinutesToday} min)`);
     
@@ -315,85 +333,78 @@ async function processParallelWorkflowPath(
       stage.id
     );
     
-    // Update stage instances for each split
-    for (let i = 0; i < jobSplits.length; i++) {
-      const split = jobSplits[i];
-      const isOriginal = i === 0;
-      let instanceId = stage.id;
-      
-      // Create continuation stage instances for multi-day jobs
-      if (!isOriginal) {
-        const { data: newInstance, error } = await supabase
-          .from("job_stage_instances")
-          .insert({
-            job_id: (stage as any).job_id,
-            job_table_name: (stage as any).job_table_name,
-            category_id: (stage as any).category_id,
-            production_stage_id: stageId,
-            stage_order: stage.stage_order,
-            status: 'pending',
-            part_assignment: stage.part_assignment,
-            dependency_group: stage.dependency_group,
-            estimated_duration_minutes: split.minutes,
-            split_sequence: split.split_sequence,
-            total_splits: split.total_splits,
-            parent_split_id: stage.id,
-            remaining_minutes: split.remaining_minutes,
-            split_status: 'continuation'
-          })
-          .select('id')
-          .single();
-          
-        if (error) {
-          console.error(`Failed to create continuation stage:`, error);
-          continue;
-        }
-        instanceId = newInstance.id;
+    // Update master stage instance with split metadata (no continuation instances)
+    if (jobSplits.length > 0) {
+      const firstSplit = jobSplits[0];
+      const finalSplitLocal = jobSplits[jobSplits.length - 1];
+      const totalMinutesScheduled = jobSplits.reduce((sum, s) => sum + Math.max(0, s.minutes), 0);
+
+      // Compute FIFO queue position (append) unless expedited
+      let nextOrder = 0;
+      if (!expedited) {
+        const { data: orderRows } = await supabase
+          .from('job_stage_instances')
+          .select('job_order_in_stage')
+          .eq('production_stage_id', stageId)
+          .not('job_order_in_stage', 'is', null)
+          .order('job_order_in_stage', { ascending: false })
+          .limit(1);
+        nextOrder = ((orderRows?.[0]?.job_order_in_stage as number | null) ?? 0) + 1;
       }
-      
-      // Update the stage instance with scheduling info
-      const { error: updateErr } = await supabase
-        .from("job_stage_instances")
+
+      const splitMetadata = {
+        totalSplits: jobSplits.length,
+        splits: jobSplits.map(s => ({
+          sequence: s.split_sequence,
+          startTime: s.start_time.toISOString(),
+          endTime: s.end_time.toISOString(),
+          durationMinutes: s.minutes,
+          remainingMinutes: s.remaining_minutes
+        })),
+        createdAt: new Date().toISOString(),
+        spansDays: jobSplits.length
+      } as const;
+
+      await supabase
+        .from('job_stage_instances')
         .update({
-          scheduled_start_at: split.start_time.toISOString(),
-          scheduled_end_at: split.end_time.toISOString(),
-          scheduled_minutes: split.minutes,
-          schedule_status: "scheduled",
-          split_sequence: split.split_sequence,
-          total_splits: split.total_splits,
-          remaining_minutes: split.remaining_minutes,
-          daily_completion_minutes: split.minutes,
-          split_status: isOriginal ? (jobSplits.length > 1 ? 'partial' : 'complete') : 'continuation',
-          job_order_in_stage: expedited ? 0 : null
+          scheduled_start_at: firstSplit.start_time.toISOString(),
+          scheduled_end_at: finalSplitLocal.end_time.toISOString(),
+          scheduled_minutes: totalMinutesScheduled,
+          schedule_status: 'scheduled',
+          split_sequence: 1,
+          total_splits: jobSplits.length,
+          remaining_minutes: 0,
+          daily_completion_minutes: finalSplitLocal.minutes,
+          split_status: jobSplits.length > 1 ? 'master_with_splits' : 'complete',
+          job_order_in_stage: expedited ? 0 : nextOrder,
+          split_metadata: splitMetadata
         })
-        .eq("id", instanceId);
-      
-      if (updateErr) {
-        console.error(`Failed updating stage instance:`, updateErr);
-        continue;
-      }
-      
+        .eq('id', stage.id);
+
       scheduleResults.push({
-        stage_instance_id: instanceId,
-        start: split.start_time.toISOString(),
-        end: split.end_time.toISOString(),
-        minutes: split.minutes,
-        split_sequence: split.split_sequence,
-        total_splits: split.total_splits
+        stage_instance_id: stage.id,
+        start: firstSplit.start_time.toISOString(),
+        end: finalSplitLocal.end_time.toISOString(),
+        minutes: totalMinutesScheduled,
+        split_sequence: 1,
+        total_splits: jobSplits.length
       });
     }
     
     // Update stage queue end time with final completion
-    const finalSplit = jobSplits[jobSplits.length - 1];
-    await supabase.rpc('update_stage_queue_end_time', {
-      p_stage_id: stageId,
-      p_new_end_time: finalSplit.end_time.toISOString(),
-      p_date: toDateOnly(finalSplit.end_time)
-    });
-    
-    // Update path pointer for next stage (workflow dependency)
-    pathCurrentTime = new Date(finalSplit.end_time);
-    console.log(`[PARALLEL PROCESSOR] Path updated: Next stage waits until ${pathCurrentTime.toISOString()}`);
+    if (jobSplits.length > 0) {
+      const finalSplit = jobSplits[jobSplits.length - 1];
+      await supabase.rpc('update_stage_queue_end_time', {
+        p_stage_id: stageId,
+        p_new_end_time: finalSplit.end_time.toISOString(),
+        p_date: toDateOnly(finalSplit.end_time)
+      });
+      
+      // Update path pointer for next stage (workflow dependency)
+      pathCurrentTime = new Date(finalSplit.end_time);
+      console.log(`[PARALLEL PROCESSOR] Path updated: Next stage waits until ${pathCurrentTime.toISOString()}`);
+    }
   }
   
   console.log(`[PARALLEL PROCESSOR] Path '${pathName}' completed at: ${pathCurrentTime.toISOString()}`);
@@ -450,74 +461,77 @@ async function processConvergenceStages(
       stage.id
     );
     
-    // Update convergence stage instances
-    for (let i = 0; i < jobSplits.length; i++) {
-      const split = jobSplits[i];
-      const isOriginal = i === 0;
-      let instanceId = stage.id;
-      
-      if (!isOriginal) {
-        const { data: newInstance, error } = await supabase
-          .from("job_stage_instances")
-          .insert({
-            job_id: (stage as any).job_id,
-            job_table_name: (stage as any).job_table_name,
-            category_id: (stage as any).category_id,
-            production_stage_id: stageId,
-            stage_order: stage.stage_order,
-            status: 'pending',
-            part_assignment: stage.part_assignment,
-            dependency_group: stage.dependency_group,
-            estimated_duration_minutes: split.minutes,
-            split_sequence: split.split_sequence,
-            total_splits: split.total_splits,
-            parent_split_id: stage.id,
-            remaining_minutes: split.remaining_minutes,
-            split_status: 'continuation'
-          })
-          .select('id')
-          .single();
-          
-        if (error) continue;
-        instanceId = newInstance.id;
+    // Update master convergence stage instance with split metadata (no continuation instances)
+    if (jobSplits.length > 0) {
+      const firstSplit = jobSplits[0];
+      const finalSplitLocal = jobSplits[jobSplits.length - 1];
+      const totalMinutesScheduled = jobSplits.reduce((sum, s) => sum + Math.max(0, s.minutes), 0);
+
+      // Compute FIFO queue position (append) unless expedited
+      let nextOrder = 0;
+      if (!expedited) {
+        const { data: orderRows } = await supabase
+          .from('job_stage_instances')
+          .select('job_order_in_stage')
+          .eq('production_stage_id', stageId)
+          .not('job_order_in_stage', 'is', null)
+          .order('job_order_in_stage', { ascending: false })
+          .limit(1);
+        nextOrder = ((orderRows?.[0]?.job_order_in_stage as number | null) ?? 0) + 1;
       }
-      
+
+      const splitMetadata = {
+        totalSplits: jobSplits.length,
+        splits: jobSplits.map(s => ({
+          sequence: s.split_sequence,
+          startTime: s.start_time.toISOString(),
+          endTime: s.end_time.toISOString(),
+          durationMinutes: s.minutes,
+          remainingMinutes: s.remaining_minutes
+        })),
+        createdAt: new Date().toISOString(),
+        spansDays: jobSplits.length
+      } as const;
+
       const { error: updateErr } = await supabase
-        .from("job_stage_instances")
+        .from('job_stage_instances')
         .update({
-          scheduled_start_at: split.start_time.toISOString(),
-          scheduled_end_at: split.end_time.toISOString(),
-          scheduled_minutes: split.minutes,
-          schedule_status: "scheduled",
-          split_sequence: split.split_sequence,
-          total_splits: split.total_splits,
-          remaining_minutes: split.remaining_minutes,
-          daily_completion_minutes: split.minutes,
-          split_status: isOriginal ? (jobSplits.length > 1 ? 'partial' : 'complete') : 'continuation',
-          job_order_in_stage: expedited ? 0 : null
+          scheduled_start_at: firstSplit.start_time.toISOString(),
+          scheduled_end_at: finalSplitLocal.end_time.toISOString(),
+          scheduled_minutes: totalMinutesScheduled,
+          schedule_status: 'scheduled',
+          split_sequence: 1,
+          total_splits: jobSplits.length,
+          remaining_minutes: 0,
+          daily_completion_minutes: finalSplitLocal.minutes,
+          split_status: jobSplits.length > 1 ? 'master_with_splits' : 'complete',
+          job_order_in_stage: expedited ? 0 : nextOrder,
+          split_metadata: splitMetadata
         })
-        .eq("id", instanceId);
-      
+        .eq('id', stage.id);
+
       if (!updateErr) {
         scheduleResults.push({
-          stage_instance_id: instanceId,
-          start: split.start_time.toISOString(),
-          end: split.end_time.toISOString(),
-          minutes: split.minutes,
-          split_sequence: split.split_sequence,
-          total_splits: split.total_splits
+          stage_instance_id: stage.id,
+          start: firstSplit.start_time.toISOString(),
+          end: finalSplitLocal.end_time.toISOString(),
+          minutes: totalMinutesScheduled,
+          split_sequence: 1,
+          total_splits: jobSplits.length
         });
       }
     }
     
     const finalSplit = jobSplits[jobSplits.length - 1];
-    await supabase.rpc('update_stage_queue_end_time', {
-      p_stage_id: stageId,
-      p_new_end_time: finalSplit.end_time.toISOString(),
-      p_date: toDateOnly(finalSplit.end_time)
-    });
-    
-    convergenceCurrentTime = new Date(finalSplit.end_time);
+    if (finalSplit) {
+      await supabase.rpc('update_stage_queue_end_time', {
+        p_stage_id: stageId,
+        p_new_end_time: finalSplit.end_time.toISOString(),
+        p_date: toDateOnly(finalSplit.end_time)
+      });
+      
+      convergenceCurrentTime = new Date(finalSplit.end_time);
+    }
   }
   
   return scheduleResults;
