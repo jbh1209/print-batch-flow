@@ -57,6 +57,8 @@ export function useStageSchedule() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
+  const [earliestScheduled, setEarliestScheduled] = useState<Date | null>(null);
+  const [didAutoNavigate, setDidAutoNavigate] = useState(false);
 
   const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 1 }), [currentWeek]);
   const days = useMemo(() => Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -146,6 +148,13 @@ export function useStageSchedule() {
         printing_specs: jobMap[r.job_id]?.printing_specs,
       }));
 
+      // Track the earliest scheduled date across all items to allow jumping to the next scheduled week
+      const earliest = mapped.reduce<Date | null>((min, it) => {
+        const d = it.scheduled_start_at ? new Date(it.scheduled_start_at) : null;
+        return d && (!min || d < min) ? d : min;
+      }, null);
+      setEarliestScheduled(earliest);
+
       setItems(mapped);
     } catch (e: any) {
       console.error("Failed to load stage schedule:", e);
@@ -157,11 +166,21 @@ export function useStageSchedule() {
 
   useEffect(() => { refetch(); }, [refetch]);
 
+  // Auto-jump once to the next scheduled week if the current week is empty
+  useEffect(() => {
+    if (!didAutoNavigate && items.length === 0 && earliestScheduled) {
+      setCurrentWeek(startOfWeek(earliestScheduled, { weekStartsOn: 1 }));
+      setDidAutoNavigate(true);
+    }
+  }, [didAutoNavigate, items.length, earliestScheduled]);
+
   const navigateWeek = (direction: "prev" | "next") => {
     setCurrentWeek(addDays(currentWeek, direction === "next" ? 7 : -7));
   };
+  const jumpToToday = () => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const jumpToEarliest = () => { if (earliestScheduled) setCurrentWeek(startOfWeek(earliestScheduled, { weekStartsOn: 1 })); };
 
-  return { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch };
+  return { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch, earliestScheduled, jumpToToday, jumpToEarliest };
 }
 
 // UI building blocks
@@ -237,7 +256,7 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
 
 // Main Component
 export const StageWeeklyScheduler: React.FC = () => {
-  const { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch } = useStageSchedule();
+  const { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch, earliestScheduled, jumpToToday, jumpToEarliest } = useStageSchedule();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<ScheduledStageItem | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -386,6 +405,8 @@ export const StageWeeklyScheduler: React.FC = () => {
             <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')} aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium min-w-[160px] text-center">Week of {format(weekStart, 'MMM dd, yyyy')}</span>
             <Button variant="outline" size="sm" onClick={() => navigateWeek('next')} aria-label="Next week"><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="secondary" size="sm" onClick={jumpToToday} aria-label="Go to current week">Today</Button>
+            <Button variant="secondary" size="sm" onClick={jumpToEarliest} disabled={!earliestScheduled} aria-label="Jump to next scheduled week">Next scheduled</Button>
             <Button variant="secondary" size="sm" onClick={refetch} aria-label="Refresh schedule"><RefreshCcw className="h-4 w-4" /></Button>
             <Button variant="default" size="sm" onClick={runAutoScheduler} aria-label="Run auto-scheduler"><Zap className="h-4 w-4 mr-1" />Run auto-scheduler</Button>
           </div>
@@ -394,8 +415,12 @@ export const StageWeeklyScheduler: React.FC = () => {
       <CardContent>
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           {filteredStages.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              No relevant stages for this week. Try a different week or schedule jobs.
+            <div className="py-12 text-center text-muted-foreground space-y-3">
+              <div>No relevant stages for this week.</div>
+              <div className="flex items-center justify-center gap-2">
+                <Button variant="secondary" size="sm" onClick={jumpToToday}>Today</Button>
+                <Button variant="default" size="sm" onClick={jumpToEarliest} disabled={!earliestScheduled}>Go to next scheduled week</Button>
+              </div>
             </div>
           ) : (
             <div className="flex gap-4">
