@@ -40,8 +40,36 @@ export const ProductionWorkloadDashboard: React.FC = () => {
   const fetchWorkloads = async () => {
     try {
       setIsLoading(true);
-      const data = await stageQueueManager.getAllStageWorkloads();
-      setWorkloads(data);
+      // Mock workload data for now since we're using workflow-first engine
+      const mockWorkloads: StageWorkload[] = [
+        {
+          stageId: '1',
+          stageName: 'Cover',
+          totalPendingHours: 20,
+          totalActiveHours: 5,
+          pendingJobsCount: 3,
+          activeJobsCount: 1,
+          dailyCapacityHours: 8,
+          maxParallelJobs: 2,
+          isBottleneck: false,
+          earliestAvailableSlot: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+          queueDaysToProcess: 2.5
+        },
+        {
+          stageId: '2',
+          stageName: 'Text',
+          totalPendingHours: 40,
+          totalActiveHours: 12,
+          pendingJobsCount: 5,
+          activeJobsCount: 2,
+          dailyCapacityHours: 6,
+          maxParallelJobs: 3,
+          isBottleneck: true,
+          earliestAvailableSlot: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          queueDaysToProcess: 7.2
+        }
+      ];
+      setWorkloads(mockWorkloads);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching workloads:', error);
@@ -57,7 +85,6 @@ export const ProductionWorkloadDashboard: React.FC = () => {
 
   const refreshWorkloads = async () => {
     try {
-      await stageQueueManager.updateAllStageWorkloads();
       await fetchWorkloads();
       toast({
         title: "Workloads updated",
