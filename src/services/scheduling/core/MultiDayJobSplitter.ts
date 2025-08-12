@@ -137,7 +137,7 @@ export class MultiDayJobSplitter {
           stage_order: originalInstance.stage_order,
           part_assignment: originalInstance.part_assignment,
           dependency_group: originalInstance.dependency_group,
-          job_order_in_stage: originalInstance.job_order_in_stage,
+          job_order_in_stage: originalInstance.job_order_in_stage || 1,
           estimated_duration_minutes: split.durationMinutes,
           scheduled_start_at: split.startTime.toISOString(),
           scheduled_end_at: split.endTime.toISOString(),
@@ -145,7 +145,8 @@ export class MultiDayJobSplitter {
           split_sequence: split.sequence,
           total_splits: split.totalSplits,
           is_split: true,
-          original_instance_id: originalStageInstanceId
+          parent_split_id: originalStageInstanceId,
+          unique_stage_key: `${originalInstance.job_id}-${originalInstance.production_stage_id}-${split.sequence}`
         })
         .select('id')
         .single();

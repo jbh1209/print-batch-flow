@@ -84,6 +84,19 @@ export class WorkflowFirstScheduler {
       // Step 5: Schedule convergence path (waits for both paths)
       if (workflow.convergencePath.stages.length > 0) {
         console.log(`🎯 Processing convergence path (${workflow.convergencePath.stages.length} stages)`);
+        
+        // Validate convergence timing
+        const validation = convergenceProcessor.validateConvergenceTiming(
+          convergenceStartTime,
+          result.pathResults.coverPathEnd,
+          result.pathResults.textPathEnd
+        );
+        
+        if (!validation.valid) {
+          result.errors.push(...validation.errors);
+          console.error(`❌ Convergence timing validation failed:`, validation.errors);
+        }
+        
         const convergenceResult = await convergenceProcessor.processConvergencePath(
           workflow.convergencePath,
           convergenceStartTime
