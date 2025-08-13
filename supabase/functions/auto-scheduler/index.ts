@@ -88,18 +88,40 @@ function createSchedulingContext(): SchedulingContext {
 // **PHASE 0: SCHEDULE RESET FUNCTION**
 async function clearAllSchedules(supabase: any): Promise<void> {
   console.log('🗑️ Clearing all stage_time_slots...')
-  const { error: slotsError } = await supabase
+  
+  // Use a more reliable delete method - delete all rows
+  const { error: slotsError, count: deletedSlots } = await supabase
     .from('stage_time_slots')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all rows
+    .not('id', 'is', null) // This will match all rows since id is never null
   
   if (slotsError) {
     console.error('❌ Error clearing stage_time_slots:', slotsError)
     throw slotsError
   }
+  
+  console.log(`✅ Deleted ${deletedSlots || 0} existing time slots`)
+  
+  // Verify the table is actually empty
+  const { data: remainingSlots, error: verifyError } = await supabase
+    .from('stage_time_slots')
+    .select('id')
+    .limit(1)
+  
+  if (verifyError) {
+    console.error('❌ Error verifying stage_time_slots deletion:', verifyError)
+    throw verifyError
+  }
+  
+  if (remainingSlots && remainingSlots.length > 0) {
+    console.error('🚨 CRITICAL: stage_time_slots not fully cleared!')
+    throw new Error('Failed to clear all stage_time_slots')
+  }
+  
+  console.log('✅ Verified: stage_time_slots table is empty')
 
   console.log('🔄 Resetting auto-scheduled fields in job_stage_instances...')
-  const { error: instancesError } = await supabase
+  const { error: instancesError, count: updatedInstances } = await supabase
     .from('job_stage_instances')
     .update({
       auto_scheduled_start_at: null,
@@ -113,6 +135,8 @@ async function clearAllSchedules(supabase: any): Promise<void> {
     console.error('❌ Error resetting job_stage_instances:', instancesError)
     throw instancesError
   }
+  
+  console.log(`✅ Reset ${updatedInstances || 0} job stage instances`)
 }
 
 // **PHASE 1: WORKLOAD-AWARE SCHEDULING START TIME**
