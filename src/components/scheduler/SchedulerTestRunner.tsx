@@ -3,10 +3,35 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { runCompleteSchedulerTests, MasterTestResult, PhaseTestResult } from '@/utils/scheduling/masterTestRunner';
+import { runPhase1Tests } from '@/utils/timezone-display-audit';
 
 const SchedulerTestRunner = () => {
   const [testResults, setTestResults] = useState<MasterTestResult | null>(null);
+  const [phase1Results, setPhase1Results] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
+
+  const runPhase1Only = () => {
+    console.log('🔍 **PHASE 1 VERIFICATION STARTING**');
+    setIsRunning(true);
+    
+    try {
+      const results = runPhase1Tests();
+      setPhase1Results(results);
+      
+      if (results.failed === 0) {
+        console.log('✅ **PHASE 1 VERIFICATION PASSED**');
+        console.log('🎯 Timezone display bug FIXED - Ready for Phase 2');
+      } else {
+        console.log('❌ **PHASE 1 VERIFICATION FAILED**');
+        console.log('🚨 Must fix timezone display before Phase 2');
+      }
+    } catch (error) {
+      console.error('Phase 1 test error:', error);
+      setPhase1Results({ passed: 0, failed: 1, errors: [String(error)] });
+    }
+    
+    setIsRunning(false);
+  };
 
   const handleRunTests = async () => {
     setIsRunning(true);
@@ -41,6 +66,62 @@ const SchedulerTestRunner = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Phase 1 Verification Section */}
+          <Card className="border-2 border-blue-200 bg-blue-50/30">
+            <CardHeader>
+              <CardTitle className="text-lg">🔍 Phase 1: Timezone Display Verification</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                <strong>MANDATORY:</strong> Phase 1 must pass before proceeding to Phase 2
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button 
+                onClick={runPhase1Only} 
+                disabled={isRunning}
+                className="w-full"
+                variant="outline"
+              >
+                {isRunning ? 'Running Phase 1 Verification...' : '🔍 Verify Phase 1: Timezone Display Fix'}
+              </Button>
+
+              {phase1Results && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Badge variant={phase1Results.passed > 0 ? "default" : "destructive"}>
+                      ✅ {phase1Results.passed} passed
+                    </Badge>
+                    <Badge variant={phase1Results.failed > 0 ? "destructive" : "secondary"}>
+                      ❌ {phase1Results.failed} failed
+                    </Badge>
+                  </div>
+                  
+                  <div className={`p-3 rounded ${phase1Results.failed === 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    {phase1Results.failed === 0 ? (
+                      <div>
+                        <h4 className="font-semibold text-green-800">✅ PHASE 1 VERIFICATION PASSED</h4>
+                        <div className="text-sm text-green-700 mt-1 space-y-1">
+                          <p>✅ Jobs scheduled at 06:00 SAST display as "06:00" (not "08:00")</p>
+                          <p>✅ UTC timestamps properly converted to SAST without double offset</p>
+                          <p className="font-medium">🚀 READY FOR PHASE 2: Scheduling Logic Fix</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="font-semibold text-red-800">❌ PHASE 1 VERIFICATION FAILED</h4>
+                        <div className="text-sm text-red-700 mt-1">
+                          <p>🚨 Timezone display still has issues. Cannot proceed to Phase 2.</p>
+                          {phase1Results.errors?.map((error: string, i: number) => (
+                            <p key={i}>• {error}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="flex justify-center">
             <Button 
               onClick={handleRunTests} 
