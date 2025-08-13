@@ -81,6 +81,7 @@ import { productConfigs } from "@/config/productTypes";
 import AdminDashboard from "@/pages/admin";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
+import SchedulerTest from "@/pages/SchedulerTest";
 import Layout from "@/components/Layout";
 
 import "./App.css";
@@ -223,6 +224,11 @@ function App() {
                 <Route path="/admin/excel-mapping" element={
                   <ProtectedRoute>
                     <ExcelMapping />
+                  </ProtectedRoute>
+                } />
+                <Route path="/scheduler-test" element={
+                  <ProtectedRoute>
+                    <SchedulerTest />
                   </ProtectedRoute>
                 } />
 
