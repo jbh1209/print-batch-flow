@@ -234,16 +234,14 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
     : (item.scheduled_minutes || 60);
   const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
   
-  // Display scheduled time in SAST
+  // Display scheduled time in SAST (timestamps are already UTC representing SAST times)
   const displayTime = item.is_auto_scheduled && item.auto_scheduled_start_at
     ? new Date(item.auto_scheduled_start_at).toLocaleString("en-ZA", { 
-        timeZone: "Africa/Johannesburg", 
         hour: '2-digit', 
         minute: '2-digit' 
       })
     : item.scheduled_start_at 
       ? new Date(item.scheduled_start_at).toLocaleString("en-ZA", { 
-          timeZone: "Africa/Johannesburg", 
           hour: '2-digit', 
           minute: '2-digit' 
         })
