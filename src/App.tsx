@@ -83,6 +83,7 @@ import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 import SchedulerTest from "@/pages/SchedulerTest";
 import Layout from "@/components/Layout";
+import Phase2TestTrigger from "@/components/scheduler/Phase2TestTrigger";
 
 import "./App.css";
 
@@ -229,6 +230,11 @@ function App() {
                 <Route path="/scheduler-test" element={
                   <ProtectedRoute>
                     <SchedulerTest />
+                  </ProtectedRoute>
+                } />
+                <Route path="/phase2-test" element={
+                  <ProtectedRoute>
+                    <Phase2TestTrigger />
                   </ProtectedRoute>
                 } />
 
