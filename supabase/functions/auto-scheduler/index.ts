@@ -27,8 +27,11 @@ function getTomorrowAt8AM(): Date {
   const nowSAST = getCurrentSAST()
   const tomorrow = new Date(nowSAST)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  tomorrow.setHours(8, 0, 0, 0)
-  return tomorrow
+  
+  // Create proper SAST date for tomorrow at 8:00 AM
+  const tomorrowDateStr = tomorrow.toISOString().split('T')[0]
+  const tomorrowAt8AM = new Date(`${tomorrowDateStr}T08:00:00+02:00`)
+  return tomorrowAt8AM
 }
 
 function createSASTDate(dateStr: string, timeStr: string): Date {
@@ -413,8 +416,8 @@ async function getNextWorkingDay(supabase: any, fromDate: Date) {
     if (data && data.is_working_day) {
       const dateStr = checkDate.toISOString().split('T')[0]
       return {
-        start_time: createSASTDate(dateStr, data.shift_start_time),
-        end_time: createSASTDate(dateStr, data.shift_end_time),
+        start_time: new Date(`${dateStr}T${data.shift_start_time}+02:00`),
+        end_time: new Date(`${dateStr}T${data.shift_end_time}+02:00`),
         is_working_day: true
       }
     }
@@ -427,23 +430,27 @@ async function getNextWorkingDay(supabase: any, fromDate: Date) {
 
 // Get current queue end time for a stage - Simple sequential logic
 async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: Date): Promise<Date> {
-  // Simple logic: Find the last job that ends latest for this stage
+  // Convert fromTime to UTC for database query (SAST is UTC+2)
+  const fromTimeUTC = new Date(fromTime.getTime() - (2 * 60 * 60 * 1000))
+  
   const { data } = await supabase
     .from('stage_time_slots')
     .select('slot_end_time')
     .eq('production_stage_id', stageId)
-    .gte('slot_start_time', fromSAST(fromTime).toISOString())
+    .gte('slot_start_time', fromTimeUTC.toISOString())
     .order('slot_end_time', { ascending: false })
     .limit(1)
 
   if (data && data.length > 0) {
-    const lastEndTime = new Date(data[0].slot_end_time)
-    // Ensure we never return a time before now
-    const result = lastEndTime > fromTime ? lastEndTime : fromTime
+    const lastEndTimeUTC = new Date(data[0].slot_end_time)
+    // Convert back to SAST (add 2 hours)
+    const lastEndTimeSAST = new Date(lastEndTimeUTC.getTime() + (2 * 60 * 60 * 1000))
+    const result = lastEndTimeSAST > fromTime ? lastEndTimeSAST : fromTime
     console.log(`📊 Stage ${stageId} queue ends at: ${result.toISOString()}`)
     return result
   }
 
+  // No existing slots - return the fromTime
   console.log(`📊 Stage ${stageId} has empty queue, starting from: ${fromTime.toISOString()}`)
   return fromTime
 }

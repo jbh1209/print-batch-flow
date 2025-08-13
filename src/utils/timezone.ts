@@ -51,20 +51,15 @@ export function getTomorrowAt8AM(): Date {
 }
 
 /**
- * Get today at specified hour in SAST
+ * Get today at specified hour in SAST (properly calculated in SAST timezone)
  */
 export function getTodayAtHour(hour: number, minute: number = 0): Date {
   const nowSAST = getCurrentSAST();
-  return setMilliseconds(
-    setSeconds(
-      setMinutes(
-        setHours(nowSAST, hour), 
-        minute
-      ), 
-      0
-    ), 
-    0
-  );
+  const todayDateStr = nowSAST.toISOString().split('T')[0];
+  
+  // Create proper SAST time for today at specified hour
+  const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+  return createSASTDate(todayDateStr, timeStr);
 }
 
 /**
