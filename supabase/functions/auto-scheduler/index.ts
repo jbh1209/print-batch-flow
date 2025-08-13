@@ -32,6 +32,31 @@ interface TimeSlot {
   total_parts?: number
 }
 
+// Core scheduling context - NEVER schedule in the past
+interface SchedulingContext {
+  currentTime: Date
+  serverTime: Date
+  timezone: string
+}
+
+function createSchedulingContext(): SchedulingContext {
+  const serverTime = new Date()
+  return {
+    currentTime: serverTime,
+    serverTime: serverTime,
+    timezone: 'UTC'
+  }
+}
+
+// Get the scheduling start time - NEVER allow past scheduling
+function getSchedulingStartTime(context: SchedulingContext, proposedStart?: Date): Date {
+  const now = context.currentTime
+  if (!proposedStart || proposedStart < now) {
+    return now
+  }
+  return proposedStart
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -46,7 +71,10 @@ Deno.serve(async (req) => {
 
     const { job_id, job_table_name, trigger_reason }: SchedulingRequest = await req.json()
 
-    console.log(`🎯 Auto-scheduler triggered: ${trigger_reason} for job ${job_id}`)
+    // CRITICAL: Create scheduling context with current server time
+    const schedulingContext = createSchedulingContext()
+    
+    console.log(`🎯 Auto-scheduler triggered: ${trigger_reason} for job ${job_id} at ${schedulingContext.currentTime.toISOString()}`)
 
     // Step 1: Get job's stage breakdown from category workflow
     const stageBreakdown = await getJobStageBreakdown(supabase, job_id, job_table_name)
@@ -58,7 +86,7 @@ Deno.serve(async (req) => {
     console.log(`📋 Found ${stageBreakdown.length} stages to schedule`)
 
     // Step 2: Process stages in dependency order (sequential + parallel groups)
-    const scheduledSlots = await scheduleStagesInOrder(supabase, stageBreakdown)
+    const scheduledSlots = await scheduleStagesInOrder(supabase, stageBreakdown, schedulingContext)
 
     // Step 3: Update job_stage_instances with exact scheduled times
     await updateStageInstancesWithSchedule(supabase, scheduledSlots, job_id, job_table_name)
@@ -133,7 +161,7 @@ async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: 
 }
 
 // Schedule stages respecting dependencies and parallel processing
-async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[]): Promise<(StageSchedule & TimeSlot)[]> {
+async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[], context: SchedulingContext): Promise<(StageSchedule & TimeSlot)[]> {
   const scheduledSlots: (StageSchedule & TimeSlot)[] = []
   const parallelGroups: Map<string, StageSchedule[]> = new Map()
 
@@ -148,7 +176,8 @@ async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[]): Pr
     }
   }
 
-  let lastCompletionTime = new Date()
+  // CRITICAL: Start from current time, never in the past
+  let lastCompletionTime = getSchedulingStartTime(context)
 
   for (const stage of stages) {
     if (stage.parallel_processing_enabled && stage.stage_group_id) {
@@ -158,7 +187,7 @@ async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[]): Pr
 
       if (groupStages && !scheduledSlots.find(s => s.stage_group_id === stage.stage_group_id && s.stage_order === stage.stage_order)) {
         // Schedule all stages in parallel group simultaneously
-        const parallelSlots = await scheduleParallelGroup(supabase, groupStages, lastCompletionTime)
+        const parallelSlots = await scheduleParallelGroup(supabase, groupStages, lastCompletionTime, context)
         scheduledSlots.push(...parallelSlots)
         
         // Next stage waits for the longest parallel stage to complete
@@ -166,7 +195,7 @@ async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[]): Pr
       }
     } else {
       // Handle sequential stage
-      const timeSlot = await findNextAvailableSlot(supabase, stage.production_stage_id, stage.estimated_duration_minutes, lastCompletionTime)
+      const timeSlot = await findNextAvailableSlot(supabase, stage.production_stage_id, stage.estimated_duration_minutes, lastCompletionTime, context)
       
       scheduledSlots.push({
         ...stage,
@@ -181,11 +210,11 @@ async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[]): Pr
 }
 
 // Schedule parallel stages (COVER + TEXT) simultaneously
-async function scheduleParallelGroup(supabase: any, groupStages: StageSchedule[], earliestStart: Date): Promise<(StageSchedule & TimeSlot)[]> {
+async function scheduleParallelGroup(supabase: any, groupStages: StageSchedule[], earliestStart: Date, context: SchedulingContext): Promise<(StageSchedule & TimeSlot)[]> {
   const parallelSlots: (StageSchedule & TimeSlot)[] = []
 
   for (const stage of groupStages) {
-    const timeSlot = await findNextAvailableSlot(supabase, stage.production_stage_id, stage.estimated_duration_minutes, earliestStart)
+    const timeSlot = await findNextAvailableSlot(supabase, stage.production_stage_id, stage.estimated_duration_minutes, earliestStart, context)
     
     parallelSlots.push({
       ...stage,
@@ -197,56 +226,100 @@ async function scheduleParallelGroup(supabase: any, groupStages: StageSchedule[]
 }
 
 // Find first available time slot for a stage (Tetris logic)
-async function findNextAvailableSlot(supabase: any, stageId: string, durationMinutes: number, earliestStart: Date): Promise<TimeSlot> {
-  // Get working hours for the day
-  const workingHours = await getWorkingHours(supabase, earliestStart)
+async function findNextAvailableSlot(supabase: any, stageId: string, durationMinutes: number, earliestStart: Date, context: SchedulingContext): Promise<TimeSlot> {
+  // CRITICAL: Never schedule in the past
+  const schedulingStartTime = getSchedulingStartTime(context, earliestStart)
   
-  // Get current queue end time for this stage
-  const currentQueueEnd = await getCurrentQueueEndTime(supabase, stageId, earliestStart)
+  console.log(`🔍 Finding slot for stage ${stageId}: duration=${durationMinutes}min, requestedStart=${earliestStart.toISOString()}, actualStart=${schedulingStartTime.toISOString()}`)
   
-  // Start time is the later of earliestStart or current queue end
-  const startTime = new Date(Math.max(earliestStart.getTime(), currentQueueEnd.getTime()))
+  // Get current queue end time for this stage (only future slots)
+  const currentQueueEnd = await getCurrentQueueEndTime(supabase, stageId, schedulingStartTime)
   
-  // Calculate end time
-  const proposedEndTime = new Date(startTime.getTime() + (durationMinutes * 60 * 1000))
+  // Start time must be: MAX(currentTime, requestedStart, queueEnd)
+  const startTime = new Date(Math.max(
+    schedulingStartTime.getTime(),
+    currentQueueEnd.getTime()
+  ))
   
-  // Check if job fits within working hours
-  const dayEndTime = workingHours.end_time
+  console.log(`⏰ Calculated start time: ${startTime.toISOString()} (queue ends: ${currentQueueEnd.toISOString()})`)
   
-  if (proposedEndTime <= dayEndTime) {
-    // Job fits in current day
+  // Get working hours for the start day
+  const workingHours = await getWorkingHours(supabase, startTime)
+  
+  // Ensure start time is within working hours
+  const validStartTime = await ensureWithinWorkingHours(supabase, startTime, workingHours)
+  
+  // Calculate proposed end time
+  const proposedEndTime = new Date(validStartTime.getTime() + (durationMinutes * 60 * 1000))
+  
+  // Validate against working hours
+  const validatedSlot = await validateWorkingHoursSlot(supabase, validStartTime, proposedEndTime, durationMinutes)
+  
+  console.log(`✅ Scheduled slot: ${validatedSlot.start_time.toISOString()} to ${validatedSlot.end_time.toISOString()}`)
+  
+  return validatedSlot
+}
+
+// Ensure start time is within working hours
+async function ensureWithinWorkingHours(supabase: any, proposedStart: Date, workingHours: any): Promise<Date> {
+  if (!workingHours.is_working_day) {
+    // Move to next working day
+    const nextWorkingDay = await getNextWorkingDay(supabase, proposedStart)
+    return nextWorkingDay.start_time
+  }
+  
+  // Check if proposed start is before working hours start
+  if (proposedStart < workingHours.start_time) {
+    return workingHours.start_time
+  }
+  
+  // Check if proposed start is after working hours end
+  if (proposedStart >= workingHours.end_time) {
+    // Move to next working day
+    const nextWorkingDay = await getNextWorkingDay(supabase, proposedStart)
+    return nextWorkingDay.start_time
+  }
+  
+  return proposedStart
+}
+
+// Validate that a time slot fits within working hours
+async function validateWorkingHoursSlot(supabase: any, startTime: Date, endTime: Date, durationMinutes: number): Promise<TimeSlot> {
+  const workingHours = await getWorkingHours(supabase, startTime)
+  
+  // Check if the entire job fits within the working day
+  if (endTime <= workingHours.end_time) {
+    // Job fits completely
     return {
       start_time: startTime,
-      end_time: proposedEndTime,
+      end_time: endTime,
       duration_minutes: durationMinutes,
       is_split: false
     }
-  } else {
-    // Job needs to be split across days
-    const remainingMinutesInDay = Math.floor((dayEndTime.getTime() - startTime.getTime()) / (60 * 1000))
-    const remainingMinutesNextDay = durationMinutes - remainingMinutesInDay
-    
-    if (remainingMinutesInDay > 0) {
-      // Split job: part 1 today, part 2 tomorrow
-      return {
-        start_time: startTime,
-        end_time: dayEndTime,
-        duration_minutes: remainingMinutesInDay,
-        is_split: true,
-        split_part: 1,
-        total_parts: 2
-      }
-      // Note: Part 2 would be scheduled in a separate call
-    } else {
-      // No time left today, schedule for next working day
-      const nextWorkingDay = await getNextWorkingDay(supabase, earliestStart)
-      return {
-        start_time: nextWorkingDay.start_time,
-        end_time: new Date(nextWorkingDay.start_time.getTime() + (durationMinutes * 60 * 1000)),
-        duration_minutes: durationMinutes,
-        is_split: false
-      }
+  }
+  
+  // Job extends beyond working hours
+  const availableMinutesToday = Math.floor((workingHours.end_time.getTime() - startTime.getTime()) / (60 * 1000))
+  
+  if (availableMinutesToday <= 0) {
+    // No time left today, move to next working day
+    const nextWorkingDay = await getNextWorkingDay(supabase, startTime)
+    return {
+      start_time: nextWorkingDay.start_time,
+      end_time: new Date(nextWorkingDay.start_time.getTime() + (durationMinutes * 60 * 1000)),
+      duration_minutes: durationMinutes,
+      is_split: false
     }
+  }
+  
+  // Split the job - use only available time today
+  return {
+    start_time: startTime,
+    end_time: workingHours.end_time,
+    duration_minutes: availableMinutesToday,
+    is_split: true,
+    split_part: 1,
+    total_parts: 2
   }
 }
 
@@ -307,21 +380,25 @@ async function getNextWorkingDay(supabase: any, fromDate: Date) {
   throw new Error('No working days found in next 7 days')
 }
 
-// Get current queue end time for a stage
-async function getCurrentQueueEndTime(supabase: any, stageId: string, fromDate: Date): Promise<Date> {
+// Get current queue end time for a stage - ONLY look at future slots
+async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: Date): Promise<Date> {
+  // CRITICAL: Only consider slots that START in the future
   const { data } = await supabase
     .from('stage_time_slots')
     .select('slot_end_time')
     .eq('production_stage_id', stageId)
-    .gte('slot_start_time', fromDate.toISOString())
+    .gte('slot_start_time', fromTime.toISOString())
     .order('slot_end_time', { ascending: false })
     .limit(1)
 
   if (data && data.length > 0) {
-    return new Date(data[0].slot_end_time)
+    const queueEndTime = new Date(data[0].slot_end_time)
+    console.log(`📊 Stage ${stageId} queue ends at: ${queueEndTime.toISOString()}`)
+    return queueEndTime
   }
 
-  return fromDate
+  console.log(`📊 Stage ${stageId} has empty queue, returning baseline: ${fromTime.toISOString()}`)
+  return fromTime
 }
 
 // Update job_stage_instances with scheduled times
