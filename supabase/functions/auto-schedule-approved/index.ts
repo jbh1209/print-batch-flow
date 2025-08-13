@@ -21,6 +21,18 @@ Deno.serve(async (req) => {
   try {
     const startedAt = new Date().toISOString();
 
+    // Read scheduler version flag (app_settings.setting_type = 'scheduler_version', product_type = 'global')
+    const { data: cfg, error: cfgErr } = await supabase
+      .from('app_settings')
+      .select('sla_target_days')
+      .eq('setting_type', 'scheduler_version')
+      .eq('product_type', 'global')
+      .maybeSingle();
+    if (cfgErr) {
+      console.warn('[auto-schedule-approved] failed to read scheduler_version, defaulting to v2', cfgErr.message);
+    }
+    const schedulerVersion = (cfg?.sla_target_days === 1) ? 'legacy' : 'v2';
+
     // 1) Find jobs whose PROOF stage is completed
     const { data: proofs, error: proofsError } = await supabase
       .from('job_stage_instances')
@@ -51,19 +63,20 @@ Deno.serve(async (req) => {
       if (pendErr) { errors.push(`pending-q failed ${job_id}: ${pendErr.message}`); continue; }
       if (!pending || pending.length === 0) continue;
 
-      // Prefer v2 scheduler; gracefully fallback to legacy
+      // Use scheduler version flag: legacy -> legacy only, v2 -> v2 only (no fallback)
       let ok = false;
-      const { data: v2, error: v2Err } = await supabase.functions.invoke('schedule-v2', {
-        body: { job_id, job_table_name: 'production_jobs' }
-      });
-      if (!v2Err && (v2 as any)?.ok) {
-        ok = true;
-      } else {
-        const { data: resp, error: invErr } = await supabase.functions.invoke('schedule-on-approval', {
+      if (schedulerVersion === 'legacy') {
+        const { data: resp, error: legacyErr } = await supabase.functions.invoke('schedule-on-approval', {
           body: { job_id, job_table_name: 'production_jobs' }
         });
-        if (invErr) { errors.push(`invoke failed ${job_id}: ${invErr.message}`); continue; }
+        if (legacyErr) { errors.push(`legacy invoke failed ${job_id}: ${legacyErr.message}`); continue; }
         ok = Boolean((resp as any)?.ok || (resp as any)?.success);
+      } else {
+        const { data: v2, error: v2Err } = await supabase.functions.invoke('schedule-v2', {
+          body: { job_id, job_table_name: 'production_jobs' }
+        });
+        if (v2Err || !(v2 as any)?.ok) { errors.push(`v2 invoke failed ${job_id}: ${v2Err?.message || 'unknown'}`); continue; }
+        ok = true;
       }
       if (ok) scheduled++;
     }
