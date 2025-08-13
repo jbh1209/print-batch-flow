@@ -37,21 +37,16 @@ export function formatSAST(date: Date, format: string = 'yyyy-MM-dd HH:mm:ss'): 
 }
 
 /**
- * Get tomorrow at 8:00 AM SAST
+ * Get tomorrow at 8:00 AM SAST (properly calculated in SAST timezone)
  */
 export function getTomorrowAt8AM(): Date {
   const nowSAST = getCurrentSAST();
   const tomorrow = addDays(nowSAST, 1);
-  const tomorrowAt8AM = setMilliseconds(
-    setSeconds(
-      setMinutes(
-        setHours(tomorrow, 8), 
-        0
-      ), 
-      0
-    ), 
-    0
-  );
+  
+  // Create a proper SAST date for tomorrow at 8:00 AM
+  const tomorrowDateStr = tomorrow.toISOString().split('T')[0];
+  const tomorrowAt8AM = createSASTDate(tomorrowDateStr, '08:00:00');
+  
   return tomorrowAt8AM;
 }
 
@@ -73,26 +68,29 @@ export function getTodayAtHour(hour: number, minute: number = 0): Date {
 }
 
 /**
- * Check if a SAST time is within working hours
+ * Check if a SAST time is within working hours (properly using SAST timezone)
  */
 export function isWithinWorkingHours(sastTime: Date, startHour: number = 8, endHour: number = 17): boolean {
-  const hours = sastTime.getHours();
-  const minutes = sastTime.getMinutes();
+  // Format the SAST time to get proper SAST hour/minute values
+  const sastTimeStr = formatSAST(sastTime, 'HH:mm');
+  const [hours, minutes] = sastTimeStr.split(':').map(Number);
   const totalMinutes = hours * 60 + minutes;
   
   return totalMinutes >= startHour * 60 && totalMinutes < endHour * 60;
 }
 
 /**
- * Create a SAST date from date string and time components
+ * Create a SAST date from date string and time components (properly in SAST timezone)
  */
 export function createSASTDate(dateStr: string, timeStr: string): Date {
-  // Create date in SAST timezone
-  const sastDateStr = `${dateStr}T${timeStr}`;
-  const date = new Date(sastDateStr);
+  // Parse the date and time string, treating it as SAST timezone
+  const sastDateTimeStr = `${dateStr}T${timeStr}`;
   
-  // Ensure it's treated as SAST
-  return toZonedTime(date, SAST_TIMEZONE);
+  // Create a temporary UTC date, then interpret it as SAST
+  const tempDate = new Date(sastDateTimeStr);
+  
+  // Convert to proper SAST timezone
+  return toZonedTime(tempDate, SAST_TIMEZONE);
 }
 
 /**

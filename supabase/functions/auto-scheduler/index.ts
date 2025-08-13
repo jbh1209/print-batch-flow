@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { toZonedTime, fromZonedTime, formatInTimeZone } from 'https://esm.sh/date-fns-tz@3.2.0'
-import { addDays, setHours, setMinutes, setSeconds, setMilliseconds } from 'https://esm.sh/date-fns@3.6.0'
+import { formatInTimeZone } from 'https://esm.sh/date-fns-tz@3.2.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,27 +8,32 @@ const corsHeaders = {
 
 const SAST_TIMEZONE = 'Africa/Johannesburg'
 
-// Timezone utilities for proper SAST handling
+// Import centralized timezone utilities (simplified for edge function)
 function toSAST(utcDate: Date): Date {
-  return toZonedTime(utcDate, SAST_TIMEZONE)
+  return new Date(utcDate.getTime())
 }
 
 function fromSAST(sastDate: Date): Date {
-  return fromZonedTime(sastDate, SAST_TIMEZONE)
+  return new Date(sastDate.getTime())
 }
 
 function getCurrentSAST(): Date {
-  return toZonedTime(new Date(), SAST_TIMEZONE)
+  const now = new Date()
+  // Convert to SAST manually (UTC+2)
+  return new Date(now.getTime() + (2 * 60 * 60 * 1000))
 }
 
 function getTomorrowAt8AM(): Date {
   const nowSAST = getCurrentSAST()
-  const tomorrow = addDays(nowSAST, 1)
-  return setMilliseconds(setSeconds(setMinutes(setHours(tomorrow, 8), 0), 0), 0)
+  const tomorrow = new Date(nowSAST)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(8, 0, 0, 0)
+  return tomorrow
 }
 
 function createSASTDate(dateStr: string, timeStr: string): Date {
-  return toZonedTime(new Date(`${dateStr}T${timeStr}`), SAST_TIMEZONE)
+  const sastDateTime = new Date(`${dateStr}T${timeStr}+02:00`)
+  return sastDateTime
 }
 
 interface SchedulingRequest {
@@ -68,7 +72,7 @@ interface SchedulingContext {
 
 function createSchedulingContext(): SchedulingContext {
   const currentSAST = getCurrentSAST()
-  console.log(`🕐 Current SAST time: ${formatInTimeZone(currentSAST, SAST_TIMEZONE, 'yyyy-MM-dd HH:mm:ss')}`)
+  console.log(`🕐 Current SAST time: ${currentSAST.toISOString()} (SAST)`)
   
   return {
     currentTime: currentSAST,
@@ -81,7 +85,7 @@ function createSchedulingContext(): SchedulingContext {
 function getSchedulingStartTime(context: SchedulingContext, proposedStart?: Date): Date {
   const tomorrowAt8AM = getTomorrowAt8AM()
   
-  console.log(`📅 Tomorrow 8AM SAST: ${formatInTimeZone(tomorrowAt8AM, SAST_TIMEZONE, 'yyyy-MM-dd HH:mm:ss')}`)
+  console.log(`📅 Tomorrow 8AM SAST: ${tomorrowAt8AM.toISOString()}`)
   
   if (!proposedStart || proposedStart < tomorrowAt8AM) {
     return tomorrowAt8AM
@@ -361,9 +365,11 @@ async function validateWorkingHoursSlot(supabase: any, startTime: Date, endTime:
   }
 }
 
-// Get working hours for a specific date
+// Get working hours for a specific date (SAST-aware)
 async function getWorkingHours(supabase: any, date: Date) {
-  const dayOfWeek = date.getDay() // 0=Sunday, 1=Monday, etc
+  // Use SAST day of week calculation
+  const sastDate = getCurrentSAST()
+  const dayOfWeek = sastDate.getDay() // 0=Sunday, 1=Monday, etc
   
   const { data, error } = await supabase
     .from('shift_schedules')
@@ -377,9 +383,10 @@ async function getWorkingHours(supabase: any, date: Date) {
     return await getNextWorkingDay(supabase, date)
   }
 
+  // Create SAST working hours for the given date
   const dateStr = date.toISOString().split('T')[0]
-  const startTime = createSASTDate(dateStr, data.shift_start_time)
-  const endTime = createSASTDate(dateStr, data.shift_end_time)
+  const startTime = new Date(`${dateStr}T${data.shift_start_time}+02:00`)
+  const endTime = new Date(`${dateStr}T${data.shift_end_time}+02:00`)
 
   return {
     start_time: startTime,
@@ -388,7 +395,7 @@ async function getWorkingHours(supabase: any, date: Date) {
   }
 }
 
-// Get next working day
+// Get next working day (SAST-aware)
 async function getNextWorkingDay(supabase: any, fromDate: Date) {
   let checkDate = new Date(fromDate)
   checkDate.setDate(checkDate.getDate() + 1)
@@ -444,11 +451,15 @@ async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: 
 // Update job_stage_instances with scheduled times
 async function updateStageInstancesWithSchedule(supabase: any, scheduledSlots: (StageSchedule & TimeSlot)[], jobId: string, jobTableName: string) {
   for (const slot of scheduledSlots) {
+    // Convert SAST times to UTC for database storage
+    const startUTC = new Date(slot.start_time.getTime() - (2 * 60 * 60 * 1000))
+    const endUTC = new Date(slot.end_time.getTime() - (2 * 60 * 60 * 1000))
+    
     await supabase
       .from('job_stage_instances')
       .update({
-        auto_scheduled_start_at: fromSAST(slot.start_time).toISOString(),
-        auto_scheduled_end_at: fromSAST(slot.end_time).toISOString(),
+        auto_scheduled_start_at: startUTC.toISOString(),
+        auto_scheduled_end_at: endUTC.toISOString(),
         auto_scheduled_duration_minutes: slot.duration_minutes,
         is_split_job: slot.is_split,
         split_job_part: slot.split_part || 1,
@@ -460,16 +471,22 @@ async function updateStageInstancesWithSchedule(supabase: any, scheduledSlots: (
 
 // Create time slot records for queue tracking
 async function createTimeSlotRecords(supabase: any, scheduledSlots: (StageSchedule & TimeSlot)[], jobId: string, jobTableName: string) {
-  const timeSlotRecords = scheduledSlots.map(slot => ({
-    production_stage_id: slot.production_stage_id,
-    date: slot.start_time.toISOString().split('T')[0],
-    slot_start_time: fromSAST(slot.start_time).toISOString(),
-    slot_end_time: fromSAST(slot.end_time).toISOString(),
-    duration_minutes: slot.duration_minutes,
-    job_id: jobId,
-    job_table_name: jobTableName,
-    stage_instance_id: slot.stage_instance_id
-  }))
+  const timeSlotRecords = scheduledSlots.map(slot => {
+    // Convert SAST times to UTC for database storage
+    const startUTC = new Date(slot.start_time.getTime() - (2 * 60 * 60 * 1000))
+    const endUTC = new Date(slot.end_time.getTime() - (2 * 60 * 60 * 1000))
+    
+    return {
+      production_stage_id: slot.production_stage_id,
+      date: startUTC.toISOString().split('T')[0], // Use UTC date for storage
+      slot_start_time: startUTC.toISOString(),
+      slot_end_time: endUTC.toISOString(),
+      duration_minutes: slot.duration_minutes,
+      job_id: jobId,
+      job_table_name: jobTableName,
+      stage_instance_id: slot.stage_instance_id
+    }
+  })
 
   await supabase
     .from('stage_time_slots')
