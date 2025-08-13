@@ -8,35 +8,134 @@ const corsHeaders = {
 
 const SAST_TIMEZONE = 'Africa/Johannesburg'
 
-// Import centralized timezone utilities (simplified for edge function)
+/**
+ * **PHASE 1: PRODUCTION SCHEDULER - TIMEZONE FOUNDATION FOR EDGE FUNCTIONS**
+ * Edge function versions of the timezone utilities with business rule validation
+ * CRITICAL: Must match the main app timezone utilities exactly
+ */
+
+// Convert UTC to SAST using proper timezone offset
 function toSAST(utcDate: Date): Date {
-  return new Date(utcDate.getTime())
+  if (!utcDate || isNaN(utcDate.getTime())) {
+    throw new Error('Invalid UTC date provided to toSAST')
+  }
+  // SAST is UTC+2
+  return new Date(utcDate.getTime() + (2 * 60 * 60 * 1000))
 }
 
+// Convert SAST to UTC for database storage
 function fromSAST(sastDate: Date): Date {
-  return new Date(sastDate.getTime())
+  if (!sastDate || isNaN(sastDate.getTime())) {
+    throw new Error('Invalid SAST date provided to fromSAST')
+  }
+  // SAST is UTC+2
+  return new Date(sastDate.getTime() - (2 * 60 * 60 * 1000))
 }
 
+// Get current SAST time (authoritative "now")
 function getCurrentSAST(): Date {
   const now = new Date()
-  // Convert to SAST manually (UTC+2)
-  return new Date(now.getTime() + (2 * 60 * 60 * 1000))
+  return toSAST(now)
 }
 
+// Format SAST date for display
+function formatSAST(date: Date, format: string = 'yyyy-MM-dd HH:mm:ss'): string {
+  if (!date || isNaN(date.getTime())) {
+    return ''
+  }
+  return formatInTimeZone(date, SAST_TIMEZONE, format)
+}
+
+// Check if time is within business hours (8 AM - 5:30 PM SAST)
+function isWithinBusinessHours(sastTime: Date): boolean {
+  if (!sastTime || isNaN(sastTime.getTime())) {
+    return false
+  }
+  
+  const hours = sastTime.getHours()
+  const minutes = sastTime.getMinutes()
+  const totalMinutes = hours * 60 + minutes
+  
+  const startMinutes = 8 * 60 // 8:00 AM
+  const endMinutes = 17 * 60 + 30 // 5:30 PM
+  
+  return totalMinutes >= startMinutes && totalMinutes <= endMinutes
+}
+
+// Check if date is a working day (Monday-Friday)
+function isWorkingDay(sastDate: Date): boolean {
+  if (!sastDate || isNaN(sastDate.getTime())) {
+    return false
+  }
+  
+  const dayOfWeek = sastDate.getDay()
+  return dayOfWeek >= 1 && dayOfWeek <= 5 // Monday=1, Friday=5
+}
+
+// Check if time is in the past
+function isInPast(sastTime: Date): boolean {
+  const nowSAST = getCurrentSAST()
+  return sastTime < nowSAST
+}
+
+// Create SAST date with business rule validation
+function createSASTDate(dateStr: string, timeStr: string): Date {
+  if (!dateStr || !timeStr) {
+    throw new Error('Date string and time string are required')
+  }
+  
+  const sastDateTime = new Date(`${dateStr}T${timeStr}+02:00`)
+  
+  // Validate business hours
+  if (!isWithinBusinessHours(sastDateTime)) {
+    throw new Error(`Time ${timeStr} is outside business hours (8:00 AM - 5:30 PM SAST)`)
+  }
+  
+  // Validate working day
+  if (!isWorkingDay(sastDateTime)) {
+    throw new Error(`Date ${dateStr} is not a working day`)
+  }
+  
+  return sastDateTime
+}
+
+// Get next working day at 8:00 AM
+function getNextWorkingDayStart(fromSastDate: Date): Date {
+  let nextDate = new Date(fromSastDate)
+  nextDate.setDate(nextDate.getDate() + 1)
+  
+  // Skip weekends
+  while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
+    nextDate.setDate(nextDate.getDate() + 1)
+  }
+  
+  // Set to 8:00 AM SAST
+  const dateStr = nextDate.toISOString().split('T')[0]
+  return new Date(`${dateStr}T08:00:00+02:00`)
+}
+
+// Get next valid business time
+function getNextValidBusinessTime(proposedSastTime: Date): Date {
+  let adjustedTime = new Date(proposedSastTime)
+  
+  // If in the past, move to current time
+  const nowSAST = getCurrentSAST()
+  if (adjustedTime < nowSAST) {
+    adjustedTime = new Date(nowSAST)
+  }
+  
+  // If outside business hours or not working day, move to next business day
+  if (!isWithinBusinessHours(adjustedTime) || !isWorkingDay(adjustedTime)) {
+    return getNextWorkingDayStart(adjustedTime)
+  }
+  
+  return adjustedTime
+}
+
+// Legacy support
 function getTomorrowAt8AM(): Date {
   const nowSAST = getCurrentSAST()
-  const tomorrow = new Date(nowSAST)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  
-  // Create proper SAST date for tomorrow at 8:00 AM
-  const tomorrowDateStr = tomorrow.toISOString().split('T')[0]
-  const tomorrowAt8AM = new Date(`${tomorrowDateStr}T08:00:00+02:00`)
-  return tomorrowAt8AM
-}
-
-function createSASTDate(dateStr: string, timeStr: string): Date {
-  const sastDateTime = new Date(`${dateStr}T${timeStr}+02:00`)
-  return sastDateTime
+  return getNextWorkingDayStart(nowSAST)
 }
 
 interface SchedulingRequest {
