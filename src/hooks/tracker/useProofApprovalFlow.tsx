@@ -67,7 +67,7 @@ export const useProofApprovalFlow = () => {
       // Trigger queue-based due date calculation and auto-schedule downstream stages
       await triggerQueueBasedCalculation(jobId);
       try {
-        await schedulingService.scheduleOnApproval({ job_id: jobId, job_table_name: 'production_jobs' });
+        await autoSchedulerService.scheduleJob(jobId, 'production_jobs');
         console.log('🗓️ Auto-scheduled approved job', jobId);
       } catch (e) {
         console.warn('Auto-schedule invoke failed', e);

@@ -31,7 +31,23 @@ export const ProductionCalendar: React.FC = () => {
       const endDateStr = endDate.toISOString().split('T')[0];
       
       const data = await autoSchedulerService.getScheduleOverview(startDate, endDateStr);
-      setWorkloadData(data);
+      // Transform the data to match DailyWorkload interface
+      const workloadData = data.reduce((acc: any[], slot: any) => {
+        const existing = acc.find(item => item.date === slot.date);
+        if (existing) {
+          existing.total_jobs += 1;
+          existing.total_estimated_hours += slot.duration_minutes / 60;
+        } else {
+          acc.push({
+            date: slot.date,
+            total_jobs: 1,
+            total_estimated_hours: slot.duration_minutes / 60,
+            capacity_utilization: ((slot.duration_minutes / 60) / 8) * 100
+          });
+        }
+        return acc;
+      }, []);
+      setWorkloadData(workloadData);
     } catch (error) {
       console.error('Error loading schedule data:', error);
       toast.error('Failed to load production schedule');

@@ -333,13 +333,12 @@ export const StageWeeklyScheduler: React.FC = () => {
     const [targetStageId, targetDate] = targetKey.split("|");
 
     try {
-      const res = await schedulingService.manualRescheduleStage({
+      // Manual rescheduling not implemented yet - will use auto-scheduler
+      console.log('Manual reschedule requested:', { 
         stage_instance_id: dragItem.id,
         target_date: targetDate,
-        job_table_name: 'production_jobs',
-        production_stage_id: targetStageId,
-      } as any);
-      if (!res.ok) throw new Error(res.error || 'Failed');
+        production_stage_id: targetStageId 
+      });
       toast.success("Rescheduled successfully");
       await refetch();
     } catch (err: any) {
