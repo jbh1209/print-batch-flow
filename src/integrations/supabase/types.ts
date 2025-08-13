@@ -2805,9 +2805,17 @@ export type Database = {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
       }
-      get_stage_queue_end_time: {
-        Args: { p_stage_id: string; p_date?: string }
-        Returns: string
+      get_next_capacity_slot: {
+        Args: {
+          p_stage_id: string
+          p_duration_minutes: number
+          p_earliest_date?: string
+        }
+        Returns: {
+          start_time: string
+          end_time: string
+          date_scheduled: string
+        }[]
       }
       get_user_accessible_jobs: {
         Args: {

@@ -102,14 +102,15 @@ export class StageQueueManager {
     queuePosition: number;
   }> {
     try {
-      // Get current queue end time for this stage
-      const { data, error } = await supabase.rpc('get_stage_queue_end_time', {
+      // Use new capacity-aware function instead of broken queue function
+      const { data, error } = await supabase.rpc('get_next_capacity_slot', {
         p_stage_id: stageId,
-        p_date: new Date().toISOString().split('T')[0]
+        p_duration_minutes: estimatedDurationHours * 60,
+        p_earliest_date: new Date().toISOString().split('T')[0]
       });
       
-      if (error || !data) {
-        console.error('Error getting queue end time:', error);
+      if (error || !data || data.length === 0) {
+        console.error('Error getting capacity slot:', error);
         // Fallback to immediate start
         const startDate = new Date();
         const completionDate = new Date(startDate.getTime() + (estimatedDurationHours * 60 * 60 * 1000));
@@ -120,9 +121,10 @@ export class StageQueueManager {
         };
       }
 
-      const queueEndTime = new Date(data);
-      const estimatedDurationMs = estimatedDurationHours * 60 * 60 * 1000;
-      const completionTime = new Date(queueEndTime.getTime() + estimatedDurationMs);
+      // Parse the capacity slot response
+      const capacitySlot = data[0];
+      const queueEndTime = new Date(capacitySlot.start_time);
+      const completionTime = new Date(capacitySlot.end_time);
 
       return {
         earliestStartDate: queueEndTime,

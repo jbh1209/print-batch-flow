@@ -9,6 +9,7 @@ import { runBusinessLogicTests } from './businessLogicEngine';
 import { runDataIntegrityTests } from './dataIntegrityLayer';
 import { runUIConsistencyTests } from './uiConsistencyFix';
 import { runProductionFeaturesTests } from './productionFeatures';
+import { runPhase2Tests } from './phase2-capacity-tests';
 
 export interface PhaseTestResult {
   phase: number;
@@ -54,13 +55,13 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase1.passed;
   totalFailed += phase1.failed;
 
-  // **PHASE 2: BUSINESS LOGIC ENGINE**
-  console.log('\n📍 **EXECUTING PHASE 2: BUSINESS LOGIC ENGINE**');
+  // **PHASE 2: PARALLEL CAPACITY SCHEDULING**
+  console.log('\n📍 **EXECUTING PHASE 2: PARALLEL CAPACITY SCHEDULING**');
   console.log('-' .repeat(50));
-  const phase2 = runBusinessLogicTests();
+  const phase2 = runPhase2Tests();
   phaseResults.push({
     phase: 2,
-    name: 'Business Logic Engine',
+    name: 'Parallel Capacity Scheduling',
     passed: phase2.passed,
     failed: phase2.failed,
     errors: phase2.errors,
@@ -69,13 +70,13 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase2.passed;
   totalFailed += phase2.failed;
 
-  // **PHASE 3: DATA INTEGRITY LAYER**
-  console.log('\n📍 **EXECUTING PHASE 3: DATA INTEGRITY LAYER**');
+  // **PHASE 3: BUSINESS LOGIC ENGINE** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 3: BUSINESS LOGIC ENGINE**');
   console.log('-' .repeat(50));
-  const phase3 = runDataIntegrityTests();
+  const phase3 = runBusinessLogicTests();
   phaseResults.push({
     phase: 3,
-    name: 'Data Integrity Layer',
+    name: 'Business Logic Engine',
     passed: phase3.passed,
     failed: phase3.failed,
     errors: phase3.errors,
@@ -84,13 +85,13 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase3.passed;
   totalFailed += phase3.failed;
 
-  // **PHASE 4: UI CONSISTENCY FIX**
-  console.log('\n📍 **EXECUTING PHASE 4: UI CONSISTENCY FIX**');
+  // **PHASE 4: DATA INTEGRITY LAYER** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 4: DATA INTEGRITY LAYER**');
   console.log('-' .repeat(50));
-  const phase4 = runUIConsistencyTests();
+  const phase4 = runDataIntegrityTests();
   phaseResults.push({
     phase: 4,
-    name: 'UI Consistency Fix',
+    name: 'Data Integrity Layer',
     passed: phase4.passed,
     failed: phase4.failed,
     errors: phase4.errors,
@@ -99,13 +100,13 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase4.passed;
   totalFailed += phase4.failed;
 
-  // **PHASE 5: PRODUCTION FEATURES**
-  console.log('\n📍 **EXECUTING PHASE 5: PRODUCTION FEATURES**');
+  // **PHASE 5: UI CONSISTENCY FIX** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 5: UI CONSISTENCY FIX**');
   console.log('-' .repeat(50));
-  const phase5 = runProductionFeaturesTests();
+  const phase5 = runUIConsistencyTests();
   phaseResults.push({
     phase: 5,
-    name: 'Production Features',
+    name: 'UI Consistency Fix',
     passed: phase5.passed,
     failed: phase5.failed,
     errors: phase5.errors,
@@ -113,6 +114,21 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   });
   totalPassed += phase5.passed;
   totalFailed += phase5.failed;
+
+  // **PHASE 6: PRODUCTION FEATURES** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 6: PRODUCTION FEATURES**');
+  console.log('-' .repeat(50));
+  const phase6 = runProductionFeaturesTests();
+  phaseResults.push({
+    phase: 6,
+    name: 'Production Features',
+    passed: phase6.passed,
+    failed: phase6.failed,
+    errors: phase6.errors,
+    success: phase6.failed === 0
+  });
+  totalPassed += phase6.passed;
+  totalFailed += phase6.failed;
 
   // **FINAL RESULTS**
   const allPhasesPass = phaseResults.every(phase => phase.success);
@@ -146,6 +162,7 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   if (readyForProduction) {
     console.log('🎉 **PRODUCTION READY: All phases passed! Scheduler is ready for production use.**');
     console.log('✅ Time Zone Foundation: Robust SAST handling');
+    console.log('✅ Parallel Capacity Scheduling: Daily capacity packing (no more "10 days later")');
     console.log('✅ Business Logic Engine: Proper scheduling rules');
     console.log('✅ Data Integrity Layer: Database constraints active');
     console.log('✅ UI Consistency Fix: Display matches database');
@@ -159,7 +176,7 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   console.log('=' .repeat(80));
 
   const summary = readyForProduction 
-    ? `All 5 phases passed. Scheduler is production-ready with ${totalPassed} tests passed.`
+    ? `All 6 phases passed. Scheduler is production-ready with ${totalPassed} tests passed.`
     : `${totalFailed} tests failed across ${phaseResults.filter(p => !p.success).length} phases. Not production-ready.`;
 
   return {

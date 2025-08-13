@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { runCompleteSchedulerTests, MasterTestResult, PhaseTestResult } from '@/utils/scheduling/masterTestRunner';
 import { runPhase1Tests } from '@/utils/timezone-display-audit';
+import { runPhase2Tests } from '@/utils/scheduling/phase2-capacity-tests';
 
 const SchedulerTestRunner = () => {
   const [testResults, setTestResults] = useState<MasterTestResult | null>(null);
   const [phase1Results, setPhase1Results] = useState<any>(null);
+  const [phase2Results, setPhase2Results] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
 
   const runPhase1Only = () => {
@@ -28,6 +30,29 @@ const SchedulerTestRunner = () => {
     } catch (error) {
       console.error('Phase 1 test error:', error);
       setPhase1Results({ passed: 0, failed: 1, errors: [String(error)] });
+    }
+    
+    setIsRunning(false);
+  };
+
+  const runPhase2Only = () => {
+    console.log('🔧 **PHASE 2 VERIFICATION STARTING**');
+    setIsRunning(true);
+    
+    try {
+      const results = runPhase2Tests();
+      setPhase2Results(results);
+      
+      if (results.failed === 0) {
+        console.log('✅ **PHASE 2 VERIFICATION PASSED**');
+        console.log('🎯 Capacity scheduling fixed - No more "10 days later" bug');
+      } else {
+        console.log('❌ **PHASE 2 VERIFICATION FAILED**');
+        console.log('🚨 Jobs still using sequential queue logic');
+      }
+    } catch (error) {
+      console.error('Phase 2 test error:', error);
+      setPhase2Results({ passed: 0, failed: 1, errors: [String(error)] });
     }
     
     setIsRunning(false);
@@ -61,8 +86,8 @@ const SchedulerTestRunner = () => {
             🚀 Complete Production Scheduler Test Suite
           </CardTitle>
           <p className="text-center text-muted-foreground">
-            Systematic testing of all 5 phases - Phase 1: Time Zone Foundation, Phase 2: Business Logic Engine, 
-            Phase 3: Data Integrity Layer, Phase 4: UI Consistency Fix, Phase 5: Production Features
+            Systematic testing of all 6 phases - Phase 1: Timezone Foundation, Phase 2: Capacity Scheduling, 
+            Phase 3: Business Logic, Phase 4: Data Integrity, Phase 5: UI Consistency, Phase 6: Production Features
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -111,6 +136,64 @@ const SchedulerTestRunner = () => {
                         <div className="text-sm text-red-700 mt-1">
                           <p>🚨 Timezone display still has issues. Cannot proceed to Phase 2.</p>
                           {phase1Results.errors?.map((error: string, i: number) => (
+                            <p key={i}>• {error}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Phase 2 Verification Section */}
+          <Card className="border-2 border-green-200 bg-green-50/30">
+            <CardHeader>
+              <CardTitle className="text-lg">🔧 Phase 2: Capacity Scheduling Verification</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                <strong>CRITICAL:</strong> Tests that jobs pack within daily capacity (fixes "10 days later" bug)
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button 
+                onClick={runPhase2Only} 
+                disabled={isRunning}
+                className="w-full"
+                variant="outline"
+              >
+                {isRunning ? 'Running Phase 2 Verification...' : '🔧 Verify Phase 2: Capacity Scheduling Fix'}
+              </Button>
+
+              {phase2Results && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Badge variant={phase2Results.passed > 0 ? "default" : "destructive"}>
+                      ✅ {phase2Results.passed} passed
+                    </Badge>
+                    <Badge variant={phase2Results.failed > 0 ? "destructive" : "secondary"}>
+                      ❌ {phase2Results.failed} failed
+                    </Badge>
+                  </div>
+                  
+                  <div className={`p-3 rounded ${phase2Results.failed === 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    {phase2Results.failed === 0 ? (
+                      <div>
+                        <h4 className="font-semibold text-green-800">✅ PHASE 2 VERIFICATION PASSED</h4>
+                        <div className="text-sm text-green-700 mt-1 space-y-1">
+                          <p>✅ Two 2-hour jobs pack within same day (not 10 days apart)</p>
+                          <p>✅ Daily capacity logic replaces sequential queue</p>
+                          <p>✅ Jobs schedule within working hours (8 AM - 5:30 PM SAST)</p>
+                          <p>✅ Weekend jobs correctly move to Monday</p>
+                          <p className="font-medium">🚀 READY FOR PHASE 3: Data Integrity</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <h4 className="font-semibold text-red-800">❌ PHASE 2 VERIFICATION FAILED</h4>
+                        <div className="text-sm text-red-700 mt-1">
+                          <p>🚨 Capacity scheduling still has issues. Cannot proceed to Phase 3.</p>
+                          {phase2Results.errors?.map((error: string, i: number) => (
                             <p key={i}>• {error}</p>
                           ))}
                         </div>
