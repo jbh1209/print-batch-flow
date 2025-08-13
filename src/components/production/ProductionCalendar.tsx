@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, TrendingUp } from 'lucide-react';
-import { ProductionScheduler } from '@/services/productionScheduler';
+import { autoSchedulerService } from '@/services/autoSchedulerService';
 import { toast } from 'sonner';
 
 interface DailyWorkload {
@@ -30,7 +30,7 @@ export const ProductionCalendar: React.FC = () => {
       endDate.setDate(endDate.getDate() + 10);
       const endDateStr = endDate.toISOString().split('T')[0];
       
-      const data = await ProductionScheduler.getScheduleOverview(startDate, endDateStr);
+      const data = await autoSchedulerService.getScheduleOverview(startDate, endDateStr);
       setWorkloadData(data);
     } catch (error) {
       console.error('Error loading schedule data:', error);

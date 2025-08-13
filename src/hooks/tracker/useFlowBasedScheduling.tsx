@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { flowBasedScheduler } from '@/services/flowBasedProductionScheduler';
+import { autoSchedulerService } from '@/services/autoSchedulerService';
 import { stageQueueManager } from '@/services/stageQueueManager';
 import { useToast } from '@/hooks/use-toast';
 
@@ -105,11 +105,7 @@ export const useFlowBasedScheduling = (): UseFlowBasedSchedulingReturn => {
     try {
       setIsCalculating(true);
       
-      const result = await flowBasedScheduler.scheduleJob({
-        jobId,
-        jobTableName,
-        priority
-      });
+      const result = await autoSchedulerService.scheduleJob(jobId, jobTableName);
 
       if (result.success) {
         toast({

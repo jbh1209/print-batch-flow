@@ -9,7 +9,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ChevronLeft, ChevronRight, Calendar, Clock, Zap, RefreshCcw } from "lucide-react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { toast } from "sonner";
-import { schedulingService } from "@/services/schedulingService";
+import { autoSchedulerService } from "@/services/autoSchedulerService";
 import { supabase } from "@/integrations/supabase/client";
 import { useProductionStageCounts } from "@/hooks/tracker/useProductionStageCounts";
 

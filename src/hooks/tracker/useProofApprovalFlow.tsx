@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { schedulingService } from "@/services/schedulingService";
+import { autoSchedulerService } from "@/services/autoSchedulerService";
 import { toast } from "sonner";
 
 /**

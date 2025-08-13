@@ -882,6 +882,9 @@ export type Database = {
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
+          auto_scheduled_duration_minutes: number | null
+          auto_scheduled_end_at: string | null
+          auto_scheduled_start_at: string | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
@@ -892,6 +895,7 @@ export type Database = {
           estimated_duration_minutes: number | null
           id: string
           is_rework: boolean | null
+          is_split_job: boolean | null
           job_id: string
           job_order_in_stage: number
           job_table_name: string
@@ -915,6 +919,8 @@ export type Database = {
           scheduled_minutes: number | null
           scheduled_start_at: string | null
           setup_time_minutes: number | null
+          split_job_part: number | null
+          split_job_total_parts: number | null
           stage_order: number
           stage_specification_id: string | null
           started_at: string | null
@@ -925,6 +931,9 @@ export type Database = {
         }
         Insert: {
           actual_duration_minutes?: number | null
+          auto_scheduled_duration_minutes?: number | null
+          auto_scheduled_end_at?: string | null
+          auto_scheduled_start_at?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -935,6 +944,7 @@ export type Database = {
           estimated_duration_minutes?: number | null
           id?: string
           is_rework?: boolean | null
+          is_split_job?: boolean | null
           job_id: string
           job_order_in_stage?: number
           job_table_name: string
@@ -958,6 +968,8 @@ export type Database = {
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
           setup_time_minutes?: number | null
+          split_job_part?: number | null
+          split_job_total_parts?: number | null
           stage_order: number
           stage_specification_id?: string | null
           started_at?: string | null
@@ -968,6 +980,9 @@ export type Database = {
         }
         Update: {
           actual_duration_minutes?: number | null
+          auto_scheduled_duration_minutes?: number | null
+          auto_scheduled_end_at?: string | null
+          auto_scheduled_start_at?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -978,6 +993,7 @@ export type Database = {
           estimated_duration_minutes?: number | null
           id?: string
           is_rework?: boolean | null
+          is_split_job?: boolean | null
           job_id?: string
           job_order_in_stage?: number
           job_table_name?: string
@@ -1001,6 +1017,8 @@ export type Database = {
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
           setup_time_minutes?: number | null
+          split_job_part?: number | null
+          split_job_total_parts?: number | null
           stage_order?: number
           stage_specification_id?: string | null
           started_at?: string | null
@@ -1899,6 +1917,39 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_schedules: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          is_active: boolean
+          is_working_day: boolean
+          shift_end_time: string
+          shift_start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_active?: boolean
+          is_working_day?: boolean
+          shift_end_time?: string
+          shift_start_time?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_active?: boolean
+          is_working_day?: boolean
+          shift_end_time?: string
+          shift_start_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sleeve_jobs: {
         Row: {
           batch_allocated_at: string | null
@@ -2096,6 +2147,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stage_time_slots: {
+        Row: {
+          created_at: string
+          date: string
+          duration_minutes: number
+          id: string
+          is_completed: boolean
+          job_id: string | null
+          job_table_name: string | null
+          production_stage_id: string
+          slot_end_time: string
+          slot_start_time: string
+          stage_instance_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          duration_minutes: number
+          id?: string
+          is_completed?: boolean
+          job_id?: string | null
+          job_table_name?: string | null
+          production_stage_id: string
+          slot_end_time: string
+          slot_start_time: string
+          stage_instance_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          duration_minutes?: number
+          id?: string
+          is_completed?: boolean
+          job_id?: string | null
+          job_table_name?: string | null
+          production_stage_id?: string
+          slot_end_time?: string
+          slot_start_time?: string
+          stage_instance_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       stage_workload_tracking: {
         Row: {
