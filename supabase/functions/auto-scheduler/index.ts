@@ -41,10 +41,12 @@ interface SchedulingContext {
 
 function createSchedulingContext(): SchedulingContext {
   const serverTime = new Date()
+  // Convert to South Africa timezone (SAST)
+  const sastTime = new Date(serverTime.toLocaleString("en-US", {timeZone: "Africa/Johannesburg"}))
   return {
-    currentTime: serverTime,
-    serverTime: serverTime,
-    timezone: 'UTC'
+    currentTime: sastTime,
+    serverTime: sastTime,
+    timezone: 'Africa/Johannesburg'
   }
 }
 
@@ -123,7 +125,7 @@ Deno.serve(async (req) => {
   }
 })
 
-// Get job's stage breakdown from category workflow
+// Get job's stage breakdown - only for jobs approved at PROOF stage
 async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: string): Promise<StageSchedule[]> {
   const { data: stages, error } = await supabase
     .from('job_stage_instances')
@@ -147,13 +149,19 @@ async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: 
 
   if (error) throw error
 
-  return stages.map(stage => ({
+  // Filter out DTP and Proof stages - only schedule printing/finishing stages
+  const productionStages = stages.filter(stage => {
+    const stageName = stage.production_stages.name.toLowerCase()
+    return !stageName.includes('dtp') && !stageName.includes('proof') && !stageName.includes('batch allocation')
+  })
+
+  return productionStages.map(stage => ({
     stage_instance_id: stage.id,
     production_stage_id: stage.production_stage_id,
     stage_name: stage.production_stages.name,
     stage_order: stage.stage_order,
-    estimated_duration_minutes: stage.estimated_duration_minutes || 60, // Default 1 hour
-    dependencies: [], // Will be calculated based on stage_order and parallel groups
+    estimated_duration_minutes: stage.estimated_duration_minutes || 60,
+    dependencies: [],
     stage_group_id: stage.production_stages.stage_group_id,
     parallel_processing_enabled: stage.production_stages.stage_groups?.parallel_processing_enabled || false,
     part_assignment: stage.part_assignment
@@ -380,9 +388,9 @@ async function getNextWorkingDay(supabase: any, fromDate: Date) {
   throw new Error('No working days found in next 7 days')
 }
 
-// Get current queue end time for a stage - ONLY look at future slots
+// Get current queue end time for a stage - Simple sequential logic
 async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: Date): Promise<Date> {
-  // CRITICAL: Only consider slots that START in the future
+  // Simple logic: Find the last job that ends latest for this stage
   const { data } = await supabase
     .from('stage_time_slots')
     .select('slot_end_time')
@@ -392,12 +400,14 @@ async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: 
     .limit(1)
 
   if (data && data.length > 0) {
-    const queueEndTime = new Date(data[0].slot_end_time)
-    console.log(`📊 Stage ${stageId} queue ends at: ${queueEndTime.toISOString()}`)
-    return queueEndTime
+    const lastEndTime = new Date(data[0].slot_end_time)
+    // Ensure we never return a time before now
+    const result = lastEndTime > fromTime ? lastEndTime : fromTime
+    console.log(`📊 Stage ${stageId} queue ends at: ${result.toISOString()}`)
+    return result
   }
 
-  console.log(`📊 Stage ${stageId} has empty queue, returning baseline: ${fromTime.toISOString()}`)
+  console.log(`📊 Stage ${stageId} has empty queue, starting from: ${fromTime.toISOString()}`)
   return fromTime
 }
 
