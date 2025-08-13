@@ -4,6 +4,7 @@ import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
 import { ProductionPlanningCalendar } from "@/components/production/ProductionPlanningCalendar";
 import { StageWeeklyScheduler } from "@/components/production/StageWeeklyScheduler";
+import { WorkingHoursManager } from "@/components/admin/WorkingHoursManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/button";
@@ -92,12 +93,16 @@ const AdminSchedulePage: React.FC = () => {
           <TabsList>
             <TabsTrigger value="stages">Stage Planner</TabsTrigger>
             <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="working-hours">Working Hours</TabsTrigger>
           </TabsList>
           <TabsContent value="stages">
             <StageWeeklyScheduler />
           </TabsContent>
           <TabsContent value="calendar">
             <ProductionPlanningCalendar />
+          </TabsContent>
+          <TabsContent value="working-hours">
+            <WorkingHoursManager />
           </TabsContent>
         </Tabs>
       </main>
