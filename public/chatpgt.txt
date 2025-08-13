@@ -1,0 +1,287 @@
+What’s really going on
+Root causes
+Display bug (times 2h ahead)
+
+You’re already storing UTC and converting to SAST on fetch (👍).
+
+In the UI, you call toSAST() again before formatSAST(), so the same SAST instant is shifted by +2h a second time.
+
+This likely happens in multiple components (not just StageWeeklyScheduler.tsx) and/or via a custom hook/selector that “helpfully” normalizes times, so removing it in one place didn’t fix all occurrences.
+
+“10 days later” scheduling
+
+The DB function get_stage_queue_end_time() is modeling a single FIFO queue per stage (sequential flow).
+
+Your business reality is per-day capacity (parallel jobs up to N hours/day).
+
+That mismatch forces “next job start = end of previous job’s block”, skipping weekends and filling calendars with big gaps → a job on Friday pushes the next to well after the weekend (sometimes weeks later if any holidays or capacity miscalc appear).
+
+Tests green but reality red
+
+Unit tests don’t exercise E2E behavior (UI + scheduling + DB).
+
+There are no assertions that the same record renders the same instant across DB → API → UI without drift.
+
+No multi-job, same-day capacity tests; so the sequential-queue behavior isn’t caught.
+
+Minimal viable fixes (surgical, not architectural)
+A. Timezone display: eliminate double-conversion and prevent recurrence
+Lock the display pipeline
+
+Correct pipeline:
+
+DB (UTC timestamptz) → dbTimeToSAST(utcString) → SAST Date → formatSAST(sastDate) → string for UI
+
+Anti-patterns to kill:
+
+formatSAST(toSAST(sastDate))
+
+toSAST(parseISO(...)) when you already have SAST
+
+Using date-fns-tz functions directly in UI components
+
+Code change (pattern)
+
+ts
+Copy
+Edit
+// WRONG (double shift)
+const display = formatSAST(toSAST(dbTimeToSAST(row.scheduled_start_at)));
+
+// RIGHT (single conversion)
+const sast = dbTimeToSAST(row.scheduled_start_at);
+const display = formatSAST(sast);
+Guardrails
+
+Ban direct imports of date-fns-tz in UI via ESLint:
+
+json
+Copy
+Edit
+// .eslintrc
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          { "name": "date-fns-tz", "message": "Use src/utils/timezone.ts" }
+        ]
+      }
+    ]
+  }
+}
+Create a branded type to mark SAST dates:
+
+ts
+Copy
+Edit
+// timezone.ts
+export type SASTDate = Date & { __brand: "SAST" };
+export function dbTimeToSAST(utc: string): SASTDate { /* ... */ }
+export function formatSAST(d: SASTDate): string { /* ... */ }
+// toSAST/fromSAST stay internal; don’t export raw converters to UI.
+With this, calling toSAST() on an already-SASTDate won’t type-check.
+
+Repo-wide sweep
+
+Grep: rg -n "toSAST\\(|fromSAST\\(|from 'date-fns-tz'" src/
+
+Replace UI usages with dbTimeToSAST + formatSAST.
+
+Audit hooks/selectors feeding time objects; fix at the source to avoid re-fixing in each component.
+
+Why this is minimal: No logic rewrite—just switch to the already-centralized utilities and add a linter rule to stop regressions.
+
+B. Scheduling: stop using a sequential queue; use daily capacity buckets
+You don’t need to rewrite scheduling into the DB or app wholesale. Keep it in TypeScript where your businessLogicEngine already lives; only neutralize the sequential DB function.
+
+Neutralize the sequential guard
+
+Make get_stage_queue_end_time() return NULL or act as a no-op for stages governed by capacity profiles.
+
+Or, simpler: stop calling it from your app—prefer calculateNextAvailableSlot().
+
+Fix the core algorithm (if needed)
+In calculateNextAvailableSlot() ensure it:
+
+Works on working-day windows: 08:00–17:30 SAST, Mon–Fri.
+
+Tracks remaining minutes per stage per day (capacity), not a single “queue end time.”
+
+Packs jobs within the same day until capacity is exhausted, then rolls to the next working day.
+
+ts
+Copy
+Edit
+// sketch – replace sequential logic
+function findSlotForJob(params: {
+  stageId: string;
+  durationMin: number;
+  earliest: SASTDate;
+  capacityByStage: Map<string, number>; // minutes/day
+  allocationsIndex: Map<string /*stage+YYYY-MM-DD*/, number /*used minutes*/>;
+}): { start: SASTDate; end: SASTDate } {
+  let cursor = clampToBusinessWindow(rollToWorkingDay(params.earliest));
+  while (true) {
+    const key = keyFor(params.stageId, ymd(cursor));
+    const used = allocationsIndex.get(key) ?? 0;
+    const cap = (params.capacityByStage.get(params.stageId) ?? 0);
+    const remaining = Math.max(0, cap - used);
+    const remainInDayWindow = minutesUntilBusinessClose(cursor);
+
+    const fit = Math.min(remaining, remainInDayWindow);
+    if (fit >= params.durationMin) {
+      const start = cursor;
+      const end = addMinutes(cursor, params.durationMin) as SASTDate;
+      allocationsIndex.set(key, used + params.durationMin);
+      return { start, end };
+    }
+
+    // advance to next working day 08:00
+    cursor = startOfNextWorkingDay(cursor);
+  }
+}
+Batch scheduling
+
+In scheduleMultipleJobs() sort by priority/due date, then repeatedly call the above to pack into days.
+
+This alone fixes “Friday job pushes next to 10 days later”: on Monday, capacity resets and the next job fits.
+
+Database compatibility
+
+Keep storing UTC scheduled_start_at/scheduled_end_at.
+
+Remove dependence on stage_workload_tracking.queue_ends_at. If you need reporting, maintain a derived table of per-day used minutes (write-behind in the app, or computed view).
+
+Optional (DB-side assistance, not logic)
+Create a materialized view to quickly sum allocations by day:
+
+sql
+Copy
+Edit
+create materialized view stage_daily_usage as
+select
+  production_stage_id,
+  (scheduled_start_at at time zone 'Africa/Johannesburg')::date as work_date,
+  sum(extract(epoch from (scheduled_end_at - scheduled_start_at))/60)::int as used_minutes
+from job_stage_instances
+group by 1,2;
+
+-- refresh this on schedule, or after scheduling batches
+Your TS algorithm can read this to warm allocationsIndex.
+
+Why this is minimal: You don’t redesign schemas; you stop using one broken function and rely on an algorithm you already house in TS, with a light helper view for speed.
+
+Testing strategy (fast to add, high coverage)
+1) Timezone regression
+Pure unit (timezone.spec.ts)
+
+Assert dbTimeToSAST("2025-08-11T06:00:00Z") → formatSAST(...) === "08:00".
+
+Assert idempotence: formatSAST(dbTimeToSAST(x)) equals baseline; fail if toSAST is re-applied (use type test or a deliberate runtime check in test).
+
+UI render test with React Testing Library:
+
+Feed a record with UTC 06:00; component renders "08:00".
+
+Add a test that importing date-fns-tz in UI throws via ESLint (CI step).
+
+2) Capacity packing scenarios (integration)
+Happy path: Stage cap 480 min/day; schedule Job A (120) + Job B (180) on a Friday → both land Friday 08:00–12:00 with correct offsets; next job lands Monday 08:00.
+
+Edge: Fill a day exactly; next job starts next working day 08:00.
+
+Weekend skip: Last slot Friday 16:30–17:30; next 120-min job → Monday 08:00–10:00.
+
+Multi-stage: Ensure stage-local capacity tracking (no cross-stage interference).
+
+Use your real helpers:
+
+ts
+Copy
+Edit
+// masterTestRunner.ts (add e2e block)
+it("packs jobs within daily capacity and skips weekend", async () => {
+  setFixedNow("2025-08-08T06:00:00Z"); // Fri 08:00 SAST
+  seedStageCap(stagePrint, 480);
+  const res = await scheduleMultipleJobs([
+    job(120), job(180), job(240)
+  ]);
+  expect(res[0].startSAST).toBe("2025-08-08 08:00");
+  expect(res[1].startSAST).toBe("2025-08-08 10:00");
+  expect(res[2].startSAST).toBe("2025-08-11 08:00"); // Monday
+});
+3) UI snapshot (Playwright)
+Spin the app with TZ=Africa/Johannesburg.
+
+Seed DB with known UTCs, then assert visible times (no +2h drift).
+
+Run in CI to catch environment TZ regressions.
+
+Architectural recommendations (keep it simple)
+Logic in TypeScript, not PL/pgSQL
+
+Scheduling is business-y, changes often, and benefits from tests & types.
+
+Keep DB for persistence, sums, views, not algorithms that encode policy and are hard to refactor.
+
+Single source of truth for time
+
+DB in UTC.
+
+API returns ISO UTC.
+
+One conversion at the edge (selector/hooks) → SAST value object (SASTDate).
+
+UI only formats SASTDate → string.
+
+Hard guardrails
+
+ESLint ban on date-fns-tz in UI.
+
+Branded types for timezones.
+
+A small runtime dev-only check: if a SASTDate passes into toSAST, console.warn in dev.
+
+Observability
+
+Log scheduling decisions:
+
+ini
+Copy
+Edit
+[schedule] stage=PRINT date=2025-08-11 cap=480 used=240 placing=job#123 start=08:00 end=10:00
+Add a “Why this time?” popover in AdvancedScheduleView.tsx that prints the exact capacity audit for that job/day. This kills a whole class of support tickets.
+
+What the current dev is missing
+Scope of the double-conversion: It’s not just one component; it’s a pattern. Add guardrails (ESLint + branded type) so it can’t happen again.
+
+Model mismatch: The DB queue function encodes a serial pipeline world, not a daily capacity world. As long as it’s in play, you’ll see “10 days later” behavior no matter how you tweak the UI.
+
+End-to-end tests: Unit tests alone won’t catch time drift or day-packing behavior. You need capacity scenarios and UI-visible assertions.
+
+Step-by-step rollout (low risk)
+Add ESLint ban + export only safe timezone APIs. Fix compilation errors it surfaces (usually quick).
+
+Repo-wide sweep replacing double-conversions; merge behind a short-lived feature flag if needed.
+
+Disable get_stage_queue_end_time() in the app path; switch to calculateNextAvailableSlot() with per-day capacity packing (patch as sketched).
+
+Add materialized view (optional) and a light cache to seed allocationsIndex on batch schedule.
+
+Add the tests outlined above and make CI red if any drift occurs.
+
+Add dev observability logs + “Why this time?” UI popover for rapid validation with operators.
+
+This gets you correct times and sane scheduling without a rewrite. If you want, I can draft the exact calculateNextAvailableSlot() replacement and an ESLint rule snippet tailored to your repo paths.
+
+
+
+
+
+
+
+
+
+Ask ChatGPT

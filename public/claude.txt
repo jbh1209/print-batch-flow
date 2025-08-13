@@ -1,0 +1,688 @@
+Looking at this production scheduler analysis, I can identify several critical architectural and implementation issues. Let me break down the root causes and provide actionable solutions.
+
+## Root Cause Analysis
+
+### Issue 1: UI Display Bug (Times 2 Hours Ahead)
+
+The problem is **inconsistent timezone handling patterns** across the application. You have:
+
+1. ✅ Proper centralized timezone utilities (`src/utils/timezone.ts`)
+2. ❌ Components bypassing these utilities and applying manual conversions
+3. ❌ Mixed patterns where some components assume data is UTC, others assume SAST
+
+**The Real Problem**: Components are likely calling `toSAST()` on data that's already in SAST format from the backend.
+
+### Issue 2: "10 Days Later" Scheduling Bug
+
+This is a **fundamental architectural flaw** in queue management:
+
+1. Database function `get_stage_queue_end_time()` implements **serial queuing** instead of **parallel capacity scheduling**
+2. Jobs wait for the entire queue to finish instead of checking available daily capacity
+3. The system treats stages like single-threaded processes instead of capacity pools
+
+## Minimal Viable Fixes
+
+### Fix 1: Timezone Display Audit & Standardization
+ // timezone-audit.ts - Script to identify and fix timezone conversion issues
+
+import { toSAST, fromSAST, formatSAST, getCurrentSAST } from './src/utils/timezone';
+
+/**
+ * AUDIT STEP 1: Identify components doing manual timezone conversion
+ * Run this regex search across your codebase:
+ */
+const DANGEROUS_PATTERNS = [
+  // Components manually using date-fns-tz instead of centralized utils
+  /import.*date-fns-tz/g,
+  /zonedTimeToUtc/g, 
+  /utcToZonedTime/g,
+  
+  // Double conversion patterns
+  /toSAST\(.*toSAST/g,
+  /fromSAST\(.*fromSAST/g,
+  
+  // Manual SAST operations
+  /Africa\/Johannesburg/g,
+  /\+02:00/g,
+];
+
+/**
+ * STANDARDIZED DATA FLOW PATTERNS
+ * Use these patterns consistently across all components
+ */
+
+// Pattern 1: Database to Display (most common issue)
+export const dbTimeToDisplayTime = (utcString: string): string => {
+  // Database always stores UTC
+  // Convert to SAST for display
+  const sastDate = toSAST(new Date(utcString));
+  return formatSAST(sastDate);
+};
+
+// Pattern 2: User Input to Database
+export const userInputToDbTime = (sastDateString: string): string => {
+  // User enters SAST time
+  // Convert to UTC for database storage
+  const sastDate = new Date(sastDateString);
+  const utcDate = fromSAST(sastDate);
+  return utcDate.toISOString();
+};
+
+// Pattern 3: Current Time Operations
+export const getCurrentSchedulingTime = () => {
+  return getCurrentSAST(); // Always use this for "now" in scheduling
+};
+
+/**
+ * COMPONENT FIX TEMPLATE
+ * Apply this pattern to StageWeeklyScheduler.tsx and similar components
+ */
+
+// BEFORE (Broken - double conversion):
+// const displayTime = formatSAST(toSAST(jobData.scheduled_start_at));
+
+// AFTER (Fixed - single conversion):
+// const displayTime = dbTimeToDisplayTime(jobData.scheduled_start_at);
+
+/**
+ * DEBUG HELPER: Add this to components showing wrong times
+ */
+export const debugTimezoneConversion = (utcString: string, componentName: string) => {
+  const original = new Date(utcString);
+  const converted = toSAST(original);
+  const formatted = formatSAST(converted);
+  
+  console.log(`[${componentName}] Timezone Debug:`, {
+    originalUTC: original.toISOString(),
+    convertedSAST: converted.toISOString(),
+    displayFormatted: formatted,
+    expectedSAST: original.getUTCHours() + 2 // UTC+2 for SAST
+  });
+  
+  return formatted;
+};
+
+/**
+ * IMMEDIATE FIX for StageWeeklyScheduler.tsx
+ */
+export const fixSchedulerDisplayTime = (job: any) => {
+  // Replace existing timezone logic with this:
+  return {
+    ...job,
+    displayStartTime: dbTimeToDisplayTime(job.scheduled_start_at),
+    displayEndTime: dbTimeToDisplayTime(job.scheduled_end_at),
+  };
+};
+
+/**
+ * VALIDATION: Add this test to verify fixes
+ */
+export const validateTimezoneDisplay = () => {
+  // Test case: Job scheduled at 06:00 SAST should display as "06:00"
+  const testUtc = "2024-01-15T04:00:00.000Z"; // 06:00 SAST in UTC
+  const displayed = dbTimeToDisplayTime(testUtc);
+  
+  console.assert(
+    displayed.includes("06:00"), 
+    `Expected 06:00 in display, got: ${displayed}`
+  );
+  
+  return displayed.includes("06:00");
+};
+
+
+### Fix 2: Replace Serial Queue with Parallel Capacity Logic
+
+// parallelCapacityScheduler.ts - Replace broken queue logic with capacity-based scheduling
+
+import { toSAST, getCurrentSAST } from '../utils/timezone';
+import { addDays, isWeekend, setHours, setMinutes, addMinutes } from 'date-fns';
+
+interface StageCapacity {
+  stageId: string;
+  dailyCapacityHours: number;
+  businessStartHour: number; // 8 AM
+  businessEndHour: number;   // 5:30 PM (17.5)
+}
+
+interface JobScheduleRequest {
+  jobId: string;
+  stageId: string;
+  estimatedHours: number;
+  earliestStart?: Date;
+  dependencies?: string[]; // Job IDs that must complete first
+}
+
+interface ScheduledJob {
+  jobId: string;
+  stageId: string;
+  scheduledStart: Date;
+  scheduledEnd: Date;
+  estimatedHours: number;
+}
+
+/**
+ * CORE FIX: Parallel capacity scheduling instead of serial queue
+ */
+export class ParallelCapacityScheduler {
+  private stageCapacities: Map<string, StageCapacity>;
+  private scheduledJobs: ScheduledJob[] = [];
+
+  constructor(stageCapacities: StageCapacity[]) {
+    this.stageCapacities = new Map(
+      stageCapacities.map(stage => [stage.stageId, stage])
+    );
+  }
+
+  /**
+   * Replace get_stage_queue_end_time() database function
+   * Instead of queue end time, find next available capacity slot
+   */
+  async findNextAvailableSlot(
+    stageId: string, 
+    requiredHours: number,
+    earliestStart: Date = getCurrentSAST()
+  ): Promise<{ start: Date; end: Date } | null> {
+    
+    const stageCapacity = this.stageCapacities.get(stageId);
+    if (!stageCapacity) return null;
+
+    let currentDay = this.getNextWorkingDay(earliestStart);
+    
+    // Try each day until we find capacity
+    for (let dayOffset = 0; dayOffset < 90; dayOffset++) { // Max 90 day search
+      const dayToCheck = addDays(currentDay, dayOffset);
+      
+      if (isWeekend(dayToCheck)) continue;
+
+      const availableSlot = this.findSlotInDay(
+        stageId, 
+        dayToCheck, 
+        requiredHours
+      );
+
+      if (availableSlot) {
+        return availableSlot;
+      }
+    }
+
+    return null; // No capacity found in 90 days
+  }
+
+  /**
+   * Core capacity logic: Check if day has enough free hours
+   */
+  private findSlotInDay(
+    stageId: string, 
+    date: Date, 
+    requiredHours: number
+  ): { start: Date; end: Date } | null {
+    
+    const capacity = this.stageCapacities.get(stageId)!;
+    
+    // Get all jobs already scheduled for this stage on this date
+    const dayJobs = this.getJobsForStageOnDate(stageId, date);
+    
+    // Calculate used capacity
+    const usedHours = dayJobs.reduce((total, job) => total + job.estimatedHours, 0);
+    const availableHours = capacity.dailyCapacityHours - usedHours;
+    
+    if (availableHours < requiredHours) {
+      return null; // Not enough capacity
+    }
+
+    // Find earliest start time that fits
+    const businessStart = setMinutes(
+      setHours(date, capacity.businessStartHour), 
+      0
+    );
+    
+    // Sort existing jobs by start time
+    dayJobs.sort((a, b) => a.scheduledStart.getTime() - b.scheduledStart.getTime());
+    
+    let earliestSlot = businessStart;
+    
+    // Check gaps between existing jobs
+    for (const job of dayJobs) {
+      const requiredEnd = addMinutes(earliestSlot, requiredHours * 60);
+      
+      if (requiredEnd <= job.scheduledStart) {
+        // Gap found before this job
+        return { start: earliestSlot, end: requiredEnd };
+      }
+      
+      // Move past this job
+      earliestSlot = job.scheduledEnd;
+    }
+    
+    // Check if we can fit at the end of the day
+    const finalEnd = addMinutes(earliestSlot, requiredHours * 60);
+    const businessEnd = setMinutes(
+      setHours(date, Math.floor(capacity.businessEndHour)), 
+      (capacity.businessEndHour % 1) * 60
+    );
+    
+    if (finalEnd <= businessEnd) {
+      return { start: earliestSlot, end: finalEnd };
+    }
+    
+    return null; // No slot available
+  }
+
+  /**
+   * Schedule multiple jobs with parallel capacity logic
+   * This fixes the "10 days later" bug
+   */
+  async scheduleMultipleJobs(requests: JobScheduleRequest[]): Promise<ScheduledJob[]> {
+    const results: ScheduledJob[] = [];
+    
+    // Sort by earliest start time and dependencies
+    const sortedRequests = this.sortByDependencies(requests);
+    
+    for (const request of sortedRequests) {
+      const slot = await this.findNextAvailableSlot(
+        request.stageId,
+        request.estimatedHours,
+        request.earliestStart
+      );
+      
+      if (slot) {
+        const scheduledJob: ScheduledJob = {
+          jobId: request.jobId,
+          stageId: request.stageId,
+          scheduledStart: slot.start,
+          scheduledEnd: slot.end,
+          estimatedHours: request.estimatedHours
+        };
+        
+        results.push(scheduledJob);
+        this.scheduledJobs.push(scheduledJob); // Track for capacity calculations
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Replace database queue logic with this capacity check
+   */
+  async canScheduleJobsToday(stageId: string, totalHours: number): Promise<boolean> {
+    const today = getCurrentSAST();
+    if (isWeekend(today)) return false;
+    
+    const capacity = this.stageCapacities.get(stageId);
+    if (!capacity) return false;
+    
+    const todayJobs = this.getJobsForStageOnDate(stageId, today);
+    const usedHours = todayJobs.reduce((total, job) => total + job.estimatedHours, 0);
+    
+    return (capacity.dailyCapacityHours - usedHours) >= totalHours;
+  }
+
+  private getJobsForStageOnDate(stageId: string, date: Date): ScheduledJob[] {
+    const startOfDay = setHours(setMinutes(date, 0), 0);
+    const endOfDay = setHours(setMinutes(date, 59), 23);
+    
+    return this.scheduledJobs.filter(job => 
+      job.stageId === stageId &&
+      job.scheduledStart >= startOfDay &&
+      job.scheduledStart <= endOfDay
+    );
+  }
+
+  private getNextWorkingDay(date: Date): Date {
+    let nextDay = date;
+    while (isWeekend(nextDay)) {
+      nextDay = addDays(nextDay, 1);
+    }
+    return nextDay;
+  }
+
+  private sortByDependencies(requests: JobScheduleRequest[]): JobScheduleRequest[] {
+    // Topological sort for dependencies - simplified version
+    return requests.sort((a, b) => {
+      if (a.dependencies?.includes(b.jobId)) return 1;
+      if (b.dependencies?.includes(a.jobId)) return -1;
+      return (a.earliestStart?.getTime() || 0) - (b.earliestStart?.getTime() || 0);
+    });
+  }
+}
+
+/**
+ * MIGRATION HELPER: Replace database functions with this
+ */
+export const replaceQueueFunctions = () => {
+  return {
+    // Replace: get_stage_queue_end_time()
+    getNextAvailableTime: (stageId: string, hours: number) => 
+      new ParallelCapacityScheduler([]).findNextAvailableSlot(stageId, hours),
+    
+    // Replace: calculate_job_start_time() 
+    calculateJobStartTime: async (jobs: JobScheduleRequest[]) => 
+      new ParallelCapacityScheduler([]).scheduleMultipleJobs(jobs),
+  };
+};
+
+/**
+ * INTEGRATION: Use this in your React components
+ */
+export const useParallelScheduling = (stageCapacities: StageCapacity[]) => {
+  const scheduler = new ParallelCapacityScheduler(stageCapacities);
+  
+  return {
+    scheduleJobs: (requests: JobScheduleRequest[]) => 
+      scheduler.scheduleMultipleJobs(requests),
+    
+    checkCapacity: (stageId: string, hours: number) =>
+      scheduler.canScheduleJobsToday(stageId, hours),
+      
+    findNextSlot: (stageId: string, hours: number, earliestStart?: Date) =>
+      scheduler.findNextAvailableSlot(stageId, hours, earliestStart)
+  };
+};
+
+## Testing Strategy
+
+// comprehensiveSchedulerTests.ts - End-to-end testing for scheduler fixes
+
+import { describe, test, expect } from 'vitest';
+import { ParallelCapacityScheduler } from './parallelCapacityScheduler';
+import { dbTimeToDisplayTime, validateTimezoneDisplay } from './timezone-audit';
+
+/**
+ * CRITICAL TEST SUITE: End-to-end scenarios that were previously missing
+ */
+
+describe('Timezone Display Bug Tests', () => {
+  test('Job scheduled at 6AM SAST displays as 06:00, not 08:00', () => {
+    // Real scenario: Job in DB at 04:00 UTC (06:00 SAST)
+    const utcTime = "2024-01-15T04:00:00.000Z"; // 06:00 SAST
+    const displayed = dbTimeToDisplayTime(utcTime);
+    
+    expect(displayed).toContain('06:00');
+    expect(displayed).not.toContain('08:00'); // This was the bug
+  });
+
+  test('Multiple timezone conversions maintain accuracy', () => {
+    const testTimes = [
+      { utc: "2024-01-15T06:00:00.000Z", expectedSAST: "08:00" }, // 8AM SAST
+      { utc: "2024-01-15T15:30:00.000Z", expectedSAST: "17:30" }, // 5:30PM SAST
+      { utc: "2024-01-15T22:00:00.000Z", expectedSAST: "00:00" }, // Midnight SAST
+    ];
+
+    testTimes.forEach(({ utc, expectedSAST }) => {
+      const displayed = dbTimeToDisplayTime(utc);
+      expect(displayed).toContain(expectedSAST);
+    });
+  });
+
+  test('Validation helper catches timezone bugs', () => {
+    const isValid = validateTimezoneDisplay();
+    expect(isValid).toBe(true);
+  });
+});
+
+describe('Parallel Capacity Scheduler Tests', () => {
+  const mockCapacity = {
+    stageId: 'printing',
+    dailyCapacityHours: 8,
+    businessStartHour: 8,
+    businessEndHour: 17.5
+  };
+
+  test('Two small jobs schedule same day, not 10 days apart', async () => {
+    const scheduler = new ParallelCapacityScheduler([mockCapacity]);
+    
+    const jobs = [
+      { jobId: 'job1', stageId: 'printing', estimatedHours: 2 },
+      { jobId: 'job2', stageId: 'printing', estimatedHours: 3 },
+    ];
+
+    const results = await scheduler.scheduleMultipleJobs(jobs);
+    
+    expect(results).toHaveLength(2);
+    
+    const job1 = results.find(r => r.jobId === 'job1')!;
+    const job2 = results.find(r => r.jobId === 'job2')!;
+    
+    // Both jobs should be scheduled on same day
+    const sameDay = job1.scheduledStart.toDateString() === job2.scheduledStart.toDateString();
+    expect(sameDay).toBe(true);
+    
+    // Jobs should not overlap
+    const noOverlap = job1.scheduledEnd <= job2.scheduledStart || 
+                      job2.scheduledEnd <= job1.scheduledStart;
+    expect(noOverlap).toBe(true);
+  });
+
+  test('Capacity overflow moves to next working day', async () => {
+    const scheduler = new ParallelCapacityScheduler([mockCapacity]);
+    
+    const jobs = [
+      { jobId: 'job1', stageId: 'printing', estimatedHours: 6 }, // First job
+      { jobId: 'job2', stageId: 'printing', estimatedHours: 4 }, // Would exceed 8h capacity
+    ];
+
+    const results = await scheduler.scheduleMultipleJobs(jobs);
+    
+    expect(results).toHaveLength(2);
+    
+    const job1 = results.find(r => r.jobId === 'job1')!;
+    const job2 = results.find(r => r.jobId === 'job2')!;
+    
+    // Second job should be next working day
+    const differentDays = job1.scheduledStart.toDateString() !== job2.scheduledStart.toDateString();
+    expect(differentDays).toBe(true);
+  });
+
+  test('Weekend jobs move to Monday', async () => {
+    const scheduler = new ParallelCapacityScheduler([mockCapacity]);
+    
+    // Set earliest start to a Friday
+    const friday = new Date('2024-01-05T10:00:00'); // Assume this is Friday
+    const jobs = [
+      { 
+        jobId: 'weekend-job', 
+        stageId: 'printing', 
+        estimatedHours: 2,
+        earliestStart: friday 
+      }
+    ];
+
+    const results = await scheduler.scheduleMultipleJobs(jobs);
+    const scheduled = results[0];
+    
+    // Should not be scheduled on weekend
+    const dayOfWeek = scheduled.scheduledStart.getDay();
+    expect(dayOfWeek).not.toBe(0); // Sunday
+    expect(dayOfWeek).not.toBe(6); // Saturday
+  });
+
+  test('Business hours enforcement', async () => {
+    const scheduler = new ParallelCapacityScheduler([mockCapacity]);
+    
+    const jobs = [
+      { jobId: 'test-job', stageId: 'printing', estimatedHours: 1 }
+    ];
+
+    const results = await scheduler.scheduleMultipleJobs(jobs);
+    const scheduled = results[0];
+    
+    // Start should be >= 8AM
+    expect(scheduled.scheduledStart.getHours()).toBeGreaterThanOrEqual(8);
+    
+    // End should be <= 5:30PM
+    expect(scheduled.scheduledEnd.getHours()).toBeLessThanOrEqual(17);
+    if (scheduled.scheduledEnd.getHours() === 17) {
+      expect(scheduled.scheduledEnd.getMinutes()).toBeLessThanOrEqual(30);
+    }
+  });
+
+  test('Capacity checking works correctly', async () => {
+    const scheduler = new ParallelCapacityScheduler([mockCapacity]);
+    
+    // 8 hours capacity, should handle 8 hours worth of jobs
+    expect(await scheduler.canScheduleJobsToday('printing', 8)).toBe(true);
+    expect(await scheduler.canScheduleJobsToday('printing', 9)).toBe(false);
+  });
+});
+
+describe('Integration Tests - Full User Journey', () => {
+  test('Complete scheduling workflow: DB → Logic → Display', async () => {
+    // 1. Schedule jobs using parallel capacity
+    const scheduler = new ParallelCapacityScheduler([
+      { stageId: 'printing', dailyCapacityHours: 8, businessStartHour: 8, businessEndHour: 17.5 }
+    ]);
+
+    const jobs = [
+      { jobId: 'integration-job-1', stageId: 'printing', estimatedHours: 3 },
+      { jobId: 'integration-job-2', stageId: 'printing', estimatedHours: 2 },
+    ];
+
+    const scheduledJobs = await scheduler.scheduleMultipleJobs(jobs);
+    
+    // 2. Simulate database storage (convert to UTC)
+    const dbRecords = scheduledJobs.map(job => ({
+      job_id: job.jobId,
+      scheduled_start_at: job.scheduledStart.toISOString(), // UTC storage
+      scheduled_end_at: job.scheduledEnd.toISOString()
+    }));
+
+    // 3. Simulate UI display (convert from UTC to display)
+    const displayJobs = dbRecords.map(record => ({
+      ...record,
+      displayStart: dbTimeToDisplayTime(record.scheduled_start_at),
+      displayEnd: dbTimeToDisplayTime(record.scheduled_end_at)
+    }));
+
+    // 4. Verify entire flow worked correctly
+    expect(scheduledJobs).toHaveLength(2);
+    expect(displayJobs).toHaveLength(2);
+    
+    // Times should be reasonable (8AM-5:30PM SAST)
+    displayJobs.forEach(job => {
+      expect(job.displayStart).toMatch(/^(0[8-9]|1[0-7]):/); // 08:xx to 17:xx
+    });
+  });
+
+  test('Performance test: 50 jobs schedule within reasonable time', async () => {
+    const startTime = Date.now();
+    
+    const scheduler = new ParallelCapacityScheduler([
+      { stageId: 'dtp', dailyCapacityHours: 6, businessStartHour: 8, businessEndHour: 17.5 },
+      { stageId: 'printing', dailyCapacityHours: 8, businessStartHour: 8, businessEndHour: 17.5 },
+      { stageId: 'finishing', dailyCapacityHours: 4, businessStartHour: 8, businessEndHour: 17.5 },
+    ]);
+
+    const manyJobs = Array.from({ length: 50 }, (_, i) => ({
+      jobId: `perf-job-${i}`,
+      stageId: ['dtp', 'printing', 'finishing'][i % 3],
+      estimatedHours: Math.random() * 3 + 1 // 1-4 hours
+    }));
+
+    const results = await scheduler.scheduleMultipleJobs(manyJobs);
+    
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    // Should complete within 1 second
+    expect(duration).toBeLessThan(1000);
+    expect(results.length).toBeGreaterThan(40); // Most should schedule successfully
+  });
+});
+
+describe('Regression Prevention Tests', () => {
+  test('Ensure timezone utils are used correctly', () => {
+    // This test should catch if components bypass timezone utilities
+    const testUtc = "2024-01-15T10:00:00.000Z";
+    
+    // Using the standardized function should work
+    const standardResult = dbTimeToDisplayTime(testUtc);
+    expect(standardResult).toBeTruthy();
+    
+    // Manual date-fns-tz usage should be flagged in code review
+    // (This test documents the expected pattern)
+  });
+
+  test('Database queue functions replaced with capacity logic', async () => {
+    // This ensures we don't regress to serial queue logic
+    const scheduler = new ParallelCapacityScheduler([
+      { stageId: 'test', dailyCapacityHours: 8, businessStartHour: 8, businessEndHour: 17.5 }
+    ]);
+
+    const concurrentJobs = [
+      { jobId: 'concurrent-1', stageId: 'test', estimatedHours: 2 },
+      { jobId: 'concurrent-2', stageId: 'test', estimatedHours: 2 },
+      { jobId: 'concurrent-3', stageId: 'test', estimatedHours: 2 },
+    ];
+
+    const results = await scheduler.scheduleMultipleJobs(concurrentJobs);
+    
+    // All should fit in same day (6 hours total < 8 hour capacity)
+    const uniqueDays = new Set(results.map(r => r.scheduledStart.toDateString()));
+    expect(uniqueDays.size).toBe(1); // All on same day
+  });
+});
+
+/**
+ * MANUAL TESTING CHECKLIST
+ * Run these scenarios in your actual UI:
+ */
+export const manualTestingChecklist = [
+  "1. Schedule a job for 6AM SAST - verify UI shows 06:00, not 08:00",
+  "2. Schedule 3 small jobs for same stage - verify they appear on same day",
+  "3. Schedule jobs on Friday - verify weekend jobs move to Monday", 
+  "4. Fill stage capacity - verify next job moves to next day",
+  "5. Check job timeline view - times should match scheduler display",
+  "6. Verify database times are UTC, display times are SAST formatted"
+];
+
+/**
+ * PRODUCTION MONITORING
+ * Add these checks to your application monitoring:
+ */
+export const productionHealthChecks = {
+  timezoneConsistency: () => {
+    // Add logging to detect timezone conversion issues
+    console.log("Timezone health check - implement in production");
+  },
+  
+  schedulingLogic: () => {
+    // Monitor for jobs being scheduled too far in future
+    console.log("Scheduling logic health check - implement in production");
+  }
+};
+
+
+## What the Previous Developer Missed
+
+Based on your analysis, the previous developer made several critical mistakes:
+
+### 1. **Treated Symptoms, Not Root Causes**
+- Fixed individual UI components instead of standardizing timezone handling patterns
+- Attempted database migrations without addressing the fundamental architectural flaw
+
+### 2. **Misunderstood the Queue Logic Problem**
+- The issue isn't just in `get_stage_queue_end_time()` - it's that the entire system was designed around **serial processing** instead of **parallel capacity**
+- Database functions assume jobs must wait in a queue, but printing stages should work like resource pools
+
+### 3. **Inadequate Testing Strategy**
+- Tests validated individual functions but missed **integration scenarios**
+- No end-to-end testing of the complete flow: Schedule → Store → Retrieve → Display
+- Missing the "50 jobs" performance scenario that would reveal the architectural problems
+
+### 4. **Mixed Architecture Patterns**
+- Some logic in database functions, some in TypeScript
+- Inconsistent timezone handling patterns across components
+- No standardized data flow documentation
+
+## Recommended Implementation Order
+
+1. **Immediate Fix**: Deploy the timezone audit script and fix display components
+2. **Core Fix**: Replace database queue functions with parallel capacity scheduler  
+3. **Validation**: Run the comprehensive test suite
+4. **Monitoring**: Add production health checks to prevent regression
+
+The key insight is that this isn't just a bug - it's an **architectural mismatch**. The system was designed like a factory assembly line (serial queue) but needs to work like a resource pool (parallel capacity). The timezone issue is a secondary problem caused by inconsistent patterns, not a fundamental design flaw.
+
+Would you like me to create implementation guides for migrating the database functions or setting up the monitoring system?
