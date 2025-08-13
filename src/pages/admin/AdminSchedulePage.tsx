@@ -25,13 +25,15 @@ const AdminSchedulePage: React.FC = () => {
       // Get all jobs that need scheduling
       const { data: jobs, error: jobsError } = await supabase
         .from('production_jobs')
-        .select('id')
-        .in('status', ['In Production', 'Pre-Press', 'Ready for Batch']);
+        .select('id, wo_no, status')
+        .in('status', ['pending', 'Pre-Press', 'Ready for Batch']);
       
       if (jobsError) throw jobsError;
       
       let scheduledCount = 0;
       let checkedCount = jobs?.length || 0;
+      
+      console.log(`Found ${checkedCount} jobs to schedule:`, jobs);
       
       // Schedule each job using the new scheduler
       for (const job of jobs || []) {
