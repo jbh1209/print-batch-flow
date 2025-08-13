@@ -3239,6 +3239,18 @@ export type Database = {
           message: string
         }[]
       }
+      validate_business_hours: {
+        Args: { check_time: string }
+        Returns: boolean
+      }
+      validate_not_in_past: {
+        Args: { check_time: string }
+        Returns: boolean
+      }
+      validate_working_day: {
+        Args: { check_time: string }
+        Returns: boolean
+      }
     }
     Enums: {
       batch_status:
