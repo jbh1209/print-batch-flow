@@ -84,6 +84,7 @@ import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 import SchedulerTest from "@/pages/SchedulerTest";
 import Layout from "@/components/Layout";
 import Phase2TestTrigger from "@/components/scheduler/Phase2TestTrigger";
+import Phase3TestTrigger from "@/components/scheduler/Phase3TestTrigger";
 
 import "./App.css";
 
@@ -235,6 +236,11 @@ function App() {
                 <Route path="/phase2-test" element={
                   <ProtectedRoute>
                     <Phase2TestTrigger />
+                  </ProtectedRoute>
+                } />
+                <Route path="/phase3-test" element={
+                  <ProtectedRoute>
+                    <Phase3TestTrigger />
                   </ProtectedRoute>
                 } />
 

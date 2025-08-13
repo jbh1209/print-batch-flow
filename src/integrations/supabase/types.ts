@@ -1917,6 +1917,39 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduling_integrity_logs: {
+        Row: {
+          detected_at: string
+          id: string
+          job_id: string | null
+          resolved_at: string | null
+          severity: string
+          stage_id: string | null
+          violation_details: Json | null
+          violation_type: string
+        }
+        Insert: {
+          detected_at?: string
+          id?: string
+          job_id?: string | null
+          resolved_at?: string | null
+          severity?: string
+          stage_id?: string | null
+          violation_details?: Json | null
+          violation_type: string
+        }
+        Update: {
+          detected_at?: string
+          id?: string
+          job_id?: string | null
+          resolved_at?: string | null
+          severity?: string
+          stage_id?: string | null
+          violation_details?: Json | null
+          violation_type?: string
+        }
+        Relationships: []
+      }
       shift_schedules: {
         Row: {
           created_at: string
@@ -2468,7 +2501,14 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      scheduling_integrity_monitor: {
+        Row: {
+          check_type: string | null
+          violation_count: number | null
+          violations: Json | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activate_batch_allocation_for_job: {
@@ -3094,6 +3134,15 @@ export type Database = {
           p_reworked_by?: string
         }
         Returns: boolean
+      }
+      run_scheduling_integrity_check: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          check_type: string
+          status: string
+          violation_count: number
+          details: Json
+        }[]
       }
       safe_delete_category: {
         Args: { p_category_id: string; p_user_id?: string }

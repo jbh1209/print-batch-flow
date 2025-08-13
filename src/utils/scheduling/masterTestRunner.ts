@@ -1,7 +1,9 @@
 /**
  * **COMPLETE PRODUCTION SCHEDULER REWRITE - MASTER TEST RUNNER**
- * Runs all 5 phases of testing systematically
+ * Runs all phases of testing systematically
  * CRITICAL: All phases must pass before scheduler is production-ready
+ * 
+ * Updated to include Phase 3: Data Integrity Layer 🛡️
  */
 
 import { runTimezoneFoundationTests } from '../tests/timezone-foundation.test';
@@ -10,6 +12,7 @@ import { runDataIntegrityTests } from './dataIntegrityLayer';
 import { runUIConsistencyTests } from './uiConsistencyFix';
 import { runProductionFeaturesTests } from './productionFeatures';
 import { runPhase2Tests } from './phase2-capacity-tests';
+import { runPhase3Tests } from './phase3-integrity-tests';
 
 export interface PhaseTestResult {
   phase: number;
@@ -70,13 +73,13 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase2.passed;
   totalFailed += phase2.failed;
 
-  // **PHASE 3: BUSINESS LOGIC ENGINE** (renumbered)
-  console.log('\n📍 **EXECUTING PHASE 3: BUSINESS LOGIC ENGINE**');
+  // **PHASE 3: DATA INTEGRITY LAYER** (NEW 🛡️)
+  console.log('\n📍 **EXECUTING PHASE 3: DATA INTEGRITY LAYER**');
   console.log('-' .repeat(50));
-  const phase3 = runBusinessLogicTests();
+  const phase3 = runPhase3Tests();
   phaseResults.push({
     phase: 3,
-    name: 'Business Logic Engine',
+    name: 'Data Integrity Layer',
     passed: phase3.passed,
     failed: phase3.failed,
     errors: phase3.errors,
