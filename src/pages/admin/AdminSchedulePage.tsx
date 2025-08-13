@@ -19,6 +19,7 @@ const AdminSchedulePage: React.FC = () => {
 
   const [isRunning, setIsRunning] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const runAutoScheduler = async () => {
     try {
       setIsRunning(true);
@@ -48,6 +49,22 @@ const AdminSchedulePage: React.FC = () => {
     }
   };
 
+  const clearPendingSchedules = async () => {
+    try {
+      setIsClearing(true);
+      const { data, error } = await supabase.functions.invoke("scheduler-maintenance", {
+        body: { action: "clear_pending_stage_schedules", fromDate: new Date().toISOString().slice(0, 10) }
+      });
+      if (error || !(data as any)?.ok) throw new Error(error?.message || (data as any)?.error || "Clear schedules failed");
+      const cleared = (data as any)?.cleared ?? 0;
+      toast.success(`Cleared ${cleared} schedules from today`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to clear schedules");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   if (isLoading) {
     return <LoadingState />;
   }
@@ -68,6 +85,9 @@ const AdminSchedulePage: React.FC = () => {
       />
 
       <div className="mb-4 flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={clearPendingSchedules} disabled={isClearing} aria-label="Clear pending schedules">
+          {isClearing ? "Clearing..." : "Clear schedules (from today)"}
+        </Button>
         <Button size="sm" variant="outline" onClick={resetCapacity} disabled={isResetting} aria-label="Reset capacity">
           {isResetting ? "Resetting..." : "Reset capacity (from today)"}
         </Button>

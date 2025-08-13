@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
         .update({
           scheduled_start_at: null,
           scheduled_end_at: null,
+          scheduled_minutes: null,
           updated_at: new Date().toISOString()
         })
         .in('status', ['pending', 'active'])
