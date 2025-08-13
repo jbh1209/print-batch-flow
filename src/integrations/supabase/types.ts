@@ -57,6 +57,13 @@ export type Database = {
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "active_job_assignments_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
+          },
         ]
       }
       app_settings: {
@@ -477,6 +484,13 @@ export type Database = {
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "category_production_stages_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
+          },
         ]
       }
       cover_jobs: {
@@ -721,6 +735,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excel_import_mappings_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
           },
           {
             foreignKeyName: "excel_import_mappings_stage_specification_id_fkey"
@@ -1048,6 +1069,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
           },
           {
             foreignKeyName: "job_stage_instances_stage_specification_id_fkey"
@@ -1917,6 +1945,63 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduling_decision_logs: {
+        Row: {
+          alternative_slots: Json | null
+          assigned_end_time: string | null
+          assigned_start_time: string | null
+          created_at: string
+          decision_factors: Json | null
+          decision_reasoning: string | null
+          decision_timestamp: string
+          decision_type: string
+          duration_minutes: number | null
+          id: string
+          job_id: string
+          job_table_name: string
+          requested_start_time: string | null
+          scheduler_version: string | null
+          stage_capacity_info: Json | null
+          stage_id: string
+        }
+        Insert: {
+          alternative_slots?: Json | null
+          assigned_end_time?: string | null
+          assigned_start_time?: string | null
+          created_at?: string
+          decision_factors?: Json | null
+          decision_reasoning?: string | null
+          decision_timestamp?: string
+          decision_type: string
+          duration_minutes?: number | null
+          id?: string
+          job_id: string
+          job_table_name?: string
+          requested_start_time?: string | null
+          scheduler_version?: string | null
+          stage_capacity_info?: Json | null
+          stage_id: string
+        }
+        Update: {
+          alternative_slots?: Json | null
+          assigned_end_time?: string | null
+          assigned_start_time?: string | null
+          created_at?: string
+          decision_factors?: Json | null
+          decision_reasoning?: string | null
+          decision_timestamp?: string
+          decision_type?: string
+          duration_minutes?: number | null
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          requested_start_time?: string | null
+          scheduler_version?: string | null
+          stage_capacity_info?: Json | null
+          stage_id?: string
+        }
+        Relationships: []
+      }
       scheduling_integrity_logs: {
         Row: {
           detected_at: string
@@ -2096,7 +2181,62 @@ export type Database = {
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_stage_capacity_profiles_production_stage_id"
+            columns: ["production_stage_id"]
+            isOneToOne: true
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
+          },
         ]
+      }
+      stage_capacity_snapshots: {
+        Row: {
+          active_jobs_count: number
+          available_capacity_minutes: number
+          capacity_warnings: Json | null
+          created_at: string
+          id: string
+          pending_jobs_count: number
+          scheduled_jobs: Json | null
+          snapshot_date: string
+          snapshot_timestamp: string
+          stage_id: string
+          total_capacity_minutes: number
+          used_capacity_minutes: number
+          utilization_percentage: number
+        }
+        Insert: {
+          active_jobs_count?: number
+          available_capacity_minutes?: number
+          capacity_warnings?: Json | null
+          created_at?: string
+          id?: string
+          pending_jobs_count?: number
+          scheduled_jobs?: Json | null
+          snapshot_date: string
+          snapshot_timestamp?: string
+          stage_id: string
+          total_capacity_minutes: number
+          used_capacity_minutes?: number
+          utilization_percentage?: number
+        }
+        Update: {
+          active_jobs_count?: number
+          available_capacity_minutes?: number
+          capacity_warnings?: Json | null
+          created_at?: string
+          id?: string
+          pending_jobs_count?: number
+          scheduled_jobs?: Json | null
+          snapshot_date?: string
+          snapshot_timestamp?: string
+          stage_id?: string
+          total_capacity_minutes?: number
+          used_capacity_minutes?: number
+          utilization_percentage?: number
+        }
+        Relationships: []
       }
       stage_groups: {
         Row: {
@@ -2178,6 +2318,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stage_specifications_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
           },
         ]
       }
@@ -2440,6 +2587,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_group_stage_permissions_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "real_time_capacity_monitor"
+            referencedColumns: ["stage_id"]
+          },
+          {
             foreignKeyName: "user_group_stage_permissions_user_group_id_fkey"
             columns: ["user_group_id"]
             isOneToOne: false
@@ -2501,6 +2655,22 @@ export type Database = {
       }
     }
     Views: {
+      real_time_capacity_monitor: {
+        Row: {
+          active_jobs_count: number | null
+          available_minutes_today: number | null
+          capacity_status: string | null
+          last_updated: string | null
+          pending_jobs_count: number | null
+          stage_color: string | null
+          stage_id: string | null
+          stage_name: string | null
+          total_capacity_minutes: number | null
+          used_minutes_today: number | null
+          utilization_percentage: number | null
+        }
+        Relationships: []
+      }
       scheduling_integrity_monitor: {
         Row: {
           check_type: string | null
@@ -2703,6 +2873,16 @@ export type Database = {
           p_expedited_by?: string
         }
         Returns: boolean
+      }
+      explain_job_scheduling: {
+        Args: { p_job_id: string; p_job_table_name?: string }
+        Returns: {
+          stage_name: string
+          scheduled_time: string
+          explanation: string
+          decision_factors: Json
+          alternative_options: string[]
+        }[]
       }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
@@ -3150,6 +3330,22 @@ export type Database = {
           success: boolean
           message: string
           deleted_stages: number
+        }[]
+      }
+      schedule_job_with_detailed_logging: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_stage_id: string
+          p_estimated_minutes: number
+          p_earliest_start?: string
+        }
+        Returns: {
+          scheduled_start: string
+          scheduled_end: string
+          decision_log_id: string
+          reasoning: string
+          capacity_info: Json
         }[]
       }
       set_user_role: {

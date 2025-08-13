@@ -85,6 +85,8 @@ import SchedulerTest from "@/pages/SchedulerTest";
 import Layout from "@/components/Layout";
 import Phase2TestTrigger from "@/components/scheduler/Phase2TestTrigger";
 import Phase3TestTrigger from "@/components/scheduler/Phase3TestTrigger";
+import CapacityDashboard from "@/components/scheduler/CapacityDashboard";
+import WhyThisTimeExplainer from "@/components/scheduler/WhyThisTimeExplainer";
 
 import "./App.css";
 
@@ -241,6 +243,16 @@ function App() {
                 <Route path="/phase3-test" element={
                   <ProtectedRoute>
                     <Phase3TestTrigger />
+                  </ProtectedRoute>
+                } />
+                <Route path="/capacity-dashboard" element={
+                  <ProtectedRoute>
+                    <CapacityDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/why-this-time" element={
+                  <ProtectedRoute>
+                    <WhyThisTimeExplainer />
                   </ProtectedRoute>
                 } />
 
