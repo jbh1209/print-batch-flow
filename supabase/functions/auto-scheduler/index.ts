@@ -89,11 +89,11 @@ function createSchedulingContext(): SchedulingContext {
 async function clearAllSchedules(supabase: any): Promise<void> {
   console.log('🗑️ Clearing all stage_time_slots...')
   
-  // Use a more reliable delete method - delete all rows
+  // Use a more reliable delete method - delete all rows by date range
   const { error: slotsError, count: deletedSlots } = await supabase
     .from('stage_time_slots')
     .delete()
-    .not('id', 'is', null) // This will match all rows since id is never null
+    .gte('created_at', '1900-01-01') // This will match all rows since all dates are after 1900
   
   if (slotsError) {
     console.error('❌ Error clearing stage_time_slots:', slotsError)
