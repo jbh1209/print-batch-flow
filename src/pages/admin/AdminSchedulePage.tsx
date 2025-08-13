@@ -21,10 +21,38 @@ const AdminSchedulePage: React.FC = () => {
   const runAutoScheduler = async () => {
     try {
       setIsRunning(true);
-      const { data, error } = await supabase.functions.invoke("auto-schedule-approved", { body: {} });
-      if (error) throw error;
-      const d = (data as any) || {};
-      toast.success(`Auto-scheduler complete: checked ${d.checked ?? 0}, scheduled ${d.scheduled ?? 0}`);
+      
+      // Get all jobs that need scheduling
+      const { data: jobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id')
+        .in('status', ['In Production', 'Pre-Press', 'Ready for Batch']);
+      
+      if (jobsError) throw jobsError;
+      
+      let scheduledCount = 0;
+      let checkedCount = jobs?.length || 0;
+      
+      // Schedule each job using the new scheduler
+      for (const job of jobs || []) {
+        try {
+          const { data, error } = await supabase.functions.invoke("auto-scheduler", {
+            body: {
+              job_id: job.id,
+              job_table_name: 'production_jobs',
+              trigger_reason: 'admin_expedite'
+            }
+          });
+          
+          if (!error && data?.success) {
+            scheduledCount++;
+          }
+        } catch (jobError) {
+          console.warn(`Failed to schedule job ${job.id}:`, jobError);
+        }
+      }
+      
+      toast.success(`Auto-scheduler complete: checked ${checkedCount}, scheduled ${scheduledCount}`);
     } catch (err: any) {
       toast.error(err?.message || "Failed to run auto-scheduler");
     } finally {
