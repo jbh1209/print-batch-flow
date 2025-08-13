@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auto Scheduler</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <button onclick="triggerScheduler()">Trigger Auto Scheduler</button>
+    <div id="result"></div>
+
+    <script>
+        const { createClient } = supabase;
+        
+        const client = createClient(
+            'https://kgizusgqexmlfcqfjopk.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnaXp1c2dxZXhtbGZjcWZqb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NTQwNzAsImV4cCI6MjA2MDEzMDA3MH0.NA2wRme-L8Z15my7n8u-BCQtO4Nw2opfsX0KSLYcs-I'
+        );
+
+        async function triggerScheduler() {
+            console.log('🚀 Triggering auto-scheduler...');
+            
+            const { data, error } = await client.functions.invoke('auto-scheduler', {
+                body: {
+                    job_id: '100fceb4-67dc-466d-a43d-d7f8749d7c52',
+                    job_table_name: 'production_jobs',
+                    trigger_reason: 'admin_expedite'
+                }
+            });
+
+            const resultDiv = document.getElementById('result');
+            if (error) {
+                console.error('❌ Scheduler error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${JSON.stringify(error)}</p>`;
+            } else {
+                console.log('✅ Scheduler result:', data);
+                resultDiv.innerHTML = `<p style="color: green;">Success: ${JSON.stringify(data)}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
