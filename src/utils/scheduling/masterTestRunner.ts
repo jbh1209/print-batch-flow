@@ -13,6 +13,7 @@ import { runUIConsistencyTests } from './uiConsistencyFix';
 import { runProductionFeaturesTests } from './productionFeatures';
 import { runPhase2Tests } from './phase2-capacity-tests';
 import { runPhase3Tests } from './phase3-integrity-tests';
+import { runPhase4Tests } from './phase4-debugging-tests';
 
 export interface PhaseTestResult {
   phase: number;
@@ -33,9 +34,9 @@ export interface MasterTestResult {
 }
 
 /**
- * **MASTER TEST RUNNER: Execute all 5 phases systematically**
+ * **MASTER TEST RUNNER: Execute all phases systematically**
  */
-export function runCompleteSchedulerTests(): MasterTestResult {
+export async function runCompleteSchedulerTests(): Promise<MasterTestResult> {
   console.log('🚀 **COMPLETE PRODUCTION SCHEDULER REWRITE - MASTER TEST RUNNER**');
   console.log('=' .repeat(80));
 
@@ -88,28 +89,28 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase3.passed;
   totalFailed += phase3.failed;
 
-  // **PHASE 4: DATA INTEGRITY LAYER** (renumbered)
-  console.log('\n📍 **EXECUTING PHASE 4: DATA INTEGRITY LAYER**');
+  // **PHASE 4: DEBUGGING & MONITORING** (NEW 🔍)
+  console.log('\n📍 **EXECUTING PHASE 4: DEBUGGING & MONITORING**');
   console.log('-' .repeat(50));
-  const phase4 = runDataIntegrityTests();
+  const phase4Debug = await runPhase4Tests();
   phaseResults.push({
     phase: 4,
-    name: 'Data Integrity Layer',
-    passed: phase4.passed,
-    failed: phase4.failed,
-    errors: phase4.errors,
-    success: phase4.failed === 0
+    name: 'Debugging & Monitoring',
+    passed: phase4Debug.passed,
+    failed: phase4Debug.failed,
+    errors: phase4Debug.errors,
+    success: phase4Debug.failed === 0
   });
-  totalPassed += phase4.passed;
-  totalFailed += phase4.failed;
+  totalPassed += phase4Debug.passed;
+  totalFailed += phase4Debug.failed;
 
-  // **PHASE 5: UI CONSISTENCY FIX** (renumbered)
-  console.log('\n📍 **EXECUTING PHASE 5: UI CONSISTENCY FIX**');
+  // **PHASE 5: DATA INTEGRITY LAYER** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 5: DATA INTEGRITY LAYER**');
   console.log('-' .repeat(50));
-  const phase5 = runUIConsistencyTests();
+  const phase5 = runDataIntegrityTests();
   phaseResults.push({
     phase: 5,
-    name: 'UI Consistency Fix',
+    name: 'Data Integrity Layer',
     passed: phase5.passed,
     failed: phase5.failed,
     errors: phase5.errors,
@@ -118,20 +119,35 @@ export function runCompleteSchedulerTests(): MasterTestResult {
   totalPassed += phase5.passed;
   totalFailed += phase5.failed;
 
-  // **PHASE 6: PRODUCTION FEATURES** (renumbered)
-  console.log('\n📍 **EXECUTING PHASE 6: PRODUCTION FEATURES**');
+  // **PHASE 6: UI CONSISTENCY FIX** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 6: UI CONSISTENCY FIX**');
   console.log('-' .repeat(50));
-  const phase6 = runProductionFeaturesTests();
+  const phase6UI = runUIConsistencyTests();
   phaseResults.push({
     phase: 6,
-    name: 'Production Features',
-    passed: phase6.passed,
-    failed: phase6.failed,
-    errors: phase6.errors,
-    success: phase6.failed === 0
+    name: 'UI Consistency Fix',
+    passed: phase6UI.passed,
+    failed: phase6UI.failed,
+    errors: phase6UI.errors,
+    success: phase6UI.failed === 0
   });
-  totalPassed += phase6.passed;
-  totalFailed += phase6.failed;
+  totalPassed += phase6UI.passed;
+  totalFailed += phase6UI.failed;
+
+  // **PHASE 7: PRODUCTION FEATURES** (renumbered)
+  console.log('\n📍 **EXECUTING PHASE 7: PRODUCTION FEATURES**');
+  console.log('-' .repeat(50));
+  const phase7 = runProductionFeaturesTests();
+  phaseResults.push({
+    phase: 7,
+    name: 'Production Features',
+    passed: phase7.passed,
+    failed: phase7.failed,
+    errors: phase7.errors,
+    success: phase7.failed === 0
+  });
+  totalPassed += phase7.passed;
+  totalFailed += phase7.failed;
 
   // **FINAL RESULTS**
   const allPhasesPass = phaseResults.every(phase => phase.success);

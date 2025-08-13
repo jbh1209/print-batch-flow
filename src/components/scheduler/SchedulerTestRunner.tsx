@@ -61,7 +61,7 @@ const SchedulerTestRunner = () => {
   const handleRunTests = async () => {
     setIsRunning(true);
     try {
-      const results = runCompleteSchedulerTests();
+      const results = await runCompleteSchedulerTests();
       setTestResults(results);
     } catch (error) {
       console.error('Test execution failed:', error);

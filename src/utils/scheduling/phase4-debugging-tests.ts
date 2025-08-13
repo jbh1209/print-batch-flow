@@ -5,6 +5,12 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+export interface Phase4TestSummary {
+  passed: number;
+  failed: number;
+  errors: string[];
+}
+
 export interface Phase4TestResult {
   test_name: string;
   passed: boolean;
@@ -12,7 +18,33 @@ export interface Phase4TestResult {
   execution_time_ms: number;
 }
 
-export const runPhase4Tests = async (): Promise<Phase4TestResult[]> => {
+export const runPhase4Tests = async (): Promise<Phase4TestSummary> => {
+  const results: Phase4TestResult[] = [];
+
+  // Test 1: Scheduling Decision Logging
+  const loggingTest = await testSchedulingDecisionLogging();
+  results.push(loggingTest);
+
+  // Test 2: Capacity Monitoring
+  const capacityTest = await testCapacityMonitoring();
+  results.push(capacityTest);
+
+  // Test 3: Why This Time Explanations
+  const explanationTest = await testSchedulingExplanations();
+  results.push(explanationTest);
+
+  // Test 4: Debug Dashboard Functionality
+  const dashboardTest = await testDebugDashboard();
+  results.push(dashboardTest);
+
+  const passed = results.filter(r => r.passed).length;
+  const failed = results.filter(r => !r.passed).length;
+  const errors = results.filter(r => !r.passed).map(r => r.details);
+
+  return { passed, failed, errors };
+};
+
+export const runPhase4TestsWithResults = async (): Promise<Phase4TestResult[]> => {
   const results: Phase4TestResult[] = [];
 
   // Test 1: Scheduling Decision Logging
