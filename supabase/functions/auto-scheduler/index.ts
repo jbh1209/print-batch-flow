@@ -87,20 +87,23 @@ function createSchedulingContext(): SchedulingContext {
 
 // **PHASE 0: SCHEDULE RESET FUNCTION**
 async function clearAllSchedules(supabase: any): Promise<void> {
-  console.log('🗑️ Clearing all stage_time_slots...')
+  console.log('🗑️ Clearing all schedule data using database function...')
   
-  // Use a more reliable delete method - delete all rows by date range
-  const { error: slotsError, count: deletedSlots } = await supabase
-    .from('stage_time_slots')
-    .delete()
-    .gte('created_at', '1900-01-01') // This will match all rows since all dates are after 1900
+  // Use the database function for reliable deletion
+  const { data, error } = await supabase.rpc('clear_all_stage_time_slots')
   
-  if (slotsError) {
-    console.error('❌ Error clearing stage_time_slots:', slotsError)
-    throw slotsError
+  if (error) {
+    console.error('❌ Error clearing schedule data:', error)
+    throw error
   }
   
-  console.log(`✅ Deleted ${deletedSlots || 0} existing time slots`)
+  if (data && data.length > 0) {
+    const result = data[0]
+    console.log(`✅ Deleted ${result.deleted_slots_count || 0} stage_time_slots`)
+    console.log(`✅ Reset ${result.deleted_instances_count || 0} job_stage_instances`)
+  } else {
+    console.log('✅ Schedule data cleared successfully')
+  }
   
   // Verify the table is actually empty
   const { data: remainingSlots, error: verifyError } = await supabase
@@ -119,24 +122,6 @@ async function clearAllSchedules(supabase: any): Promise<void> {
   }
   
   console.log('✅ Verified: stage_time_slots table is empty')
-
-  console.log('🔄 Resetting auto-scheduled fields in job_stage_instances...')
-  const { error: instancesError, count: updatedInstances } = await supabase
-    .from('job_stage_instances')
-    .update({
-      auto_scheduled_start_at: null,
-      auto_scheduled_end_at: null,
-      auto_scheduled_duration_minutes: null,
-      schedule_status: 'unscheduled'
-    })
-    .not('auto_scheduled_start_at', 'is', null)
-  
-  if (instancesError) {
-    console.error('❌ Error resetting job_stage_instances:', instancesError)
-    throw instancesError
-  }
-  
-  console.log(`✅ Reset ${updatedInstances || 0} job stage instances`)
 }
 
 // **PHASE 1: WORKLOAD-AWARE SCHEDULING START TIME**

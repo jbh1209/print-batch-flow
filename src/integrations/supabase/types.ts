@@ -2619,6 +2619,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      clear_all_stage_time_slots: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          deleted_slots_count: number
+          deleted_instances_count: number
+        }[]
+      }
       consolidate_excel_mappings: {
         Args: Record<PropertyKey, never>
         Returns: {
