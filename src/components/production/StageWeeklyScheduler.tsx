@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { autoSchedulerService } from "@/services/autoSchedulerService";
 import { supabase } from "@/integrations/supabase/client";
 import { useProductionStageCounts } from "@/hooks/tracker/useProductionStageCounts";
+import { dbTimeToDisplayTime } from "@/utils/timezone-display-audit";
 
 // Types
 export interface StageInfo {
@@ -234,17 +235,11 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
     : (item.scheduled_minutes || 60);
   const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
   
-  // Display scheduled time in SAST (timestamps are already UTC representing SAST times)
+  // FIXED: Use centralized timezone utilities instead of toLocaleString()
   const displayTime = item.is_auto_scheduled && item.auto_scheduled_start_at
-    ? new Date(item.auto_scheduled_start_at).toLocaleString("en-ZA", { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
+    ? dbTimeToDisplayTime(item.auto_scheduled_start_at)
     : item.scheduled_start_at 
-      ? new Date(item.scheduled_start_at).toLocaleString("en-ZA", { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
+      ? dbTimeToDisplayTime(item.scheduled_start_at)
       : null;
   
   return (

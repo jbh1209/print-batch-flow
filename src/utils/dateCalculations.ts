@@ -1,5 +1,6 @@
 
-import { addBusinessDays, differenceInBusinessDays, isWeekend, isPast } from "date-fns";
+import { addBusinessDays, differenceInBusinessDays, isWeekend } from "date-fns";
+import { isPast } from "@/utils/date-polyfills";
 import { ProductConfig } from "@/config/productTypes";
 import { supabase } from "@/integrations/supabase/client";
 

@@ -1,5 +1,6 @@
 
-import { format, differenceInDays, isPast } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { isPast } from "@/utils/date-polyfills";
 import { CircleCheck, CircleAlert, CircleX, Clock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { productConfigs } from "@/config/productTypes";

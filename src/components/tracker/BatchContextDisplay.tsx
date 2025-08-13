@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Package, Users, ArrowRight, Clock, AlertCircle } from 'lucide-react';
 import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from '@/utils/date-polyfills';
 
 interface BatchContextDisplayProps {
   job: AccessibleJob;

@@ -1,5 +1,5 @@
 
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/utils/date-polyfills";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Job } from "../../JobsTable";

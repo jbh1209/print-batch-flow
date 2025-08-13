@@ -1,5 +1,22 @@
 import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
-import { addDays, setHours, setMinutes, setSeconds, setMilliseconds, isAfter, isBefore, isWeekend } from 'date-fns';
+import { addDays, isAfter, isWeekend } from 'date-fns';
+
+// Helper functions for missing date-fns functionality
+const isBefore = (date: Date, dateToCompare: Date): boolean => {
+  return date.getTime() < dateToCompare.getTime();
+};
+
+const setHours = (date: Date, hours: number): Date => {
+  const newDate = new Date(date);
+  newDate.setHours(hours);
+  return newDate;
+};
+
+const setMinutes = (date: Date, minutes: number): Date => {
+  const newDate = new Date(date);
+  newDate.setMinutes(minutes);
+  return newDate;
+};
 
 const SAST_TIMEZONE = 'Africa/Johannesburg';
 

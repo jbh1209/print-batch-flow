@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { isAfter, isBefore, startOfDay, endOfDay, addWeeks, isToday, startOfWeek, endOfWeek } from "date-fns";
+import { isAfter, startOfDay, addWeeks, startOfWeek } from "date-fns";
+import { isBefore, endOfDay, isToday, endOfWeek } from "@/utils/date-polyfills";
 
 interface JobsTableFiltersProps {
   jobs: any[];

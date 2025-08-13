@@ -2,7 +2,7 @@ import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { TableRow, TableCell } from "@/components/ui/table";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/utils/date-polyfills";
 import DueDateIndicator from "./DueDateIndicator";
 import JobActions from "./JobActions";
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, RefreshCw, Wrench, Clock, Zap } from "lucide-react";
 import { useWorkflowMonitoring } from "@/hooks/tracker/useWorkflowMonitoring";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/utils/date-polyfills";
 
 interface WorkflowMonitoringWidgetProps {
   enabled?: boolean;

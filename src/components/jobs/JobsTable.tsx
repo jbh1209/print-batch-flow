@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { format, isPast } from 'date-fns';
+import { format } from 'date-fns';
+import { isPast } from '@/utils/date-polyfills';
 import { ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
