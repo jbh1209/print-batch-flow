@@ -41,8 +41,8 @@ interface SchedulingContext {
 
 function createSchedulingContext(): SchedulingContext {
   const serverTime = new Date()
-  // Convert to South Africa timezone (SAST)
-  const sastTime = new Date(serverTime.toLocaleString("en-US", {timeZone: "Africa/Johannesburg"}))
+  // Create proper SAST time (UTC+2)
+  const sastTime = new Date(serverTime.getTime() + (2 * 60 * 60 * 1000))
   return {
     currentTime: sastTime,
     serverTime: sastTime,
@@ -50,11 +50,16 @@ function createSchedulingContext(): SchedulingContext {
   }
 }
 
-// Get the scheduling start time - NEVER allow past scheduling
+// Get the scheduling start time - start from tomorrow 08:00 SAST
 function getSchedulingStartTime(context: SchedulingContext, proposedStart?: Date): Date {
   const now = context.currentTime
-  if (!proposedStart || proposedStart < now) {
-    return now
+  // If it's after 4:30 PM or any time today, start tomorrow at 8 AM
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(8, 0, 0, 0) // 08:00:00 SAST
+  
+  if (!proposedStart || proposedStart < tomorrow) {
+    return tomorrow
   }
   return proposedStart
 }
@@ -348,8 +353,8 @@ async function getWorkingHours(supabase: any, date: Date) {
   }
 
   const dateStr = date.toISOString().split('T')[0]
-  const startTime = new Date(`${dateStr}T${data.shift_start_time}`)
-  const endTime = new Date(`${dateStr}T${data.shift_end_time}`)
+  const startTime = new Date(`${dateStr}T${data.shift_start_time}+02:00`)
+  const endTime = new Date(`${dateStr}T${data.shift_end_time}+02:00`)
 
   return {
     start_time: startTime,
@@ -376,8 +381,8 @@ async function getNextWorkingDay(supabase: any, fromDate: Date) {
     if (data && data.is_working_day) {
       const dateStr = checkDate.toISOString().split('T')[0]
       return {
-        start_time: new Date(`${dateStr}T${data.shift_start_time}`),
-        end_time: new Date(`${dateStr}T${data.shift_end_time}`),
+        start_time: new Date(`${dateStr}T${data.shift_start_time}+02:00`),
+        end_time: new Date(`${dateStr}T${data.shift_end_time}+02:00`),
         is_working_day: true
       }
     }
