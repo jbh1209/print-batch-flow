@@ -33,7 +33,11 @@ export interface ScheduledStageItem {
   scheduled_start_at: string | null;
   scheduled_end_at: string | null;
   scheduled_minutes: number | null;
+  auto_scheduled_start_at: string | null;
+  auto_scheduled_end_at: string | null;
+  auto_scheduled_duration_minutes: number | null;
   status: string;
+  is_auto_scheduled: boolean;
   is_expedited?: boolean;
   wo_no?: string;
   customer?: string;
@@ -87,18 +91,20 @@ export function useStageSchedule() {
       (capRows || []).forEach((c: any) => { capMap[c.production_stage_id] = (c.daily_capacity_hours || 8) * 60; });
       setCapacities(capMap);
 
-      // Scheduled items in week
+      // Scheduled items in week - include both manual and auto-scheduled
       const startIso = new Date(weekStart).toISOString();
       const endIso = new Date(addDays(weekStart, 5)).toISOString();
+      
+      // Query for both manual and auto-scheduled jobs
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
-        .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,status")
+        .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,auto_scheduled_start_at,auto_scheduled_end_at,auto_scheduled_duration_minutes,status")
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending"]) 
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"]) // guard
-        .lt("scheduled_start_at", endIso)
-        .gte("scheduled_end_at", startIso)
-        .order("scheduled_start_at", { ascending: true });
+        .or(`and(scheduled_start_at.lt.${endIso},scheduled_end_at.gte.${startIso}),and(auto_scheduled_start_at.lt.${endIso},auto_scheduled_end_at.gte.${startIso})`)
+        .order("auto_scheduled_start_at", { ascending: true, nullsFirst: false })
+        .order("scheduled_start_at", { ascending: true, nullsFirst: false });
       if (jsiErr) throw jsiErr;
 
       // Fetch enhanced job info with specifications
@@ -130,21 +136,30 @@ export function useStageSchedule() {
         });
       }
 
-      const mapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => ({
-        id: r.id,
-        job_id: r.job_id,
-        production_stage_id: r.production_stage_id,
-        scheduled_start_at: r.scheduled_start_at,
-        scheduled_end_at: r.scheduled_end_at,
-        scheduled_minutes: r.scheduled_minutes,
-        status: r.status,
-        wo_no: jobMap[r.job_id]?.wo_no,
-        customer: jobMap[r.job_id]?.customer,
-        is_expedited: jobMap[r.job_id]?.is_expedited,
-        qty: jobMap[r.job_id]?.qty,
-        paper_specs: jobMap[r.job_id]?.paper_specs,
-        printing_specs: jobMap[r.job_id]?.printing_specs,
-      }));
+      const mapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => {
+        // Determine if job is auto-scheduled vs manually scheduled
+        const isAutoScheduled = !!(r.auto_scheduled_start_at && r.auto_scheduled_end_at);
+        
+        return {
+          id: r.id,
+          job_id: r.job_id,
+          production_stage_id: r.production_stage_id,
+          scheduled_start_at: r.scheduled_start_at,
+          scheduled_end_at: r.scheduled_end_at,
+          scheduled_minutes: r.scheduled_minutes,
+          auto_scheduled_start_at: r.auto_scheduled_start_at,
+          auto_scheduled_end_at: r.auto_scheduled_end_at,
+          auto_scheduled_duration_minutes: r.auto_scheduled_duration_minutes,
+          status: r.status,
+          is_auto_scheduled: isAutoScheduled,
+          wo_no: jobMap[r.job_id]?.wo_no,
+          customer: jobMap[r.job_id]?.customer,
+          is_expedited: jobMap[r.job_id]?.is_expedited,
+          qty: jobMap[r.job_id]?.qty,
+          paper_specs: jobMap[r.job_id]?.paper_specs,
+          printing_specs: jobMap[r.job_id]?.printing_specs,
+        };
+      });
 
       setItems(mapped);
     } catch (e: any) {
@@ -212,19 +227,45 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
   // Format specifications for display
   const paperSpec = item.paper_specs?.weight || item.paper_specs?.type || 'Paper';
   const printSpec = item.printing_specs?.printer || item.printing_specs?.color_mode || 'Print';
-  const actualMinutes = item.scheduled_minutes || 60;
+  
+  // Use auto-scheduled duration if available, otherwise fall back to manual
+  const actualMinutes = item.is_auto_scheduled 
+    ? (item.auto_scheduled_duration_minutes || 60)
+    : (item.scheduled_minutes || 60);
   const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
   
+  // Display scheduled time in SAST
+  const displayTime = item.is_auto_scheduled && item.auto_scheduled_start_at
+    ? new Date(item.auto_scheduled_start_at).toLocaleString("en-ZA", { 
+        timeZone: "Africa/Johannesburg", 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+    : item.scheduled_start_at 
+      ? new Date(item.scheduled_start_at).toLocaleString("en-ZA", { 
+          timeZone: "Africa/Johannesburg", 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      : null;
+  
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="p-2 rounded-md border bg-card hover:shadow-sm cursor-grab active:cursor-grabbing">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} 
+         className={`p-2 rounded-md border hover:shadow-sm cursor-grab active:cursor-grabbing ${
+           item.is_auto_scheduled ? 'bg-blue-50 border-blue-200' : 'bg-card'
+         }`}>
       <div className="flex items-center justify-between">
         <div className="font-medium text-sm truncate">{item.wo_no || "WO"}</div>
-        {item.is_expedited && <Zap className="h-3 w-3 text-destructive" />}
+        <div className="flex items-center gap-1">
+          {item.is_auto_scheduled && <Badge variant="secondary" className="text-xs px-1">AUTO</Badge>}
+          {item.is_expedited && <Zap className="h-3 w-3 text-destructive" />}
+        </div>
       </div>
       <div className="text-xs text-muted-foreground truncate">{item.customer || "Customer"}</div>
       <div className="flex items-center gap-1 text-xs mt-1">
         <Clock className="h-3 w-3" />
         <span>{exactTime}</span>
+        {displayTime && <span className="text-muted-foreground">• {displayTime}</span>}
         {item.qty && <span className="text-muted-foreground">• Qty: {item.qty}</span>}
       </div>
       <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
@@ -288,12 +329,28 @@ export const StageWeeklyScheduler: React.FC = () => {
         const nextDay = addDays(dayStart, 1);
         const dayItems = items.filter(it => {
           if (it.production_stage_id !== s.id) return false;
-          if (!it.scheduled_start_at || !it.scheduled_end_at) return false;
-          const start = new Date(it.scheduled_start_at);
-          const end = new Date(it.scheduled_end_at);
+          
+          // Check both auto-scheduled and manual scheduled times
+          let start: Date | null = null;
+          let end: Date | null = null;
+          
+          if (it.is_auto_scheduled && it.auto_scheduled_start_at && it.auto_scheduled_end_at) {
+            start = new Date(it.auto_scheduled_start_at);
+            end = new Date(it.auto_scheduled_end_at);
+          } else if (it.scheduled_start_at && it.scheduled_end_at) {
+            start = new Date(it.scheduled_start_at);
+            end = new Date(it.scheduled_end_at);
+          }
+          
+          if (!start || !end) return false;
           return start < nextDay && end >= dayStart;
         });
-        const used = dayItems.reduce((sum, it) => sum + (it.scheduled_minutes || 0), 0);
+        const used = dayItems.reduce((sum, it) => {
+          if (it.is_auto_scheduled) {
+            return sum + (it.auto_scheduled_duration_minutes || 0);
+          }
+          return sum + (it.scheduled_minutes || 0);
+        }, 0);
         map[key] = { date: dateStr, items: dayItems, usedMinutes: used, capacityMinutes: cap };
       });
     });
