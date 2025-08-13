@@ -196,6 +196,7 @@ Deno.serve(async (req) => {
           .update({
             scheduled_start_at: stageStart.toISOString(),
             scheduled_end_at: stageEnd.toISOString(),
+            schedule_status: 'scheduled',
             updated_at: new Date().toISOString(),
           })
           .eq('id', stageId);

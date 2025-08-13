@@ -1963,6 +1963,42 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_job_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          job_id: string
+          job_table_name: string
+          locked_by: string | null
+          processed: boolean
+          processed_at: string | null
+          trigger_reason: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          job_id: string
+          job_table_name?: string
+          locked_by?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          trigger_reason: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          locked_by?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          trigger_reason?: string
+        }
+        Relationships: []
+      }
       sleeve_jobs: {
         Row: {
           batch_allocated_at: string | null

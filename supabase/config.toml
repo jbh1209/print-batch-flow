@@ -32,3 +32,7 @@ verify_jwt = false
 # Maintenance utilities (protected)
 [functions.scheduler-maintenance]
 verify_jwt = true
+
+# Reactive queue processor
+[functions.scheduler-worker]
+verify_jwt = false
