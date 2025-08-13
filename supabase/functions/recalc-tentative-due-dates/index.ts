@@ -12,6 +12,7 @@ type UUID = string;
 const WORK_START_HOUR = 8;
 const WORK_END_HOUR = 16;
 const WORK_END_MINUTE = 30;
+const DAILY_CAPACITY_MINUTES = 510; // 8.5 hours (8:00-16:30)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -59,30 +60,38 @@ async function nextWorkingStart(from: Date): Promise<Date> {
 async function addWorkingMinutes(start: Date, minutes: number): Promise<Date> {
   let remaining = minutes;
   let current = await nextWorkingStart(start);
+  
   while (remaining > 0) {
     const dayEnd = withTime(current, WORK_END_HOUR, WORK_END_MINUTE);
-    const diffMin = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
-    if (remaining <= diffMin) {
+    const availableInDay = Math.max(0, Math.floor((dayEnd.getTime() - current.getTime()) / 60000));
+    
+    if (remaining <= availableInDay) {
       return new Date(current.getTime() + remaining * 60000);
     }
-    remaining -= diffMin;
-    const n = new Date(current);
-    n.setUTCDate(n.getUTCDate() + 1);
-    current = await nextWorkingStart(withTime(n, WORK_START_HOUR, 0));
+    
+    // Job doesn't fit - move ENTIRE job to next working day start
+    const nextDay = new Date(current);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    current = await nextWorkingStart(withTime(nextDay, WORK_START_HOUR, 0));
+    // Keep full remaining duration for next day (don't subtract anything)
   }
   return current;
 }
 
-async function getStageQueueEnd(stageId: UUID): Promise<Date | null> {
-  const { data } = await supabase
-    .from("job_stage_instances")
-    .select("scheduled_end_at")
-    .eq("production_stage_id", stageId)
-    .not("scheduled_end_at", "is", null)
-    .order("scheduled_end_at", { ascending: false })
-    .limit(1);
-  if (!data || data.length === 0) return null;
-  return new Date(data[0].scheduled_end_at as string);
+async function getStageQueueEndTime(stageId: UUID): Promise<Date> {
+  // Use the new database function to get queue end time
+  const { data, error } = await supabase.rpc('get_stage_queue_end_time', {
+    p_stage_id: stageId,
+    p_date: toDateOnly(new Date())
+  });
+  
+  if (error || !data) {
+    console.error('Error getting stage queue end time:', error);
+    // Fallback to start of next working day
+    return await nextWorkingStart(new Date());
+  }
+  
+  return new Date(data);
 }
 
 serve(async (req) => {
@@ -130,10 +139,13 @@ serve(async (req) => {
 
       for (const s of stages ?? []) {
         const minutes = (s as any).estimated_duration_minutes ?? 60;
-        const queueEnd = (await getStageQueueEnd((s as any).production_stage_id)) ?? new Date(midnight);
-        const startCandidate = new Date(Math.max(pointer.getTime(), queueEnd.getTime()));
-        const scheduledStart = await nextWorkingStart(startCandidate);
+        
+        // Get current queue end time for this stage (simulation only - don't update)
+        const queueEnd = await getStageQueueEndTime((s as any).production_stage_id);
+        const scheduledStart = await nextWorkingStart(queueEnd);
         const scheduledEnd = await addWorkingMinutes(scheduledStart, minutes);
+        
+        // Update pointer for next stage in this job simulation
         pointer = new Date(scheduledEnd);
         lastEnd = new Date(scheduledEnd);
       }

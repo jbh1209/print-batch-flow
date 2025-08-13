@@ -94,17 +94,43 @@ export class StageQueueManager {
   }
 
   /**
-   * Calculate when a new job would be able to start in a specific stage
+   * Calculate when a new job would be able to start in a specific stage using queue status
    */
   async calculateJobStartTime(stageId: string, estimatedDurationHours: number): Promise<{
     earliestStartDate: Date;
     estimatedCompletionDate: Date;
     queuePosition: number;
   }> {
-    const workload = await this.getStageWorkload(stageId);
-    
-    if (!workload) {
-      // Default to starting immediately if stage not found
+    try {
+      // Get current queue end time for this stage
+      const { data, error } = await supabase.rpc('get_stage_queue_end_time', {
+        p_stage_id: stageId,
+        p_date: new Date().toISOString().split('T')[0]
+      });
+      
+      if (error || !data) {
+        console.error('Error getting queue end time:', error);
+        // Fallback to immediate start
+        const startDate = new Date();
+        const completionDate = new Date(startDate.getTime() + (estimatedDurationHours * 60 * 60 * 1000));
+        return {
+          earliestStartDate: startDate,
+          estimatedCompletionDate: completionDate,
+          queuePosition: 1
+        };
+      }
+
+      const queueEndTime = new Date(data);
+      const estimatedDurationMs = estimatedDurationHours * 60 * 60 * 1000;
+      const completionTime = new Date(queueEndTime.getTime() + estimatedDurationMs);
+
+      return {
+        earliestStartDate: queueEndTime,
+        estimatedCompletionDate: completionTime,
+        queuePosition: 1 // Position calculation simplified since we have direct queue end time
+      };
+    } catch (error) {
+      console.error('Error calculating job start time:', error);
       const startDate = new Date();
       const completionDate = new Date(startDate.getTime() + (estimatedDurationHours * 60 * 60 * 1000));
       return {
@@ -113,16 +139,6 @@ export class StageQueueManager {
         queuePosition: 1
       };
     }
-
-    // Job starts after current queue is processed
-    const startDate = workload.earliestAvailableSlot;
-    const completionDate = new Date(startDate.getTime() + (estimatedDurationHours * 60 * 60 * 1000));
-
-    return {
-      earliestStartDate: startDate,
-      estimatedCompletionDate: completionDate,
-      queuePosition: workload.pendingJobsCount + 1
-    };
   }
 
   /**
