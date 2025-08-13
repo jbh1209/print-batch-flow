@@ -16,7 +16,7 @@ import {
   Target
 } from "lucide-react";
 import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
-import { supabase } from "@/integrations/supabase/client";
+import { stageQueueManager } from "@/services/stageQueueManager";
 import { toast } from "sonner";
 
 interface StageFlow {
@@ -44,41 +44,22 @@ export const RealTimeProductionFlow: React.FC = () => {
   const fetchStageFlows = async () => {
     try {
       setIsLoading(true);
-      // Mock stage flow data for workflow-first engine
-      const mockFlows: StageFlow[] = [
-        {
-          stageId: '1',
-          stageName: 'Cover',
-          queueLength: 3,
-          activeJobs: 1,
-          capacityUtilization: 65,
-          isBottleneck: false,
-          flowRate: 2.5,
-          nextAvailable: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
-        },
-        {
-          stageId: '2',
-          stageName: 'Text',
-          queueLength: 5,
-          activeJobs: 2,
-          capacityUtilization: 95,
-          isBottleneck: true,
-          flowRate: 1.8,
-          nextAvailable: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        },
-        {
-          stageId: '3',
-          stageName: 'Convergence',
-          queueLength: 2,
-          activeJobs: 1,
-          capacityUtilization: 45,
-          isBottleneck: false,
-          flowRate: 3.2,
-          nextAvailable: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
-        }
-      ];
+      const workloads = await stageQueueManager.getAllStageWorkloads();
+      
+      const flows: StageFlow[] = workloads.map(workload => ({
+        stageId: workload.stageId,
+        stageName: workload.stageName,
+        queueLength: workload.pendingJobsCount,
+        activeJobs: workload.activeJobsCount,
+        capacityUtilization: ((workload.totalPendingHours + workload.totalActiveHours) / 
+          (workload.dailyCapacityHours * 7)) * 100,
+        isBottleneck: workload.isBottleneck || workload.queueDaysToProcess > 3,
+        flowRate: workload.dailyCapacityHours > 0 ? 
+          (workload.dailyCapacityHours * 5) / (workload.totalPendingHours || 1) : 0, // Weekly throughput estimate
+        nextAvailable: workload.earliestAvailableSlot
+      }));
 
-      setStageFlows(mockFlows);
+      setStageFlows(flows);
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching stage flows:', error);
@@ -89,6 +70,7 @@ export const RealTimeProductionFlow: React.FC = () => {
   };
 
   const refreshFlowData = async () => {
+    await stageQueueManager.updateAllStageWorkloads();
     await fetchStageFlows();
     await refreshWorkloadSummary();
     toast.success('Production flow data updated');

@@ -37,9 +37,6 @@ export interface ScheduledStageItem {
   is_expedited?: boolean;
   wo_no?: string;
   customer?: string;
-  qty?: number;
-  paper_specs?: any;
-  printing_specs?: any;
 }
 
 interface StageDayBucket {
@@ -57,8 +54,6 @@ export function useStageSchedule() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
-  const [earliestScheduled, setEarliestScheduled] = useState<Date | null>(null);
-  const [didAutoNavigate, setDidAutoNavigate] = useState(false);
 
   const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 1 }), [currentWeek]);
   const days = useMemo(() => Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -103,34 +98,10 @@ export function useStageSchedule() {
         .order("scheduled_start_at", { ascending: true });
       if (jsiErr) throw jsiErr;
 
-      // Fetch enhanced job info with specifications
+      // Fetch job info for display via RPC (admin gets all)
       const { data: jobsInfo } = await supabase.rpc("get_user_accessible_jobs", {});
-      const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean; qty?: number; paper_specs?: any; printing_specs?: any }> = {};
-      (jobsInfo || []).forEach((j: any) => { 
-        jobMap[j.job_id] = { 
-          wo_no: j.wo_no, 
-          customer: j.customer, 
-          is_expedited: j.user_can_manage ? j.is_expedited : j.is_expedited,
-          qty: j.qty
-        } as any; 
-      });
-
-      // Fetch detailed specifications for jobs
-      const jobIds = (jsiRows || []).map(r => r.job_id);
-      if (jobIds.length > 0) {
-        const { data: jobSpecs } = await supabase
-          .from("production_jobs")
-          .select("id,qty,paper_specifications,printing_specifications")
-          .in("id", jobIds);
-        
-        (jobSpecs || []).forEach((spec: any) => {
-          if (jobMap[spec.id]) {
-            jobMap[spec.id].qty = spec.qty;
-            jobMap[spec.id].paper_specs = spec.paper_specifications;
-            jobMap[spec.id].printing_specs = spec.printing_specifications;
-          }
-        });
-      }
+      const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean }> = {};
+      (jobsInfo || []).forEach((j: any) => { jobMap[j.job_id] = { wo_no: j.wo_no, customer: j.customer, is_expedited: j.user_can_manage ? j.is_expedited : j.is_expedited } as any; });
 
       const mapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => ({
         id: r.id,
@@ -143,17 +114,7 @@ export function useStageSchedule() {
         wo_no: jobMap[r.job_id]?.wo_no,
         customer: jobMap[r.job_id]?.customer,
         is_expedited: jobMap[r.job_id]?.is_expedited,
-        qty: jobMap[r.job_id]?.qty,
-        paper_specs: jobMap[r.job_id]?.paper_specs,
-        printing_specs: jobMap[r.job_id]?.printing_specs,
       }));
-
-      // Track the earliest scheduled date across all items to allow jumping to the next scheduled week
-      const earliest = mapped.reduce<Date | null>((min, it) => {
-        const d = it.scheduled_start_at ? new Date(it.scheduled_start_at) : null;
-        return d && (!min || d < min) ? d : min;
-      }, null);
-      setEarliestScheduled(earliest);
 
       setItems(mapped);
     } catch (e: any) {
@@ -166,21 +127,11 @@ export function useStageSchedule() {
 
   useEffect(() => { refetch(); }, [refetch]);
 
-  // Auto-jump once to the next scheduled week if the current week is empty
-  useEffect(() => {
-    if (!didAutoNavigate && items.length === 0 && earliestScheduled) {
-      setCurrentWeek(startOfWeek(earliestScheduled, { weekStartsOn: 1 }));
-      setDidAutoNavigate(true);
-    }
-  }, [didAutoNavigate, items.length, earliestScheduled]);
-
   const navigateWeek = (direction: "prev" | "next") => {
     setCurrentWeek(addDays(currentWeek, direction === "next" ? 7 : -7));
   };
-  const jumpToToday = () => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const jumpToEarliest = () => { if (earliestScheduled) setCurrentWeek(startOfWeek(earliestScheduled, { weekStartsOn: 1 })); };
 
-  return { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch, earliestScheduled, jumpToToday, jumpToEarliest };
+  return { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch };
 }
 
 // UI building blocks
@@ -227,13 +178,6 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
   = ({ item }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 } as React.CSSProperties;
-  
-  // Format specifications for display
-  const paperSpec = item.paper_specs?.weight || item.paper_specs?.type || 'Paper';
-  const printSpec = item.printing_specs?.printer || item.printing_specs?.color_mode || 'Print';
-  const actualMinutes = item.scheduled_minutes || 60;
-  const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
-  
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="p-2 rounded-md border bg-card hover:shadow-sm cursor-grab active:cursor-grabbing">
       <div className="flex items-center justify-between">
@@ -243,12 +187,7 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
       <div className="text-xs text-muted-foreground truncate">{item.customer || "Customer"}</div>
       <div className="flex items-center gap-1 text-xs mt-1">
         <Clock className="h-3 w-3" />
-        <span>{exactTime}</span>
-        {item.qty && <span className="text-muted-foreground">• Qty: {item.qty}</span>}
-      </div>
-      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-        <div className="truncate">{paperSpec}</div>
-        <div className="truncate">{printSpec}</div>
+        <span>{Math.max(1, Math.round((item.scheduled_minutes || 60)/60))}h</span>
       </div>
     </div>
   );
@@ -256,7 +195,7 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
 
 // Main Component
 export const StageWeeklyScheduler: React.FC = () => {
-  const { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch, earliestScheduled, jumpToToday, jumpToEarliest } = useStageSchedule();
+  const { stages, capacities, items, isLoading, error, days, weekStart, currentWeek, navigateWeek, refetch } = useStageSchedule();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<ScheduledStageItem | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -405,8 +344,6 @@ export const StageWeeklyScheduler: React.FC = () => {
             <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')} aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-medium min-w-[160px] text-center">Week of {format(weekStart, 'MMM dd, yyyy')}</span>
             <Button variant="outline" size="sm" onClick={() => navigateWeek('next')} aria-label="Next week"><ChevronRight className="h-4 w-4" /></Button>
-            <Button variant="secondary" size="sm" onClick={jumpToToday} aria-label="Go to current week">Today</Button>
-            <Button variant="secondary" size="sm" onClick={jumpToEarliest} disabled={!earliestScheduled} aria-label="Jump to next scheduled week">Next scheduled</Button>
             <Button variant="secondary" size="sm" onClick={refetch} aria-label="Refresh schedule"><RefreshCcw className="h-4 w-4" /></Button>
             <Button variant="default" size="sm" onClick={runAutoScheduler} aria-label="Run auto-scheduler"><Zap className="h-4 w-4 mr-1" />Run auto-scheduler</Button>
           </div>
@@ -415,12 +352,8 @@ export const StageWeeklyScheduler: React.FC = () => {
       <CardContent>
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           {filteredStages.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground space-y-3">
-              <div>No relevant stages for this week.</div>
-              <div className="flex items-center justify-center gap-2">
-                <Button variant="secondary" size="sm" onClick={jumpToToday}>Today</Button>
-                <Button variant="default" size="sm" onClick={jumpToEarliest} disabled={!earliestScheduled}>Go to next scheduled week</Button>
-              </div>
+            <div className="py-12 text-center text-muted-foreground">
+              No relevant stages for this week. Try a different week or schedule jobs.
             </div>
           ) : (
             <div className="flex gap-4">

@@ -3,7 +3,7 @@ import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { getJobWorkflowStages } from "@/utils/productionWorkflowUtils";
+import { getJobParallelStages } from "@/utils/parallelStageUtils";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
 
 export const useAccessibleJobs = ({ 
@@ -131,10 +131,10 @@ export const useAccessibleJobs = ({
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
 
-      // Get workflow stages for this job (current actionable stages)
-      const workflowStages = getJobWorkflowStages(jobStages, job.job_id);
-      const currentStageOrder = workflowStages.length > 0 
-        ? Math.min(...workflowStages.map(s => s.stage_order))
+      // Get parallel stages for this job
+      const parallelStages = getJobParallelStages(jobStages, job.job_id);
+      const currentStageOrder = parallelStages.length > 0 
+        ? Math.min(...parallelStages.map(s => s.stage_order))
         : undefined;
 
       const processedJob: AccessibleJob = {
@@ -169,8 +169,8 @@ export const useAccessibleJobs = ({
         is_in_batch_processing: job.status === 'In Batch Processing',
         has_custom_workflow: (job as any).has_custom_workflow || false,
         manual_due_date: (job as any).manual_due_date || null,
-        // Workflow stages support (current actionable stages)
-        parallel_stages: workflowStages,
+        // Parallel stages support
+        parallel_stages: parallelStages,
         current_stage_order: currentStageOrder
       };
 

@@ -92,21 +92,19 @@ export const AdvancedScheduleView = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {advancedSchedule.schedule?.scheduledCompletionDate ? 
-                  formatTimeEstimate(new Date()) : 'TBD'}
+                {formatTimeEstimate(advancedSchedule.estimatedStartDate)}
               </div>
               <div className="text-sm text-muted-foreground">Estimated Start</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                5 days
+                {advancedSchedule.totalEstimatedDays} days
               </div>
               <div className="text-sm text-muted-foreground">Total Duration</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {advancedSchedule.schedule?.scheduledCompletionDate ? 
-                  formatTimeEstimate(new Date(advancedSchedule.schedule.scheduledCompletionDate)) : 'TBD'}
+                {formatTimeEstimate(advancedSchedule.estimatedCompletionDate)}
               </div>
               <div className="text-sm text-muted-foreground">Completion</div>
             </div>
@@ -118,10 +116,11 @@ export const AdvancedScheduleView = ({
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Schedule Confidence:</span>
               <Badge 
-                variant={advancedSchedule.schedule?.success ? 'default' : 'destructive'}
-                className={getScheduleConfidenceColor('medium')}
+                variant={advancedSchedule.scheduleConfidence === 'high' ? 'default' : 
+                        advancedSchedule.scheduleConfidence === 'medium' ? 'secondary' : 'destructive'}
+                className={getScheduleConfidenceColor(advancedSchedule.scheduleConfidence)}
               >
-                {advancedSchedule.schedule?.success ? 'HIGH' : 'LOW'}
+                {advancedSchedule.scheduleConfidence.toUpperCase()}
               </Badge>
             </div>
             <Button 
@@ -135,15 +134,15 @@ export const AdvancedScheduleView = ({
             </Button>
           </div>
 
-          {advancedSchedule.validation?.errors?.length > 0 && (
+          {advancedSchedule.riskFactors.length > 0 && (
             <div className="bg-yellow-50 p-3 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <span className="text-sm font-medium text-yellow-800">Validation Issues</span>
+                <span className="text-sm font-medium text-yellow-800">Risk Factors</span>
               </div>
               <ul className="text-sm text-yellow-700 space-y-1">
-                {advancedSchedule.validation.errors.map((error, index) => (
-                  <li key={index}>• {error}</li>
+                {advancedSchedule.riskFactors.map((factor, index) => (
+                  <li key={index}>• {factor}</li>
                 ))}
               </ul>
             </div>

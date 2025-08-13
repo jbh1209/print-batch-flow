@@ -38,16 +38,9 @@ export const useRealTimeJobStages = (jobs: any[] = []) => {
   // Real-time subscription (logic moved to hook)
   useJobStageSubscription(jobs, fetchJobStages);
 
+  // --- Actions (no changes) ---
   const startStage = useCallback(async (stageId: string) => {
     try {
-      // Fetch job context for this stage
-      const { data: ctx, error: ctxErr } = await supabase
-        .from('job_stage_instances')
-        .select('job_id, job_table_name')
-        .eq('id', stageId)
-        .maybeSingle();
-      if (ctxErr) throw ctxErr;
-
       const { error } = await supabase
         .from('job_stage_instances')
         .update({
@@ -60,14 +53,6 @@ export const useRealTimeJobStages = (jobs: any[] = []) => {
         .eq('status', 'pending');
 
       if (error) throw error;
-
-      // Fire reactive scheduler for this job
-      if (ctx?.job_id) {
-        await supabase.functions.invoke('scheduler-worker', {
-          body: { job_id: ctx.job_id, job_table_name: ctx.job_table_name || 'production_jobs' },
-        });
-      }
-
       toast.success('Stage started successfully');
       return true;
     } catch (err) {
@@ -91,11 +76,6 @@ export const useRealTimeJobStages = (jobs: any[] = []) => {
 
         if (error) throw error;
         if (!data) throw new Error('Failed to advance stage');
-
-        // Fire reactive scheduler for this job
-        await supabase.functions.invoke('scheduler-worker', {
-          body: { job_id: stage.job_id, job_table_name: stage.job_table_name || 'production_jobs' },
-        });
 
         toast.success('Stage completed successfully');
         return true;

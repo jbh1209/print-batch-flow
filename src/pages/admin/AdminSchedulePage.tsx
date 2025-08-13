@@ -18,48 +18,6 @@ const AdminSchedulePage: React.FC = () => {
   }, []);
 
   const [isRunning, setIsRunning] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
-  const [schedulerVersion, setSchedulerVersion] = useState<1 | 2 | null>(null);
-  const [isLoadingVersion, setIsLoadingVersion] = useState(true);
-  const [isSavingVersion, setIsSavingVersion] = useState(false);
-
-  useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("scheduler-settings", {
-          body: { action: "get_version" },
-        });
-        if (error) throw error;
-        const v = (data as any)?.version;
-        setSchedulerVersion(v === 1 ? 1 : 2);
-      } catch (e) {
-        console.error(e);
-        toast.error("Failed to load scheduler version");
-      } finally {
-        setIsLoadingVersion(false);
-      }
-    };
-    fetchVersion();
-  }, []);
-
-  const handleSetVersion = async (v: 1 | 2) => {
-    if (schedulerVersion === v) return;
-    try {
-      setIsSavingVersion(true);
-      const { data, error } = await supabase.functions.invoke("scheduler-settings", {
-        body: { action: "set_version", version: v },
-      });
-      if (error || !(data as any)?.ok) throw new Error(error?.message || (data as any)?.error || "Failed to set version");
-      setSchedulerVersion(v);
-      toast.success(`Scheduler set to ${v === 1 ? "Legacy" : "v2"}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to set scheduler version");
-    } finally {
-      setIsSavingVersion(false);
-    }
-  };
-
   const runAutoScheduler = async () => {
     try {
       setIsRunning(true);
@@ -71,37 +29,6 @@ const AdminSchedulePage: React.FC = () => {
       toast.error(err?.message || "Failed to run auto-scheduler");
     } finally {
       setIsRunning(false);
-    }
-  };
-
-  const resetCapacity = async () => {
-    try {
-      setIsResetting(true);
-      const { data, error } = await supabase.functions.invoke("scheduler-maintenance", {
-        body: { action: "reset_capacity", fromDate: new Date().toISOString().slice(0, 10) }
-      });
-      if (error || !(data as any)?.ok) throw new Error(error?.message || (data as any)?.error || "Reset failed");
-      toast.success("Capacity reset from today");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to reset capacity");
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  const clearPendingSchedules = async () => {
-    try {
-      setIsClearing(true);
-      const { data, error } = await supabase.functions.invoke("scheduler-maintenance", {
-        body: { action: "clear_pending_stage_schedules", fromDate: new Date().toISOString().slice(0, 10) }
-      });
-      if (error || !(data as any)?.ok) throw new Error(error?.message || (data as any)?.error || "Clear schedules failed");
-      const cleared = (data as any)?.cleared ?? 0;
-      toast.success(`Cleared ${cleared} schedules from today`);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to clear schedules");
-    } finally {
-      setIsClearing(false);
     }
   };
 
@@ -123,35 +50,8 @@ const AdminSchedulePage: React.FC = () => {
         title="Weekly Schedule Board"
         subtitle="Stage-centric planner showing active stages for the selected week."
       />
-      <div className="mb-4 flex items-center gap-3">
-        <span className="text-sm opacity-80">Scheduler engine:</span>
-        <Button
-          size="sm"
-          variant={schedulerVersion === 1 ? "secondary" : "outline"}
-          onClick={() => handleSetVersion(1)}
-          disabled={isLoadingVersion || isSavingVersion}
-          aria-label="Use legacy scheduler"
-        >
-          {isLoadingVersion ? "Loading..." : "Legacy"}
-        </Button>
-        <Button
-          size="sm"
-          variant={schedulerVersion === 2 ? "secondary" : "outline"}
-          onClick={() => handleSetVersion(2)}
-          disabled={isLoadingVersion || isSavingVersion}
-          aria-label="Use v2 scheduler"
-        >
-          {isLoadingVersion ? "Loading..." : "v2"}
-        </Button>
-      </div>
 
-      <div className="mb-4 flex justify-end gap-2">
-        <Button size="sm" variant="outline" onClick={clearPendingSchedules} disabled={isClearing} aria-label="Clear pending schedules">
-          {isClearing ? "Clearing..." : "Clear schedules (from today)"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={resetCapacity} disabled={isResetting} aria-label="Reset capacity">
-          {isResetting ? "Resetting..." : "Reset capacity (from today)"}
-        </Button>
+      <div className="mb-4 flex justify-end">
         <Button size="sm" variant="secondary" onClick={runAutoScheduler} disabled={isRunning} aria-label="Run auto-scheduler">
           {isRunning ? "Running..." : "Run auto-scheduler"}
         </Button>

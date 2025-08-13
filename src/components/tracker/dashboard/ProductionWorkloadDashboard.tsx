@@ -13,10 +13,9 @@ import {
   Calendar,
   BarChart3
 } from 'lucide-react';
-import { supabase } from "@/integrations/supabase/client";
+import { stageQueueManager } from '@/services/stageQueueManager';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
-import { RescheduleAllJobsButton } from '@/components/admin/RescheduleAllJobsButton';
 
 interface StageWorkload {
   stageId: string;
@@ -41,36 +40,8 @@ export const ProductionWorkloadDashboard: React.FC = () => {
   const fetchWorkloads = async () => {
     try {
       setIsLoading(true);
-      // Mock workload data for now since we're using workflow-first engine
-      const mockWorkloads: StageWorkload[] = [
-        {
-          stageId: '1',
-          stageName: 'Cover',
-          totalPendingHours: 20,
-          totalActiveHours: 5,
-          pendingJobsCount: 3,
-          activeJobsCount: 1,
-          dailyCapacityHours: 8,
-          maxParallelJobs: 2,
-          isBottleneck: false,
-          earliestAvailableSlot: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-          queueDaysToProcess: 2.5
-        },
-        {
-          stageId: '2',
-          stageName: 'Text',
-          totalPendingHours: 40,
-          totalActiveHours: 12,
-          pendingJobsCount: 5,
-          activeJobsCount: 2,
-          dailyCapacityHours: 6,
-          maxParallelJobs: 3,
-          isBottleneck: true,
-          earliestAvailableSlot: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          queueDaysToProcess: 7.2
-        }
-      ];
-      setWorkloads(mockWorkloads);
+      const data = await stageQueueManager.getAllStageWorkloads();
+      setWorkloads(data);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching workloads:', error);
@@ -86,6 +57,7 @@ export const ProductionWorkloadDashboard: React.FC = () => {
 
   const refreshWorkloads = async () => {
     try {
+      await stageQueueManager.updateAllStageWorkloads();
       await fetchWorkloads();
       toast({
         title: "Workloads updated",
@@ -161,7 +133,6 @@ export const ProductionWorkloadDashboard: React.FC = () => {
               Updated: {lastUpdated.toLocaleTimeString()}
             </div>
           )}
-          <RescheduleAllJobsButton />
           <Button onClick={refreshWorkloads} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh

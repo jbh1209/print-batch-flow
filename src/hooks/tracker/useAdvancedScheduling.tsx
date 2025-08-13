@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useWorkflowFirstScheduling } from './useWorkflowFirstScheduling';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { advancedSchedulingEngine } from '@/services/advancedSchedulingEngine';
 import { toast } from 'sonner';
 
 interface UseAdvancedSchedulingProps {
@@ -15,87 +15,97 @@ export const useAdvancedScheduling = ({
   stageId
 }: UseAdvancedSchedulingProps = {}) => {
   const queryClient = useQueryClient();
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const { scheduleJob, validateJobWorkflow, recalculateAllJobs } = useWorkflowFirstScheduling();
 
-  // Get advanced schedule for a specific job using new workflow engine
+  // Get advanced schedule for a specific job
   const {
     data: advancedSchedule,
     isLoading: isLoadingSchedule,
     error: scheduleError
   } = useQuery({
-    queryKey: ['workflow-schedule', jobId, jobTableName],
-    queryFn: async () => {
-      if (!jobId) return null;
-      
-      // Use the new workflow validation
-      const validation = await validateJobWorkflow(jobId);
-      const scheduleResult = await scheduleJob(jobId, jobTableName);
-      
-      return {
-        validation,
-        schedule: scheduleResult,
-        jobId,
-        // Mock data for backward compatibility
-        queuePositions: [],
-        criticalPath: [],
-        alternativeTimelines: {}
-      };
-    },
+    queryKey: ['advanced-schedule', jobId, jobTableName],
+    queryFn: () => 
+      jobId 
+        ? advancedSchedulingEngine.calculateAdvancedSchedule(jobId, jobTableName)
+        : Promise.resolve(null),
     enabled: !!jobId,
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
   });
 
-  // Mock stage queue status for backward compatibility
-  const stageQueueStatus = null;
-  const isLoadingQueue = false;
-  const queueError = null;
+  // Get stage queue status
+  const {
+    data: stageQueueStatus,
+    isLoading: isLoadingQueue,
+    error: queueError
+  } = useQuery({
+    queryKey: ['stage-queue-status', stageId],
+    queryFn: () => 
+      stageId 
+        ? advancedSchedulingEngine.getStageQueueStatus(stageId)
+        : Promise.resolve(null),
+    enabled: !!stageId,
+    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+  });
 
-  // Optimize job flow using new workflow engine
-  const optimizeJobFlow = async (departmentId?: string) => {
-    setIsOptimizing(true);
-    try {
-      const result = await recalculateAllJobs();
-      const optimizationsApplied = result?.successful || 0;
-      const estimatedTimeSaved = optimizationsApplied * 2; // Rough estimate
-      const bottlenecksResolved: string[] = [];
-      
-      toast.success(`Applied ${optimizationsApplied} optimizations, saved ~${estimatedTimeSaved}h`);
-      
+  // Optimize job flow mutation
+  const optimizeJobFlowMutation = useMutation({
+    mutationFn: (departmentId?: string) => 
+      advancedSchedulingEngine.optimizeJobFlow(departmentId),
+    onSuccess: (result) => {
+      toast.success(
+        `Applied ${result.optimizationsApplied} optimizations, saved ~${Math.round(result.estimatedTimeSaved)}h`
+      );
+      if (result.bottlenecksResolved.length > 0) {
+        toast.info(`Resolved bottlenecks: ${result.bottlenecksResolved.join(', ')}`);
+      }
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['workflow-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['advanced-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['stage-queue-status'] });
-      
-      return { optimizationsApplied, estimatedTimeSaved, bottlenecksResolved };
-    } catch (error) {
-      console.error('Job flow optimization error:', error);
+      queryClient.invalidateQueries({ queryKey: ['stage-workloads'] });
+    },
+    onError: (error) => {
+      console.error('Error optimizing job flow:', error);
       toast.error('Failed to optimize job flow');
-      throw error;
-    } finally {
-      setIsOptimizing(false);
     }
-  };
+  });
 
-  // Mock calculate insertion for backward compatibility
-  const calculateOptimalInsertion = async (params: any) => {
-    console.log('Calculate optimal insertion not implemented in workflow-first engine');
-    return null;
-  };
+  // Calculate optimal insertion position
+  const calculateInsertionMutation = useMutation({
+    mutationFn: ({
+      stageId,
+      estimatedDuration,
+      priority,
+      dueDate
+    }: {
+      stageId: string;
+      estimatedDuration: number;
+      priority: number;
+      dueDate?: Date;
+    }) => advancedSchedulingEngine.calculateOptimalInsertion(
+      stageId,
+      estimatedDuration,
+      priority,
+      dueDate
+    ),
+    onError: (error) => {
+      console.error('Error calculating insertion position:', error);
+      toast.error('Failed to calculate optimal position');
+    }
+  });
 
   // Helper functions
   const getQueuePosition = (stageId: string) => {
     if (!advancedSchedule) return null;
-    return advancedSchedule.queuePositions.find((pos: any) => pos.stageId === stageId);
+    return advancedSchedule.queuePositions.find(pos => pos.stageId === stageId);
   };
 
   const getBottleneckStages = () => {
     if (!advancedSchedule) return [];
-    return advancedSchedule.queuePositions.filter((pos: any) => pos.isBottleneck);
+    return advancedSchedule.queuePositions.filter(pos => pos.isBottleneck);
   };
 
   const getCriticalPathStages = () => {
     if (!advancedSchedule) return [];
-    return advancedSchedule.queuePositions.filter((pos: any) => 
+    return advancedSchedule.queuePositions.filter(pos => 
       advancedSchedule.criticalPath.includes(pos.stageId)
     );
   };
@@ -134,16 +144,16 @@ export const useAdvancedScheduling = ({
     // Loading states
     isLoadingSchedule,
     isLoadingQueue,
-    isOptimizing,
-    isCalculatingInsertion: false,
+    isOptimizing: optimizeJobFlowMutation.isPending,
+    isCalculatingInsertion: calculateInsertionMutation.isPending,
     
     // Errors
     scheduleError,
     queueError,
     
     // Actions
-    optimizeJobFlow,
-    calculateOptimalInsertion,
+    optimizeJobFlow: optimizeJobFlowMutation.mutate,
+    calculateOptimalInsertion: calculateInsertionMutation.mutate,
     
     // Helper functions
     getQueuePosition,
@@ -154,7 +164,7 @@ export const useAdvancedScheduling = ({
     getAlternativeTimeline,
     
     // Mutation results
-    insertionResult: null,
-    optimizationResult: null,
+    insertionResult: calculateInsertionMutation.data,
+    optimizationResult: optimizeJobFlowMutation.data,
   };
 };

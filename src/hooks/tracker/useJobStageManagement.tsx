@@ -86,10 +86,10 @@ export const useJobStageManagement = ({
     }
   }, [jobId, jobTableName, categoryId, initializeJobStages]);
 
+  // Enhanced stage start with batch awareness
   const startStageEnhanced = useCallback(async (stageId: string, qrData?: any) => {
-    let success = false;
     if (isBatchMaster || job?.batch_ready) {
-      success = await batchAwareActions.startStage(stageId, {
+      return await batchAwareActions.startStage(stageId, {
         jobId,
         jobTableName,
         isBatchMaster,
@@ -97,16 +97,8 @@ export const useJobStageManagement = ({
         constituentJobIds
       }, qrData);
     } else {
-      success = await startStage(stageId, qrData);
+      return await startStage(stageId, qrData);
     }
-
-    if (success) {
-      await supabase.functions.invoke('scheduler-worker', {
-        body: { job_id: jobId, job_table_name: jobTableName },
-      });
-    }
-
-    return success;
   }, [batchAwareActions, startStage, isBatchMaster, job, jobId, jobTableName, batchName, constituentJobIds]);
 
   // Enhanced stage completion with batch awareness
@@ -123,9 +115,6 @@ export const useJobStageManagement = ({
       if (success) {
         await fetchJobStages();
         await updateJobStatusToCurrentStage();
-        await supabase.functions.invoke('scheduler-worker', {
-          body: { job_id: jobId, job_table_name: jobTableName },
-        });
       }
       
       return success;
@@ -135,9 +124,6 @@ export const useJobStageManagement = ({
       if (success) {
         await fetchJobStages();
         await updateJobStatusToCurrentStage();
-        await supabase.functions.invoke('scheduler-worker', {
-          body: { job_id: jobId, job_table_name: jobTableName },
-        });
       }
       
       return success;
@@ -167,9 +153,6 @@ export const useJobStageManagement = ({
       if (success) {
         await fetchJobStages();
         await updateJobStatusToCurrentStage();
-        await supabase.functions.invoke('scheduler-worker', {
-          body: { job_id: jobId, job_table_name: jobTableName },
-        });
       }
       
       return success;
@@ -185,9 +168,6 @@ export const useJobStageManagement = ({
       if (success) {
         await fetchJobStages();
         await updateJobStatusToCurrentStage();
-        await supabase.functions.invoke('scheduler-worker', {
-          body: { job_id: jobId, job_table_name: jobTableName },
-        });
       }
       
       return success;
