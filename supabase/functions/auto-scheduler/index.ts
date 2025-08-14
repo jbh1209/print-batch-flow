@@ -212,7 +212,7 @@ async function clearAllExistingSchedules(supabase: any): Promise<void> {
       auto_scheduled_duration_minutes: null,
       schedule_status: 'unscheduled'
     })
-    .neq('id', '00000000-0000-0000-0000-000000000000') // Update all
+    .not('id', 'is', null) // Update all non-null records
 
   if (instancesError) {
     console.error('❌ Error resetting job_stage_instances:', instancesError)
