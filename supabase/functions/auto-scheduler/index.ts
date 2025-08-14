@@ -462,39 +462,80 @@ async function scheduleParallelGroup(supabase: any, groupStages: StageSchedule[]
   return parallelSlots
 }
 
-// **PHASE 3: TETRIS LOGIC - FIND NEXT AVAILABLE SLOT WITH GAP FILLING**
+// **PARALLEL CAPACITY LOGIC - FIND NEXT AVAILABLE SLOT USING DAILY CAPACITY**
 async function findNextAvailableSlot(supabase: any, stageId: string, durationMinutes: number, earliestStart: Date, context: SchedulingContext): Promise<TimeSlot> {
-  console.log(`🔍 Finding slot for stage ${stageId}, duration: ${durationMinutes}min, from: ${earliestStart.toISOString()}`)
+  console.log(`🔍 Finding capacity slot for stage ${stageId}, duration: ${durationMinutes}min, from: ${earliestStart.toISOString()}`)
   
-  // **PHASE 3: Check for gaps in schedule first**
-  const gapSlot = await findGapInSchedule(supabase, stageId, durationMinutes, earliestStart)
-  if (gapSlot) {
-    console.log(`🎯 Found gap: ${gapSlot.start_time.toISOString()} to ${gapSlot.end_time.toISOString()}`)
-    return gapSlot
+  // Load stage capacity profile
+  const { data: capacityData } = await supabase
+    .from('stage_capacity_profiles')
+    .select('daily_capacity_hours, max_parallel_jobs')
+    .eq('production_stage_id', stageId)
+    .single()
+  
+  const dailyCapacityMinutes = capacityData?.daily_capacity_hours ? capacityData.daily_capacity_hours * 60 : 480 // 8 hours default
+  
+  // Find next available day with capacity
+  let currentDay = getNextWorkingDay(earliestStart)
+  
+  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
+    const dayToCheck = new Date(currentDay)
+    dayToCheck.setDate(dayToCheck.getDate() + dayOffset)
+    
+    // Skip weekends
+    if (dayToCheck.getDay() === 0 || dayToCheck.getDay() === 6) continue
+    
+    const dateStr = dayToCheck.toISOString().split('T')[0]
+    
+    // Get used capacity for this stage on this date
+    const { data: usedJobs } = await supabase
+      .from('job_stage_instances')
+      .select('auto_scheduled_duration_minutes, scheduled_minutes')
+      .eq('production_stage_id', stageId)
+      .in('status', ['pending', 'active'])
+      .or(`auto_scheduled_start_at::date.eq.${dateStr},scheduled_start_at::date.eq.${dateStr}`)
+    
+    const usedMinutes = (usedJobs || []).reduce((total, job) => {
+      return total + (job.auto_scheduled_duration_minutes || job.scheduled_minutes || 0)
+    }, 0)
+    
+    const availableMinutes = dailyCapacityMinutes - usedMinutes
+    
+    console.log(`[CAPACITY CHECK] Stage ${stageId} on ${dateStr}: ${usedMinutes}/${dailyCapacityMinutes} minutes used (${availableMinutes} available)`)
+    
+    if (availableMinutes >= durationMinutes) {
+      // Found capacity! Calculate slot within working hours
+      const workingHours = await getWorkingHours(supabase, dayToCheck)
+      
+      if (workingHours && workingHours.is_working_day) {
+        // Schedule job based on used time in the day
+        const dayStart = workingHours.start_time
+        const slotStart = new Date(dayStart.getTime() + (usedMinutes * 60 * 1000))
+        const slotEnd = new Date(slotStart.getTime() + (durationMinutes * 60 * 1000))
+        
+        // Ensure slot doesn't exceed working hours
+        if (slotEnd <= workingHours.end_time) {
+          console.log(`[CAPACITY SLOT] Stage ${stageId} on ${dateStr}: ${slotStart.toTimeString().substring(0,5)}-${slotEnd.toTimeString().substring(0,5)}`)
+          
+          return {
+            start_time: slotStart,
+            end_time: slotEnd,
+            duration_minutes: durationMinutes,
+            is_split: false
+          }
+        }
+      }
+    }
   }
   
-  // No gap found - get current queue end time for this stage
+  // Fallback: use the old logic if capacity data unavailable
+  console.warn(`⚠️ No capacity found for stage ${stageId}, falling back to sequential scheduling`)
   const queueEndTime = await getCurrentQueueEndTime(supabase, stageId, earliestStart)
-  
-  // Proposed start time is the later of earliestStart or queue end
   const proposedStart = queueEndTime > earliestStart ? queueEndTime : earliestStart
-  
-  console.log(`💭 Proposed start time: ${proposedStart.toISOString()}`)
-  
-  // Ensure proposed time is within working hours
   const adjustedStart = await ensureWithinWorkingHours(supabase, proposedStart, null)
-  
-  console.log(`⏰ Adjusted start time: ${adjustedStart.toISOString()}`)
-  
-  // Calculate end time
   const proposedEnd = new Date(adjustedStart.getTime() + (durationMinutes * 60 * 1000))
   
-  // **PHASE 2: Validate and handle job splitting if needed**
-  const validatedSlot = await validateWorkingHoursSlot(supabase, adjustedStart, proposedEnd, durationMinutes)
-  
-  console.log(`✅ Final slot: ${validatedSlot.start_time.toISOString()} to ${validatedSlot.end_time.toISOString()}`)
-  
-  return validatedSlot
+  return await validateWorkingHoursSlot(supabase, adjustedStart, proposedEnd, durationMinutes)
 }
 
 // **PHASE 3: GAP DETECTION ALGORITHM**
@@ -685,7 +726,7 @@ async function getNextWorkingDay(supabase: any, fromDate: Date) {
   throw new Error('No working days found in next 7 days')
 }
 
-// Get current queue end time for a stage - Simple sequential logic
+// Get current queue end time for a stage - LEGACY FALLBACK (replaced by capacity logic)
 async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: Date): Promise<Date> {
   // Convert fromTime to UTC for database query (SAST is UTC+2)
   const fromTimeUTC = new Date(fromTime.getTime() - (2 * 60 * 60 * 1000))
@@ -703,13 +744,22 @@ async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: 
     // Convert back to SAST (add 2 hours)
     const lastEndTimeSAST = new Date(lastEndTimeUTC.getTime() + (2 * 60 * 60 * 1000))
     const result = lastEndTimeSAST > fromTime ? lastEndTimeSAST : fromTime
-    console.log(`📊 Stage ${stageId} queue ends at: ${result.toISOString()}`)
+    console.log(`📊 [LEGACY] Stage ${stageId} queue ends at: ${result.toISOString()}`)
     return result
   }
 
   // No existing slots - return the fromTime
-  console.log(`📊 Stage ${stageId} has empty queue, starting from: ${fromTime.toISOString()}`)
+  console.log(`📊 [LEGACY] Stage ${stageId} has empty queue, starting from: ${fromTime.toISOString()}`)
   return fromTime
+}
+
+// Helper function to get next working day (for capacity scheduling)
+function getNextWorkingDay(date: Date): Date {
+  let nextDay = new Date(date)
+  while (nextDay.getDay() === 0 || nextDay.getDay() === 6) {
+    nextDay.setDate(nextDay.getDate() + 1)
+  }
+  return nextDay
 }
 
 // Update job_stage_instances with scheduled times
