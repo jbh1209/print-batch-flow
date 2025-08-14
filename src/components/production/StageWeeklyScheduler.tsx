@@ -116,7 +116,7 @@ export function useStageSchedule() {
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending"]) 
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"])
-        .or(`and(scheduled_start_at.gte.${startIso},scheduled_start_at.lt.${endIso}),and(auto_scheduled_start_at.gte.${startIso},auto_scheduled_start_at.lt.${endIso})`)
+        .or(`scheduled_start_at.gte.${startIso}.and.scheduled_start_at.lt.${endIso},auto_scheduled_start_at.gte.${startIso}.and.auto_scheduled_start_at.lt.${endIso}`)
         .order("auto_scheduled_start_at", { ascending: true, nullsFirst: false })
         .order("scheduled_start_at", { ascending: true, nullsFirst: false });
       if (jsiErr) throw jsiErr;
