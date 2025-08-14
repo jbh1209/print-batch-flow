@@ -96,17 +96,24 @@ export function useStageSchedule() {
       const startIso = new Date(weekStart).toISOString();
       const endIso = new Date(addDays(weekStart, 5)).toISOString();
       
-      // Query for both manual and auto-scheduled jobs
+      console.log(`🔍 StageWeeklyScheduler: Querying week ${format(weekStart, 'yyyy-MM-dd')} to ${format(addDays(weekStart, 4), 'yyyy-MM-dd')}`);
+      console.log(`📅 Date range: ${startIso} to ${endIso}`);
+      
+      // Simplified query - get all jobs with auto-scheduled or manual times in date range
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
         .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,auto_scheduled_start_at,auto_scheduled_end_at,auto_scheduled_duration_minutes,status")
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending"]) 
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"]) // guard
-        .or(`and(scheduled_start_at.lt.${endIso},scheduled_end_at.gte.${startIso}),and(auto_scheduled_start_at.lt.${endIso},auto_scheduled_end_at.gte.${startIso})`)
+        .or(`scheduled_start_at.gte.${startIso},auto_scheduled_start_at.gte.${startIso}`)
+        .or(`scheduled_start_at.lt.${endIso},auto_scheduled_start_at.lt.${endIso}`)
         .order("auto_scheduled_start_at", { ascending: true, nullsFirst: false })
         .order("scheduled_start_at", { ascending: true, nullsFirst: false });
       if (jsiErr) throw jsiErr;
+      
+      console.log(`📊 Found ${(jsiRows || []).length} job stage instances in date range`);
+      console.log(`🎯 Stages being queried: ${stageIds.length} stages`);
 
       // Fetch enhanced job info with specifications
       const { data: jobsInfo } = await supabase.rpc("get_user_accessible_jobs", {});
@@ -162,6 +169,10 @@ export function useStageSchedule() {
         };
       });
 
+      console.log(`✅ Final mapped items: ${mapped.length}`);
+      console.log(`🤖 Auto-scheduled items: ${mapped.filter(m => m.is_auto_scheduled).length}`);
+      console.log(`🖊️ Manual scheduled items: ${mapped.filter(m => !m.is_auto_scheduled).length}`);
+      
       setItems(mapped);
     } catch (e: any) {
       console.error("Failed to load stage schedule:", e);
@@ -294,13 +305,19 @@ export const StageWeeklyScheduler: React.FC = () => {
   const { stageCounts } = useProductionStageCounts();
   const stageCountMap = useMemo(() => Object.fromEntries(stageCounts.map((c: any) => [c.stage_id, c])), [stageCounts]);
   const filteredStages = useMemo(() => {
-    return stages.filter(s => {
+    const filtered = stages.filter(s => {
       const n = (s.name || '').toLowerCase();
-      if (n === 'dtp' || n === 'proof') return false; // Hide pre-approval stages
+      if (n.includes('dtp') || n.includes('proof')) return false; // Hide pre-approval stages
       const counts = stageCountMap[s.id];
       const hasJobs = counts && ((counts.active_jobs ?? 0) + (counts.pending_jobs ?? 0)) > 0;
-      return activeStageIds.has(s.id) || hasJobs;
+      const hasScheduledItems = activeStageIds.has(s.id);
+      return hasScheduledItems || hasJobs;
     });
+    
+    console.log(`🎭 Filtered stages: ${filtered.length}/${stages.length} (excluding DTP/Proof)`);
+    console.log(`📋 Active stage IDs with items: ${Array.from(activeStageIds).length}`);
+    
+    return filtered;
   }, [stages, activeStageIds, stageCountMap]);
 
   useEffect(() => {
