@@ -122,11 +122,9 @@ Deno.serve(async (req) => {
 
     console.log(`📋 Processing job: ${job_id}, trigger: ${trigger_reason}`)
 
-    // **RESET SCHEDULES ON MANUAL TRIGGER**
-    if (trigger_reason === 'manual') {
-      console.log('🧹 Manual trigger - clearing existing schedules')
-      await clearAllExistingSchedules(supabase)
-    }
+    // **ALWAYS CLEAR SCHEDULES - CRITICAL FIX FOR AUG 27TH BUG**
+    console.log('🧹 Clearing existing schedules (prevents scheduling after stale dates)')
+    await clearAllExistingSchedules(supabase)
 
     // **GET JOB STAGES (exclude DTP/Proof/Batch Allocation)**
     const stages = await getJobStageBreakdown(supabase, job_id, job_table_name)
@@ -253,7 +251,8 @@ async function scheduleStagesWithDependencies(supabase: any, stages: StageJob[])
   const nowSAST = getCurrentSAST()
   let currentSchedulingTime = getNextValidBusinessTime(nowSAST)
   
-  console.log(`⏰ Starting scheduling from: ${formatSAST(currentSchedulingTime, 'yyyy-MM-dd HH:mm')}`)
+  console.log(`⏰ Current SAST time: ${formatSAST(nowSAST, 'yyyy-MM-dd HH:mm:ss')}`)
+  console.log(`⏰ Starting scheduling from: ${formatSAST(currentSchedulingTime, 'yyyy-MM-dd HH:mm:ss')}`)
 
   // **STAGE ORDER GROUPS - Process in dependency order**
   const stageGroups = new Map<number, StageJob[]>()
@@ -397,6 +396,8 @@ async function getStageQueueEndTime(supabase: any, stageId: string, fromTime: Da
   // Convert SAST to UTC for database query
   const fromTimeUTC = fromSAST(fromTime)
   
+  console.log(`🔍 Checking queue for stage ${stageId} from ${formatSAST(fromTime, 'yyyy-MM-dd HH:mm')}`)
+  
   const { data, error } = await supabase
     .from('stage_time_slots')
     .select('slot_end_time')
@@ -413,9 +414,11 @@ async function getStageQueueEndTime(supabase: any, stageId: string, fromTime: Da
   if (data && data.length > 0) {
     const lastEndTimeUTC = new Date(data[0].slot_end_time)
     const lastEndTimeSAST = toSAST(lastEndTimeUTC)
+    console.log(`📋 Found existing queue ends at: ${formatSAST(lastEndTimeSAST, 'yyyy-MM-dd HH:mm')}`)
     return lastEndTimeSAST > fromTime ? lastEndTimeSAST : fromTime
   }
 
+  console.log(`📋 Queue empty, starting immediately`)
   return fromTime // Empty queue
 }
 
