@@ -92,12 +92,14 @@ export function useStageSchedule() {
       (capRows || []).forEach((c: any) => { capMap[c.production_stage_id] = (c.daily_capacity_hours || 8) * 60; });
       setCapacities(capMap);
 
-      // Scheduled items in week - include both manual and auto-scheduled
-      const startIso = new Date(weekStart).toISOString();
-      const endIso = new Date(addDays(weekStart, 5)).toISOString();
+      // CRITICAL FIX: Query today onwards (not just current week) to see scheduled jobs
+      const today = new Date();
+      const twoWeeksFromNow = addDays(today, 14); // Look ahead 2 weeks to catch all scheduled jobs
+      const startIso = today.toISOString();
+      const endIso = twoWeeksFromNow.toISOString();
       
-      console.log(`🔍 StageWeeklyScheduler: Querying week ${format(weekStart, 'yyyy-MM-dd')} to ${format(addDays(weekStart, 4), 'yyyy-MM-dd')}`);
-      console.log(`📅 Date range: ${startIso} to ${endIso}`);
+      console.log(`🔍 StageWeeklyScheduler: Querying jobs from TODAY ${format(today, 'yyyy-MM-dd')} to ${format(twoWeeksFromNow, 'yyyy-MM-dd')}`);
+      console.log(`📅 Extended date range: ${startIso} to ${endIso}`);
       
       // Query for jobs scheduled in the date range (business hours 8 AM - 5:30 PM SAST)
       const { data: jsiRows, error: jsiErr } = await supabase

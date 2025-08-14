@@ -19,7 +19,10 @@ const SAST_TIMEZONE = 'Africa/Johannesburg'
 
 // **TIMEZONE UTILITIES: Proper SAST handling**
 function getCurrentSAST(): Date {
-  return toZonedTime(new Date(), SAST_TIMEZONE)
+  const now = new Date()
+  const sastNow = toZonedTime(now, SAST_TIMEZONE)
+  console.log(`🕐 getCurrentSAST: UTC=${now.toISOString()} -> SAST=${formatSAST(sastNow, 'yyyy-MM-dd HH:mm:ss')}`)
+  return sastNow
 }
 
 function toSAST(utcDate: Date): Date {
@@ -58,6 +61,7 @@ function getNextWorkingDayAt8AM(fromDate: Date): Date {
   
   // Set to 8:00 AM SAST
   nextDate.setHours(8, 0, 0, 0)
+  console.log(`📅 getNextWorkingDayAt8AM: Input=${formatSAST(fromDate, 'yyyy-MM-dd HH:mm')} -> Next=${formatSAST(nextDate, 'yyyy-MM-dd HH:mm')}`)
   return nextDate
 }
 
@@ -65,16 +69,22 @@ function getNextValidBusinessTime(proposedTime: Date): Date {
   const nowSAST = getCurrentSAST()
   let adjustedTime = new Date(proposedTime)
   
+  console.log(`⏰ getNextValidBusinessTime: Proposed=${formatSAST(proposedTime, 'yyyy-MM-dd HH:mm:ss')}, Now=${formatSAST(nowSAST, 'yyyy-MM-dd HH:mm:ss')}`)
+  
   // If in the past, use current time
   if (adjustedTime < nowSAST) {
     adjustedTime = new Date(nowSAST)
+    console.log(`🔄 Time is in past, adjusted to now: ${formatSAST(adjustedTime, 'yyyy-MM-dd HH:mm:ss')}`)
   }
   
   // If outside business hours or not working day, move to next working day 8 AM
   if (!isWithinBusinessHours(adjustedTime) || !isWorkingDay(adjustedTime)) {
-    return getNextWorkingDayAt8AM(adjustedTime)
+    const nextValid = getNextWorkingDayAt8AM(adjustedTime)
+    console.log(`🔄 Outside business hours/working day, moved to: ${formatSAST(nextValid, 'yyyy-MM-dd HH:mm:ss')}`)
+    return nextValid
   }
   
+  console.log(`✅ Time is valid: ${formatSAST(adjustedTime, 'yyyy-MM-dd HH:mm:ss')}`)
   return adjustedTime
 }
 
@@ -258,9 +268,18 @@ async function scheduleStagesWithDependencies(supabase: any, stages: StageJob[])
   const scheduledStages: ScheduledStage[] = []
   const stageEndTimes = new Map<string, Date>() // Track when each stage/part finishes
   
-  // Current SAST time - never schedule in the past
+  // CRITICAL FIX: Current SAST time - never schedule in the past
   const nowSAST = getCurrentSAST()
-  let currentSchedulingTime = getNextValidBusinessTime(nowSAST)
+  
+  // CRITICAL: If we're within business hours TODAY, start immediately. Otherwise start tomorrow 8AM.
+  let currentSchedulingTime: Date
+  if (isWithinBusinessHours(nowSAST) && isWorkingDay(nowSAST)) {
+    currentSchedulingTime = nowSAST // Start right now if within business hours
+    console.log(`🚀 Within business hours, starting immediately: ${formatSAST(currentSchedulingTime, 'yyyy-MM-dd HH:mm:ss')}`)
+  } else {
+    currentSchedulingTime = getNextWorkingDayAt8AM(nowSAST) // Start next working day at 8 AM
+    console.log(`🌅 Outside business hours, starting next working day: ${formatSAST(currentSchedulingTime, 'yyyy-MM-dd HH:mm:ss')}`)
+  }
   
   console.log(`⏰ Current SAST time: ${formatSAST(nowSAST, 'yyyy-MM-dd HH:mm:ss')}`)
   console.log(`⏰ Starting scheduling from: ${formatSAST(currentSchedulingTime, 'yyyy-MM-dd HH:mm:ss')}`)
