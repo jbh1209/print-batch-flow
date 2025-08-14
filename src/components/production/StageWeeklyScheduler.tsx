@@ -101,17 +101,15 @@ export function useStageSchedule() {
       (capRows || []).forEach((c: any) => { capMap[c.production_stage_id] = (c.daily_capacity_hours || 8) * 60; });
       setCapacities(capMap);
 
-      // CRITICAL FIX: Query the actual week being displayed to find jobs
+      // SIMPLE: Query jobs scheduled for the displayed week
       const queryStart = new Date(weekStart);
-      const queryEnd = addDays(weekStart, 7); // Cover full week + weekend
+      const queryEnd = addDays(weekStart, 7);
       const startIso = queryStart.toISOString();
       const endIso = queryEnd.toISOString();
       
-      console.log(`🔍 StageWeeklyScheduler: Querying CURRENT WEEK ${format(weekStart, 'yyyy-MM-dd')} to ${format(queryEnd, 'yyyy-MM-dd')}`);
-      console.log(`📅 Week query range: ${startIso} to ${endIso}`);
-      console.log(`🎯 Days in week: ${days.map(d => format(d, 'yyyy-MM-dd')).join(', ')}`);
+      console.log(`📅 Simple query: jobs scheduled between ${format(queryStart, 'yyyy-MM-dd')} and ${format(queryEnd, 'yyyy-MM-dd')}`);
       
-      // Query for jobs scheduled in the date range (business hours 8 AM - 5:30 PM SAST)
+      // Query all jobs with ANY scheduled time in the displayed week
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
         .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,auto_scheduled_start_at,auto_scheduled_end_at,auto_scheduled_duration_minutes,status")
@@ -346,16 +344,12 @@ export const StageWeeklyScheduler: React.FC = () => {
         const dateStr = format(d, 'yyyy-MM-dd');
         const key = `${s.id}|${dateStr}`;
         const cap = capacities[s.id] ?? 8*60;
-        // CRITICAL: Use correct SAST date boundaries for filtering
-        const dayStartSAST = new Date(`${dateStr}T06:00:00.000Z`); // 8:00 AM SAST = 6:00 AM UTC
-        const dayEndSAST = new Date(`${dateStr}T15:30:00.000Z`);   // 5:30 PM SAST = 3:30 PM UTC
-        
+        // SIMPLE: Show jobs scheduled for this calendar date
         const dayItems = items.filter(it => {
           if (it.production_stage_id !== s.id) return false;
           
-          // Check both auto-scheduled and manual scheduled times
+          // Get the scheduled start time
           let start: Date | null = null;
-          
           if (it.is_auto_scheduled && it.auto_scheduled_start_at) {
             start = new Date(it.auto_scheduled_start_at);
           } else if (it.scheduled_start_at) {
@@ -364,14 +358,15 @@ export const StageWeeklyScheduler: React.FC = () => {
           
           if (!start) return false;
           
-          // Check if job start time falls within this SAST business day
-          const isInDay = start >= dayStartSAST && start <= dayEndSAST;
+          // Check if job is scheduled on this calendar date (simple date match)
+          const jobDate = format(start, 'yyyy-MM-dd');
+          const isOnThisDate = jobDate === dateStr;
           
-          if (isInDay) {
-            console.log(`✅ Job ${it.wo_no} on ${dateStr}: start=${start.toISOString()} (${isInDay ? 'IN' : 'OUT'} business hours)`);
+          if (isOnThisDate) {
+            console.log(`✅ Job ${it.wo_no} scheduled on ${dateStr} at ${start.toISOString()}`);
           }
           
-          return isInDay;
+          return isOnThisDate;
         });
         const used = dayItems.reduce((sum, it) => {
           if (it.is_auto_scheduled) {
