@@ -176,30 +176,41 @@ Deno.serve(async (req) => {
   }
 })
 
-// **CLEAR EXISTING SCHEDULES**
+// **CLEAR EXISTING SCHEDULES - COMPREHENSIVE RESET**
 async function clearAllExistingSchedules(supabase: any): Promise<void> {
-  // Clear stage_time_slots
+  const currentSAST = getCurrentSAST()
+  console.log(`🧹 Clearing ALL schedules - Current SAST: ${formatSAST(currentSAST, 'yyyy-MM-dd HH:mm:ss')}`)
+  
+  // Clear stage_time_slots completely
   const { error: slotsError } = await supabase
     .from('stage_time_slots')
     .delete()
     .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
 
-  if (slotsError) console.error('Error clearing stage_time_slots:', slotsError)
+  if (slotsError) {
+    console.error('❌ Error clearing stage_time_slots:', slotsError)
+  } else {
+    console.log('✅ Cleared all stage_time_slots')
+  }
 
-  // Reset job_stage_instances scheduling fields
+  // Reset ALL job_stage_instances scheduling fields (critical for queue calculation)
   const { error: instancesError } = await supabase
     .from('job_stage_instances')
     .update({
       auto_scheduled_start_at: null,
       auto_scheduled_end_at: null,
       auto_scheduled_duration_minutes: null,
-      schedule_status: null
+      schedule_status: 'unscheduled'
     })
     .neq('id', '00000000-0000-0000-0000-000000000000') // Update all
 
-  if (instancesError) console.error('Error resetting job_stage_instances:', instancesError)
+  if (instancesError) {
+    console.error('❌ Error resetting job_stage_instances:', instancesError)
+  } else {
+    console.log('✅ Reset all job_stage_instances scheduled fields')
+  }
   
-  console.log('✅ Cleared all existing schedules')
+  console.log('🎯 COMPLETE SCHEDULE RESET - All jobs will start from current time')
 }
 
 // **GET JOB STAGES**
