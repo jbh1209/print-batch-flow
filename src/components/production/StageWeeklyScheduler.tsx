@@ -99,15 +99,14 @@ export function useStageSchedule() {
       console.log(`🔍 StageWeeklyScheduler: Querying week ${format(weekStart, 'yyyy-MM-dd')} to ${format(addDays(weekStart, 4), 'yyyy-MM-dd')}`);
       console.log(`📅 Date range: ${startIso} to ${endIso}`);
       
-      // Simplified query - get all jobs with auto-scheduled or manual times in date range
+      // Query for jobs scheduled in the date range (business hours 8 AM - 5:30 PM SAST)
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
         .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,auto_scheduled_start_at,auto_scheduled_end_at,auto_scheduled_duration_minutes,status")
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending"]) 
-        .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"]) // guard
-        .or(`scheduled_start_at.gte.${startIso},auto_scheduled_start_at.gte.${startIso}`)
-        .or(`scheduled_start_at.lt.${endIso},auto_scheduled_start_at.lt.${endIso}`)
+        .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"])
+        .or(`and(scheduled_start_at.gte.${startIso},scheduled_start_at.lt.${endIso}),and(auto_scheduled_start_at.gte.${startIso},auto_scheduled_start_at.lt.${endIso})`)
         .order("auto_scheduled_start_at", { ascending: true, nullsFirst: false })
         .order("scheduled_start_at", { ascending: true, nullsFirst: false });
       if (jsiErr) throw jsiErr;

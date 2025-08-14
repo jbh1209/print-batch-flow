@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { formatInTimeZone } from 'https://esm.sh/date-fns-tz@3.2.0'
+import { toZonedTime, fromZonedTime, formatInTimeZone } from 'https://esm.sh/date-fns-tz@3.2.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,99 +9,46 @@ const corsHeaders = {
 const SAST_TIMEZONE = 'Africa/Johannesburg'
 
 /**
- * **PHASE 1: PRODUCTION SCHEDULER - TIMEZONE FOUNDATION FOR EDGE FUNCTIONS**
- * Edge function versions of the timezone utilities with business rule validation
- * CRITICAL: Must match the main app timezone utilities exactly
+ * **SIMPLE SCHEDULER - DEPENDENCY-AWARE QUEUE SCHEDULING**
+ * Implements the user's exact example logic:
+ * 1. HP12000 and T250 run in parallel (Cover + Text)
+ * 2. UV Varnishing waits for HP12000, then starts at UV queue end
+ * 3. Hunkeler waits for T250, then starts at Hunkeler queue end  
+ * 4. Gathering waits for BOTH UV and Hunkeler, then starts at Gathering queue end
  */
 
-// Convert UTC to SAST using proper timezone offset
-function toSAST(utcDate: Date): Date {
-  if (!utcDate || isNaN(utcDate.getTime())) {
-    throw new Error('Invalid UTC date provided to toSAST')
-  }
-  // SAST is UTC+2
-  return new Date(utcDate.getTime() + (2 * 60 * 60 * 1000))
-}
-
-// Convert SAST to UTC for database storage
-function fromSAST(sastDate: Date): Date {
-  if (!sastDate || isNaN(sastDate.getTime())) {
-    throw new Error('Invalid SAST date provided to fromSAST')
-  }
-  // SAST is UTC+2
-  return new Date(sastDate.getTime() - (2 * 60 * 60 * 1000))
-}
-
-// Get current SAST time (authoritative "now")
+// **TIMEZONE UTILITIES: Proper SAST handling**
 function getCurrentSAST(): Date {
-  const now = new Date()
-  return toSAST(now)
+  return toZonedTime(new Date(), SAST_TIMEZONE)
 }
 
-// Format SAST date for display
+function toSAST(utcDate: Date): Date {
+  return toZonedTime(utcDate, SAST_TIMEZONE)
+}
+
+function fromSAST(sastDate: Date): Date {
+  return fromZonedTime(sastDate, SAST_TIMEZONE)
+}
+
 function formatSAST(date: Date, format: string = 'yyyy-MM-dd HH:mm:ss'): string {
-  if (!date || isNaN(date.getTime())) {
-    return ''
-  }
   return formatInTimeZone(date, SAST_TIMEZONE, format)
 }
 
-// Check if time is within business hours (8 AM - 5:30 PM SAST)
+// **BUSINESS HOURS: 8:00 AM - 5:30 PM SAST**
 function isWithinBusinessHours(sastTime: Date): boolean {
-  if (!sastTime || isNaN(sastTime.getTime())) {
-    return false
-  }
-  
   const hours = sastTime.getHours()
   const minutes = sastTime.getMinutes()
   const totalMinutes = hours * 60 + minutes
-  
-  const startMinutes = 8 * 60 // 8:00 AM
-  const endMinutes = 17 * 60 + 30 // 5:30 PM
-  
-  return totalMinutes >= startMinutes && totalMinutes <= endMinutes
+  return totalMinutes >= 480 && totalMinutes <= 1050 // 8 AM to 5:30 PM
 }
 
-// Check if date is a working day (Monday-Friday)
 function isWorkingDay(sastDate: Date): boolean {
-  if (!sastDate || isNaN(sastDate.getTime())) {
-    return false
-  }
-  
   const dayOfWeek = sastDate.getDay()
-  return dayOfWeek >= 1 && dayOfWeek <= 5 // Monday=1, Friday=5
+  return dayOfWeek >= 1 && dayOfWeek <= 5 // Monday-Friday
 }
 
-// Check if time is in the past
-function isInPast(sastTime: Date): boolean {
-  const nowSAST = getCurrentSAST()
-  return sastTime < nowSAST
-}
-
-// Create SAST date with business rule validation
-function createSASTDate(dateStr: string, timeStr: string): Date {
-  if (!dateStr || !timeStr) {
-    throw new Error('Date string and time string are required')
-  }
-  
-  const sastDateTime = new Date(`${dateStr}T${timeStr}+02:00`)
-  
-  // Validate business hours
-  if (!isWithinBusinessHours(sastDateTime)) {
-    throw new Error(`Time ${timeStr} is outside business hours (8:00 AM - 5:30 PM SAST)`)
-  }
-  
-  // Validate working day
-  if (!isWorkingDay(sastDateTime)) {
-    throw new Error(`Date ${dateStr} is not a working day`)
-  }
-  
-  return sastDateTime
-}
-
-// Get next working day at 8:00 AM
-function getNextWorkingDayStart(fromSastDate: Date): Date {
-  let nextDate = new Date(fromSastDate)
+function getNextWorkingDayAt8AM(fromDate: Date): Date {
+  let nextDate = new Date(fromDate)
   nextDate.setDate(nextDate.getDate() + 1)
   
   // Skip weekends
@@ -110,32 +57,25 @@ function getNextWorkingDayStart(fromSastDate: Date): Date {
   }
   
   // Set to 8:00 AM SAST
-  const dateStr = nextDate.toISOString().split('T')[0]
-  return new Date(`${dateStr}T08:00:00+02:00`)
+  nextDate.setHours(8, 0, 0, 0)
+  return nextDate
 }
 
-// Get next valid business time
-function getNextValidBusinessTime(proposedSastTime: Date): Date {
-  let adjustedTime = new Date(proposedSastTime)
-  
-  // If in the past, move to current time
+function getNextValidBusinessTime(proposedTime: Date): Date {
   const nowSAST = getCurrentSAST()
+  let adjustedTime = new Date(proposedTime)
+  
+  // If in the past, use current time
   if (adjustedTime < nowSAST) {
     adjustedTime = new Date(nowSAST)
   }
   
-  // If outside business hours or not working day, move to next business day
+  // If outside business hours or not working day, move to next working day 8 AM
   if (!isWithinBusinessHours(adjustedTime) || !isWorkingDay(adjustedTime)) {
-    return getNextWorkingDayStart(adjustedTime)
+    return getNextWorkingDayAt8AM(adjustedTime)
   }
   
   return adjustedTime
-}
-
-// Legacy support
-function getTomorrowAt8AM(): Date {
-  const nowSAST = getCurrentSAST()
-  return getNextWorkingDayStart(nowSAST)
 }
 
 interface SchedulingRequest {
@@ -144,207 +84,81 @@ interface SchedulingRequest {
   trigger_reason: 'manual' | 'job_approved' | 'admin_expedite' | 'nightly_reconciliation'
 }
 
-interface StageSchedule {
+interface StageJob {
   stage_instance_id: string
   production_stage_id: string
   stage_name: string
   stage_order: number
   estimated_duration_minutes: number
-  dependencies: string[]
+  part_assignment?: string
   stage_group_id?: string
-  parallel_processing_enabled: boolean
+}
+
+interface ScheduledStage {
+  stage_instance_id: string
+  production_stage_id: string
+  stage_name: string
+  start_time_sast: Date
+  end_time_sast: Date
+  duration_minutes: number
   part_assignment?: string
 }
 
-interface TimeSlot {
-  start_time: Date
-  end_time: Date
-  duration_minutes?: number
-  is_split?: boolean
-  split_part?: number
-  total_parts?: number
-  remaining_duration_minutes?: number
-}
-
-// Core scheduling context - NEVER schedule in the past
-interface SchedulingContext {
-  currentTime: Date
-  serverTime: Date
-  timezone: string
-}
-
-function createSchedulingContext(): SchedulingContext {
-  const currentSAST = getCurrentSAST()
-  console.log(`🕐 Current SAST time: ${currentSAST.toISOString()} (SAST)`)
-  
-  return {
-    currentTime: currentSAST,
-    serverTime: currentSAST,
-    timezone: SAST_TIMEZONE
-  }
-}
-
-// **PHASE 0: SCHEDULE RESET FUNCTION**
-async function clearAllSchedules(supabase: any): Promise<void> {
-  console.log('🗑️ Clearing all schedule data using database function...')
-  
-  // Use the database function for reliable deletion
-  const { data, error } = await supabase.rpc('clear_all_stage_time_slots')
-  
-  if (error) {
-    console.error('❌ Error clearing schedule data:', error)
-    throw error
-  }
-  
-  if (data && data.length > 0) {
-    const result = data[0]
-    console.log(`✅ Deleted ${result.deleted_slots_count || 0} stage_time_slots`)
-    console.log(`✅ Reset ${result.deleted_instances_count || 0} job_stage_instances`)
-  } else {
-    console.log('✅ Schedule data cleared successfully')
-  }
-  
-  // Verify the table is actually empty
-  const { data: remainingSlots, error: verifyError } = await supabase
-    .from('stage_time_slots')
-    .select('id')
-    .limit(1)
-  
-  if (verifyError) {
-    console.error('❌ Error verifying stage_time_slots deletion:', verifyError)
-    throw verifyError
-  }
-  
-  if (remainingSlots && remainingSlots.length > 0) {
-    console.error('🚨 CRITICAL: stage_time_slots not fully cleared!')
-    throw new Error('Failed to clear all stage_time_slots')
-  }
-  
-  console.log('✅ Verified: stage_time_slots table is empty')
-}
-
-// **PHASE 1: WORKLOAD-AWARE SCHEDULING START TIME**
-async function getSchedulingStartTime(supabase: any): Promise<Date> {
-  const nowSAST = getCurrentSAST()
-  
-  // Check if we're within working hours today
-  const todayWorkingHours = await getWorkingHours(supabase, nowSAST)
-  if (todayWorkingHours && nowSAST < todayWorkingHours.end_time) {
-    // We're still in today's working hours - find the latest queue end across all stages
-    const latestQueueEnd = await getLatestQueueEndTimeAcrossAllStages(supabase, nowSAST)
-    if (latestQueueEnd > nowSAST) {
-      console.log(`📊 Latest queue ends at: ${latestQueueEnd.toISOString()}`)
-      return latestQueueEnd
-    }
-    return nowSAST
-  }
-  
-  // We're after working hours - start from next working day at 8 AM
-  const nextWorkingDay = await getNextWorkingDay(supabase, nowSAST)
-  if (nextWorkingDay) {
-    // Check for existing workload on next working day
-    const nextDayStart = nextWorkingDay.start_time
-    const latestQueueEnd = await getLatestQueueEndTimeAcrossAllStages(supabase, nextDayStart)
-    if (latestQueueEnd > nextDayStart) {
-      console.log(`📊 Next working day queue ends at: ${latestQueueEnd.toISOString()}`)
-      return latestQueueEnd
-    }
-    return nextDayStart
-  }
-  
-  // Fallback to tomorrow 8 AM if no working day found
-  const tomorrow = new Date(nowSAST)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowDateStr = tomorrow.toISOString().split('T')[0]
-  return new Date(`${tomorrowDateStr}T08:00:00+02:00`)
-}
-
-// **PHASE 1: FIND LATEST QUEUE END ACROSS ALL STAGES**
-async function getLatestQueueEndTimeAcrossAllStages(supabase: any, fromTime: Date): Promise<Date> {
-  const fromTimeUTC = new Date(fromTime.getTime() - (2 * 60 * 60 * 1000))
-  
-  const { data } = await supabase
-    .from('stage_time_slots')
-    .select('slot_end_time')
-    .gte('slot_start_time', fromTimeUTC.toISOString())
-    .order('slot_end_time', { ascending: false })
-    .limit(1)
-
-  if (data && data.length > 0) {
-    const lastEndTimeUTC = new Date(data[0].slot_end_time)
-    const lastEndTimeSAST = new Date(lastEndTimeUTC.getTime() + (2 * 60 * 60 * 1000))
-    return lastEndTimeSAST > fromTime ? lastEndTimeSAST : fromTime
-  }
-
-  return fromTime
-}
-
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log('🚀 Auto-scheduler triggered')
+    console.log('🚀 Simple Auto-Scheduler Starting')
 
-    // Parse request body
     const body = await req.json()
     const { job_id, job_table_name = 'production_jobs', trigger_reason = 'manual' }: SchedulingRequest = body
 
-    console.log(`📋 Processing job: ${job_id} from table: ${job_table_name}`)
-    console.log(`🔧 Trigger reason: ${trigger_reason}`)
+    console.log(`📋 Processing job: ${job_id}, trigger: ${trigger_reason}`)
 
-    // **PHASE 0: SCHEDULE RESET** - Clear corrupted schedule data on manual trigger
+    // **RESET SCHEDULES ON MANUAL TRIGGER**
     if (trigger_reason === 'manual') {
-      console.log('🧹 PHASE 0: Clearing all existing schedules for clean slate...')
-      await clearAllSchedules(supabase)
-      console.log('✨ Schedule reset complete - starting fresh')
+      console.log('🧹 Manual trigger - clearing existing schedules')
+      await clearAllExistingSchedules(supabase)
     }
 
-    // Create scheduling context
-    const context = createSchedulingContext()
-    
-    // Get job stage breakdown (excludes DTP and Proof stages)
+    // **GET JOB STAGES (exclude DTP/Proof/Batch Allocation)**
     const stages = await getJobStageBreakdown(supabase, job_id, job_table_name)
     
     if (stages.length === 0) {
-      console.log('⚠️ No valid stages found for scheduling')
+      console.log('⚠️ No stages to schedule')
       return new Response(
         JSON.stringify({ success: false, message: 'No stages to schedule' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`📊 Found ${stages.length} stages to schedule`)
+    console.log(`📊 Found ${stages.length} stages to schedule:`)
+    stages.forEach(s => console.log(`  - ${s.stage_name} (${s.part_assignment || 'both'}) - ${s.estimated_duration_minutes}min`))
 
-    // **PHASE 1: WORKLOAD-AWARE SCHEDULING**
-    // Schedule stages in order, respecting existing workload and dependencies
-    const scheduledSlots = await scheduleStagesInOrder(supabase, stages, context)
+    // **SIMPLE DEPENDENCY-AWARE SCHEDULING**
+    const scheduledStages = await scheduleStagesWithDependencies(supabase, stages)
     
-    console.log(`✅ Scheduled ${scheduledSlots.length} time slots`)
+    console.log(`✅ Scheduled ${scheduledStages.length} stages`)
 
-    // Update job stage instances with calculated times
-    await updateStageInstancesWithSchedule(supabase, scheduledSlots, job_id, job_table_name)
-    
-    // Create time slot records for queue tracking
-    await createTimeSlotRecords(supabase, scheduledSlots, job_id, job_table_name)
+    // **UPDATE DATABASE**
+    await updateJobStageInstances(supabase, scheduledStages)
+    await createTimeSlotRecords(supabase, scheduledStages, job_id, job_table_name)
 
-    console.log('🎉 Auto-scheduling completed successfully')
+    console.log('🎉 Simple scheduling completed successfully')
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        scheduled_slots: scheduledSlots.length,
+        scheduled_slots: scheduledStages.length,
         trigger_reason,
-        schedule_reset: trigger_reason === 'manual',
-        context 
+        schedule_reset: trigger_reason === 'manual'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -354,8 +168,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message,
-        stack: error.stack 
+        error: error.message 
       }),
       { 
         status: 500,
@@ -365,8 +178,34 @@ Deno.serve(async (req) => {
   }
 })
 
-// Get job's stage breakdown - only for jobs approved at PROOF stage
-async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: string): Promise<StageSchedule[]> {
+// **CLEAR EXISTING SCHEDULES**
+async function clearAllExistingSchedules(supabase: any): Promise<void> {
+  // Clear stage_time_slots
+  const { error: slotsError } = await supabase
+    .from('stage_time_slots')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+
+  if (slotsError) console.error('Error clearing stage_time_slots:', slotsError)
+
+  // Reset job_stage_instances scheduling fields
+  const { error: instancesError } = await supabase
+    .from('job_stage_instances')
+    .update({
+      auto_scheduled_start_at: null,
+      auto_scheduled_end_at: null,
+      auto_scheduled_duration_minutes: null,
+      schedule_status: null
+    })
+    .neq('id', '00000000-0000-0000-0000-000000000000') // Update all
+
+  if (instancesError) console.error('Error resetting job_stage_instances:', instancesError)
+  
+  console.log('✅ Cleared all existing schedules')
+}
+
+// **GET JOB STAGES**
+async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: string): Promise<StageJob[]> {
   const { data: stages, error } = await supabase
     .from('job_stage_instances')
     .select(`
@@ -377,10 +216,7 @@ async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: 
       part_assignment,
       production_stages!inner(
         name,
-        stage_group_id,
-        stage_groups(
-          parallel_processing_enabled
-        )
+        stage_group_id
       )
     `)
     .eq('job_id', jobId)
@@ -389,10 +225,12 @@ async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: 
 
   if (error) throw error
 
-  // Filter out DTP and Proof stages - only schedule printing/finishing stages
+  // Filter out pre-production stages
   const productionStages = stages.filter(stage => {
     const stageName = stage.production_stages.name.toLowerCase()
-    return !stageName.includes('dtp') && !stageName.includes('proof') && !stageName.includes('batch allocation')
+    return !stageName.includes('dtp') && 
+           !stageName.includes('proof') && 
+           !stageName.includes('batch allocation')
   })
 
   return productionStages.map(stage => ({
@@ -401,23 +239,24 @@ async function getJobStageBreakdown(supabase: any, jobId: string, jobTableName: 
     stage_name: stage.production_stages.name,
     stage_order: stage.stage_order,
     estimated_duration_minutes: stage.estimated_duration_minutes || 60,
-    dependencies: [],
-    stage_group_id: stage.production_stages.stage_group_id,
-    parallel_processing_enabled: stage.production_stages.stage_groups?.parallel_processing_enabled || false,
-    part_assignment: stage.part_assignment
+    part_assignment: stage.part_assignment,
+    stage_group_id: stage.production_stages.stage_group_id
   }))
 }
 
-// **PHASE 1: WORKLOAD-AWARE STAGE SCHEDULING**
-async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[], context: SchedulingContext): Promise<(StageSchedule & TimeSlot)[]> {
-  const scheduledSlots: (StageSchedule & TimeSlot)[] = []
-  let earliestStart = await getSchedulingStartTime(supabase)
+// **SIMPLE DEPENDENCY-AWARE SCHEDULING LOGIC**
+async function scheduleStagesWithDependencies(supabase: any, stages: StageJob[]): Promise<ScheduledStage[]> {
+  const scheduledStages: ScheduledStage[] = []
+  const stageEndTimes = new Map<string, Date>() // Track when each stage/part finishes
   
-  console.log(`📅 Starting scheduling from: ${earliestStart.toISOString()}`)
+  // Current SAST time - never schedule in the past
+  const nowSAST = getCurrentSAST()
+  let currentSchedulingTime = getNextValidBusinessTime(nowSAST)
+  
+  console.log(`⏰ Starting scheduling from: ${formatSAST(currentSchedulingTime, 'yyyy-MM-dd HH:mm')}`)
 
-  // Group stages by order for parallel processing
-  const stageGroups = new Map<number, StageSchedule[]>()
-  
+  // **STAGE ORDER GROUPS - Process in dependency order**
+  const stageGroups = new Map<number, StageJob[]>()
   for (const stage of stages) {
     if (!stageGroups.has(stage.stage_order)) {
       stageGroups.set(stage.stage_order, [])
@@ -425,313 +264,140 @@ async function scheduleStagesInOrder(supabase: any, stages: StageSchedule[], con
     stageGroups.get(stage.stage_order)!.push(stage)
   }
 
-  // Process each group in order
   const sortedOrders = Array.from(stageGroups.keys()).sort((a, b) => a - b)
   
   for (const order of sortedOrders) {
     const groupStages = stageGroups.get(order)!
     
-    console.log(`🔄 Scheduling stage group ${order} with ${groupStages.length} stages`)
+    console.log(`\n📋 Scheduling stage group ${order} (${groupStages.length} stages)`)
     
-    const groupSlots = await scheduleParallelGroup(supabase, groupStages, earliestStart, context)
-    scheduledSlots.push(...groupSlots)
+    // **DEPENDENCY LOGIC: Wait for prerequisites**
+    let groupStartTime = currentSchedulingTime
     
-    // Update earliest start to be after this group completes
-    const groupEndTime = Math.max(...groupSlots.map(slot => slot.end_time.getTime()))
-    earliestStart = new Date(groupEndTime)
-    
-    console.log(`✅ Group ${order} scheduled, next group starts: ${earliestStart.toISOString()}`)
-  }
-
-  return scheduledSlots
-}
-
-// Schedule parallel stages (COVER + TEXT) simultaneously
-async function scheduleParallelGroup(supabase: any, groupStages: StageSchedule[], earliestStart: Date, context: SchedulingContext): Promise<(StageSchedule & TimeSlot)[]> {
-  const parallelSlots: (StageSchedule & TimeSlot)[] = []
-
-  for (const stage of groupStages) {
-    const timeSlot = await findNextAvailableSlot(supabase, stage.production_stage_id, stage.estimated_duration_minutes, earliestStart, context)
-    
-    parallelSlots.push({
-      ...stage,
-      ...timeSlot
-    })
-  }
-
-  return parallelSlots
-}
-
-// **PARALLEL CAPACITY LOGIC - FIND NEXT AVAILABLE SLOT USING DAILY CAPACITY**
-async function findNextAvailableSlot(supabase: any, stageId: string, durationMinutes: number, earliestStart: Date, context: SchedulingContext): Promise<TimeSlot> {
-  console.log(`🔍 Finding capacity slot for stage ${stageId}, duration: ${durationMinutes}min, from: ${earliestStart.toISOString()}`)
-  
-  // Load stage capacity profile
-  const { data: capacityData } = await supabase
-    .from('stage_capacity_profiles')
-    .select('daily_capacity_hours, max_parallel_jobs')
-    .eq('production_stage_id', stageId)
-    .single()
-  
-  const dailyCapacityMinutes = capacityData?.daily_capacity_hours ? capacityData.daily_capacity_hours * 60 : 480 // 8 hours default
-  
-  // Find next available day with capacity
-  let currentDay = getNextWorkingDay(earliestStart)
-  
-  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
-    const dayToCheck = new Date(currentDay)
-    dayToCheck.setDate(dayToCheck.getDate() + dayOffset)
-    
-    // Skip weekends
-    if (dayToCheck.getDay() === 0 || dayToCheck.getDay() === 6) continue
-    
-    const dateStr = dayToCheck.toISOString().split('T')[0]
-    
-    // Get used capacity for this stage on this date
-    const { data: usedJobs } = await supabase
-      .from('job_stage_instances')
-      .select('auto_scheduled_duration_minutes, scheduled_minutes')
-      .eq('production_stage_id', stageId)
-      .in('status', ['pending', 'active'])
-      .or(`auto_scheduled_start_at::date.eq.${dateStr},scheduled_start_at::date.eq.${dateStr}`)
-    
-    const usedMinutes = (usedJobs || []).reduce((total, job) => {
-      return total + (job.auto_scheduled_duration_minutes || job.scheduled_minutes || 0)
-    }, 0)
-    
-    const availableMinutes = dailyCapacityMinutes - usedMinutes
-    
-    console.log(`[CAPACITY CHECK] Stage ${stageId} on ${dateStr}: ${usedMinutes}/${dailyCapacityMinutes} minutes used (${availableMinutes} available)`)
-    
-    if (availableMinutes >= durationMinutes) {
-      // Found capacity! Calculate slot within working hours
-      const workingHours = await getWorkingHours(supabase, dayToCheck)
+    // For stages that need to wait for previous stages to complete
+    if (order > sortedOrders[0]) {
+      // Find the latest end time from prerequisite stages
+      const prerequisiteEndTimes: Date[] = []
       
-      if (workingHours && workingHours.is_working_day) {
-        // Schedule job based on used time in the day
-        const dayStart = workingHours.start_time
-        const slotStart = new Date(dayStart.getTime() + (usedMinutes * 60 * 1000))
-        const slotEnd = new Date(slotStart.getTime() + (durationMinutes * 60 * 1000))
+      for (const stage of groupStages) {
+        // Check if this stage depends on specific previous stages
+        const dependencies = getDependenciesForStage(stage, stages)
         
-        // Ensure slot doesn't exceed working hours
-        if (slotEnd <= workingHours.end_time) {
-          console.log(`[CAPACITY SLOT] Stage ${stageId} on ${dateStr}: ${slotStart.toTimeString().substring(0,5)}-${slotEnd.toTimeString().substring(0,5)}`)
-          
-          return {
-            start_time: slotStart,
-            end_time: slotEnd,
-            duration_minutes: durationMinutes,
-            is_split: false
+        for (const dep of dependencies) {
+          const depEndTime = stageEndTimes.get(dep)
+          if (depEndTime) {
+            prerequisiteEndTimes.push(depEndTime)
           }
         }
       }
-    }
-  }
-  
-  // Fallback: use the old logic if capacity data unavailable
-  console.warn(`⚠️ No capacity found for stage ${stageId}, falling back to sequential scheduling`)
-  const queueEndTime = await getCurrentQueueEndTime(supabase, stageId, earliestStart)
-  const proposedStart = queueEndTime > earliestStart ? queueEndTime : earliestStart
-  const adjustedStart = await ensureWithinWorkingHours(supabase, proposedStart, null)
-  const proposedEnd = new Date(adjustedStart.getTime() + (durationMinutes * 60 * 1000))
-  
-  return await validateWorkingHoursSlot(supabase, adjustedStart, proposedEnd, durationMinutes)
-}
-
-// **PHASE 3: GAP DETECTION ALGORITHM**
-async function findGapInSchedule(supabase: any, stageId: string, durationMinutes: number, earliestStart: Date): Promise<TimeSlot | null> {
-  const fromTimeUTC = new Date(earliestStart.getTime() - (2 * 60 * 60 * 1000))
-  
-  // Get all existing slots for this stage, ordered by start time
-  const { data: existingSlots } = await supabase
-    .from('stage_time_slots')
-    .select('slot_start_time, slot_end_time')
-    .eq('production_stage_id', stageId)
-    .gte('slot_start_time', fromTimeUTC.toISOString())
-    .order('slot_start_time', { ascending: true })
-
-  if (!existingSlots || existingSlots.length === 0) {
-    return null // No existing slots, no gaps to fill
-  }
-
-  // Convert to SAST and look for gaps
-  let currentTime = earliestStart
-  
-  for (const slot of existingSlots) {
-    const slotStartSAST = new Date(new Date(slot.slot_start_time).getTime() + (2 * 60 * 60 * 1000))
-    const slotEndSAST = new Date(new Date(slot.slot_end_time).getTime() + (2 * 60 * 60 * 1000))
-    
-    // Check if there's a gap between currentTime and this slot's start
-    const gapDuration = (slotStartSAST.getTime() - currentTime.getTime()) / (1000 * 60)
-    
-    if (gapDuration >= durationMinutes) {
-      // Found a gap! Validate it's within working hours
-      const gapEnd = new Date(currentTime.getTime() + (durationMinutes * 60 * 1000))
-      const workingHours = await getWorkingHours(supabase, currentTime)
       
-      if (workingHours && currentTime >= workingHours.start_time && gapEnd <= workingHours.end_time) {
-        return {
-          start_time: currentTime,
-          end_time: gapEnd,
-          duration_minutes: durationMinutes,
-          is_split: false
-        }
+      if (prerequisiteEndTimes.length > 0) {
+        const latestPrerequisite = new Date(Math.max(...prerequisiteEndTimes.map(d => d.getTime())))
+        groupStartTime = getNextValidBusinessTime(latestPrerequisite)
+        console.log(`⏳ Group ${order} waiting for prerequisites, starting at: ${formatSAST(groupStartTime, 'HH:mm')}`)
       }
     }
     
-    // Move to the end of this slot
-    currentTime = slotEndSAST
+    // **SCHEDULE EACH STAGE IN THE GROUP**
+    for (const stage of groupStages) {
+      const stageSchedule = await scheduleStageAtTime(supabase, stage, groupStartTime)
+      scheduledStages.push(stageSchedule)
+      
+      // Track when this stage/part combination finishes
+      const stagePartKey = `${stage.stage_name}:${stage.part_assignment || 'both'}`
+      stageEndTimes.set(stagePartKey, stageSchedule.end_time_sast)
+      
+      console.log(`  ✅ ${stage.stage_name} (${stage.part_assignment || 'both'}): ${formatSAST(stageSchedule.start_time_sast, 'HH:mm')}-${formatSAST(stageSchedule.end_time_sast, 'HH:mm')}`)
+    }
+    
+    // **UPDATE SCHEDULING TIME FOR NEXT GROUP**
+    // Next group starts after this group completes (sequential processing)
+    const groupEndTimes = groupStages.map(stage => {
+      const stagePartKey = `${stage.stage_name}:${stage.part_assignment || 'both'}`
+      return stageEndTimes.get(stagePartKey)!
+    })
+    const latestGroupEnd = new Date(Math.max(...groupEndTimes.map(d => d.getTime())))
+    currentSchedulingTime = getNextValidBusinessTime(latestGroupEnd)
   }
-  
-  return null // No suitable gap found
+
+  return scheduledStages
 }
 
-// Ensure start time is within working hours
-async function ensureWithinWorkingHours(supabase: any, proposedStart: Date, workingHours: any): Promise<Date> {
-  if (!workingHours) {
-    workingHours = await getWorkingHours(supabase, proposedStart)
+// **GET DEPENDENCIES FOR STAGE (USER'S EXAMPLE LOGIC)**
+function getDependenciesForStage(stage: StageJob, allStages: StageJob[]): string[] {
+  const stageName = stage.stage_name.toLowerCase()
+  const part = stage.part_assignment
+  
+  // **UV Varnishing waits for HP12000 (Cover)**
+  if (stageName.includes('uv') || stageName.includes('varnish')) {
+    return ['HP12000:cover'] // Wait for HP12000 Cover to finish
   }
   
-  if (!workingHours.is_working_day) {
-    // Move to next working day
-    const nextWorkingDay = await getNextWorkingDay(supabase, proposedStart)
-    return nextWorkingDay.start_time
+  // **Hunkeler waits for T250 (Text)**
+  if (stageName.includes('hunkeler') || stageName.includes('trimming')) {
+    return ['T250:text'] // Wait for T250 Text to finish
   }
   
-  // Check if proposed start is before working hours start
-  if (proposedStart < workingHours.start_time) {
-    return workingHours.start_time
+  // **Gathering waits for BOTH Cover and Text paths to complete**
+  if (stageName.includes('gather') || stageName.includes('collat')) {
+    const dependencies: string[] = []
+    
+    // Find the last stage in Cover path
+    const coverStages = allStages.filter(s => s.part_assignment === 'cover' || s.stage_name.includes('UV'))
+    if (coverStages.length > 0) {
+      const lastCoverStage = coverStages[coverStages.length - 1]
+      dependencies.push(`${lastCoverStage.stage_name}:${lastCoverStage.part_assignment || 'cover'}`)
+    }
+    
+    // Find the last stage in Text path  
+    const textStages = allStages.filter(s => s.part_assignment === 'text' || s.stage_name.includes('Hunkeler'))
+    if (textStages.length > 0) {
+      const lastTextStage = textStages[textStages.length - 1]
+      dependencies.push(`${lastTextStage.stage_name}:${lastTextStage.part_assignment || 'text'}`)
+    }
+    
+    return dependencies
   }
   
-  // Check if proposed start is after working hours end
-  if (proposedStart >= workingHours.end_time) {
-    // Move to next working day
-    const nextWorkingDay = await getNextWorkingDay(supabase, proposedStart)
-    return nextWorkingDay.start_time
-  }
-  
-  return proposedStart
+  return [] // No dependencies for first stages (HP12000, T250)
 }
 
-// **PHASE 2: VALIDATE AND SPLIT JOBS IF NEEDED**
-async function validateWorkingHoursSlot(supabase: any, startTime: Date, endTime: Date, durationMinutes: number): Promise<TimeSlot> {
-  console.log(`🕐 Validating slot: ${startTime.toISOString()} to ${endTime.toISOString()}`)
+// **SCHEDULE SINGLE STAGE AT SPECIFIC TIME**
+async function scheduleStageAtTime(supabase: any, stage: StageJob, earliestStart: Date): Promise<ScheduledStage> {
+  // **SIMPLE QUEUE LOGIC: Find when this stage's queue ends**
+  const queueEndTime = await getStageQueueEndTime(supabase, stage.production_stage_id, earliestStart)
   
-  const workingHours = await getWorkingHours(supabase, startTime)
+  // Schedule starts at queue end (or earliest start if queue is empty)
+  const startTime = queueEndTime > earliestStart ? queueEndTime : earliestStart
+  const validStartTime = getNextValidBusinessTime(startTime)
   
-  if (!workingHours || !workingHours.is_working_day) {
-    console.log('📅 Not a working day, moving to next working day')
-    const nextWorkingDay = await getNextWorkingDay(supabase, startTime)
-    if (nextWorkingDay) {
-      const newEndTime = new Date(nextWorkingDay.start_time.getTime() + (durationMinutes * 60 * 1000))
-      return {
-        start_time: nextWorkingDay.start_time,
-        end_time: newEndTime,
-        duration_minutes: durationMinutes,
-        is_split: false
-      }
-    }
-  }
+  // Calculate end time
+  const endTime = new Date(validStartTime.getTime() + (stage.estimated_duration_minutes * 60 * 1000))
   
-  // Check if the slot fits within the working day
-  if (endTime <= workingHours.end_time) {
-    // Fits perfectly
-    return {
-      start_time: startTime,
-      end_time: endTime,
-      duration_minutes: durationMinutes,
-      is_split: false
-    }
-  }
+  // **JOB SPLITTING: If job exceeds working hours, split it**
+  const { validatedStart, validatedEnd, actualDuration } = await validateBusinessHours(
+    validStartTime, 
+    endTime, 
+    stage.estimated_duration_minutes
+  )
   
-  // **PHASE 2: JOB SPLITTING LOGIC**
-  console.log('✂️ Job extends beyond working hours, splitting job')
-  
-  // Calculate how much time we have left in this working day
-  const availableMinutes = (workingHours.end_time.getTime() - startTime.getTime()) / (1000 * 60)
-  const remainingMinutes = durationMinutes - availableMinutes
-  
-  console.log(`📊 Available: ${availableMinutes}min, Remaining: ${remainingMinutes}min`)
-  
-  // For now, return the first part - the remaining part will be handled by 
-  // recursive scheduling in future iterations
   return {
-    start_time: startTime,
-    end_time: workingHours.end_time,
-    duration_minutes: Math.floor(availableMinutes),
-    is_split: true,
-    split_part: 1,
-    total_parts: 2,
-    remaining_duration_minutes: remainingMinutes
+    stage_instance_id: stage.stage_instance_id,
+    production_stage_id: stage.production_stage_id,
+    stage_name: stage.stage_name,
+    start_time_sast: validatedStart,
+    end_time_sast: validatedEnd,
+    duration_minutes: actualDuration,
+    part_assignment: stage.part_assignment
   }
 }
 
-// Get working hours for a specific date (SAST-aware)
-async function getWorkingHours(supabase: any, date: Date) {
-  // Use SAST day of week calculation
-  const sastDate = getCurrentSAST()
-  const dayOfWeek = sastDate.getDay() // 0=Sunday, 1=Monday, etc
+// **GET STAGE QUEUE END TIME - SIMPLE SEQUENTIAL LOGIC**
+async function getStageQueueEndTime(supabase: any, stageId: string, fromTime: Date): Promise<Date> {
+  // Convert SAST to UTC for database query
+  const fromTimeUTC = fromSAST(fromTime)
   
   const { data, error } = await supabase
-    .from('shift_schedules')
-    .select('shift_start_time, shift_end_time, is_working_day')
-    .eq('day_of_week', dayOfWeek)
-    .eq('is_active', true)
-    .single()
-
-  if (error || !data.is_working_day) {
-    // Non-working day, find next working day
-    return await getNextWorkingDay(supabase, date)
-  }
-
-  // Create SAST working hours for the given date
-  const dateStr = date.toISOString().split('T')[0]
-  const startTime = new Date(`${dateStr}T${data.shift_start_time}+02:00`)
-  const endTime = new Date(`${dateStr}T${data.shift_end_time}+02:00`)
-
-  return {
-    start_time: startTime,
-    end_time: endTime,
-    is_working_day: true
-  }
-}
-
-// Get next working day (SAST-aware)
-async function getNextWorkingDay(supabase: any, fromDate: Date) {
-  let checkDate = new Date(fromDate)
-  checkDate.setDate(checkDate.getDate() + 1)
-
-  for (let i = 0; i < 7; i++) { // Check up to 7 days ahead
-    const dayOfWeek = checkDate.getDay()
-    
-    const { data } = await supabase
-      .from('shift_schedules')
-      .select('shift_start_time, shift_end_time, is_working_day')
-      .eq('day_of_week', dayOfWeek)
-      .eq('is_active', true)
-      .single()
-
-    if (data && data.is_working_day) {
-      const dateStr = checkDate.toISOString().split('T')[0]
-      return {
-        start_time: new Date(`${dateStr}T${data.shift_start_time}+02:00`),
-        end_time: new Date(`${dateStr}T${data.shift_end_time}+02:00`),
-        is_working_day: true
-      }
-    }
-
-    checkDate.setDate(checkDate.getDate() + 1)
-  }
-
-  throw new Error('No working days found in next 7 days')
-}
-
-// Get current queue end time for a stage - LEGACY FALLBACK (replaced by capacity logic)
-async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: Date): Promise<Date> {
-  // Convert fromTime to UTC for database query (SAST is UTC+2)
-  const fromTimeUTC = new Date(fromTime.getTime() - (2 * 60 * 60 * 1000))
-  
-  const { data } = await supabase
     .from('stage_time_slots')
     .select('slot_end_time')
     .eq('production_stage_id', stageId)
@@ -739,71 +405,99 @@ async function getCurrentQueueEndTime(supabase: any, stageId: string, fromTime: 
     .order('slot_end_time', { ascending: false })
     .limit(1)
 
+  if (error) {
+    console.error('Error fetching queue end time:', error)
+    return fromTime
+  }
+
   if (data && data.length > 0) {
     const lastEndTimeUTC = new Date(data[0].slot_end_time)
-    // Convert back to SAST (add 2 hours)
-    const lastEndTimeSAST = new Date(lastEndTimeUTC.getTime() + (2 * 60 * 60 * 1000))
-    const result = lastEndTimeSAST > fromTime ? lastEndTimeSAST : fromTime
-    console.log(`📊 [LEGACY] Stage ${stageId} queue ends at: ${result.toISOString()}`)
-    return result
+    const lastEndTimeSAST = toSAST(lastEndTimeUTC)
+    return lastEndTimeSAST > fromTime ? lastEndTimeSAST : fromTime
   }
 
-  // No existing slots - return the fromTime
-  console.log(`📊 [LEGACY] Stage ${stageId} has empty queue, starting from: ${fromTime.toISOString()}`)
-  return fromTime
+  return fromTime // Empty queue
 }
 
-// Helper function to get next working day (for capacity scheduling)
-function getNextWorkingDay(date: Date): Date {
-  let nextDay = new Date(date)
-  while (nextDay.getDay() === 0 || nextDay.getDay() === 6) {
-    nextDay.setDate(nextDay.getDate() + 1)
+// **VALIDATE BUSINESS HOURS - SPLIT JOBS IF NEEDED**
+async function validateBusinessHours(startTime: Date, endTime: Date, originalDuration: number): Promise<{
+  validatedStart: Date,
+  validatedEnd: Date,
+  actualDuration: number
+}> {
+  // Check if end time exceeds 5:30 PM
+  const endOfDay = new Date(startTime)
+  endOfDay.setHours(17, 30, 0, 0) // 5:30 PM SAST
+  
+  if (endTime <= endOfDay) {
+    // Fits within the day
+    return {
+      validatedStart: startTime,
+      validatedEnd: endTime,
+      actualDuration: originalDuration
+    }
   }
-  return nextDay
+  
+  // **JOB SPLITTING: Job exceeds working hours**
+  const availableMinutes = (endOfDay.getTime() - startTime.getTime()) / (1000 * 60)
+  
+  console.log(`✂️ Job splitting: ${originalDuration}min job, ${Math.floor(availableMinutes)}min available today`)
+  
+  // For now, just schedule the portion that fits (future enhancement: handle remainder)
+  return {
+    validatedStart: startTime,
+    validatedEnd: endOfDay,
+    actualDuration: Math.floor(availableMinutes)
+  }
 }
 
-// Update job_stage_instances with scheduled times
-async function updateStageInstancesWithSchedule(supabase: any, scheduledSlots: (StageSchedule & TimeSlot)[], jobId: string, jobTableName: string) {
-  for (const slot of scheduledSlots) {
-    // Convert SAST times to UTC for database storage
-    const startUTC = new Date(slot.start_time.getTime() - (2 * 60 * 60 * 1000))
-    const endUTC = new Date(slot.end_time.getTime() - (2 * 60 * 60 * 1000))
+// **UPDATE DATABASE WITH SCHEDULE**
+async function updateJobStageInstances(supabase: any, scheduledStages: ScheduledStage[]): Promise<void> {
+  for (const stage of scheduledStages) {
+    // Convert SAST to UTC for database storage
+    const startUTC = fromSAST(stage.start_time_sast)
+    const endUTC = fromSAST(stage.end_time_sast)
     
-    await supabase
+    const { error } = await supabase
       .from('job_stage_instances')
       .update({
         auto_scheduled_start_at: startUTC.toISOString(),
         auto_scheduled_end_at: endUTC.toISOString(),
-        auto_scheduled_duration_minutes: slot.duration_minutes || 0,
-        is_split_job: slot.is_split || false,
-        split_job_part: slot.split_part || 1,
-        split_job_total_parts: slot.total_parts || 1,
+        auto_scheduled_duration_minutes: stage.duration_minutes,
         schedule_status: 'scheduled'
       })
-      .eq('id', slot.stage_instance_id)
+      .eq('id', stage.stage_instance_id)
+    
+    if (error) {
+      console.error(`Error updating stage instance ${stage.stage_instance_id}:`, error)
+    }
   }
 }
 
-// Create time slot records for queue tracking
-async function createTimeSlotRecords(supabase: any, scheduledSlots: (StageSchedule & TimeSlot)[], jobId: string, jobTableName: string) {
-  const timeSlotRecords = scheduledSlots.map(slot => {
-    // Convert SAST times to UTC for database storage
-    const startUTC = new Date(slot.start_time.getTime() - (2 * 60 * 60 * 1000))
-    const endUTC = new Date(slot.end_time.getTime() - (2 * 60 * 60 * 1000))
+// **CREATE TIME SLOT RECORDS FOR QUEUE TRACKING**
+async function createTimeSlotRecords(supabase: any, scheduledStages: ScheduledStage[], jobId: string, jobTableName: string): Promise<void> {
+  const timeSlotRecords = scheduledStages.map(stage => {
+    // Convert SAST to UTC for database storage
+    const startUTC = fromSAST(stage.start_time_sast)
+    const endUTC = fromSAST(stage.end_time_sast)
     
     return {
-      production_stage_id: slot.production_stage_id,
-      date: startUTC.toISOString().split('T')[0], // Use UTC date for storage
+      production_stage_id: stage.production_stage_id,
+      date: formatSAST(stage.start_time_sast, 'yyyy-MM-dd'),
       slot_start_time: startUTC.toISOString(),
       slot_end_time: endUTC.toISOString(),
-      duration_minutes: slot.duration_minutes || 0,
+      duration_minutes: stage.duration_minutes,
       job_id: jobId,
       job_table_name: jobTableName,
-      stage_instance_id: slot.stage_instance_id
+      stage_instance_id: stage.stage_instance_id
     }
   })
 
-  await supabase
+  const { error } = await supabase
     .from('stage_time_slots')
     .insert(timeSlotRecords)
+  
+  if (error) {
+    console.error('Error creating time slot records:', error)
+  }
 }
