@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -2692,63 +2692,63 @@ export type Database = {
       advance_job_stage: {
         Args:
           | {
+              p_completed_by?: string
+              p_current_stage_id: string
               p_job_id: string
               p_job_table_name: string
-              p_current_stage_id: string
-              p_completed_by?: string
               p_notes?: string
             }
           | {
+              p_current_stage_id: string
               p_job_id: string
               p_job_table_name: string
-              p_current_stage_id: string
               p_notes?: string
             }
         Returns: boolean
       }
       advance_job_stage_with_groups: {
         Args: {
+          p_completed_by?: string
+          p_current_stage_id: string
           p_job_id: string
           p_job_table_name: string
-          p_current_stage_id: string
-          p_completed_by?: string
           p_notes?: string
         }
         Returns: boolean
       }
       advance_job_stage_with_parallel_support: {
         Args: {
+          p_current_stage_id: string
           p_job_id: string
           p_job_table_name: string
-          p_current_stage_id: string
           p_notes?: string
         }
         Returns: boolean
       }
       advance_job_stage_with_parts: {
         Args: {
+          p_completed_by?: string
+          p_current_stage_id: string
           p_job_id: string
           p_job_table_name: string
-          p_current_stage_id: string
-          p_completed_by?: string
           p_notes?: string
         }
         Returns: boolean
       }
       advance_job_to_batch_allocation: {
         Args: {
+          p_completed_by?: string
           p_job_id: string
           p_job_table_name?: string
-          p_completed_by?: string
         }
         Returns: boolean
       }
       advance_parallel_job_stage: {
         Args: {
+          p_completed_by?: string
+          p_current_stage_id: string
           p_job_id: string
           p_job_table_name: string
-          p_current_stage_id: string
-          p_completed_by?: string
           p_notes?: string
         }
         Returns: boolean
@@ -2760,10 +2760,10 @@ export type Database = {
       bulk_recalculate_job_due_dates: {
         Args: Record<PropertyKey, never>
         Returns: {
-          updated_job_id: string
-          old_due_date: string
-          new_due_date: string
           estimated_hours: number
+          new_due_date: string
+          old_due_date: string
+          updated_job_id: string
         }[]
       }
       calculate_smart_due_date: {
@@ -2772,37 +2772,37 @@ export type Database = {
       }
       calculate_stage_duration: {
         Args: {
+          p_make_ready_time_minutes?: number
           p_quantity: number
           p_running_speed_per_hour: number
-          p_make_ready_time_minutes?: number
           p_speed_unit?: string
         }
         Returns: number
       }
       calculate_stage_duration_with_type: {
         Args: {
-          p_quantity: number
-          p_running_speed_per_hour: number
           p_make_ready_time_minutes?: number
-          p_speed_unit?: string
+          p_quantity: number
           p_quantity_type?: string
+          p_running_speed_per_hour: number
+          p_speed_unit?: string
         }
         Returns: number
       }
       calculate_stage_queue_workload: {
         Args: { p_production_stage_id: string } | { stage_ids: string[] }
         Returns: {
-          stage_id: string
-          total_pending_hours: number
-          total_active_hours: number
-          pending_jobs_count: number
           active_jobs_count: number
           earliest_available_slot: string
+          pending_jobs_count: number
           queue_processing_hours: number
+          stage_id: string
+          total_active_hours: number
+          total_pending_hours: number
         }[]
       }
       can_user_start_new_job: {
-        Args: { p_user_id: string; p_department_id: string }
+        Args: { p_department_id: string; p_user_id: string }
         Returns: boolean
       }
       check_admin_exists: {
@@ -2811,9 +2811,9 @@ export type Database = {
       }
       check_dependency_completion: {
         Args: {
+          p_dependency_group: string
           p_job_id: string
           p_job_table_name: string
-          p_dependency_group: string
         }
         Returns: boolean
       }
@@ -2832,16 +2832,16 @@ export type Database = {
       clear_all_stage_time_slots: {
         Args: Record<PropertyKey, never>
         Returns: {
-          deleted_slots_count: number
           deleted_instances_count: number
+          deleted_slots_count: number
         }[]
       }
       consolidate_excel_mappings: {
         Args: Record<PropertyKey, never>
         Returns: {
-          merged_count: number
           conflict_count: number
           consolidation_log: Json
+          merged_count: number
         }[]
       }
       create_batch_master_job: {
@@ -2861,27 +2861,27 @@ export type Database = {
       create_enhanced_batch_master_job: {
         Args: { p_batch_id: string; p_created_by?: string }
         Returns: {
+          constituent_jobs_count: number
           master_job_id: string
           printing_stage_id: string
-          constituent_jobs_count: number
         }[]
       }
       expedite_job_factory_wide: {
         Args: {
-          p_job_id: string
           p_expedite_reason: string
           p_expedited_by?: string
+          p_job_id: string
         }
         Returns: boolean
       }
       explain_job_scheduling: {
         Args: { p_job_id: string; p_job_table_name?: string }
         Returns: {
-          stage_name: string
-          scheduled_time: string
-          explanation: string
-          decision_factors: Json
           alternative_options: string[]
+          decision_factors: Json
+          explanation: string
+          scheduled_time: string
+          stage_name: string
         }[]
       }
       fix_category_stage_ordering: {
@@ -2891,121 +2891,121 @@ export type Database = {
       fix_existing_cover_text_workflows: {
         Args: Record<PropertyKey, never>
         Returns: {
-          fixed_job_id: string
-          wo_no: string
           dependency_group_assigned: string
+          fixed_job_id: string
           stages_updated: number
+          wo_no: string
         }[]
       }
       get_admin_status: {
         Args: { check_user_id?: string }
         Returns: {
-          user_is_admin: boolean
           any_admin_exists: boolean
+          user_is_admin: boolean
         }[]
       }
       get_admin_user_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
-          total_users: number
           admin_users: number
-          regular_users: number
-          users_without_profiles: number
           recent_signups: number
+          regular_users: number
+          total_users: number
+          users_without_profiles: number
         }[]
       }
       get_all_users: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
           email: string
+          id: string
         }[]
       }
       get_all_users_secure: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
           email: string
+          id: string
         }[]
       }
       get_all_users_with_complete_data: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
-          email: string
-          full_name: string
           avatar_url: string
-          role: string
           created_at: string
-          last_sign_in_at: string
+          email: string
           email_confirmed_at: string
+          full_name: string
+          id: string
+          last_sign_in_at: string
+          role: string
         }[]
       }
       get_all_users_with_roles: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
+          avatar_url: string
+          created_at: string
           email: string
           full_name: string
-          avatar_url: string
-          role: string
-          created_at: string
+          id: string
           last_sign_in_at: string
+          role: string
         }[]
       }
       get_available_stages_for_activation: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: {
+          blocking_reason: string
+          can_activate: boolean
+          part_assignment: string
           stage_id: string
           stage_name: string
           stage_order: number
-          part_assignment: string
-          can_activate: boolean
-          blocking_reason: string
         }[]
       }
       get_category_usage_stats: {
         Args: { p_category_id: string }
         Returns: {
-          production_jobs_count: number
-          job_stage_instances_count: number
-          category_production_stages_count: number
-          can_delete: boolean
           blocking_reason: string
+          can_delete: boolean
+          category_production_stages_count: number
+          job_stage_instances_count: number
+          production_jobs_count: number
         }[]
       }
       get_compatible_specifications: {
-        Args: { p_product_type: string; p_category: string }
+        Args: { p_category: string; p_product_type: string }
         Returns: {
-          id: string
-          name: string
-          display_name: string
           description: string
-          properties: Json
+          display_name: string
+          id: string
           is_default: boolean
+          name: string
+          properties: Json
         }[]
       }
       get_department_job_queue: {
         Args: { p_department_id: string }
         Returns: {
-          job_id: string
-          job_table_name: string
-          wo_no: string
+          current_stage: string
           customer: string
           due_date: string
-          status: string
-          priority_order: number
           has_priority_override: boolean
-          current_stage: string
           is_blocked: boolean
+          job_id: string
+          job_table_name: string
+          priority_order: number
+          status: string
+          wo_no: string
         }[]
       }
       get_job_rework_history: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: {
-          stage_name: string
-          rework_count: number
           last_rework_reason: string
+          rework_count: number
+          stage_name: string
           total_reworks: number
         }[]
       }
@@ -3013,12 +3013,12 @@ export type Database = {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: {
           category: string
-          specification_id: string
-          name: string
           display_name: string
-          properties: Json
+          name: string
           printer_id: string
           printer_name: string
+          properties: Json
+          specification_id: string
         }[]
       }
       get_next_active_stage: {
@@ -3027,124 +3027,124 @@ export type Database = {
       }
       get_next_capacity_slot: {
         Args: {
-          p_stage_id: string
           p_duration_minutes: number
           p_earliest_date?: string
+          p_stage_id: string
         }
         Returns: {
-          start_time: string
-          end_time: string
           date_scheduled: string
+          end_time: string
+          start_time: string
         }[]
       }
       get_user_accessible_jobs: {
         Args: {
-          p_user_id?: string
           p_permission_type?: string
-          p_status_filter?: string
           p_stage_filter?: string
+          p_status_filter?: string
+          p_user_id?: string
         }
         Returns: {
-          job_id: string
-          wo_no: string
-          customer: string
-          status: string
-          due_date: string
-          reference: string
+          category_color: string
           category_id: string
           category_name: string
-          category_color: string
+          completed_stages: number
+          current_stage_color: string
           current_stage_id: string
           current_stage_name: string
-          current_stage_color: string
           current_stage_status: string
-          user_can_view: boolean
-          user_can_edit: boolean
-          user_can_work: boolean
-          user_can_manage: boolean
-          workflow_progress: number
-          total_stages: number
-          completed_stages: number
+          customer: string
           display_stage_name: string
+          due_date: string
+          job_id: string
+          proof_emailed_at: string
           qty: number
+          reference: string
           started_by: string
           started_by_name: string
-          proof_emailed_at: string
+          status: string
+          total_stages: number
+          user_can_edit: boolean
+          user_can_manage: boolean
+          user_can_view: boolean
+          user_can_work: boolean
+          wo_no: string
+          workflow_progress: number
         }[]
       }
       get_user_accessible_jobs_with_batch_allocation: {
         Args: {
-          p_user_id?: string
           p_permission_type?: string
-          p_status_filter?: string
           p_stage_filter?: string
+          p_status_filter?: string
+          p_user_id?: string
         }
         Returns: {
-          job_id: string
-          wo_no: string
-          customer: string
-          status: string
-          due_date: string
-          reference: string
+          categories: Json
+          category_color: string
           category_id: string
           category_name: string
-          category_color: string
+          completed_stages: number
+          current_stage_color: string
           current_stage_id: string
           current_stage_name: string
-          current_stage_color: string
           current_stage_status: string
+          customer: string
           display_stage_name: string
-          user_can_view: boolean
-          user_can_edit: boolean
-          user_can_work: boolean
-          user_can_manage: boolean
-          workflow_progress: number
-          total_stages: number
-          completed_stages: number
-          qty: number
-          started_by: string
-          started_by_name: string
-          proof_emailed_at: string
+          due_date: string
           has_custom_workflow: boolean
+          job_id: string
           manual_due_date: string
           manual_sla_days: number
-          categories: Json
+          proof_emailed_at: string
+          qty: number
+          reference: string
           sla_target_days: number
+          started_by: string
+          started_by_name: string
+          status: string
+          total_stages: number
+          user_can_edit: boolean
+          user_can_manage: boolean
+          user_can_view: boolean
+          user_can_work: boolean
+          wo_no: string
+          workflow_progress: number
         }[]
       }
       get_user_accessible_stages: {
         Args: { p_user_id?: string }
         Returns: {
+          can_edit: boolean
+          can_manage: boolean
+          can_view: boolean
+          can_work: boolean
+          stage_color: string
           stage_id: string
           stage_name: string
-          stage_color: string
-          can_view: boolean
-          can_edit: boolean
-          can_work: boolean
-          can_manage: boolean
         }[]
       }
       get_user_accessible_stages_with_master_queue: {
         Args: { p_user_id?: string }
         Returns: {
-          stage_id: string
-          stage_name: string
-          stage_color: string
-          can_view: boolean
           can_edit: boolean
-          can_work: boolean
           can_manage: boolean
+          can_view: boolean
+          can_work: boolean
           master_queue_id: string
           master_queue_name: string
+          stage_color: string
+          stage_id: string
+          stage_name: string
         }[]
       }
       get_user_departments: {
         Args: { p_user_id?: string }
         Returns: {
+          allows_concurrent_jobs: boolean
+          department_color: string
           department_id: string
           department_name: string
-          department_color: string
-          allows_concurrent_jobs: boolean
           max_concurrent_jobs: number
         }[]
       }
@@ -3164,9 +3164,9 @@ export type Database = {
       initialize_custom_job_stages_with_specs: {
         Args:
           | {
+              p_category_id: string
               p_job_id: string
               p_job_table_name: string
-              p_category_id: string
               p_part_assignments?: Json
             }
           | {
@@ -3178,35 +3178,35 @@ export type Database = {
       }
       initialize_job_stages: {
         Args: {
+          p_category_id: string
           p_job_id: string
           p_job_table_name: string
-          p_category_id: string
         }
         Returns: boolean
       }
       initialize_job_stages_auto: {
         Args: {
+          p_category_id: string
           p_job_id: string
           p_job_table_name: string
-          p_category_id: string
         }
         Returns: boolean
       }
       initialize_job_stages_concurrent: {
         Args: {
+          p_category_id: string
           p_job_id: string
           p_job_table_name: string
-          p_category_id: string
         }
         Returns: boolean
       }
       inject_batch_allocation_stage_for_existing_jobs: {
         Args: Record<PropertyKey, never>
         Returns: {
-          fixed_job_id: string
-          wo_no: string
           category_name: string
+          fixed_job_id: string
           stages_added: number
+          wo_no: string
         }[]
       }
       is_admin: {
@@ -3244,10 +3244,10 @@ export type Database = {
           p_user_id?: string
         }
         Returns: {
+          error_message: string
           jobs_reassigned: number
           stages_updated: number
           success: boolean
-          error_message: string
         }[]
       }
       remove_job_expedite_status: {
@@ -3269,18 +3269,18 @@ export type Database = {
       repair_batch_job_references: {
         Args: Record<PropertyKey, never>
         Returns: {
-          repaired_table: string
-          repaired_job_id: string
-          job_number: string
           created_reference: boolean
+          job_number: string
+          repaired_job_id: string
+          repaired_table: string
         }[]
       }
       repair_jobs_missing_stages: {
         Args: Record<PropertyKey, never>
         Returns: {
-          repaired_job_id: string
-          job_wo_no: string
           category_name: string
+          job_wo_no: string
+          repaired_job_id: string
           stages_created: number
         }[]
       }
@@ -3296,8 +3296,8 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: {
           reset_job_id: string
-          wo_no: string
           stages_reset: number
+          wo_no: string
         }[]
       }
       revoke_user_role: {
@@ -3306,12 +3306,12 @@ export type Database = {
       }
       rework_job_stage: {
         Args: {
+          p_current_stage_id: string
           p_job_id: string
           p_job_table_name: string
-          p_current_stage_id: string
-          p_target_stage_id: string
           p_rework_reason?: string
           p_reworked_by?: string
+          p_target_stage_id: string
         }
         Returns: boolean
       }
@@ -3319,48 +3319,48 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: {
           check_type: string
+          details: Json
           status: string
           violation_count: number
-          details: Json
         }[]
       }
       safe_delete_category: {
         Args: { p_category_id: string; p_user_id?: string }
         Returns: {
-          success: boolean
-          message: string
           deleted_stages: number
+          message: string
+          success: boolean
         }[]
       }
       schedule_job_with_detailed_logging: {
         Args: {
+          p_earliest_start?: string
+          p_estimated_minutes: number
           p_job_id: string
           p_job_table_name: string
           p_stage_id: string
-          p_estimated_minutes: number
-          p_earliest_start?: string
         }
         Returns: {
-          scheduled_start: string
-          scheduled_end: string
+          capacity_info: Json
           decision_log_id: string
           reasoning: string
-          capacity_info: Json
+          scheduled_end: string
+          scheduled_start: string
         }[]
       }
       set_user_role: {
-        Args: { target_user_id: string; new_role: string }
+        Args: { new_role: string; target_user_id: string }
         Returns: boolean
       }
       set_user_role_admin: {
-        Args: { _target_user_id: string; _new_role: string }
+        Args: { _new_role: string; _target_user_id: string }
         Returns: boolean
       }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
         Returns: {
-          split_jobs_count: number
           batch_id: string
+          split_jobs_count: number
         }[]
       }
       start_concurrent_printing_stages: {
@@ -3382,12 +3382,12 @@ export type Database = {
       sync_profiles_with_auth: {
         Args: Record<PropertyKey, never>
         Returns: {
-          synced_count: number
           fixed_count: number
+          synced_count: number
         }[]
       }
       update_stage_queue_end_time: {
-        Args: { p_stage_id: string; p_new_end_time: string; p_date?: string }
+        Args: { p_date?: string; p_new_end_time: string; p_stage_id: string }
         Returns: boolean
       }
       update_stage_workload_tracking: {
@@ -3395,101 +3395,101 @@ export type Database = {
         Returns: number
       }
       update_user_profile_admin: {
-        Args: { _user_id: string; _full_name: string }
+        Args: { _full_name: string; _user_id: string }
         Returns: boolean
       }
       upsert_delivery_specification_mapping: {
         Args: {
-          p_excel_text: string
-          p_delivery_method_id?: string
           p_address_pattern?: string
-          p_is_collection?: boolean
           p_confidence_score?: number
           p_created_by?: string
+          p_delivery_method_id?: string
+          p_excel_text: string
+          p_is_collection?: boolean
         }
         Returns: {
-          mapping_id: string
           action_taken: string
-          previous_confidence: number
-          new_confidence: number
           conflict_detected: boolean
+          mapping_id: string
+          new_confidence: number
+          previous_confidence: number
         }[]
       }
       upsert_excel_mapping: {
         Args: {
+          p_confidence_score?: number
+          p_created_by?: string
           p_excel_text: string
           p_production_stage_id: string
           p_stage_specification_id?: string
-          p_confidence_score?: number
-          p_created_by?: string
         }
         Returns: {
-          mapping_id: string
           action_taken: string
-          previous_confidence: number
-          new_confidence: number
           conflict_detected: boolean
+          mapping_id: string
+          new_confidence: number
+          previous_confidence: number
         }[]
       }
       upsert_paper_specification_mapping: {
         Args: {
+          p_confidence_score?: number
+          p_created_by?: string
           p_excel_text: string
           p_paper_type_id: string
           p_paper_weight_id: string
-          p_confidence_score?: number
-          p_created_by?: string
         }
         Returns: {
-          mapping_id: string
           action_taken: string
-          previous_confidence: number
-          new_confidence: number
           conflict_detected: boolean
+          mapping_id: string
+          new_confidence: number
+          previous_confidence: number
         }[]
       }
       upsert_print_specification_mapping: {
         Args: {
-          p_excel_text: string
-          p_print_specification_id: string
           p_confidence_score?: number
           p_created_by?: string
+          p_excel_text: string
+          p_print_specification_id: string
         }
         Returns: {
-          mapping_id: string
           action_taken: string
-          previous_confidence: number
-          new_confidence: number
           conflict_detected: boolean
+          mapping_id: string
+          new_confidence: number
+          previous_confidence: number
         }[]
       }
       validate_batch_integrity: {
         Args: { p_batch_id: string }
         Returns: {
-          is_valid: boolean
           error_count: number
+          is_valid: boolean
+          issues: Json
           missing_references: number
           orphaned_jobs: number
-          issues: Json
         }[]
       }
       validate_batch_job_references: {
         Args: Record<PropertyKey, never>
         Returns: {
-          table_name: string
+          batch_id: string
+          has_production_job: boolean
           job_id: string
           job_number: string
-          has_production_job: boolean
           production_job_id: string
-          batch_id: string
+          table_name: string
         }[]
       }
       validate_batch_simple: {
         Args: { p_batch_id: string }
         Returns: {
           is_valid: boolean
-          reference_count: number
-          missing_jobs: number
           message: string
+          missing_jobs: number
+          reference_count: number
         }[]
       }
       validate_business_hours: {
