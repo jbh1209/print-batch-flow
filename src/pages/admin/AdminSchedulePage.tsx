@@ -23,22 +23,30 @@ const AdminSchedulePage: React.FC = () => {
     try {
       setIsRunning(true);
       
+      // 🚨 EMERGENCY FIX: Enhanced logging to verify function calls
+      console.log("🔧 ADMIN SCHEDULER: Starting parallel-auto-scheduler run...");
+      
       // Get all jobs that need scheduling
       const { data: jobs, error: jobsError } = await supabase
         .from('production_jobs')
         .select('id, wo_no, status')
         .in('status', ['pending', 'Pre-Press', 'Ready for Batch']);
       
-      if (jobsError) throw jobsError;
+      if (jobsError) {
+        console.error("❌ Failed to fetch jobs:", jobsError);
+        throw jobsError;
+      }
       
       let scheduledCount = 0;
       let checkedCount = jobs?.length || 0;
       
-      console.log(`Found ${checkedCount} jobs to schedule:`, jobs);
+      console.log(`📋 Found ${checkedCount} jobs to schedule:`, jobs?.map(j => `${j.wo_no} (${j.status})`));
       
-      // Schedule each job using the new scheduler
+      // Schedule each job using the NEW parallel scheduler
       for (const job of jobs || []) {
         try {
+          console.log(`🎯 Invoking parallel-auto-scheduler for job ${job.wo_no} (${job.id})`);
+          
           const { data, error } = await supabase.functions.invoke("parallel-auto-scheduler", {
             body: {
               job_id: job.id,
@@ -47,16 +55,23 @@ const AdminSchedulePage: React.FC = () => {
             }
           });
           
+          console.log(`📊 Scheduler response for ${job.wo_no}:`, { data, error });
+          
           if (!error && data?.success) {
             scheduledCount++;
+            console.log(`✅ Successfully scheduled job ${job.wo_no}`);
+          } else {
+            console.warn(`⚠️ Scheduler returned error for ${job.wo_no}:`, error || data);
           }
         } catch (jobError) {
-          console.warn(`Failed to schedule job ${job.id}:`, jobError);
+          console.error(`❌ Exception scheduling job ${job.wo_no}:`, jobError);
         }
       }
       
+      console.log(`🏁 SCHEDULER COMPLETE: checked ${checkedCount}, scheduled ${scheduledCount}`);
       toast.success(`Auto-scheduler complete: checked ${checkedCount}, scheduled ${scheduledCount}`);
     } catch (err: any) {
+      console.error("💥 SCHEDULER FAILED:", err);
       toast.error(err?.message || "Failed to run auto-scheduler");
     } finally {
       setIsRunning(false);
