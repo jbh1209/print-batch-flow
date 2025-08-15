@@ -39,7 +39,7 @@ const AdminSchedulePage: React.FC = () => {
       // Schedule each job using the new scheduler
       for (const job of jobs || []) {
         try {
-          const { data, error } = await supabase.functions.invoke("auto-scheduler", {
+          const { data, error } = await supabase.functions.invoke("parallel-auto-scheduler", {
             body: {
               job_id: job.id,
               job_table_name: 'production_jobs',
