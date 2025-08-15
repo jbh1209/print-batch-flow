@@ -7,72 +7,213 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
-interface SchedulingRequest {
-  job_id: string
-  job_table_name: string
-  trigger_reason: string
+// ===== CLEAN SCHEDULER TYPES (ADAPTED FROM USER'S DESIGN) =====
+
+export type StageType = string; // Flexible to match your stage names
+
+export interface StageInput {
+  stageId: string;            // job_stage_instances.id 
+  type: string;               // production_stages.name
+  durationMinutes: number;    // estimated_duration_minutes
+  resourceId: string;         // production_stage_id (resource/queue identifier)
+  order: number;              // stage_order for dependency chain
 }
 
-interface StageCapacity {
-  stage_id: string
-  daily_capacity_minutes: number
-  working_start_hour: number
-  working_end_hour: number
+export interface OrderInput {
+  orderId: string;            // job_id
+  stages: StageInput[];
+  earliestStart?: Date;
+  priority?: number;
 }
 
-interface SchedulingSlot {
-  job_id: string
-  stage_id: string
-  scheduled_start: string // SAST ISO string
-  scheduled_end: string   // SAST ISO string
-  estimated_minutes: number
-  capacity_date: string   // yyyy-MM-dd
+export interface WorkingHours {
+  startMinutesFromMidnight: number;   // 8*60 = 480 for 08:00
+  endMinutesFromMidnight: number;     // 16*60+30 = 990 for 16:30  
+  workingWeekdays: number[];          // [1,2,3,4,5] Mon-Fri
 }
 
-/**
- * **PARALLEL CAPACITY AUTO-SCHEDULER**
- * Replaces broken sequential scheduler with capacity-aware parallel scheduling
- * Fixes "Monday to Friday" scheduling gaps by packing jobs within daily capacity
- */
+export interface ScheduledStage {
+  stageId: string;
+  orderId: string;
+  type: string;
+  resourceId: string;
+  start: Date;
+  end: Date;
+}
+
+export interface ScheduleResult {
+  stages: ScheduledStage[];
+  resourceNextAvailable: Record<string, Date>;
+}
+
+// Default working hours: Mon–Fri 08:00–16:30
+const DEFAULT_HOURS: WorkingHours = {
+  startMinutesFromMidnight: 8 * 60,      // 08:00
+  endMinutesFromMidnight: 16 * 60 + 30,  // 16:30
+  workingWeekdays: [1, 2, 3, 4, 5],      // Mon-Fri
+};
+
+// ===== TIME UTILITIES (NO DEPENDENCIES - CLEAN) =====
+
+function minutesFromMidnight(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function setMinutesFromMidnight(d: Date, minutes: number): Date {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const copy = new Date(d);
+  copy.setHours(h, m, 0, 0);
+  return copy;
+}
+
+function isWorkingDay(d: Date, hrs: WorkingHours): boolean {
+  const wd = d.getDay(); // 0..6 (Sun..Sat)
+  const weekday = wd === 0 ? 7 : wd; // Convert to 1..7 with Monday=1
+  return hrs.workingWeekdays.includes(weekday);
+}
+
+function clampToWorkStart(d: Date, hrs: WorkingHours): Date {
+  if (!isWorkingDay(d, hrs)) {
+    const next = nextWorkingDay(d, hrs);
+    return setMinutesFromMidnight(next, hrs.startMinutesFromMidnight);
+  }
+  const mins = minutesFromMidnight(d);
+  if (mins < hrs.startMinutesFromMidnight) {
+    return setMinutesFromMidnight(d, hrs.startMinutesFromMidnight);
+  }
+  if (mins >= hrs.endMinutesFromMidnight) {
+    const next = nextWorkingDay(d, hrs);
+    return setMinutesFromMidnight(next, hrs.startMinutesFromMidnight);
+  }
+  return d;
+}
+
+function nextWorkingDay(d: Date, hrs: WorkingHours): Date {
+  let cur = new Date(d);
+  cur.setDate(cur.getDate() + 1);
+  cur.setHours(0, 0, 0, 0);
+  while (!isWorkingDay(cur, hrs)) {
+    cur.setDate(cur.getDate() + 1);
+  }
+  return cur;
+}
+
+function addWorkingMinutes(start: Date, minutes: number, hrs: WorkingHours): Date {
+  let cursor = clampToWorkStart(start, hrs);
+  let remaining = minutes;
+
+  while (remaining > 0) {
+    const mins = minutesFromMidnight(cursor);
+    const available = hrs.endMinutesFromMidnight - mins;
+    
+    if (remaining <= available) {
+      cursor = new Date(cursor.getTime() + remaining * 60_000);
+      remaining = 0;
+    } else {
+      cursor = new Date(cursor.getTime() + available * 60_000);
+      remaining -= available;
+      const next = nextWorkingDay(cursor, hrs);
+      cursor = setMinutesFromMidnight(next, hrs.startMinutesFromMidnight);
+    }
+  }
+  return cursor;
+}
+
+// ===== CORE SCHEDULER (ADAPTED FROM USER'S DESIGN) =====
+
+function scheduleOrders(
+  orders: OrderInput[],
+  hours: WorkingHours,
+  initialResourceNextAvailable: Record<string, Date> = {}
+): ScheduleResult {
+  const resourceNext: Record<string, Date> = { ...initialResourceNextAvailable };
+  const out: ScheduledStage[] = [];
+
+  // Sort orders by priority and earliest start
+  const enriched = orders.map((o, idx) => ({
+    ...o,
+    idx,
+    earliestStart: o.earliestStart ?? new Date(),
+    priority: o.priority ?? 1000,
+  }));
+  
+  enriched.sort((a, b) => {
+    const t = a.earliestStart.getTime() - b.earliestStart.getTime();
+    if (t !== 0) return t;
+    const p = a.priority - b.priority;
+    if (p !== 0) return p;
+    return a.idx - b.idx;
+  });
+
+  for (const order of enriched) {
+    // Sort stages by order for sequential dependency
+    const sortedStages = [...order.stages].sort((a, b) => a.order - b.order);
+    
+    let prevEndForJob: Date = clampToWorkStart(order.earliestStart, hours);
+
+    for (const stage of sortedStages) {
+      const qTail = resourceNext[stage.resourceId];
+      const candidateStart = clampToWorkStart(
+        new Date(Math.max(prevEndForJob.getTime(), qTail?.getTime() ?? 0)),
+        hours
+      );
+      
+      const end = addWorkingMinutes(candidateStart, stage.durationMinutes, hours);
+
+      out.push({
+        stageId: stage.stageId,
+        orderId: order.orderId,
+        type: stage.type,
+        resourceId: stage.resourceId,
+        start: candidateStart,
+        end,
+      });
+
+      prevEndForJob = end;
+      resourceNext[stage.resourceId] = end;
+    }
+  }
+
+  return { stages: out, resourceNextAvailable: resourceNext };
+}
+
+// ===== EDGE FUNCTION HANDLER =====
+
 serve(async (req) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { job_id, job_table_name = 'production_jobs', trigger_reason } = await req.json() as SchedulingRequest
+    const { job_id, job_table_name = 'production_jobs', trigger_reason } = await req.json()
+    console.log(`🚀 **CLEAN SCHEDULER START** - Job: ${job_id}, Reason: ${trigger_reason}`)
 
-    console.log(`🚀 **PARALLEL SCHEDULER START** - Job: ${job_id}, Reason: ${trigger_reason}`)
+    // STEP 1: Load existing scheduled work to seed queue tails
+    const { data: existingWork } = await supabase
+      .from('job_stage_instances')
+      .select('production_stage_id, auto_scheduled_start_at, auto_scheduled_end_at, scheduled_start_at, scheduled_end_at')
+      .in('status', ['pending', 'active', 'completed'])
+      .not('auto_scheduled_start_at', 'is', null)
+      .not('auto_scheduled_end_at', 'is', null);
 
-    // STEP 1: Get stage capacities from database
-    const { data: capacityData, error: capacityError } = await supabase
-      .from('stage_capacity_profiles')
-      .select(`
-        production_stage_id,
-        daily_capacity_hours,
-        working_days_per_week,
-        shift_hours_per_day
-      `)
-
-    if (capacityError) {
-      throw new Error(`Failed to load stage capacities: ${capacityError.message}`)
+    // Build resource queue tails
+    const resourceTails: Record<string, Date> = {};
+    for (const work of existingWork || []) {
+      const start = work.auto_scheduled_start_at || work.scheduled_start_at;
+      const end = work.auto_scheduled_end_at || work.scheduled_end_at;
+      if (start && end) {
+        const endDate = new Date(end);
+        const current = resourceTails[work.production_stage_id]?.getTime() ?? 0;
+        if (endDate.getTime() > current) {
+          resourceTails[work.production_stage_id] = endDate;
+        }
+      }
     }
 
-    // Convert to capacity map
-    const stageCapacities = new Map<string, StageCapacity>()
-    for (const capacity of capacityData || []) {
-      stageCapacities.set(capacity.production_stage_id, {
-        stage_id: capacity.production_stage_id,
-        daily_capacity_minutes: capacity.daily_capacity_hours * 60,
-        working_start_hour: 8,   // 8 AM SAST
-        working_end_hour: 17.5   // 5:30 PM SAST
-      })
-    }
+    console.log(`📊 Loaded ${Object.keys(resourceTails).length} resource queue tails`)
 
-    console.log(`📊 Loaded ${stageCapacities.size} stage capacity profiles`)
-
-    // STEP 2: Get job's pending/active stages (EXCLUDE DTP, Proof, Batch Allocation)
+    // STEP 2: Get job's schedulable stages
     const { data: jobStages, error: stagesError } = await supabase
       .from('job_stage_instances')
       .select(`
@@ -86,7 +227,7 @@ serve(async (req) => {
       .eq('job_table_name', job_table_name)
       .in('status', ['pending', 'active'])
       .neq('production_stages.name', 'DTP')
-      .neq('production_stages.name', 'Proof')
+      .neq('production_stages.name', 'Proof')  
       .neq('production_stages.name', 'Batch Allocation')
       .eq('production_stages.is_active', true)
       .order('stage_order')
@@ -98,116 +239,74 @@ serve(async (req) => {
     if (!jobStages || jobStages.length === 0) {
       return new Response(JSON.stringify({
         success: true,
-        message: 'No schedulable stages found for job',
+        message: 'No schedulable stages found',
         scheduled_slots: 0
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    console.log(`📋 Found ${jobStages.length} schedulable stages for job ${job_id}`)
+    console.log(`📋 Found ${jobStages.length} schedulable stages`)
 
-    // STEP 3 FIX: Use proper SAST timezone utilities
-    const sastNow = new Date()
-    // TODO: Import proper timezone utils from '../../../src/utils/timezone.ts'
-    // For now, keep +2 but mark for fix
-    sastNow.setHours(sastNow.getHours() + 2) // TEMP: Manual SAST conversion
-    const currentSAST = sastNow.toISOString()
-    
-    console.log(`🕐 Current SAST time: ${currentSAST}`)
+    // STEP 3: Build order input for scheduler
+    const order: OrderInput = {
+      orderId: job_id,
+      earliestStart: new Date(),
+      priority: 1,
+      stages: jobStages.map(stage => ({
+        stageId: stage.id,
+        type: stage.production_stages?.name || 'Unknown',
+        durationMinutes: stage.estimated_duration_minutes || 120,
+        resourceId: stage.production_stage_id,
+        order: stage.stage_order
+      }))
+    };
 
-    // STEP 4: Schedule each stage using parallel capacity logic
-    const scheduledSlots: SchedulingSlot[] = []
-    let lastScheduledEnd = sastNow
+    // STEP 4: Run the clean scheduler
+    const result = scheduleOrders([order], DEFAULT_HOURS, resourceTails);
 
-    for (const stage of jobStages) {
-      const stageCapacity = stageCapacities.get(stage.production_stage_id)
-      const estimatedMinutes = stage.estimated_duration_minutes || 120 // 2 hours default
+    console.log(`✅ Scheduled ${result.stages.length} stages`)
 
-      console.log(`🔍 Scheduling stage ${stage.production_stages?.name} (${estimatedMinutes} min)`)
-
-      if (!stageCapacity) {
-        console.warn(`⚠️ No capacity profile for stage ${stage.production_stage_id}, using defaults`)
-        // Use 8-hour default capacity
-        stageCapacities.set(stage.production_stage_id, {
-          stage_id: stage.production_stage_id,
-          daily_capacity_minutes: 480, // 8 hours
-          working_start_hour: 8,
-          working_end_hour: 17.5
-        })
-      }
-
-      // Find next available capacity slot
-      const slot = await findNextCapacitySlot(
-        supabase,
-        stage.production_stage_id,
-        estimatedMinutes,
-        lastScheduledEnd,
-        stageCapacities.get(stage.production_stage_id)!
-      )
-
-      if (slot) {
-        scheduledSlots.push({
-          job_id: job_id,
-          stage_id: stage.production_stage_id,
-          scheduled_start: slot.start,
-          scheduled_end: slot.end,
-          estimated_minutes: estimatedMinutes,
-          capacity_date: slot.date
-        })
-
-        lastScheduledEnd = new Date(slot.end)
-        console.log(`✅ Scheduled ${stage.production_stages?.name}: ${slot.start.split('T')[1].substring(0,5)}-${slot.end.split('T')[1].substring(0,5)} on ${slot.date}`)
-      } else {
-        console.error(`❌ No capacity found for stage ${stage.production_stage_id}`)
-      }
-    }
-
-    // STEP 5: Update job_stage_instances with scheduled times
-    let updateCount = 0
-    for (const slot of scheduledSlots) {
-      console.log(`📝 Updating stage ${slot.stage_id} for job ${slot.job_id}: ${slot.scheduled_start} to ${slot.scheduled_end}`)
+    // STEP 5: Update database with results
+    let updateCount = 0;
+    for (const stage of result.stages) {
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
-          auto_scheduled_start_at: slot.scheduled_start,
-          auto_scheduled_end_at: slot.scheduled_end,
-          auto_scheduled_duration_minutes: slot.estimated_minutes,
-          schedule_status: 'auto_scheduled',  // CRITICAL: Set correct status
+          auto_scheduled_start_at: stage.start.toISOString(),
+          auto_scheduled_end_at: stage.end.toISOString(),
+          auto_scheduled_duration_minutes: 
+            Math.round((stage.end.getTime() - stage.start.getTime()) / 60000),
+          schedule_status: 'auto_scheduled',
           updated_at: new Date().toISOString()
         })
-        .eq('job_id', slot.job_id)
-        .eq('production_stage_id', slot.stage_id)
+        .eq('id', stage.stageId);
 
       if (updateError) {
-        console.error(`❌ Failed to update stage ${slot.stage_id}:`, updateError)
-        // STEP 3 FIX: Don't fail silently - log detailed error
-        console.error(`Update details:`, { 
-          job_id: slot.job_id, 
-          stage_id: slot.stage_id, 
-          start: slot.scheduled_start,
-          end: slot.scheduled_end,
-          error: updateError 
-        })
+        console.error(`❌ Failed to update stage ${stage.stageId}:`, updateError);
       } else {
-        updateCount++
-        console.log(`✅ Updated stage ${slot.stage_id} for job ${slot.job_id}`)
+        updateCount++;
+        console.log(`✅ Updated ${stage.type}: ${stage.start.toISOString().split('T')[1].substring(0,5)} - ${stage.end.toISOString().split('T')[1].substring(0,5)}`);
       }
     }
 
-    console.log(`🎯 **PARALLEL SCHEDULER COMPLETE** - Updated ${updateCount}/${scheduledSlots.length} stages`)
+    console.log(`🎯 **CLEAN SCHEDULER COMPLETE** - Updated ${updateCount}/${result.stages.length} stages`)
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Scheduled ${scheduledSlots.length} stages using parallel capacity logic`,
-      scheduled_slots: scheduledSlots.length,
-      slots: scheduledSlots
+      message: `Scheduled ${result.stages.length} stages using clean scheduler`,
+      scheduled_slots: result.stages.length,
+      slots: result.stages.map(s => ({
+        stage_id: s.stageId,
+        start: s.start.toISOString(),
+        end: s.end.toISOString()
+      }))
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
   } catch (error) {
-    console.error('Parallel scheduler error:', error)
+    console.error('Clean scheduler error:', error)
     
     return new Response(JSON.stringify({
       success: false,
@@ -218,71 +317,3 @@ serve(async (req) => {
     })
   }
 })
-
-/**
- * **CORE CAPACITY LOGIC: Find next available slot within daily capacity**
- * This is the KEY fix that prevents "Monday to Friday" gaps
- */
-async function findNextCapacitySlot(
-  supabase: any,
-  stageId: string,
-  requiredMinutes: number,
-  earliestStart: Date,
-  capacity: StageCapacity
-): Promise<{ start: string; end: string; date: string } | null> {
-  
-  // Try each working day until we find capacity
-  let currentDay = new Date(earliestStart)
-  
-  for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
-    const dayToCheck = new Date(currentDay)
-    dayToCheck.setDate(currentDay.getDate() + dayOffset)
-    
-    // Skip weekends
-    const dayOfWeek = dayToCheck.getDay()
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue
-    
-    const dateStr = dayToCheck.toISOString().split('T')[0] // yyyy-MM-dd
-    
-    // Get already used capacity for this stage on this date
-    const { data: existingJobs } = await supabase
-      .from('job_stage_instances')
-      .select('auto_scheduled_duration_minutes, scheduled_minutes')
-      .eq('production_stage_id', stageId)
-      .in('status', ['pending', 'active'])
-      .or(`auto_scheduled_start_at::date.eq.${dateStr},scheduled_start_at::date.eq.${dateStr}`)
-    
-    const usedMinutes = (existingJobs || []).reduce((total: number, job: any) => {
-      return total + (job.auto_scheduled_duration_minutes || job.scheduled_minutes || 0)
-    }, 0)
-    
-    const availableMinutes = capacity.daily_capacity_minutes - usedMinutes
-    
-    console.log(`[CAPACITY] Stage ${stageId} on ${dateStr}: ${usedMinutes}/${capacity.daily_capacity_minutes} min used (${availableMinutes} available)`)
-    
-    // Check if this day has enough capacity
-    if (availableMinutes >= requiredMinutes) {
-      // Calculate slot start time: working start + used time
-      const slotStart = new Date(dayToCheck)
-      slotStart.setHours(capacity.working_start_hour, 0, 0, 0)
-      slotStart.setMinutes(slotStart.getMinutes() + usedMinutes)
-      
-      const slotEnd = new Date(slotStart)
-      slotEnd.setMinutes(slotEnd.getMinutes() + requiredMinutes)
-      
-      // Check if slot fits within working hours
-      const workingEndHour = capacity.working_start_hour + (capacity.daily_capacity_minutes / 60)
-      const slotEndHour = slotEnd.getHours() + (slotEnd.getMinutes() / 60)
-      
-      if (slotEndHour <= workingEndHour) {
-        return {
-          start: slotStart.toISOString(),
-          end: slotEnd.toISOString(),
-          date: dateStr
-        }
-      }
-    }
-  }
-  
-  return null // No capacity found in 30 days
-}
