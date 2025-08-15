@@ -75,7 +75,7 @@ export const ProductionPlanningCalendar: React.FC = () => {
             )
           `)
           .eq('due_date', dateStr)
-          .neq('status', 'completed')
+          .not('status', 'in', '("Completed", "Shipped")')
           .order('wo_no');
 
         if (jobsError) {

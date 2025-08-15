@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, TrendingUp } from 'lucide-react';
 import { autoSchedulerService } from '@/services/autoSchedulerService';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface DailyWorkload {
@@ -24,29 +25,52 @@ export const ProductionCalendar: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Get next 7 working days
-      const startDate = new Date().toISOString().split('T')[0];
+      // Get next 10 days to show workload
+      const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 10);
-      const endDateStr = endDate.toISOString().split('T')[0];
       
-      const data = await autoSchedulerService.getScheduleOverview(startDate, endDateStr);
-      // Transform the data to match DailyWorkload interface
-      const workloadData = data.reduce((acc: any[], slot: any) => {
-        const existing = acc.find(item => item.date === slot.date);
-        if (existing) {
+      // Query auto-scheduled job stages directly from job_stage_instances
+      const { data: scheduledStages, error } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          auto_scheduled_start_at,
+          auto_scheduled_duration_minutes,
+          job_id,
+          production_stages:production_stage_id (name)
+        `)
+        .eq('job_table_name', 'production_jobs')
+        .not('auto_scheduled_start_at', 'is', null)
+        .gte('auto_scheduled_start_at', startDate.toISOString())
+        .lte('auto_scheduled_start_at', endDate.toISOString())
+        .order('auto_scheduled_start_at');
+
+      if (error) throw error;
+
+      // Transform into daily workload
+      const workloadMap = new Map<string, DailyWorkload>();
+      
+      (scheduledStages || []).forEach((stage: any) => {
+        const startDate = new Date(stage.auto_scheduled_start_at);
+        const dateKey = startDate.toISOString().split('T')[0];
+        const hours = (stage.auto_scheduled_duration_minutes || 60) / 60;
+        
+        if (workloadMap.has(dateKey)) {
+          const existing = workloadMap.get(dateKey)!;
           existing.total_jobs += 1;
-          existing.total_estimated_hours += slot.duration_minutes / 60;
+          existing.total_estimated_hours += hours;
+          existing.capacity_utilization = (existing.total_estimated_hours / 8) * 100;
         } else {
-          acc.push({
-            date: slot.date,
+          workloadMap.set(dateKey, {
+            date: dateKey,
             total_jobs: 1,
-            total_estimated_hours: slot.duration_minutes / 60,
-            capacity_utilization: ((slot.duration_minutes / 60) / 8) * 100
+            total_estimated_hours: hours,
+            capacity_utilization: (hours / 8) * 100
           });
         }
-        return acc;
-      }, []);
+      });
+
+      const workloadData = Array.from(workloadMap.values()).sort((a, b) => a.date.localeCompare(b.date));
       setWorkloadData(workloadData);
     } catch (error) {
       console.error('Error loading schedule data:', error);
