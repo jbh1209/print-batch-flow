@@ -24,3 +24,7 @@ verify_jwt = true
 
 [functions.auto-schedule-approved]
 verify_jwt = false
+
+# NEW PARALLEL CAPACITY SCHEDULER: Fixes "Monday to Friday" gaps
+[functions.parallel-auto-scheduler]
+verify_jwt = false

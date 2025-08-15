@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { runCompleteSchedulerTests, MasterTestResult, PhaseTestResult } from '@/utils/scheduling/masterTestRunner';
 import { runPhase1Tests } from '@/utils/timezone-display-audit';
 import { runPhase2Tests } from '@/utils/scheduling/phase2-capacity-tests';
+import ParallelSchedulerTest from './ParallelSchedulerTest';
 
 const SchedulerTestRunner = () => {
   const [testResults, setTestResults] = useState<MasterTestResult | null>(null);
   const [phase1Results, setPhase1Results] = useState<any>(null);
   const [phase2Results, setPhase2Results] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [showParallelTest, setShowParallelTest] = useState(true);
 
   const runPhase1Only = () => {
     console.log('🔍 **PHASE 1 VERIFICATION STARTING**');
@@ -91,6 +93,40 @@ const SchedulerTestRunner = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          
+          {/* NEW PARALLEL SCHEDULER TEST */}
+          {showParallelTest && (
+            <Card className="border-2 border-purple-200 bg-purple-50/30">
+              <CardHeader>
+                <CardTitle className="text-lg">🚀 LIVE PARALLEL SCHEDULER TEST</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  <strong>IMMEDIATE:</strong> Test the new parallel capacity scheduler with real data
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ParallelSchedulerTest />
+                <Button 
+                  onClick={() => setShowParallelTest(false)}
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                >
+                  Hide Parallel Test
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {!showParallelTest && (
+            <Button 
+              onClick={() => setShowParallelTest(true)}
+              variant="outline"
+              className="w-full"
+            >
+              🚀 Show Parallel Scheduler Test
+            </Button>
+          )}
+
           {/* Phase 1 Verification Section */}
           <Card className="border-2 border-blue-200 bg-blue-50/30">
             <CardHeader>

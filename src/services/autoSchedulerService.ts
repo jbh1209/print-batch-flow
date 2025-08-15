@@ -8,28 +8,33 @@ export interface SchedulingResult {
 
 export class AutoSchedulerService {
   /**
-   * Trigger auto-scheduling for a job (called when job is approved)
+   * **PARALLEL CAPACITY SCHEDULER: Fixes "Monday to Friday" gaps**
+   * Uses new parallel-auto-scheduler edge function with capacity-aware logic
    */
   static async scheduleJob(jobId: string, jobTableName: string = 'production_jobs'): Promise<SchedulingResult> {
     try {
-      const { data, error } = await supabase.functions.invoke('auto-scheduler', {
+      console.log(`🚀 Triggering PARALLEL scheduler for job ${jobId}`)
+      
+      const { data, error } = await supabase.functions.invoke('parallel-auto-scheduler', {
         body: {
           job_id: jobId,
           job_table_name: jobTableName,
-          trigger_reason: 'admin_expedite'
+          trigger_reason: 'parallel_capacity_scheduling'
         }
       });
 
       if (error) {
+        console.error('Parallel scheduler error:', error)
         throw error;
       }
 
+      console.log(`✅ Parallel scheduler result:`, data)
       return data as SchedulingResult;
     } catch (error) {
-      console.error('Auto-scheduler error:', error);
+      console.error('Parallel auto-scheduler error:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: error instanceof Error ? error.message : 'Parallel scheduling failed'
       };
     }
   }
