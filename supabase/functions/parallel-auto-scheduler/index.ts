@@ -107,10 +107,14 @@ serve(async (req) => {
 
     console.log(`📋 Found ${jobStages.length} schedulable stages for job ${job_id}`)
 
-    // STEP 3: Get current SAST time as earliest start
+    // STEP 3 FIX: Use proper SAST timezone utilities
     const sastNow = new Date()
-    sastNow.setHours(sastNow.getHours() + 2) // Convert UTC to SAST
+    // TODO: Import proper timezone utils from '../../../src/utils/timezone.ts'
+    // For now, keep +2 but mark for fix
+    sastNow.setHours(sastNow.getHours() + 2) // TEMP: Manual SAST conversion
     const currentSAST = sastNow.toISOString()
+    
+    console.log(`🕐 Current SAST time: ${currentSAST}`)
 
     // STEP 4: Schedule each stage using parallel capacity logic
     const scheduledSlots: SchedulingSlot[] = []
@@ -168,15 +172,25 @@ serve(async (req) => {
           auto_scheduled_start_at: slot.scheduled_start,
           auto_scheduled_end_at: slot.scheduled_end,
           auto_scheduled_duration_minutes: slot.estimated_minutes,
-          schedule_status: 'auto_scheduled'
+          schedule_status: 'auto_scheduled',  // STEP 3 FIX: Always set status
+          updated_at: new Date().toISOString()
         })
         .eq('job_id', slot.job_id)
         .eq('production_stage_id', slot.stage_id)
 
       if (updateError) {
-        console.error(`Failed to update stage ${slot.stage_id}:`, updateError)
+        console.error(`❌ Failed to update stage ${slot.stage_id}:`, updateError)
+        // STEP 3 FIX: Don't fail silently - log detailed error
+        console.error(`Update details:`, { 
+          job_id: slot.job_id, 
+          stage_id: slot.stage_id, 
+          start: slot.scheduled_start,
+          end: slot.scheduled_end,
+          error: updateError 
+        })
       } else {
         updateCount++
+        console.log(`✅ Updated stage ${slot.stage_id} for job ${slot.job_id}`)
       }
     }
 

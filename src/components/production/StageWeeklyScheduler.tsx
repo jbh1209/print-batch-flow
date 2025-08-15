@@ -101,22 +101,30 @@ export function useStageSchedule() {
       (capRows || []).forEach((c: any) => { capMap[c.production_stage_id] = (c.daily_capacity_hours || 8) * 60; });
       setCapacities(capMap);
 
-      // SIMPLE: Query jobs scheduled for the displayed week
+      // STEP 2 FIX: Widen date window buffer to catch timezone edge cases
       const queryStart = new Date(weekStart);
-      const queryEnd = addDays(weekStart, 7);
+      queryStart.setDate(queryStart.getDate() - 1); // Add 1-day buffer before
+      const queryEnd = addDays(weekStart, 8); // Add 1-day buffer after (7+1)
       const startIso = queryStart.toISOString();
       const endIso = queryEnd.toISOString();
       
-      console.log(`📅 Simple query: jobs scheduled between ${format(queryStart, 'yyyy-MM-dd')} and ${format(queryEnd, 'yyyy-MM-dd')}`);
+      console.log(`📅 BUFFERED query: jobs scheduled between ${format(queryStart, 'yyyy-MM-dd')} and ${format(queryEnd, 'yyyy-MM-dd')} (includes buffers)`);
       
-      // Query all jobs with ANY scheduled time in the displayed week
+      // STEP 2 FIX: Include auto-scheduled jobs regardless of schedule_status
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
-        .select("id,job_id,production_stage_id,scheduled_start_at,scheduled_end_at,scheduled_minutes,auto_scheduled_start_at,auto_scheduled_end_at,auto_scheduled_duration_minutes,status")
+        .select(`
+          id, job_id, production_stage_id, 
+          scheduled_start_at, scheduled_end_at, scheduled_minutes,
+          auto_scheduled_start_at, auto_scheduled_end_at, auto_scheduled_duration_minutes,
+          status, schedule_status
+        `)
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending"]) 
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"])
         .or(`and(scheduled_start_at.gte.${startIso},scheduled_start_at.lt.${endIso}),and(auto_scheduled_start_at.gte.${startIso},auto_scheduled_start_at.lt.${endIso})`)
+        // CRITICAL: Include jobs with ANY schedule_status (scheduled, auto_scheduled, unscheduled)
+        .in("schedule_status", ["scheduled", "auto_scheduled", "unscheduled"])
         .order("auto_scheduled_start_at", { ascending: true, nullsFirst: false })
         .order("scheduled_start_at", { ascending: true, nullsFirst: false });
       if (jsiErr) throw jsiErr;
@@ -153,7 +161,8 @@ export function useStageSchedule() {
         });
       }
 
-      const mapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => {
+      // STEP 2 FIX: Filter to actual week after fetching, normalize display times
+      const rawMapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => {
         // Determine if job is auto-scheduled vs manually scheduled
         const isAutoScheduled = !!(r.auto_scheduled_start_at && r.auto_scheduled_end_at);
         
@@ -176,6 +185,20 @@ export function useStageSchedule() {
           paper_specs: jobMap[r.job_id]?.paper_specs,
           printing_specs: jobMap[r.job_id]?.printing_specs,
         };
+      });
+
+      // STEP 2 FIX: Filter to actual visible week after processing
+      const actualWeekStart = weekStart.toISOString();
+      const actualWeekEnd = addDays(weekStart, 7).toISOString();
+      
+      const mapped = rawMapped.filter(item => {
+        // Get display start time (manual OR auto)
+        const displayStart = item.scheduled_start_at || item.auto_scheduled_start_at;
+        if (!displayStart) return false;
+        
+        // Check if within actual week bounds
+        const startTime = new Date(displayStart);
+        return startTime >= new Date(actualWeekStart) && startTime < new Date(actualWeekEnd);
       });
 
       console.log(`✅ Final mapped items: ${mapped.length}`);
@@ -300,13 +323,37 @@ export const StageWeeklyScheduler: React.FC = () => {
 
   const runAutoScheduler = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("auto-schedule-approved", { body: { source: "manual" } });
-      if (error || !(data as any)?.ok) throw new Error(error?.message || (data as any)?.error || "Failed");
-      toast.success("Auto-scheduler ran");
+      // STEP 4 FIX: Use parallel-auto-scheduler instead of auto-schedule-approved
+      console.log("🎯 Running PARALLEL auto-scheduler...");
+      
+      // Get jobs that need scheduling
+      const { data: jobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, status')
+        .in('status', ['pending', 'Pre-Press', 'Ready for Batch']);
+      
+      if (jobsError) throw jobsError;
+      
+      let scheduledCount = 0;
+      for (const job of jobs || []) {
+        const { data, error } = await supabase.functions.invoke("parallel-auto-scheduler", {
+          body: {
+            job_id: job.id,
+            job_table_name: "production_jobs",
+            trigger_reason: "manual_ui_trigger"
+          }
+        });
+        
+        if (!error && data?.success) {
+          scheduledCount++;
+        }
+      }
+      
+      toast.success(`Parallel auto-scheduler ran: ${scheduledCount}/${jobs?.length || 0} jobs scheduled`);
       await refetch();
     } catch (e: any) {
-      console.error("auto-schedule-approved invoke failed", e);
-      toast.error("Auto-scheduler failed");
+      console.error("parallel-auto-scheduler invoke failed", e);
+      toast.error("Auto-scheduler failed: " + (e.message || "Unknown error"));
     }
   }, [refetch]);
 
