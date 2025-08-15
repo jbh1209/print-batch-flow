@@ -166,13 +166,14 @@ serve(async (req) => {
     // STEP 5: Update job_stage_instances with scheduled times
     let updateCount = 0
     for (const slot of scheduledSlots) {
+      console.log(`📝 Updating stage ${slot.stage_id} for job ${slot.job_id}: ${slot.scheduled_start} to ${slot.scheduled_end}`)
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
           auto_scheduled_start_at: slot.scheduled_start,
           auto_scheduled_end_at: slot.scheduled_end,
           auto_scheduled_duration_minutes: slot.estimated_minutes,
-          schedule_status: 'auto_scheduled',  // STEP 3 FIX: Always set status
+          schedule_status: 'auto_scheduled',  // CRITICAL: Set correct status
           updated_at: new Date().toISOString()
         })
         .eq('job_id', slot.job_id)

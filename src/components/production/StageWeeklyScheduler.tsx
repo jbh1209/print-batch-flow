@@ -192,8 +192,9 @@ export function useStageSchedule() {
       const actualWeekEnd = addDays(weekStart, 7).toISOString();
       
       const mapped = rawMapped.filter(item => {
-        // Get display start time (manual OR auto)
-        const displayStart = item.scheduled_start_at || item.auto_scheduled_start_at;
+        // Get display start time (auto takes precedence over manual - CRITICAL FIX)
+        const displayStart = item.auto_scheduled_start_at || item.scheduled_start_at;
+        console.log(`🔍 Job ${item.job_id} stage ${item.production_stage_id}: auto=${item.auto_scheduled_start_at}, manual=${item.scheduled_start_at}, using=${displayStart}`);
         if (!displayStart) return false;
         
         // Check if within actual week bounds
