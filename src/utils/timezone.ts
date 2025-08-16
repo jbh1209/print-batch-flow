@@ -1,5 +1,5 @@
 import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
-import { addDays, isAfter, isWeekend, format } from 'date-fns';
+import { addDays, isAfter, isWeekend, format, parseISO } from 'date-fns';
 
 // Helper functions for missing date-fns functionality
 const isBefore = (date: Date, dateToCompare: Date): boolean => {
@@ -51,9 +51,10 @@ export function createSASTTimeAsUTC(dateStr: string, timeStr: string): Date {
     throw new Error('Date string and time string are required');
   }
   
-  // Create SAST datetime string and convert to UTC
+  // Create a SAST time and convert to UTC
   const sastDateTimeStr = `${dateStr}T${timeStr}`;
-  return fromZonedTime(new Date(sastDateTimeStr), SAST_TIMEZONE);
+  const sastTime = parseISO(sastDateTimeStr);
+  return fromZonedTime(sastTime, SAST_TIMEZONE);
 }
 
 /**

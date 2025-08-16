@@ -168,29 +168,33 @@ async function scheduleJobLogic(supabase: any, {
  * Production version would import the full findNextAvailableSlot logic
  */
 async function findSimpleNextSlot(supabase: any, stageId: string, durationMinutes: number, dailyCapacityMinutes: number): Promise<Date> {
-  const now = new Date();
-  const startDate = new Date(now);
-  startDate.setHours(8, 0, 0, 0); // Start at 8AM today
-
+  // Use current SAST time as starting point
+  const nowSAST = new Date();
+  const today = new Date(nowSAST.getFullYear(), nowSAST.getMonth(), nowSAST.getDate());
+  
   for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
-    const checkDate = new Date(startDate);
+    const checkDate = new Date(today);
     checkDate.setDate(checkDate.getDate() + dayOffset);
     
     // Skip weekends
     if (checkDate.getDay() === 0 || checkDate.getDay() === 6) continue;
 
-    const dayStart = new Date(checkDate);
-    dayStart.setHours(8, 0, 0, 0);
-    const dayEnd = new Date(checkDate);
-    dayEnd.setHours(17, 30, 0, 0);
+    // Create 8:00 AM SAST time in UTC for database queries
+    const dayStartSAST = new Date(checkDate);
+    dayStartSAST.setHours(8, 0, 0, 0);
+    const dayStartUTC = new Date(dayStartSAST.getTime() - (2 * 60 * 60 * 1000)); // SAST to UTC (subtract 2 hours)
+    
+    const dayEndSAST = new Date(checkDate);
+    dayEndSAST.setHours(17, 30, 0, 0);
+    const dayEndUTC = new Date(dayEndSAST.getTime() - (2 * 60 * 60 * 1000)); // SAST to UTC (subtract 2 hours)
 
     // Query existing scheduled jobs for this stage and day
     const { data: usedSlots } = await supabase
       .from("job_stage_instances")
       .select("scheduled_minutes")
       .eq("production_stage_id", stageId)
-      .gte("scheduled_start_at", dayStart.toISOString())
-      .lt("scheduled_start_at", dayEnd.toISOString());
+      .gte("scheduled_start_at", dayStartUTC.toISOString())
+      .lt("scheduled_start_at", dayEndUTC.toISOString());
 
     const usedMinutes = (usedSlots || []).reduce(
       (sum: number, slot: any) => sum + (slot.scheduled_minutes || 0),
@@ -200,18 +204,24 @@ async function findSimpleNextSlot(supabase: any, stageId: string, durationMinute
     const availableMinutes = dailyCapacityMinutes - usedMinutes;
 
     if (availableMinutes >= durationMinutes) {
-      // Found a day with capacity - schedule at start + used time
-      const slotStart = new Date(dayStart);
-      slotStart.setMinutes(slotStart.getMinutes() + usedMinutes);
-      console.log(`[scheduler] Found slot on ${slotStart.toISOString()} (${availableMinutes}min available)`);
-      return slotStart;
+      // Found a day with capacity - schedule sequentially after used time
+      const slotStartSAST = new Date(dayStartSAST);
+      slotStartSAST.setMinutes(slotStartSAST.getMinutes() + usedMinutes);
+      
+      // Convert to UTC for database storage
+      const slotStartUTC = new Date(slotStartSAST.getTime() - (2 * 60 * 60 * 1000));
+      
+      console.log(`[scheduler] Found slot on ${slotStartSAST.toISOString()} SAST (${slotStartUTC.toISOString()} UTC) - ${availableMinutes}min available`);
+      return slotStartUTC;
     }
   }
 
-  // Fallback - 30 days from now at 8 AM
-  const fallback = new Date(startDate);
-  fallback.setDate(fallback.getDate() + 30);
-  fallback.setHours(8, 0, 0, 0);
-  console.log(`[scheduler] No slots found within 30 days, using fallback: ${fallback.toISOString()}`);
-  return fallback;
+  // Fallback - 30 days from now at 8 AM SAST converted to UTC
+  const fallbackSAST = new Date(today);
+  fallbackSAST.setDate(fallbackSAST.getDate() + 30);
+  fallbackSAST.setHours(8, 0, 0, 0);
+  const fallbackUTC = new Date(fallbackSAST.getTime() - (2 * 60 * 60 * 1000));
+  
+  console.log(`[scheduler] No slots found within 30 days, using fallback: ${fallbackSAST.toISOString()} SAST (${fallbackUTC.toISOString()} UTC)`);
+  return fallbackUTC;
 }

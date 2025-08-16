@@ -6,7 +6,8 @@ import {
   getCurrentSAST, 
   isWorkingDay, 
   isWithinBusinessHours,
-  getNextWorkingDayStart 
+  getNextWorkingDayStart,
+  createSASTTimeAsUTC
 } from '../timezone';
 
 /**
@@ -61,12 +62,12 @@ function nextWorkingDayStart(from: Date, startHour: number): Date {
     cursor = addMinutes(cursor, 24 * 60);
   }
   
-  // Create business start time using UTC-first approach
+  // Create business start time at specified hour in SAST
   const dateStr = format(cursor, 'yyyy-MM-dd');
   const timeStr = `${startHour.toString().padStart(2, '0')}:00:00`;
   
-  // Convert SAST business time to UTC, then back to SAST for consistency
-  const utcTime = fromSAST(new Date(`${dateStr}T${timeStr}`));
+  // Create SAST time using createSASTTimeAsUTC and convert back to SAST for consistency
+  const utcTime = createSASTTimeAsUTC(dateStr, timeStr);
   return toSAST(utcTime);
 }
 
