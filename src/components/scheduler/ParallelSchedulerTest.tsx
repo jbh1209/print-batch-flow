@@ -1,166 +1,168 @@
+/**
+ * **PARALLEL SCHEDULER TEST: Verifies parallel capacity packing**
+ * Tests that the new capacity-aware scheduler can pack multiple jobs within the same day
+ * instead of spreading them across multiple days
+ */
+
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { autoSchedulerService } from '@/services/autoSchedulerService';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentSAST, formatSAST } from '@/utils/timezone';
+import { formatSAST } from '@/utils/timezone';
 
 interface TestResult {
   success: boolean;
   message: string;
-  scheduledSlots?: number;
-  details?: any;
+  details?: string;
 }
 
-/**
- * **PARALLEL SCHEDULER VERIFICATION COMPONENT**
- * Tests the new capacity-aware scheduler to ensure it fixes "Monday to Friday" gaps
- */
 const ParallelSchedulerTest = () => {
-  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [results, setResults] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [phase, setPhase] = useState<string>('Ready');
+  const [currentPhase, setCurrentPhase] = useState('');
 
-  /**
-   * **CORE TEST: Schedule 2 jobs and verify they pack within same day**
-   * This test should PASS if the "Monday to Friday" bug is fixed
-   */
   const runParallelCapacityTest = async () => {
     setIsRunning(true);
-    setPhase('Creating test jobs...');
-    setTestResults([]);
+    setResults([]);
+    setCurrentPhase('Setting up test environment...');
+
+    const testResults: TestResult[] = [];
 
     try {
-      console.log('🧪 **PARALLEL CAPACITY TEST STARTING**');
+      // Step 1: Create test production jobs
+      setCurrentPhase('Creating test production jobs...');
       
-      // STEP 1: Create two test production jobs
-      const testJob1 = {
-        id: crypto.randomUUID(),
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        wo_no: `TEST-${Date.now()}-1`,
-        customer: 'PARALLEL TEST CUSTOMER 1',
-        status: 'In Production',
-        qty: 100,
-        category_id: null
-      };
-
-      const testJob2 = {
-        id: crypto.randomUUID(),
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        wo_no: `TEST-${Date.now()}-2`,
-        customer: 'PARALLEL TEST CUSTOMER 2',
-        status: 'In Production',
-        qty: 200,
-        category_id: null
-      };
-
-      setPhase('Inserting test jobs...');
-
-      // Insert test jobs
-      const { error: job1Error } = await supabase
+      const { data: testJob1, error: job1Error } = await supabase
         .from('production_jobs')
-        .insert(testJob1);
+        .insert({
+          wo_no: `TEST-PARALLEL-${Date.now()}-1`,
+          customer: 'Test Customer 1',
+          reference: 'Parallel Test Job 1',
+          qty: 100,
+          status: 'In Production',
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
 
-      const { error: job2Error } = await supabase
+      if (job1Error) throw job1Error;
+
+      const { data: testJob2, error: job2Error } = await supabase
         .from('production_jobs')
-        .insert(testJob2);
+        .insert({
+          wo_no: `TEST-PARALLEL-${Date.now()}-2`, 
+          customer: 'Test Customer 2',
+          reference: 'Parallel Test Job 2',
+          qty: 150,
+          status: 'In Production',
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
 
-      if (job1Error || job2Error) {
-        throw new Error(`Failed to create test jobs: ${job1Error?.message || job2Error?.message}`);
-      }
+      if (job2Error) throw job2Error;
 
-      console.log(`✅ Created test jobs: ${testJob1.id}, ${testJob2.id}`);
+      testResults.push({
+        success: true,
+        message: 'Created two test production jobs',
+        details: `Job 1: ${testJob1.wo_no}, Job 2: ${testJob2.wo_no}`
+      });
 
-      // STEP 2: Get a production stage for testing
-      const { data: stages } = await supabase
+      // Step 2: Get an active production stage
+      setCurrentPhase('Finding active production stage...');
+      
+      const { data: activeStage, error: stageError } = await supabase
         .from('production_stages')
         .select('id, name')
         .eq('is_active', true)
-        .neq('name', 'DTP')
-        .neq('name', 'Proof')
-        .neq('name', 'Batch Allocation')
-        .limit(1);
+        .limit(1)
+        .single();
 
-      if (!stages || stages.length === 0) {
-        throw new Error('No production stages found for testing');
+      if (stageError || !activeStage) {
+        throw new Error('No active production stages found');
       }
 
-      const testStage = stages[0];
-      console.log(`🎯 Using test stage: ${testStage.name}`);
+      testResults.push({
+        success: true,
+        message: 'Found active production stage',
+        details: `Stage: ${activeStage.name} (${activeStage.id})`
+      });
 
-      // STEP 3: Create stage instances for both jobs (2 hours each)
-      const stageInstances = [
+      // Step 3: Create stage instances for both jobs (2 hour duration each)
+      setCurrentPhase('Creating stage instances...');
+      
+      const estimatedMinutes = 120; // 2 hours each
+
+      await supabase.from('job_stage_instances').insert([
         {
           job_id: testJob1.id,
           job_table_name: 'production_jobs',
-          production_stage_id: testStage.id,
+          production_stage_id: activeStage.id,
           stage_order: 1,
           status: 'pending',
-          estimated_duration_minutes: 120 // 2 hours
+          estimated_duration_minutes: estimatedMinutes
         },
         {
           job_id: testJob2.id,
-          job_table_name: 'production_jobs',
-          production_stage_id: testStage.id,
+          job_table_name: 'production_jobs', 
+          production_stage_id: activeStage.id,
           stage_order: 1,
           status: 'pending',
-          estimated_duration_minutes: 120 // 2 hours
+          estimated_duration_minutes: estimatedMinutes
         }
-      ];
+      ]);
 
-      setPhase('Creating stage instances...');
+      testResults.push({
+        success: true,
+        message: 'Created stage instances for both jobs',
+        details: `Each job has ${estimatedMinutes} minute estimated duration`
+      });
 
-      const { error: stageError } = await supabase
-        .from('job_stage_instances')
-        .insert(stageInstances);
-
-      if (stageError) {
-        throw new Error(`Failed to create stage instances: ${stageError.message}`);
-      }
-
-      console.log(`✅ Created stage instances for both jobs`);
-
-      // STEP 4: Schedule first job using parallel scheduler
-      setPhase('Scheduling Job 1...');
-
-      const result1 = await autoSchedulerService.scheduleJob(testJob1.id, 'production_jobs');
+      // Step 4: Schedule first job
+      setCurrentPhase('Scheduling first job...');
       
-      if (!result1.success) {
-        throw new Error(`Job 1 scheduling failed: ${result1.message}`);
+      const schedule1Result = await autoSchedulerService.scheduleJob(testJob1.id);
+      
+      if (!schedule1Result.success) {
+        throw new Error(`Failed to schedule first job: ${schedule1Result.message}`);
       }
 
-      setTestResults(prev => [...prev, {
-        success: result1.success,
-        message: `Job 1 scheduled: ${result1.message}`,
-        scheduledSlots: result1.scheduled_slots,
-        details: result1
-      }]);
+      testResults.push({
+        success: true,
+        message: 'Scheduled first job successfully',
+        details: schedule1Result.message
+      });
 
-      // STEP 5: Schedule second job using parallel scheduler  
-      setPhase('Scheduling Job 2...');
-
-      const result2 = await autoSchedulerService.scheduleJob(testJob2.id, 'production_jobs');
-
-      if (!result2.success) {
-        throw new Error(`Job 2 scheduling failed: ${result2.message}`);
+      // Step 5: Schedule second job
+      setCurrentPhase('Scheduling second job...');
+      
+      const schedule2Result = await autoSchedulerService.scheduleJob(testJob2.id);
+      
+      if (!schedule2Result.success) {
+        throw new Error(`Failed to schedule second job: ${schedule2Result.message}`);
       }
 
-      setTestResults(prev => [...prev, {
-        success: result2.success,
-        message: `Job 2 scheduled: ${result2.message}`,
-        scheduledSlots: result2.scheduled_slots,
-        details: result2
-      }]);
+      testResults.push({
+        success: true,
+        message: 'Scheduled second job successfully',
+        details: schedule2Result.message
+      });
 
-      // STEP 6: Verify both jobs are scheduled on the same day (CRITICAL TEST)
-      setPhase('Verifying parallel capacity logic...');
-
-      const { data: scheduledJobs } = await supabase
+      // Step 6: Verify both jobs are scheduled on the same day
+      setCurrentPhase('Verifying parallel scheduling...');
+      
+      // Query the scheduled times using new unified columns
+      const { data: scheduledJobs, error: scheduleError } = await supabase
         .from('job_stage_instances')
-        .select('job_id, auto_scheduled_start_at, auto_scheduled_end_at, auto_scheduled_duration_minutes')
+        .select('job_id, scheduled_start_at, scheduled_end_at')
         .in('job_id', [testJob1.id, testJob2.id])
-        .not('auto_scheduled_start_at', 'is', null);
+        .not('scheduled_start_at', 'is', null);
+
+      if (scheduleError) {
+        throw scheduleError;
+      }
 
       if (!scheduledJobs || scheduledJobs.length !== 2) {
         throw new Error('Both jobs should be scheduled but were not found');
@@ -173,153 +175,186 @@ const ParallelSchedulerTest = () => {
         throw new Error('Could not find scheduled times for both jobs');
       }
 
-      // Parse scheduled dates
-      const job1Date = new Date(job1Schedule.auto_scheduled_start_at!).toDateString();
-      const job2Date = new Date(job2Schedule.auto_scheduled_start_at!).toDateString();
+      // Parse scheduled dates using new unified columns
+      const job1Date = new Date(job1Schedule.scheduled_start_at!).toDateString();
+      const job2Date = new Date(job2Schedule.scheduled_start_at!).toDateString();
 
-      const job1Start = formatSAST(new Date(job1Schedule.auto_scheduled_start_at!), 'HH:mm');
-      const job1End = formatSAST(new Date(job1Schedule.auto_scheduled_end_at!), 'HH:mm');
-      const job2Start = formatSAST(new Date(job2Schedule.auto_scheduled_start_at!), 'HH:mm');
-      const job2End = formatSAST(new Date(job2Schedule.auto_scheduled_end_at!), 'HH:mm');
+      const job1Start = formatSAST(new Date(job1Schedule.scheduled_start_at!), 'HH:mm');
+      const job1End = formatSAST(new Date(job1Schedule.scheduled_end_at!), 'HH:mm');
+      const job2Start = formatSAST(new Date(job2Schedule.scheduled_start_at!), 'HH:mm');
+      const job2End = formatSAST(new Date(job2Schedule.scheduled_end_at!), 'HH:mm');
 
       console.log(`📅 Job 1 scheduled: ${job1Date} ${job1Start}-${job1End}`);
       console.log(`📅 Job 2 scheduled: ${job2Date} ${job2Start}-${job2End}`);
 
-      // CRITICAL VERIFICATION: Both jobs should be on same day if capacity allows
-      const sameDayScheduling = job1Date === job2Date;
+      if (job1Date === job2Date) {
+        testResults.push({
+          success: true,
+          message: '✅ PASS: Both jobs scheduled on the same day (parallel capacity)',
+          details: `Both jobs scheduled for ${job1Date}. Job 1: ${job1Start}-${job1End}, Job 2: ${job2Start}-${job2End}`
+        });
+      } else {
+        testResults.push({
+          success: false,
+          message: '❌ FAIL: Jobs scheduled on different days',
+          details: `Job 1 on ${job1Date}, Job 2 on ${job2Date}. This indicates sequential scheduling bug.`
+        });
+      }
+
+      // Step 7: Cleanup test data
+      setCurrentPhase('Cleaning up test data...');
       
-      setTestResults(prev => [...prev, {
-        success: sameDayScheduling,
-        message: sameDayScheduling 
-          ? `✅ PARALLEL CAPACITY VERIFIED: Both jobs scheduled on same day (${job1Date})`
-          : `❌ SEQUENTIAL SCHEDULING DETECTED: Jobs scheduled on different days (${job1Date} vs ${job2Date})`,
-        details: {
-          job1: { date: job1Date, time: `${job1Start}-${job1End}` },
-          job2: { date: job2Date, time: `${job2Start}-${job2End}` },
-          sameDayScheduling
-        }
-      }]);
-
-      // STEP 7: Cleanup test data
-      setPhase('Cleaning up test data...');
-
       await supabase.from('job_stage_instances').delete().in('job_id', [testJob1.id, testJob2.id]);
       await supabase.from('production_jobs').delete().in('id', [testJob1.id, testJob2.id]);
 
-      setPhase(sameDayScheduling ? '✅ PARALLEL SCHEDULER VERIFIED' : '❌ STILL USING SEQUENTIAL LOGIC');
-
-      console.log(sameDayScheduling 
-        ? '🎉 **PARALLEL CAPACITY TEST PASSED** - Scheduler is working correctly!' 
-        : '🚨 **PARALLEL CAPACITY TEST FAILED** - Scheduler still has sequential behavior'
-      );
+      testResults.push({
+        success: true,
+        message: 'Cleaned up test data',
+        details: 'Removed test jobs and stage instances'
+      });
 
     } catch (error) {
-      console.error('Parallel capacity test failed:', error);
-      setTestResults(prev => [...prev, {
+      console.error('Test failed:', error);
+      testResults.push({
         success: false,
-        message: `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        details: { error: String(error) }
-      }]);
-      setPhase('❌ TEST FAILED');
+        message: 'Test failed with error',
+        details: error instanceof Error ? error.message : String(error)
+      });
     } finally {
+      setResults(testResults);
       setIsRunning(false);
+      setCurrentPhase('');
     }
   };
 
+  const passedTests = results.filter(r => r.success).length;
+  const failedTests = results.filter(r => !r.success).length;
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
-            🚀 Parallel Capacity Scheduler Test
-          </CardTitle>
-          <p className="text-center text-muted-foreground">
-            Verifies that the new parallel scheduler fixes "Monday to Friday" scheduling gaps
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          
-          {/* Test Status */}
-          <Card className="border-2 border-blue-200 bg-blue-50/30">
-            <CardHeader>
-              <CardTitle className="text-lg">🧪 Capacity Logic Verification</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Creates 2 test jobs (2 hours each) and verifies they pack within same day capacity
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-center">
-                <p className="text-lg font-medium">Status: {phase}</p>
-                {isRunning && (
-                  <div className="mt-2">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  </div>
-                )}
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🧪 Parallel Scheduler Test
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Tests whether the new scheduler can pack multiple jobs within the same day
+              instead of spreading them unnecessarily across multiple days.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={runParallelCapacityTest}
+              disabled={isRunning}
+              className="w-full"
+            >
+              {isRunning ? 'Running Test...' : 'Run Parallel Capacity Test'}
+            </Button>
+            {currentPhase && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-700">
+                  <strong>Current Phase:</strong> {currentPhase}
+                </p>
               </div>
+            )}
+          </CardContent>
+        </Card>
 
-              <Button 
-                onClick={runParallelCapacityTest} 
-                disabled={isRunning}
-                className="w-full"
-                size="lg"
-              >
-                {isRunning ? 'Running Parallel Scheduler Test...' : '🚀 Test Parallel Capacity Scheduler'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Test Results */}
-          {testResults.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Test Results</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {testResults.map((result, index) => (
+        {/* Test Results */}
+        {results.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                Test Results
+                <div className="flex gap-2">
+                  <Badge variant="default" className="bg-green-100 text-green-800">
+                    Passed: {passedTests}
+                  </Badge>
+                  <Badge variant="destructive">
+                    Failed: {failedTests}
+                  </Badge>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {results.map((result, index) => (
                   <div 
                     key={index}
-                    className={`p-3 rounded border-l-4 ${
+                    className={`p-3 rounded-md border ${
                       result.success 
-                        ? 'bg-green-50 border-green-400' 
-                        : 'bg-red-50 border-red-400'
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-red-50 border-red-200'
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={result.success ? "default" : "destructive"}>
-                        {result.success ? '✅ PASS' : '❌ FAIL'}
-                      </Badge>
-                      <span className="font-medium">Step {index + 1}</span>
-                    </div>
-                    <p className="text-sm">{result.message}</p>
+                    <p className={`font-medium ${
+                      result.success ? 'text-green-800' : 'text-red-800'
+                    }`}>
+                      {result.success ? '✅' : '❌'} {result.message}
+                    </p>
                     {result.details && (
-                      <details className="mt-2">
-                        <summary className="text-xs cursor-pointer">View Details</summary>
-                        <pre className="text-xs bg-gray-100 p-2 mt-1 rounded overflow-auto">
-                          {JSON.stringify(result.details, null, 2)}
-                        </pre>
-                      </details>
+                      <p className={`text-sm mt-1 ${
+                        result.success ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {result.details}
+                      </p>
                     )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Instructions */}
-          <Card className="border border-yellow-200 bg-yellow-50">
-            <CardContent className="p-4">
-              <h4 className="font-semibold mb-2">Expected Results:</h4>
-              <ul className="text-sm space-y-1">
-                <li>✅ Both test jobs should be scheduled successfully</li>
-                <li>✅ Both jobs should be scheduled on the SAME DAY (if capacity allows)</li>
-                <li>✅ Jobs should start at different times (e.g., 08:00-10:00, then 10:00-12:00)</li>
-                <li>❌ Jobs should NOT be scheduled days apart (Monday/Friday)</li>
-              </ul>
+              </div>
+              
+              {/* Final Status */}
+              <div className="mt-6 p-4 rounded-md border-2 border-dashed">
+                {failedTests === 0 ? (
+                  <div className="text-center text-green-800">
+                    <p className="text-lg font-bold">🎉 All Tests Passed!</p>
+                    <p className="text-sm">
+                      The parallel capacity scheduler is working correctly and can pack 
+                      multiple jobs within the same day instead of spreading them across multiple days.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center text-red-800">
+                    <p className="text-lg font-bold">❌ Test Failed</p>
+                    <p className="text-sm">
+                      The scheduler is still spreading jobs across multiple days instead of 
+                      using parallel capacity. Check the failed tests above for details.
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
+        )}
 
-        </CardContent>
-      </Card>
+        {/* Instructions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Expected Behavior</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-2">
+            <p><strong>✅ Correct (Parallel):</strong> Both 2-hour jobs scheduled on the same day, e.g.:</p>
+            <ul className="list-disc list-inside ml-4">
+              <li>Job 1: Today 08:00-10:00</li>
+              <li>Job 2: Today 10:00-12:00</li>
+            </ul>
+            
+            <p><strong>❌ Incorrect (Sequential):</strong> Jobs spread across different days, e.g.:</p>
+            <ul className="list-disc list-inside ml-4">
+              <li>Job 1: Today 08:00-10:00</li>
+              <li>Job 2: Tomorrow 08:00-10:00</li>
+            </ul>
+            
+            <p className="mt-4">
+              The test creates two 2-hour jobs and verifies they get packed within the same day's 
+              8-hour capacity (8 AM - 5:30 PM SAST) instead of being scheduled on separate days.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

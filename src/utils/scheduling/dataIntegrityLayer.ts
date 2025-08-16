@@ -135,9 +135,9 @@ export async function cleanCorruptedSchedulingData(): Promise<DataIntegrityResul
 
     for (const instance of jobInstances || []) {
       try {
-        if (!instance.auto_scheduled_start_at) continue;
+        if (!instance.scheduled_start_at) continue;
 
-        const scheduledStart = new Date(instance.auto_scheduled_start_at);
+        const scheduledStart = new Date(instance.scheduled_start_at);
         
         // Check if time is valid
         if (isNaN(scheduledStart.getTime())) {
@@ -246,8 +246,8 @@ export async function verifyDatabaseIntegrity(): Promise<{ isClean: boolean; iss
     // Check for invalid job_stage_instances
     const { data: instances, error: instancesError } = await supabase
       .from('job_stage_instances')
-      .select('id, auto_scheduled_start_at')
-      .not('auto_scheduled_start_at', 'is', null)
+      .select('id, scheduled_start_at')
+      .not('scheduled_start_at', 'is', null)
       .limit(100);
 
     if (instancesError) {
@@ -257,9 +257,9 @@ export async function verifyDatabaseIntegrity(): Promise<{ isClean: boolean; iss
       let pastInstanceCount = 0;
 
       for (const instance of instances || []) {
-        if (instance.auto_scheduled_start_at) {
+        if (instance.scheduled_start_at) {
           try {
-            const scheduledTime = new Date(instance.auto_scheduled_start_at);
+            const scheduledTime = new Date(instance.scheduled_start_at);
             const sastTime = new Date(scheduledTime.getTime() + (2 * 60 * 60 * 1000));
             
             if (sastTime < nowSAST) {

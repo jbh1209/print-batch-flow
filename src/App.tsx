@@ -84,8 +84,7 @@ import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 import SchedulerTest from "@/pages/SchedulerTest";
 import Layout from "@/components/Layout";
 import Phase2TestTrigger from "@/components/scheduler/Phase2TestTrigger";
-import Phase3TestTrigger from "@/components/scheduler/Phase3TestTrigger";
-import Phase4TestTrigger from "@/components/scheduler/Phase4TestTrigger";
+// Removed legacy test components
 import CapacityDashboard from "@/components/scheduler/CapacityDashboard";
 import WhyThisTimeExplainer from "@/components/scheduler/WhyThisTimeExplainer";
 
@@ -241,16 +240,7 @@ function App() {
                     <Phase2TestTrigger />
                   </ProtectedRoute>
                 } />
-                <Route path="/phase3-test" element={
-                  <ProtectedRoute>
-                    <Phase3TestTrigger />
-                  </ProtectedRoute>
-                 } />
-                 <Route path="/phase4-test" element={
-                   <ProtectedRoute>
-                     <Phase4TestTrigger />
-                   </ProtectedRoute>
-                 } />
+                {/* Legacy test routes removed */}
                 <Route path="/capacity-dashboard" element={
                   <ProtectedRoute>
                     <CapacityDashboard />

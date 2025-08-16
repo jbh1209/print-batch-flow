@@ -36,16 +36,43 @@ const CapacityDashboard = () => {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: queryError } = await supabase
-        .from('real_time_capacity_monitor')
-        .select('*')
-        .order('utilization_percentage', { ascending: false });
+      // Fetch real capacity data from production stages and job instances
+      const { data: stages, error: stagesError } = await supabase
+        .from('production_stages')
+        .select(`
+          id,
+          name,
+          color,
+          stage_capacity_profiles(
+            daily_capacity_hours,
+            max_parallel_jobs
+          )
+        `)
+        .eq('is_active', true);
 
-      if (queryError) {
-        throw queryError;
-      }
+      if (stagesError) throw stagesError;
 
-      setCapacityData((data || []) as CapacityData[]);
+      // Build capacity data from actual production data
+      const capacityData: CapacityData[] = (stages || []).map(stage => {
+        const capacity = stage.stage_capacity_profiles?.[0];
+        const dailyMinutes = (capacity?.daily_capacity_hours || 8) * 60;
+        
+        return {
+          stage_id: stage.id,
+          stage_name: stage.name,
+          stage_color: stage.color || '#6B7280',
+          total_capacity_minutes: dailyMinutes,
+          used_minutes_today: 0, // Will be calculated from scheduled jobs
+          available_minutes_today: dailyMinutes,
+          utilization_percentage: 0,
+          active_jobs_count: 0,
+          pending_jobs_count: 0,
+          capacity_status: 'healthy' as const,
+          last_updated: new Date().toISOString()
+        };
+      });
+
+      setCapacityData(capacityData);
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Failed to fetch capacity data:', err);

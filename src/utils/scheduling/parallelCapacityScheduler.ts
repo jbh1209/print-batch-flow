@@ -251,10 +251,10 @@ export class ParallelCapacityScheduler {
   private async getUsedCapacityForDate(stageId: string, dateStr: string): Promise<number> {
     const { data, error } = await supabase
       .from('job_stage_instances')
-      .select('auto_scheduled_duration_minutes, scheduled_minutes')
+      .select('scheduled_minutes')
       .eq('production_stage_id', stageId)
       .in('status', ['pending', 'active'])
-      .or(`auto_scheduled_start_at::date.eq.${dateStr},scheduled_start_at::date.eq.${dateStr}`);
+      .or(`scheduled_start_at::date.eq.${dateStr}`);
 
     if (error) {
       console.error('Error fetching used capacity:', error);
@@ -262,7 +262,7 @@ export class ParallelCapacityScheduler {
     }
 
     return (data || []).reduce((total, item) => {
-      const minutes = item.auto_scheduled_duration_minutes || item.scheduled_minutes || 0;
+      const minutes = item.scheduled_minutes || 0;
       return total + minutes;
     }, 0);
   }

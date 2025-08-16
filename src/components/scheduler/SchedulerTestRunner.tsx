@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { runCompleteSchedulerTests, MasterTestResult, PhaseTestResult } from '@/utils/scheduling/masterTestRunner';
+// Legacy test runner removed
 import { runPhase1Tests } from '@/utils/timezone-display-audit';
 import { runPhase2Tests } from '@/utils/scheduling/phase2-capacity-tests';
 import ParallelSchedulerTest from './ParallelSchedulerTest';
 
 const SchedulerTestRunner = () => {
-  const [testResults, setTestResults] = useState<MasterTestResult | null>(null);
+  const [testResults, setTestResults] = useState<any>(null);
   const [phase1Results, setPhase1Results] = useState<any>(null);
   const [phase2Results, setPhase2Results] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -63,8 +63,8 @@ const SchedulerTestRunner = () => {
   const handleRunTests = async () => {
     setIsRunning(true);
     try {
-      const results = await runCompleteSchedulerTests();
-      setTestResults(results);
+      // Legacy complete test runner removed
+      setTestResults({ readyForProduction: false, totalPassed: 0, totalFailed: 1, summary: 'Legacy test runner removed', phaseResults: [] });
     } catch (error) {
       console.error('Test execution failed:', error);
     } finally {
@@ -72,11 +72,11 @@ const SchedulerTestRunner = () => {
     }
   };
 
-  const getPhaseStatus = (phase: PhaseTestResult) => {
+  const getPhaseStatus = (phase: any) => {
     return phase.success ? 'success' : 'destructive';
   };
 
-  const getPhaseIcon = (phase: PhaseTestResult) => {
+  const getPhaseIcon = (phase: any) => {
     return phase.success ? '✅' : '❌';
   };
 
