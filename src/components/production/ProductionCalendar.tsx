@@ -30,20 +30,20 @@ export const ProductionCalendar: React.FC = () => {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 10);
       
-      // Query auto-scheduled job stages directly from job_stage_instances
+      // Query scheduled job stages directly from job_stage_instances
       const { data: scheduledStages, error } = await supabase
         .from('job_stage_instances')
         .select(`
-          auto_scheduled_start_at,
-          auto_scheduled_duration_minutes,
+          scheduled_start_at,
+          scheduled_minutes,
           job_id,
           production_stages:production_stage_id (name)
         `)
         .eq('job_table_name', 'production_jobs')
-        .not('auto_scheduled_start_at', 'is', null)
-        .gte('auto_scheduled_start_at', startDate.toISOString())
-        .lte('auto_scheduled_start_at', endDate.toISOString())
-        .order('auto_scheduled_start_at');
+        .not('scheduled_start_at', 'is', null)
+        .gte('scheduled_start_at', startDate.toISOString())
+        .lte('scheduled_start_at', endDate.toISOString())
+        .order('scheduled_start_at');
 
       if (error) throw error;
 
@@ -51,9 +51,9 @@ export const ProductionCalendar: React.FC = () => {
       const workloadMap = new Map<string, DailyWorkload>();
       
       (scheduledStages || []).forEach((stage: any) => {
-        const startDate = new Date(stage.auto_scheduled_start_at);
+        const startDate = new Date(stage.scheduled_start_at);
         const dateKey = startDate.toISOString().split('T')[0];
-        const hours = (stage.auto_scheduled_duration_minutes || 60) / 60;
+        const hours = (stage.scheduled_minutes || 60) / 60;
         
         if (workloadMap.has(dateKey)) {
           const existing = workloadMap.get(dateKey)!;

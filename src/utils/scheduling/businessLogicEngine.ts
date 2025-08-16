@@ -1,9 +1,12 @@
 /**
- * **PHASE 2: BUSINESS LOGIC ENGINE**
- * Production-ready scheduling engine with comprehensive business rules
- * Built on the validated Phase 1 timezone foundation
+ * **BUSINESS LOGIC ENGINE - PRODUCTION SCHEDULER REWRITE**
+ * Unified scheduling engine with SAST-correct, capacity-aware scheduling
+ * Built on proven timezone utilities and production-ready slot finding
  */
 
+import { supabase } from "@/integrations/supabase/client";
+import { findNextAvailableSlot, sastDateToDbUtcIso } from "./findNextAvailableSlot";
+import { normalizeCapacityForStage } from "../capacityService";
 import { 
   getCurrentSAST, 
   isWithinBusinessHours, 
@@ -291,6 +294,114 @@ export function scheduleMultipleJobs(
     errors,
     nextAvailableTime
   };
+}
+
+/**
+ * **UNIFIED SCHEDULER: Main API for job scheduling**
+ */
+export class BusinessLogicEngine {
+  /**
+   * Unified entrypoint for scheduling a job.
+   * Handles both auto-scheduling and manual overrides.
+   */
+  static async scheduleJob({
+    jobId,
+    jobTableName = "production_jobs",
+    targetDateTime,
+    stageId,
+    userId,
+  }: {
+    jobId: string;
+    jobTableName?: string;
+    targetDateTime?: string;
+    stageId?: string;
+    userId?: string;
+  }) {
+    try {
+      // 1. Fetch unscheduled stages
+      const { data: stages, error: stagesError } = await supabase
+        .from("job_stage_instances")
+        .select(
+          "id, production_stage_id, estimated_duration_minutes, setup_time_minutes, stage_order"
+        )
+        .eq("job_id", jobId)
+        .eq("job_table_name", jobTableName)
+        .is("scheduled_start_at", null)
+        .order("stage_order");
+
+      if (stagesError) throw stagesError;
+      if (!stages || stages.length === 0) {
+        return { success: true, message: "No stages to schedule", scheduled: 0 };
+      }
+
+      let scheduledCount = 0;
+
+      // 2. Loop through each stage
+      for (const stage of stages) {
+        const durationMinutes =
+          (stage.estimated_duration_minutes || 60) +
+          (stage.setup_time_minutes || 0);
+
+        let startTime: Date;
+
+        if (targetDateTime && stageId === stage.production_stage_id) {
+          // 📝 Manual override - convert from UTC ISO to SAST
+          const utcTime = new Date(targetDateTime);
+          startTime = getCurrentSAST(); // Start from current SAST time
+          startTime.setTime(utcTime.getTime()); // But use provided time
+        } else {
+          // ⚡ Auto schedule using capacity profiles
+          const capacity = await normalizeCapacityForStage(stage.production_stage_id);
+          const sastStart = await findNextAvailableSlot(
+            supabase,
+            stage.production_stage_id,
+            durationMinutes,
+            {
+              workingHours: { startHour: capacity.startHour, endHour: capacity.endHour },
+              horizonDays: 60
+            }
+          );
+
+          if (!sastStart) {
+            throw new Error(`No available slot found for stage ${stage.production_stage_id} within 60 days`);
+          }
+
+          startTime = sastStart;
+        }
+
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+
+        // 3. Persist scheduled values - convert SAST to UTC for DB storage
+        const { error: updateError } = await supabase
+          .from("job_stage_instances")
+          .update({
+            scheduled_start_at: sastDateToDbUtcIso(startTime),
+            scheduled_end_at: sastDateToDbUtcIso(endTime),
+            scheduled_minutes: durationMinutes,
+            schedule_status: "scheduled",
+            scheduling_method: targetDateTime ? "manual" : "auto",
+            scheduled_by_user_id: userId || null,
+          })
+          .eq("id", stage.id);
+
+        if (updateError) throw updateError;
+        scheduledCount++;
+      }
+
+      return {
+        success: true,
+        message: `Scheduled ${scheduledCount} stages`,
+        scheduled: scheduledCount,
+      };
+    } catch (error) {
+      console.error('BusinessLogicEngine.scheduleJob error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown scheduling error',
+        scheduled: 0
+      };
+    }
+  }
 }
 
 /**

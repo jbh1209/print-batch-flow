@@ -57,13 +57,6 @@ export type Database = {
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "active_job_assignments_stage_id_fkey"
-            columns: ["stage_id"]
-            isOneToOne: false
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
-          },
         ]
       }
       app_settings: {
@@ -484,13 +477,6 @@ export type Database = {
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "category_production_stages_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
-          },
         ]
       }
       cover_jobs: {
@@ -737,13 +723,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "excel_import_mappings_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
-          },
-          {
             foreignKeyName: "excel_import_mappings_stage_specification_id_fkey"
             columns: ["stage_specification_id"]
             isOneToOne: false
@@ -903,9 +882,6 @@ export type Database = {
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
-          auto_scheduled_duration_minutes: number | null
-          auto_scheduled_end_at: string | null
-          auto_scheduled_start_at: string | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
@@ -936,9 +912,11 @@ export type Database = {
           rework_count: number | null
           rework_reason: string | null
           schedule_status: string | null
+          scheduled_by_user_id: string | null
           scheduled_end_at: string | null
           scheduled_minutes: number | null
           scheduled_start_at: string | null
+          scheduling_method: string | null
           setup_time_minutes: number | null
           split_job_part: number | null
           split_job_total_parts: number | null
@@ -952,9 +930,6 @@ export type Database = {
         }
         Insert: {
           actual_duration_minutes?: number | null
-          auto_scheduled_duration_minutes?: number | null
-          auto_scheduled_end_at?: string | null
-          auto_scheduled_start_at?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -985,9 +960,11 @@ export type Database = {
           rework_count?: number | null
           rework_reason?: string | null
           schedule_status?: string | null
+          scheduled_by_user_id?: string | null
           scheduled_end_at?: string | null
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
+          scheduling_method?: string | null
           setup_time_minutes?: number | null
           split_job_part?: number | null
           split_job_total_parts?: number | null
@@ -1001,9 +978,6 @@ export type Database = {
         }
         Update: {
           actual_duration_minutes?: number | null
-          auto_scheduled_duration_minutes?: number | null
-          auto_scheduled_end_at?: string | null
-          auto_scheduled_start_at?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -1034,9 +1008,11 @@ export type Database = {
           rework_count?: number | null
           rework_reason?: string | null
           schedule_status?: string | null
+          scheduled_by_user_id?: string | null
           scheduled_end_at?: string | null
           scheduled_minutes?: number | null
           scheduled_start_at?: string | null
+          scheduling_method?: string | null
           setup_time_minutes?: number | null
           split_job_part?: number | null
           split_job_total_parts?: number | null
@@ -1069,13 +1045,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "job_stage_instances_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
           },
           {
             foreignKeyName: "job_stage_instances_stage_specification_id_fkey"
@@ -2181,13 +2150,6 @@ export type Database = {
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_stage_capacity_profiles_production_stage_id"
-            columns: ["production_stage_id"]
-            isOneToOne: true
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
-          },
         ]
       }
       stage_capacity_snapshots: {
@@ -2318,13 +2280,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "production_stages"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stage_specifications_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
           },
         ]
       }
@@ -2587,13 +2542,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_group_stage_permissions_production_stage_id_fkey"
-            columns: ["production_stage_id"]
-            isOneToOne: false
-            referencedRelation: "real_time_capacity_monitor"
-            referencedColumns: ["stage_id"]
-          },
-          {
             foreignKeyName: "user_group_stage_permissions_user_group_id_fkey"
             columns: ["user_group_id"]
             isOneToOne: false
@@ -2655,30 +2603,7 @@ export type Database = {
       }
     }
     Views: {
-      real_time_capacity_monitor: {
-        Row: {
-          active_jobs_count: number | null
-          available_minutes_today: number | null
-          capacity_status: string | null
-          last_updated: string | null
-          pending_jobs_count: number | null
-          stage_color: string | null
-          stage_id: string | null
-          stage_name: string | null
-          total_capacity_minutes: number | null
-          used_minutes_today: number | null
-          utilization_percentage: number | null
-        }
-        Relationships: []
-      }
-      scheduling_integrity_monitor: {
-        Row: {
-          check_type: string | null
-          violation_count: number | null
-          violations: Json | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       activate_batch_allocation_for_job: {
@@ -3315,15 +3240,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      run_scheduling_integrity_check: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          check_type: string
-          details: Json
-          status: string
-          violation_count: number
-        }[]
-      }
       safe_delete_category: {
         Args: { p_category_id: string; p_user_id?: string }
         Returns: {
@@ -3470,17 +3386,6 @@ export type Database = {
           issues: Json
           missing_references: number
           orphaned_jobs: number
-        }[]
-      }
-      validate_batch_job_references: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          batch_id: string
-          has_production_job: boolean
-          job_id: string
-          job_number: string
-          production_job_id: string
-          table_name: string
         }[]
       }
       validate_batch_simple: {

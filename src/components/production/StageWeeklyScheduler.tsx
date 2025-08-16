@@ -116,17 +116,16 @@ export function useStageSchedule() {
         .select(`
           id, job_id, production_stage_id, 
           scheduled_start_at, scheduled_end_at, scheduled_minutes,
-          auto_scheduled_start_at, auto_scheduled_end_at, auto_scheduled_duration_minutes,
           status, schedule_status
         `)
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending", "completed"]) 
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"])
-        .or(`and(scheduled_start_at.gte.${startIso},scheduled_start_at.lt.${endIso}),and(auto_scheduled_start_at.gte.${startIso},auto_scheduled_start_at.lt.${endIso})`)
-        // CRITICAL: Include jobs with ANY schedule_status OR with auto_scheduled times
-        .or("schedule_status.in.(scheduled,auto_scheduled,unscheduled),auto_scheduled_start_at.not.is.null")
-        .order("auto_scheduled_start_at", { ascending: true, nullsFirst: false })
-        .order("scheduled_start_at", { ascending: true, nullsFirst: false });
+        .gte("scheduled_start_at", startIso)
+        .lt("scheduled_start_at", endIso)
+        // CRITICAL: Include jobs with scheduled times 
+        .not("scheduled_start_at", "is", null)
+        .order("scheduled_start_at", { ascending: true });
       if (jsiErr) throw jsiErr;
       
       console.log(`📊 Found ${(jsiRows || []).length} job stage instances in date range`);
@@ -337,7 +336,7 @@ export const StageWeeklyScheduler: React.FC = () => {
       
       let scheduledCount = 0;
       for (const job of jobs || []) {
-        const { data, error } = await supabase.functions.invoke("parallel-auto-scheduler", {
+        const { data, error } = await supabase.functions.invoke("scheduler", {
           body: {
             job_id: job.id,
             job_table_name: "production_jobs",
