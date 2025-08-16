@@ -34,11 +34,8 @@ export interface ScheduledStageItem {
   scheduled_start_at: string | null;
   scheduled_end_at: string | null;
   scheduled_minutes: number | null;
-  auto_scheduled_start_at: string | null;
-  auto_scheduled_end_at: string | null;
-  auto_scheduled_duration_minutes: number | null;
+  scheduling_method: string | null;
   status: string;
-  is_auto_scheduled: boolean;
   is_expedited?: boolean;
   wo_no?: string;
   customer?: string;
@@ -116,7 +113,7 @@ export function useStageSchedule() {
         .select(`
           id, job_id, production_stage_id, 
           scheduled_start_at, scheduled_end_at, scheduled_minutes,
-          status, schedule_status
+          scheduling_method, status, schedule_status
         `)
         .eq("job_table_name", "production_jobs")
         .in("status", ["active", "pending", "completed"]) 
@@ -162,9 +159,6 @@ export function useStageSchedule() {
 
       // STEP 2 FIX: Filter to actual week after fetching, normalize display times
       const rawMapped: ScheduledStageItem[] = (jsiRows || []).map((r: any) => {
-        // Determine if job is auto-scheduled vs manually scheduled
-        const isAutoScheduled = !!(r.auto_scheduled_start_at && r.auto_scheduled_end_at);
-        
         return {
           id: r.id,
           job_id: r.job_id,
@@ -172,11 +166,8 @@ export function useStageSchedule() {
           scheduled_start_at: r.scheduled_start_at,
           scheduled_end_at: r.scheduled_end_at,
           scheduled_minutes: r.scheduled_minutes,
-          auto_scheduled_start_at: r.auto_scheduled_start_at,
-          auto_scheduled_end_at: r.auto_scheduled_end_at,
-          auto_scheduled_duration_minutes: r.auto_scheduled_duration_minutes,
+          scheduling_method: r.scheduling_method,
           status: r.status,
-          is_auto_scheduled: isAutoScheduled,
           wo_no: jobMap[r.job_id]?.wo_no,
           customer: jobMap[r.job_id]?.customer,
           is_expedited: jobMap[r.job_id]?.is_expedited,
@@ -191,9 +182,9 @@ export function useStageSchedule() {
       const actualWeekEnd = addDays(weekStart, 7).toISOString();
       
       const mapped = rawMapped.filter(item => {
-        // Get display start time (auto takes precedence over manual - CRITICAL FIX)
-        const displayStart = item.auto_scheduled_start_at || item.scheduled_start_at;
-        console.log(`🔍 Job ${item.job_id} stage ${item.production_stage_id}: auto=${item.auto_scheduled_start_at}, manual=${item.scheduled_start_at}, using=${displayStart}`);
+        // Use unified scheduled_start_at column
+        const displayStart = item.scheduled_start_at;
+        console.log(`🔍 Job ${item.job_id} stage ${item.production_stage_id}: scheduled=${item.scheduled_start_at}, method=${item.scheduling_method}`);
         if (!displayStart) return false;
         
         // Check if within actual week bounds
@@ -202,8 +193,8 @@ export function useStageSchedule() {
       });
 
       console.log(`✅ Final mapped items: ${mapped.length}`);
-      console.log(`🤖 Auto-scheduled items: ${mapped.filter(m => m.is_auto_scheduled).length}`);
-      console.log(`🖊️ Manual scheduled items: ${mapped.filter(m => !m.is_auto_scheduled).length}`);
+      console.log(`🤖 Auto-scheduled items: ${mapped.filter(m => m.scheduling_method === 'auto').length}`);
+      console.log(`🖊️ Manual scheduled items: ${mapped.filter(m => m.scheduling_method === 'manual').length}`);
       
       setItems(mapped);
     } catch (e: any) {
@@ -272,28 +263,24 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
   const paperSpec = item.paper_specs?.weight || item.paper_specs?.type || 'Paper';
   const printSpec = item.printing_specs?.printer || item.printing_specs?.color_mode || 'Print';
   
-  // Use auto-scheduled duration if available, otherwise fall back to manual
-  const actualMinutes = item.is_auto_scheduled 
-    ? (item.auto_scheduled_duration_minutes || 60)
-    : (item.scheduled_minutes || 60);
+  // Use unified scheduled_minutes column
+  const actualMinutes = item.scheduled_minutes || 60;
   const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
   
   // FIXED: Use centralized timezone utilities instead of toLocaleString()
-  const displayTime = item.is_auto_scheduled && item.auto_scheduled_start_at
-    ? dbTimeToDisplayTime(item.auto_scheduled_start_at)
-    : item.scheduled_start_at 
-      ? dbTimeToDisplayTime(item.scheduled_start_at)
-      : null;
+  const displayTime = item.scheduled_start_at 
+    ? dbTimeToDisplayTime(item.scheduled_start_at)
+    : null;
   
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} 
          className={`p-2 rounded-md border hover:shadow-sm cursor-grab active:cursor-grabbing ${
-           item.is_auto_scheduled ? 'bg-blue-50 border-blue-200' : 'bg-card'
+           item.scheduling_method === 'auto' ? 'bg-blue-50 border-blue-200' : 'bg-card'
          }`}>
       <div className="flex items-center justify-between">
         <div className="font-medium text-sm truncate">{item.wo_no || "WO"}</div>
         <div className="flex items-center gap-1">
-          {item.is_auto_scheduled && <Badge variant="secondary" className="text-xs px-1">AUTO</Badge>}
+          {item.scheduling_method === 'auto' && <Badge variant="secondary" className="text-xs px-1">AUTO</Badge>}
           {item.is_expedited && <Zap className="h-3 w-3 text-destructive" />}
         </div>
       </div>
@@ -395,15 +382,9 @@ export const StageWeeklyScheduler: React.FC = () => {
         const dayItems = items.filter(it => {
           if (it.production_stage_id !== s.id) return false;
           
-          // Get the scheduled start time
-          let start: Date | null = null;
-          if (it.is_auto_scheduled && it.auto_scheduled_start_at) {
-            start = new Date(it.auto_scheduled_start_at);
-          } else if (it.scheduled_start_at) {
-            start = new Date(it.scheduled_start_at);
-          }
-          
-          if (!start) return false;
+          // Get the scheduled start time from unified column
+          if (!it.scheduled_start_at) return false;
+          const start = new Date(it.scheduled_start_at);
           
           // Check if job is scheduled on this calendar date (simple date match)
           const jobDate = format(start, 'yyyy-MM-dd');
@@ -416,9 +397,6 @@ export const StageWeeklyScheduler: React.FC = () => {
           return isOnThisDate;
         });
         const used = dayItems.reduce((sum, it) => {
-          if (it.is_auto_scheduled) {
-            return sum + (it.auto_scheduled_duration_minutes || 0);
-          }
           return sum + (it.scheduled_minutes || 0);
         }, 0);
         map[key] = { date: dateStr, items: dayItems, usedMinutes: used, capacityMinutes: cap };
