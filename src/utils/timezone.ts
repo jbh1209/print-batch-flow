@@ -1,21 +1,9 @@
 import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
-import { addDays, isAfter, isWeekend } from 'date-fns';
+import { addDays, isAfter, isWeekend, format } from 'date-fns';
 
 // Helper functions for missing date-fns functionality
 const isBefore = (date: Date, dateToCompare: Date): boolean => {
   return date.getTime() < dateToCompare.getTime();
-};
-
-const setHours = (date: Date, hours: number): Date => {
-  const newDate = new Date(date);
-  newDate.setHours(hours);
-  return newDate;
-};
-
-const setMinutes = (date: Date, minutes: number): Date => {
-  const newDate = new Date(date);
-  newDate.setMinutes(minutes);
-  return newDate;
 };
 
 const SAST_TIMEZONE = 'Africa/Johannesburg';
@@ -55,6 +43,20 @@ export function fromSAST(sastDate: Date): Date {
 }
 
 /**
+ * **UTC-FIRST APPROACH: Create business hour times in UTC**
+ * Creates a Date object representing a SAST time, but returns the UTC equivalent
+ */
+export function createSASTTimeAsUTC(dateStr: string, timeStr: string): Date {
+  if (!dateStr || !timeStr) {
+    throw new Error('Date string and time string are required');
+  }
+  
+  // Create SAST datetime string and convert to UTC
+  const sastDateTimeStr = `${dateStr}T${timeStr}`;
+  return fromZonedTime(new Date(sastDateTimeStr), SAST_TIMEZONE);
+}
+
+/**
  * Get current time in SAST timezone
  * CRITICAL: This is the authoritative "now" for all scheduling decisions
  */
@@ -82,9 +84,11 @@ export function createSASTDate(dateStr: string, timeStr: string): Date {
     throw new Error('Date string and time string are required');
   }
   
-  // Parse the date and time string in SAST timezone
-  const sastDateTimeStr = `${dateStr}T${timeStr}`;
-  const sastDate = toZonedTime(new Date(sastDateTimeStr), SAST_TIMEZONE);
+  // Create the UTC equivalent of the SAST time
+  const utcDate = createSASTTimeAsUTC(dateStr, timeStr);
+  
+  // Convert back to SAST for validation
+  const sastDate = toSAST(utcDate);
   
   // VALIDATION: Check if time is within business hours
   const hours = sastDate.getHours();
@@ -189,8 +193,8 @@ export function getNextWorkingDayStart(fromSastDate: Date): Date {
     nextDate = addDays(nextDate, 1);
   }
   
-  // Set to 8:00 AM SAST
-  const dateStr = formatSAST(nextDate, 'yyyy-MM-dd');
+  // Set to 8:00 AM SAST using UTC-first approach
+  const dateStr = format(nextDate, 'yyyy-MM-dd');
   return createSASTDate(dateStr, '08:00:00');
 }
 

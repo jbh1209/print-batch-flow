@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { addMinutes, differenceInMinutes, startOfDay, isBefore, max as dateMax } from 'date-fns';
+import { addMinutes, differenceInMinutes, startOfDay, isBefore, max as dateMax, format } from 'date-fns';
 import { 
   toSAST, 
   fromSAST, 
@@ -50,20 +50,24 @@ function ymdKeyFor(date: Date): string {
 }
 
 /**
- * Helper to return next working day start (SAST) at given hour
+ * Helper to return next working day start (SAST) at given hour using UTC-first approach
  */
 function nextWorkingDayStart(from: Date, startHour: number): Date {
-  let cursor = startOfDay(from);
-  cursor.setHours(startHour, 0, 0, 0);
-  // If 'from' is after that start today, move to tomorrow
-  if (isBefore(cursor, from) || cursor.getTime() === from.getTime()) {
-    cursor = addMinutes(cursor, 24 * 60); // next day same hour
-  }
-  // skip weekend
+  let cursor = new Date(from);
+  cursor = addMinutes(cursor, 24 * 60); // Start from next day
+  
+  // Skip weekends
   while (cursor.getDay() === 0 || cursor.getDay() === 6) {
     cursor = addMinutes(cursor, 24 * 60);
   }
-  return cursor;
+  
+  // Create business start time using UTC-first approach
+  const dateStr = format(cursor, 'yyyy-MM-dd');
+  const timeStr = `${startHour.toString().padStart(2, '0')}:00:00`;
+  
+  // Convert SAST business time to UTC, then back to SAST for consistency
+  const utcTime = fromSAST(new Date(`${dateStr}T${timeStr}`));
+  return toSAST(utcTime);
 }
 
 /**
@@ -129,11 +133,18 @@ export async function findNextAvailableSlot(
 
   // If the earliest time is before business start today, clamp to start; if after business end, move to next working day start.
   function clampToBusinessWindow(d: Date): Date {
-    const dayStart = startOfDay(d);
-    dayStart.setHours(startHour, 0, 0, 0);
-    const dayEnd = startOfDay(d);
+    // Create business window using UTC-first approach
+    const dateStr = format(d, 'yyyy-MM-dd');
+    
+    // Create start and end times as SAST, convert to UTC, then back to SAST
+    const startTimeStr = `${startHour.toString().padStart(2, '0')}:00:00`;
     const endMinutes = Math.floor((endHour % 1) * 60);
-    dayEnd.setHours(Math.floor(endHour), endMinutes, 0, 0);
+    const endTimeStr = `${Math.floor(endHour).toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:00`;
+    
+    const dayStartUtc = fromSAST(new Date(`${dateStr}T${startTimeStr}`));
+    const dayEndUtc = fromSAST(new Date(`${dateStr}T${endTimeStr}`));
+    const dayStart = toSAST(dayStartUtc);
+    const dayEnd = toSAST(dayEndUtc);
 
     if (d < dayStart) return dayStart;
     if (d >= dayEnd) return nextWorkingDayStart(d, startHour);
@@ -161,12 +172,16 @@ export async function findNextAvailableSlot(
     // skip weekend
     if (checkDay.getDay() === 0 || checkDay.getDay() === 6) continue;
 
-    // business window for this day (SAST)
-    const dayStart = startOfDay(checkDay);
-    dayStart.setHours(startHour, 0, 0, 0);
-    const dayEnd = startOfDay(checkDay);
+    // business window for this day (SAST) using UTC-first approach
+    const dateStr = format(checkDay, 'yyyy-MM-dd');
+    const startTimeStr = `${startHour.toString().padStart(2, '0')}:00:00`;
     const endMinutes = Math.floor((endHour % 1) * 60);
-    dayEnd.setHours(Math.floor(endHour), endMinutes, 0, 0);
+    const endTimeStr = `${Math.floor(endHour).toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:00`;
+    
+    const dayStartUtc = fromSAST(new Date(`${dateStr}T${startTimeStr}`));
+    const dayEndUtc = fromSAST(new Date(`${dateStr}T${endTimeStr}`));
+    const dayStart = toSAST(dayStartUtc);
+    const dayEnd = toSAST(dayEndUtc);
 
     // If dayStart is before our cursor (only on dayOffset === 0), ensure to use cursor
     const effectiveSearchStart = dayOffset === 0 ? dateMax([cursorSast, dayStart]) : dayStart;

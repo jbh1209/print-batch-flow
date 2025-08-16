@@ -60,14 +60,11 @@ export function useStageSchedule() {
   const [error, setError] = useState<string | null>(null);
   // CRITICAL FIX: Initialize to current week containing Aug 14, 2025 (today)
   const [currentWeek, setCurrentWeek] = useState<Date>(() => {
-    const today = new Date(); // Should be Aug 14, 2025
-    console.log(`🗓️ Initializing StageWeeklyScheduler with today: ${format(today, 'yyyy-MM-dd')}`);
-    return today;
+    return new Date(); // Should be Aug 14, 2025
   });
 
   const weekStart = useMemo(() => {
     const start = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday start
-    console.log(`📅 Week calculation: currentWeek=${format(currentWeek, 'yyyy-MM-dd')} -> weekStart=${format(start, 'yyyy-MM-dd')}`);
     return start;
   }, [currentWeek]);
   const days = useMemo(() => Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)), [weekStart]);

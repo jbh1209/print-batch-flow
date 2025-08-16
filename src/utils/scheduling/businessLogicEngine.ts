@@ -16,7 +16,9 @@ import {
   getNextWorkingDayStart,
   formatSAST,
   sastToDbTime,
-  validateAndNormalizeSchedulingTime 
+  validateAndNormalizeSchedulingTime,
+  fromSAST,
+  toSAST
 } from '../timezone';
 
 /**
@@ -67,8 +69,10 @@ export function getWorkingHoursRemainingInDay(sastTime: Date): number {
     return 0;
   }
   
-  const endOfBusinessDay = new Date(sastTime);
-  endOfBusinessDay.setHours(17, 30, 0, 0); // 5:30 PM SAST
+  // Create 5:30 PM SAST using UTC-first approach
+  const dateStr = formatSAST(sastTime, 'yyyy-MM-dd');
+  const endOfBusinessUtc = fromSAST(new Date(`${dateStr}T17:30:00`));
+  const endOfBusinessDay = toSAST(endOfBusinessUtc);
   
   const remainingMs = endOfBusinessDay.getTime() - sastTime.getTime();
   const remainingHours = remainingMs / (1000 * 60 * 60);
