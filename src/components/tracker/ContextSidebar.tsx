@@ -8,28 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Users, 
-  Package, 
-  BarChart3, 
-  FileSpreadsheet, 
-  Settings,
-  Filter,
-  Calendar,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Layers,
-  Factory
-} from "lucide-react";
+import { Users, Package, BarChart3, FileSpreadsheet, Settings, Filter, Calendar, Clock, AlertCircle, CheckCircle, Layers, Factory } from "lucide-react";
 import { ProductionSidebar } from "./production/ProductionSidebar";
-
 interface ContextSidebarProps {
   activeTab: string;
   onFilterChange?: (filters: any) => void;
   // These props only used for production tab:
-  productionSidebarData?: { 
-    consolidatedStages: any[]; 
+  productionSidebarData?: {
+    consolidatedStages: any[];
     getJobCountForStage: (stageName: string) => number;
     getJobCountByStatus: (status: string) => number;
     totalActiveJobs: number;
@@ -37,9 +23,8 @@ interface ContextSidebarProps {
   onStageSelect?: (stageId: string | null) => void;
   selectedStageId?: string | null;
 }
-
 export const ContextSidebar = ({
-  activeTab, 
+  activeTab,
   onFilterChange,
   productionSidebarData,
   onStageSelect,
@@ -47,15 +32,14 @@ export const ContextSidebar = ({
 }: ContextSidebarProps) => {
   // Early return: never render for dashboard or production
   if (activeTab === 'dashboard' || activeTab === 'production') return null;
-
   const handleFilterChange = (filterType: string, value: any) => {
     if (onFilterChange) {
-      onFilterChange({ [filterType]: value });
+      onFilterChange({
+        [filterType]: value
+      });
     }
   };
-
-  const renderDashboardSidebar = () => (
-    <Card className="compact-spacing">
+  const renderDashboardSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">
         <CardTitle className="flex items-center gap-2 text-sm">
           <BarChart3 className="h-4 w-4" />
@@ -85,11 +69,8 @@ export const ContextSidebar = ({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
-
-  const renderOrdersSidebar = () => (
-    <Card className="compact-spacing">
+    </Card>;
+  const renderOrdersSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Filter className="h-4 w-4" />
@@ -100,7 +81,7 @@ export const ContextSidebar = ({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="status-filter" className="text-xs">Status</Label>
-            <Select onValueChange={(value) => handleFilterChange('status', value)}>
+            <Select onValueChange={value => handleFilterChange('status', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
@@ -116,7 +97,7 @@ export const ContextSidebar = ({
 
           <div className="space-y-1">
             <Label htmlFor="priority-filter" className="text-xs">Priority</Label>
-            <Select onValueChange={(value) => handleFilterChange('priority', value)}>
+            <Select onValueChange={value => handleFilterChange('priority', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="All Priorities" />
               </SelectTrigger>
@@ -131,7 +112,7 @@ export const ContextSidebar = ({
 
           <div className="space-y-1">
             <Label htmlFor="date-filter">Due Date</Label>
-            <Select onValueChange={(value) => handleFilterChange('dueDate', value)}>
+            <Select onValueChange={value => handleFilterChange('dueDate', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="All Dates" />
               </SelectTrigger>
@@ -146,12 +127,7 @@ export const ContextSidebar = ({
 
           <div className="space-y-1">
             <Label htmlFor="search" className="text-xs">Search Jobs</Label>
-            <Input 
-              id="search"
-              placeholder="Job number, customer..."
-              className="input-compact"
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-            />
+            <Input id="search" placeholder="Job number, customer..." className="input-compact" onChange={e => handleFilterChange('search', e.target.value)} />
           </div>
 
           <Separator />
@@ -160,35 +136,24 @@ export const ContextSidebar = ({
             <Label className="text-xs">Quick Filters</Label>
             <div className="space-y-1">
               <div className="flex items-center space-x-2">
-                <Checkbox id="urgent" onCheckedChange={(checked) => handleFilterChange('urgent', checked)} />
+                <Checkbox id="urgent" onCheckedChange={checked => handleFilterChange('urgent', checked)} />
                 <Label htmlFor="urgent" className="text-xs">Urgent Only</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="my-jobs" onCheckedChange={(checked) => handleFilterChange('myJobs', checked)} />
+                <Checkbox id="my-jobs" onCheckedChange={checked => handleFilterChange('myJobs', checked)} />
                 <Label htmlFor="my-jobs" className="text-xs">My Jobs</Label>
               </div>
             </div>
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
-
+    </Card>;
   const renderProductionSidebar = () => {
     if (!productionSidebarData) return null;
-    return (
-      <ProductionSidebar
-        jobs={[]} // This will be passed from the actual production page
-        consolidatedStages={productionSidebarData.consolidatedStages}
-        selectedStageId={selectedStageId}
-        selectedStageName={null}
-        onStageSelect={onStageSelect || (() => {})}
-      />
-    );
+    return <ProductionSidebar jobs={[]} // This will be passed from the actual production page
+    consolidatedStages={productionSidebarData.consolidatedStages} selectedStageId={selectedStageId} selectedStageName={null} onStageSelect={onStageSelect || (() => {})} />;
   };
-
-  const renderKanbanSidebar = () => (
-    <Card className="compact-spacing">
+  const renderKanbanSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Layers className="h-4 w-4" />
@@ -199,7 +164,7 @@ export const ContextSidebar = ({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">View Mode</Label>
-            <Select defaultValue="all" onValueChange={(value) => handleFilterChange('viewMode', value)}>
+            <Select defaultValue="all" onValueChange={value => handleFilterChange('viewMode', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue />
               </SelectTrigger>
@@ -213,7 +178,7 @@ export const ContextSidebar = ({
 
           <div className="space-y-1">
             <Label className="text-xs">Group By</Label>
-            <Select defaultValue="stage" onValueChange={(value) => handleFilterChange('groupBy', value)}>
+            <Select defaultValue="stage" onValueChange={value => handleFilterChange('groupBy', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue />
               </SelectTrigger>
@@ -247,11 +212,8 @@ export const ContextSidebar = ({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
-
-  const renderFactoryFloorSidebar = () => (
-    <Card className="compact-spacing">
+    </Card>;
+  const renderFactoryFloorSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Factory className="h-4 w-4" />
@@ -262,7 +224,7 @@ export const ContextSidebar = ({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">Department</Label>
-            <Select onValueChange={(value) => handleFilterChange('department', value)}>
+            <Select onValueChange={value => handleFilterChange('department', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
@@ -278,7 +240,7 @@ export const ContextSidebar = ({
 
           <div className="space-y-1">
             <Label className="text-xs">Shift</Label>
-            <Select onValueChange={(value) => handleFilterChange('shift', value)}>
+            <Select onValueChange={value => handleFilterChange('shift', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="Current Shift" />
               </SelectTrigger>
@@ -321,11 +283,8 @@ export const ContextSidebar = ({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
-
-  const renderWorksheetsSidebar = () => (
-    <Card className="compact-spacing">
+    </Card>;
+  const renderWorksheetsSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">
         <CardTitle className="flex items-center gap-2 text-sm">
           <FileSpreadsheet className="h-4 w-4" />
@@ -336,7 +295,7 @@ export const ContextSidebar = ({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label className="text-xs">Worksheet Type</Label>
-            <Select onValueChange={(value) => handleFilterChange('worksheetType', value)}>
+            <Select onValueChange={value => handleFilterChange('worksheetType', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
@@ -352,7 +311,7 @@ export const ContextSidebar = ({
 
           <div className="space-y-1">
             <Label className="text-xs">Date Range</Label>
-            <Select onValueChange={(value) => handleFilterChange('dateRange', value)}>
+            <Select onValueChange={value => handleFilterChange('dateRange', value)}>
               <SelectTrigger className="input-compact">
                 <SelectValue placeholder="This Week" />
               </SelectTrigger>
@@ -382,11 +341,8 @@ export const ContextSidebar = ({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
-
-  const renderSetupSidebar = () => (
-    <Card className="compact-spacing">
+    </Card>;
+  const renderSetupSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Settings className="h-4 w-4" />
@@ -447,9 +403,7 @@ export const ContextSidebar = ({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
-
+    </Card>;
   const getSidebarContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -472,12 +426,5 @@ export const ContextSidebar = ({
   };
 
   // Only apply vertical scroll, prevent horizontal scroll for sidebar
-  return (
-    <div
-      className="w-64 min-w-[16rem] max-w-[17rem] border-r border-gray-200 bg-white p-3 overflow-y-auto"
-      style={{ overflowX: "hidden" }}
-    >
-      {getSidebarContent()}
-    </div>
-  );
+  return;
 };
