@@ -2,7 +2,29 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, TrendingUp, Clock, Users } from "lucide-react";
-import type { CapacityImpact, WorkloadSummary } from "@/hooks/tracker/useFlowBasedScheduling";
+// Placeholder types - scheduling removed
+interface CapacityImpact {
+  stageImpacts: Array<{
+    stageId: string;
+    stageName: string;
+    currentQueueDays: number;
+    additionalDays: number;
+    newQueueDays: number;
+  }>;
+  totalImpactDays: number;
+}
+
+interface WorkloadSummary {
+  totalPendingJobs: number;
+  totalPendingHours: number;
+  bottleneckStages: Array<{
+    stageName: string;
+    queueDays: number;
+    pendingJobs: number;
+  }>;
+  averageLeadTime: number;
+  capacityUtilization: number;
+}
 
 interface WorkloadImpactPreviewProps {
   currentWorkload: WorkloadSummary;

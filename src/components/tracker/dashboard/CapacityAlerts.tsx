@@ -13,8 +13,6 @@ import {
   XCircle,
   AlertCircle
 } from "lucide-react";
-import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
-import { stageQueueManager } from "@/services/stageQueueManager";
 import { toast } from "sonner";
 
 interface CapacityAlert {
@@ -33,121 +31,14 @@ export const CapacityAlerts: React.FC = () => {
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [lastCheck, setLastCheck] = useState<Date>(new Date());
   
-  const { workloadSummary, refreshWorkloadSummary } = useFlowBasedScheduling();
+  
 
   const generateAlerts = async () => {
     try {
-      const workloads = await stageQueueManager.getAllStageWorkloads();
-      const bottlenecks = await stageQueueManager.getBottleneckStages(5);
+      // Placeholder for alerts - scheduling system removed
       const newAlerts: CapacityAlert[] = [];
-
-      // Critical capacity alerts (>95% utilization)
-      workloads.forEach(workload => {
-        const utilization = ((workload.totalPendingHours + workload.totalActiveHours) / 
-          (workload.dailyCapacityHours * 7)) * 100;
-
-        if (utilization > 95) {
-          newAlerts.push({
-            id: `critical-${workload.stageId}-${Date.now()}`,
-            type: 'critical',
-            stage: workload.stageName,
-            message: `Critical capacity overload: ${utilization.toFixed(1)}% utilization`,
-            metric: utilization,
-            threshold: 95,
-            timestamp: new Date(),
-            isNew: true
-          });
-        } else if (utilization > 80) {
-          newAlerts.push({
-            id: `warning-${workload.stageId}-${Date.now()}`,
-            type: 'warning',
-            stage: workload.stageName,
-            message: `High capacity usage: ${utilization.toFixed(1)}% utilization`,
-            metric: utilization,
-            threshold: 80,
-            timestamp: new Date(),
-            isNew: true
-          });
-        }
-
-        // Queue length alerts
-        if (workload.queueDaysToProcess > 7) {
-          newAlerts.push({
-            id: `queue-${workload.stageId}-${Date.now()}`,
-            type: 'critical',
-            stage: workload.stageName,
-            message: `Excessive queue length: ${workload.queueDaysToProcess.toFixed(1)} days to process`,
-            metric: workload.queueDaysToProcess,
-            threshold: 7,
-            timestamp: new Date(),
-            isNew: true
-          });
-        } else if (workload.queueDaysToProcess > 3) {
-          newAlerts.push({
-            id: `queue-warning-${workload.stageId}-${Date.now()}`,
-            type: 'warning',
-            stage: workload.stageName,
-            message: `Growing queue: ${workload.queueDaysToProcess.toFixed(1)} days to process`,
-            metric: workload.queueDaysToProcess,
-            threshold: 3,
-            timestamp: new Date(),
-            isNew: true
-          });
-        }
-      });
-
-      // Bottleneck trend alerts
-      if (bottlenecks.length > 3) {
-        newAlerts.push({
-          id: `bottleneck-trend-${Date.now()}`,
-          type: 'warning',
-          stage: 'Production System',
-          message: `Multiple bottlenecks detected: ${bottlenecks.length} stages need attention`,
-          metric: bottlenecks.length,
-          threshold: 3,
-          timestamp: new Date(),
-          isNew: true
-        });
-      }
-
-      // Capacity trend info
-      if (workloadSummary && workloadSummary.capacityUtilization > 85) {
-        newAlerts.push({
-          id: `capacity-trend-${Date.now()}`,
-          type: 'info',
-          stage: 'Overall System',
-          message: `High overall capacity: ${workloadSummary.capacityUtilization.toFixed(1)}% system utilization`,
-          metric: workloadSummary.capacityUtilization,
-          threshold: 85,
-          timestamp: new Date(),
-          isNew: true
-        });
-      }
-
-      // Filter out dismissed alerts and mark existing ones as not new
-      const filteredAlerts = newAlerts.filter(alert => 
-        !dismissedAlerts.has(alert.id.split('-')[0] + '-' + alert.stage)
-      );
-
-      setAlerts(prevAlerts => {
-        // Keep existing alerts and add new ones
-        const existingIds = new Set(prevAlerts.map(a => a.id));
-        const trulyNewAlerts = filteredAlerts.filter(a => !existingIds.has(a.id));
-        
-        return [
-          ...prevAlerts.map(a => ({ ...a, isNew: false })),
-          ...trulyNewAlerts
-        ];
-      });
-
+      setAlerts(newAlerts);
       setLastCheck(new Date());
-
-      // Show toast for new critical alerts
-      const newCriticalAlerts = filteredAlerts.filter(a => a.type === 'critical');
-      if (newCriticalAlerts.length > 0) {
-        toast.error(`${newCriticalAlerts.length} critical capacity alert(s) detected`);
-      }
-
     } catch (error) {
       console.error('Error generating capacity alerts:', error);
     }
@@ -186,7 +77,7 @@ export const CapacityAlerts: React.FC = () => {
     generateAlerts();
     const interval = setInterval(generateAlerts, 180000);
     return () => clearInterval(interval);
-  }, [workloadSummary, dismissedAlerts]);
+  }, [dismissedAlerts]);
 
   const criticalCount = alerts.filter(a => a.type === 'critical').length;
   const warningCount = alerts.filter(a => a.type === 'warning').length;

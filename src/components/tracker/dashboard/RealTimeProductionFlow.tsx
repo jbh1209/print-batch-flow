@@ -15,8 +15,6 @@ import {
   Activity,
   Target
 } from "lucide-react";
-import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
-import { stageQueueManager } from "@/services/stageQueueManager";
 import { toast } from "sonner";
 
 interface StageFlow {
@@ -35,30 +33,14 @@ export const RealTimeProductionFlow: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
-  const {
-    workloadSummary,
-    refreshWorkloadSummary,
-    isCalculating
-  } = useFlowBasedScheduling();
+  const workloadSummary = null;
+  const isCalculating = false;
 
   const fetchStageFlows = async () => {
     try {
       setIsLoading(true);
-      const workloads = await stageQueueManager.getAllStageWorkloads();
-      
-      const flows: StageFlow[] = workloads.map(workload => ({
-        stageId: workload.stageId,
-        stageName: workload.stageName,
-        queueLength: workload.pendingJobsCount,
-        activeJobs: workload.activeJobsCount,
-        capacityUtilization: ((workload.totalPendingHours + workload.totalActiveHours) / 
-          (workload.dailyCapacityHours * 7)) * 100,
-        isBottleneck: workload.isBottleneck || workload.queueDaysToProcess > 3,
-        flowRate: workload.dailyCapacityHours > 0 ? 
-          (workload.dailyCapacityHours * 5) / (workload.totalPendingHours || 1) : 0, // Weekly throughput estimate
-        nextAvailable: workload.earliestAvailableSlot
-      }));
-
+      // Placeholder - scheduling system removed
+      const flows: StageFlow[] = [];
       setStageFlows(flows);
       setLastUpdate(new Date());
     } catch (error) {
@@ -70,9 +52,7 @@ export const RealTimeProductionFlow: React.FC = () => {
   };
 
   const refreshFlowData = async () => {
-    await stageQueueManager.updateAllStageWorkloads();
     await fetchStageFlows();
-    await refreshWorkloadSummary();
     toast.success('Production flow data updated');
   };
 

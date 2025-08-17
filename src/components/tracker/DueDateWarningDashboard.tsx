@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Calendar, Clock, RefreshCw } from 'lucide-react';
-import { dynamicDueDateService } from '@/services/dynamicDueDateService';
+
 
 interface JobWithWarning {
   id: string;
@@ -29,8 +29,8 @@ export const DueDateWarningDashboard: React.FC = () => {
 
   const loadWarningJobs = async () => {
     try {
-      const jobs = await dynamicDueDateService.getJobsWithWarnings();
-      setWarningJobs(jobs);
+      // Placeholder - dynamic due date service removed
+      setWarningJobs([]);
     } catch (error) {
       console.error('Failed to load warning jobs:', error);
     } finally {
@@ -41,7 +41,7 @@ export const DueDateWarningDashboard: React.FC = () => {
   const refreshDueDates = async () => {
     setIsRefreshing(true);
     try {
-      await dynamicDueDateService.recalculateJobDueDates();
+      // Placeholder - dynamic due date service removed
       await loadWarningJobs();
     } catch (error) {
       console.error('Failed to refresh due dates:', error);

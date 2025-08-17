@@ -18,7 +18,7 @@ import {
   ImportStats,
   validateAllJobs 
 } from "@/utils/excel";
-import { useFlowBasedScheduling } from "@/hooks/tracker/useFlowBasedScheduling";
+
 import { 
   parseExcelFileForPreview, 
   getAutoDetectedMapping, 
@@ -53,16 +53,6 @@ export const ExcelUpload = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [debugLogger] = useState(() => new ExcelImportDebugger());
   
-  // Flow-based scheduling integration
-  const {
-    scheduleJob,
-    batchScheduleJobs,
-    calculateRealisticDueDate,
-    getCapacityImpact,
-    refreshWorkloadSummary,
-    workloadSummary,
-    isCalculating
-  } = useFlowBasedScheduling();
   
   // Enhanced mapping state
   const [previewData, setPreviewData] = useState<ExcelPreviewData | null>(null);
