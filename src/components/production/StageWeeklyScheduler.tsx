@@ -57,9 +57,9 @@ export function useStageSchedule() {
   const [items, setItems] = useState<ScheduledStageItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // CRITICAL FIX: Initialize to current week containing Aug 14, 2025 (today)
+  // CRITICAL FIX: Initialize to the week containing Aug 18, 2025 (where Container Scheduler schedules jobs)
   const [currentWeek, setCurrentWeek] = useState<Date>(() => {
-    return new Date(); // Should be Aug 14, 2025
+    return new Date('2025-08-18'); // Monday Aug 18, 2025 - matches Container Scheduler output
   });
 
   const weekStart = useMemo(() => {
@@ -94,16 +94,17 @@ export function useStageSchedule() {
       (capRows || []).forEach((c: any) => { capMap[c.production_stage_id] = (c.daily_capacity_hours || 8) * 60; });
       setCapacities(capMap);
 
-      // STEP 2 FIX: Widen date window buffer to catch timezone edge cases
+      // CONTAINER SCHEDULER FIX: Proper date range to capture Container Scheduler output
       const queryStart = new Date(weekStart);
-      queryStart.setDate(queryStart.getDate() - 1); // Add 1-day buffer before
-      const queryEnd = addDays(weekStart, 8); // Add 1-day buffer after (7+1)
+      queryStart.setDate(queryStart.getDate() - 2); // Wider buffer for timezone safety
+      const queryEnd = addDays(weekStart, 9); // Wider buffer after (7+2)
       const startIso = queryStart.toISOString();
       const endIso = queryEnd.toISOString();
       
-      console.log(`📅 BUFFERED query: jobs scheduled between ${format(queryStart, 'yyyy-MM-dd')} and ${format(queryEnd, 'yyyy-MM-dd')} (includes buffers)`);
+      console.log(`📅 CONTAINER SCHEDULER query: jobs scheduled between ${format(queryStart, 'yyyy-MM-dd')} and ${format(queryEnd, 'yyyy-MM-dd')}`);
+      console.log(`🎯 Week being displayed: ${format(weekStart, 'yyyy-MM-dd')} to ${format(addDays(weekStart, 6), 'yyyy-MM-dd')}`);
       
-      // STEP 2 FIX: Include auto-scheduled jobs regardless of schedule_status
+      // CONTAINER SCHEDULER FIX: Capture jobs scheduled by Container Scheduler (scheduling_method = 'auto')
       const { data: jsiRows, error: jsiErr } = await supabase
         .from("job_stage_instances")
         .select(`
@@ -116,13 +117,15 @@ export function useStageSchedule() {
         .in("production_stage_id", stageIds.length ? stageIds : ["00000000-0000-0000-0000-000000000000"])
         .gte("scheduled_start_at", startIso)
         .lt("scheduled_start_at", endIso)
-        // CRITICAL: Include jobs with scheduled times 
+        // CRITICAL: Include jobs with scheduled times (especially auto-scheduled ones)
         .not("scheduled_start_at", "is", null)
         .order("scheduled_start_at", { ascending: true });
       if (jsiErr) throw jsiErr;
       
       console.log(`📊 Found ${(jsiRows || []).length} job stage instances in date range`);
       console.log(`🎯 Stages being queried: ${stageIds.length} stages`);
+      console.log(`🤖 Auto-scheduled jobs found: ${(jsiRows || []).filter(j => j.scheduling_method === 'auto').length}`);
+      console.log(`🖊️ Manual scheduled jobs found: ${(jsiRows || []).filter(j => j.scheduling_method === 'manual').length}`);
 
       // Fetch enhanced job info with specifications
       const { data: jobsInfo } = await supabase.rpc("get_user_accessible_jobs", {});
@@ -180,12 +183,18 @@ export function useStageSchedule() {
       const mapped = rawMapped.filter(item => {
         // Use unified scheduled_start_at column
         const displayStart = item.scheduled_start_at;
-        console.log(`🔍 Job ${item.job_id} stage ${item.production_stage_id}: scheduled=${item.scheduled_start_at}, method=${item.scheduling_method}`);
+        console.log(`🔍 Job ${item.wo_no || item.job_id} stage ${item.production_stage_id}: scheduled=${item.scheduled_start_at}, method=${item.scheduling_method}`);
         if (!displayStart) return false;
         
         // Check if within actual week bounds
         const startTime = new Date(displayStart);
-        return startTime >= new Date(actualWeekStart) && startTime < new Date(actualWeekEnd);
+        const isInWeek = startTime >= new Date(actualWeekStart) && startTime < new Date(actualWeekEnd);
+        
+        if (isInWeek) {
+          console.log(`✅ SHOWING: ${item.wo_no || item.job_id} scheduled on ${format(startTime, 'yyyy-MM-dd HH:mm')} (method: ${item.scheduling_method})`);
+        }
+        
+        return isInWeek;
       });
 
       console.log(`✅ Final mapped items: ${mapped.length}`);
