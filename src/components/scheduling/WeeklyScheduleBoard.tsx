@@ -458,7 +458,14 @@ const WeeklyScheduleBoard: React.FC = () => {
                   const isCurrentDay = isToday(dayDate);
                   
                   // Get scheduled jobs for this day from the week data
-                  const dayScheduledJobs = weekScheduledJobs[dayName] || [];
+                  let dayScheduledJobs = weekScheduledJobs[dayName] || [];
+                  
+                  // Apply stage filtering if a specific stage is selected
+                  if (selectedStageName && selectedStageName !== 'Batch Processing' && selectedStageName !== 'All Jobs') {
+                    dayScheduledJobs = dayScheduledJobs.filter(job => 
+                      job.production_stages.name === selectedStageName
+                    );
+                  }
                   
                   return (
                     <Card key={dayName} className={`flex flex-col h-full ${isCurrentDay ? 'border-primary shadow-md' : ''}`}>

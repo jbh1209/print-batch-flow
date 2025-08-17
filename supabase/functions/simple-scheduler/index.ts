@@ -43,9 +43,59 @@ serve(async (req) => {
 
     console.log(`📊 Found ${stages.length} stages to schedule`);
 
-    // Find next available container starting from 2025-08-18
-    let currentContainerDate = new Date('2025-08-18T08:00:00+10:00'); // SAST
-    let currentContainerMinutes = 0; // Minutes used in current container
+    // Start scheduling from tomorrow or next working day (never in the past)
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0); // Start at 8 AM
+    
+    let currentContainerDate = getNextWorkingDay(tomorrow);
+    
+    // Find actual next available container by checking existing schedules
+    async function findNextAvailableContainer(fromDate: Date): Promise<{ date: Date, usedMinutes: number }> {
+      const checkDate = new Date(fromDate);
+      
+      while (true) {
+        // Skip weekends
+        if (checkDate.getDay() === 0 || checkDate.getDay() === 6) {
+          checkDate.setDate(checkDate.getDate() + 1);
+          continue;
+        }
+        
+        // Query existing scheduled jobs for this date
+        const startOfDay = new Date(checkDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(checkDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        const { data: existingJobs, error } = await supabase
+          .from('job_stage_instances')
+          .select('scheduled_minutes')
+          .gte('scheduled_start_at', startOfDay.toISOString())
+          .lt('scheduled_start_at', endOfDay.toISOString())
+          .not('scheduled_minutes', 'is', null);
+        
+        if (error) {
+          console.warn(`⚠️ Error checking existing schedules: ${error.message}`);
+          // If we can't check, assume no usage
+          return { date: new Date(checkDate), usedMinutes: 0 };
+        }
+        
+        const usedMinutes = existingJobs?.reduce((sum, job) => sum + (job.scheduled_minutes || 0), 0) || 0;
+        console.log(`📅 ${checkDate.toDateString()}: ${usedMinutes} minutes already scheduled`);
+        
+        if (usedMinutes < 480) { // 8 hours = 480 minutes capacity
+          return { date: new Date(checkDate), usedMinutes };
+        }
+        
+        // This day is full, try next day
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
+    }
+    
+    let containerInfo = await findNextAvailableContainer(currentContainerDate);
+    currentContainerDate = containerInfo.date;
+    let currentContainerMinutes = containerInfo.usedMinutes;
 
     for (const stage of stages) {
       const durationMinutes = stage.estimated_duration_minutes || 60; // Default 1 hour
@@ -72,9 +122,12 @@ serve(async (req) => {
         currentContainerMinutes += durationMinutes;
         console.log(`✅ Scheduled stage ${stage.stage_order}: ${startTime.toTimeString().slice(0,5)}-${endTime.toTimeString().slice(0,5)}`);
       } else {
-        // Move to next working day
-        currentContainerDate = getNextWorkingDay(currentContainerDate);
-        currentContainerMinutes = 0;
+        // Move to next available container (next working day with capacity)
+        const nextDay = new Date(currentContainerDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        containerInfo = await findNextAvailableContainer(nextDay);
+        currentContainerDate = containerInfo.date;
+        currentContainerMinutes = containerInfo.usedMinutes;
 
         const startTime = new Date(currentContainerDate);
         const endTime = new Date(startTime);
