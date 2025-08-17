@@ -39,6 +39,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
     { id: "orders", label: "ORDERS" },
     { id: "production", label: "PRODUCTION" },
     { id: "kanban", label: "KANBAN" },
+    { id: "schedule-board", label: "SCHEDULE" },
     { id: "worksheets", label: "WORKSHEETS" },
     { id: "setup", label: "SETUP" }
   ];
@@ -81,7 +82,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
           </div>
           
           <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto min-h-[36px]">
-            <TabsList className="grid grid-cols-6 w-auto bg-gray-100 px-0 py-0 gap-0 min-h-[36px]">
+            <TabsList className="grid grid-cols-7 w-auto bg-gray-100 px-0 py-0 gap-0 min-h-[36px]">
               {tabs.map((tab) => (
                 <TabsTrigger 
                   key={tab.id} 

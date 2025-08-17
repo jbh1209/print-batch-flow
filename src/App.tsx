@@ -201,6 +201,7 @@ function App() {
                   <Route path="jobs" element={<TrackerJobs />} />
                   <Route path="production" element={<TrackerProduction />} />
                   <Route path="kanban" element={<TrackerKanban />} />
+                  <Route path="schedule-board" element={<ScheduleBoardPage />} />
                   <Route path="factory-floor" element={<FactoryFloor />} />
                   <Route path="dtp-workflow" element={<TrackerDTPWorkflow />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
@@ -226,11 +227,6 @@ function App() {
                 <Route path="/admin/excel-mapping" element={
                   <ProtectedRoute>
                     <ExcelMapping />
-                  </ProtectedRoute>
-                } />
-                <Route path="/schedule-board" element={
-                  <ProtectedRoute>
-                    <ScheduleBoardPage />
                   </ProtectedRoute>
                 } />
                 {/* Legacy test routes removed */}
