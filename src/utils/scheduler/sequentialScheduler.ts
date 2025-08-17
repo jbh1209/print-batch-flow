@@ -135,7 +135,7 @@ async function getPendingStages() {
 }
 
 /**
- * Calculate scheduled times for all pending stages
+ * Calculate scheduled times for all pending stages, grouped by stage type
  */
 export async function calculateSequentialSchedule(): Promise<WorkingDayContainer[]> {
   const pendingStages = await getPendingStages();
@@ -145,13 +145,41 @@ export async function calculateSequentialSchedule(): Promise<WorkingDayContainer
     return [];
   }
 
+  // Group stages by stage type (stage_name)
+  const stageGroups = new Map<string, typeof pendingStages>();
+  for (const stage of pendingStages) {
+    if (!stageGroups.has(stage.stage_name)) {
+      stageGroups.set(stage.stage_name, []);
+    }
+    stageGroups.get(stage.stage_name)!.push(stage);
+  }
+
+  // Sort groups by earliest job creation date within each group
+  const sortedGroups = Array.from(stageGroups.entries()).sort(([, stagesA], [, stagesB]) => {
+    const earliestA = Math.min(...stagesA.map(s => new Date(s.job_created_at).getTime()));
+    const earliestB = Math.min(...stagesB.map(s => new Date(s.job_created_at).getTime()));
+    return earliestA - earliestB;
+  });
+
   let currentDate = new Date();
   currentDate = await getNextWorkingDay(currentDate);
 
-  for (const stage of pendingStages) {
-    let placed = false;
+  // Process each stage group
+  for (const [stageName, stagesInGroup] of sortedGroups) {
+    // Sort stages within group by job creation date, then stage order
+    const sortedStages = stagesInGroup.sort((a, b) => {
+      const dateCompare = new Date(a.job_created_at).getTime() - new Date(b.job_created_at).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      return a.stage_order - b.stage_order;
+    });
+
+    // Calculate total duration for this stage group
+    const totalGroupDuration = sortedStages.reduce((sum, stage) => sum + stage.estimated_duration_minutes, 0);
+
+    // Try to fit the entire group on the current day first
+    let currentGroupStages = [...sortedStages];
     
-    while (!placed) {
+    while (currentGroupStages.length > 0) {
       const dateStr = currentDate.toISOString().split('T')[0];
       
       // Get or create working day container
@@ -166,36 +194,54 @@ export async function calculateSequentialSchedule(): Promise<WorkingDayContainer
       
       const workingDay = workingDays.get(dateStr)!;
       
-      // Check if stage fits in current day
-      if (stage.estimated_duration_minutes <= workingDay.remaining_minutes) {
-        // Calculate start and end times
-        const startTime = new Date(currentDate);
-        startTime.setHours(SHIFT_START_HOUR, workingDay.used_minutes, 0, 0);
+      // Try to fit as many stages from this group as possible on current day
+      const stagesToScheduleToday: typeof sortedStages = [];
+      let remainingCapacity = workingDay.remaining_minutes;
+      
+      for (const stage of currentGroupStages) {
+        if (stage.estimated_duration_minutes <= remainingCapacity) {
+          stagesToScheduleToday.push(stage);
+          remainingCapacity -= stage.estimated_duration_minutes;
+        }
+      }
+      
+      // If we can fit at least one stage from the group, schedule them
+      if (stagesToScheduleToday.length > 0) {
+        for (const stage of stagesToScheduleToday) {
+          // Calculate start and end times
+          const startTime = new Date(currentDate);
+          startTime.setHours(SHIFT_START_HOUR, workingDay.used_minutes, 0, 0);
+          
+          const endTime = new Date(startTime);
+          endTime.setMinutes(startTime.getMinutes() + stage.estimated_duration_minutes);
+          
+          // Create scheduled stage
+          const scheduledStage: ScheduledStage = {
+            id: stage.id,
+            job_id: stage.job_id,
+            job_wo_no: stage.job_wo_no,
+            stage_name: stage.stage_name,
+            stage_order: stage.stage_order,
+            estimated_duration_minutes: stage.estimated_duration_minutes,
+            scheduled_start_at: startTime,
+            scheduled_end_at: endTime,
+            scheduled_date: dateStr
+          };
+          
+          // Add to working day
+          workingDay.scheduled_stages.push(scheduledStage);
+          workingDay.used_minutes += stage.estimated_duration_minutes;
+          workingDay.remaining_minutes -= stage.estimated_duration_minutes;
+        }
         
-        const endTime = new Date(startTime);
-        endTime.setMinutes(startTime.getMinutes() + stage.estimated_duration_minutes);
-        
-        // Create scheduled stage
-        const scheduledStage: ScheduledStage = {
-          id: stage.id,
-          job_id: stage.job_id,
-          job_wo_no: stage.job_wo_no,
-          stage_name: stage.stage_name,
-          stage_order: stage.stage_order,
-          estimated_duration_minutes: stage.estimated_duration_minutes,
-          scheduled_start_at: startTime,
-          scheduled_end_at: endTime,
-          scheduled_date: dateStr
-        };
-        
-        // Add to working day
-        workingDay.scheduled_stages.push(scheduledStage);
-        workingDay.used_minutes += stage.estimated_duration_minutes;
-        workingDay.remaining_minutes -= stage.estimated_duration_minutes;
-        
-        placed = true;
-      } else {
-        // Move to next working day
+        // Remove scheduled stages from remaining group stages
+        currentGroupStages = currentGroupStages.filter(stage => 
+          !stagesToScheduleToday.some(scheduled => scheduled.id === stage.id)
+        );
+      }
+      
+      // If we couldn't fit any more stages from this group, move to next day
+      if (stagesToScheduleToday.length === 0 && currentGroupStages.length > 0) {
         currentDate.setDate(currentDate.getDate() + 1);
         currentDate = await getNextWorkingDay(currentDate);
       }
