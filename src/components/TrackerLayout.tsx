@@ -24,6 +24,7 @@ const TrackerLayout = () => {
     '/tracker/jobs': 'orders',
     '/tracker/production': 'production',
     '/tracker/kanban': 'kanban',
+    '/tracker/schedule-board': 'schedule-board',
     '/tracker/worksheets': 'worksheets',
     '/tracker/admin': 'setup',
     '/tracker/users': 'setup',
@@ -45,6 +46,7 @@ const TrackerLayout = () => {
       'orders': '/tracker/jobs',
       'production': '/tracker/production',
       'kanban': '/tracker/kanban',
+      'schedule-board': '/tracker/schedule-board',
       'worksheets': '/tracker/worksheets',
       'setup': '/tracker/admin'
     };
