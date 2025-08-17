@@ -81,12 +81,9 @@ import { productConfigs } from "@/config/productTypes";
 import AdminDashboard from "@/pages/admin";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
-import SchedulerTest from "@/pages/SchedulerTest";
 import Layout from "@/components/Layout";
-import Phase2TestTrigger from "@/components/scheduler/Phase2TestTrigger";
 // Removed legacy test components
-import CapacityDashboard from "@/components/scheduler/CapacityDashboard";
-import WhyThisTimeExplainer from "@/components/scheduler/WhyThisTimeExplainer";
+// Removed scheduler components
 
 import "./App.css";
 
@@ -230,27 +227,8 @@ function App() {
                     <ExcelMapping />
                   </ProtectedRoute>
                 } />
-                <Route path="/scheduler-test" element={
-                  <ProtectedRoute>
-                    <SchedulerTest />
-                  </ProtectedRoute>
-                } />
-                <Route path="/phase2-test" element={
-                  <ProtectedRoute>
-                    <Phase2TestTrigger />
-                  </ProtectedRoute>
-                } />
                 {/* Legacy test routes removed */}
-                <Route path="/capacity-dashboard" element={
-                  <ProtectedRoute>
-                    <CapacityDashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/why-this-time" element={
-                  <ProtectedRoute>
-                    <WhyThisTimeExplainer />
-                  </ProtectedRoute>
-                } />
+                {/* Removed scheduler routes */}
 
               </Routes>
             </TrackerErrorBoundary>

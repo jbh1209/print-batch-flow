@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { autoSchedulerService } from "@/services/autoSchedulerService";
+// Removed scheduler service
 import { toast } from "sonner";
 
 /**
@@ -66,12 +66,7 @@ export const useProofApprovalFlow = () => {
 
       // Trigger queue-based due date calculation and auto-schedule downstream stages
       await triggerQueueBasedCalculation(jobId);
-      try {
-        await autoSchedulerService.scheduleJob(jobId, 'production_jobs');
-        console.log('🗓️ Auto-scheduled approved job', jobId);
-      } catch (e) {
-        console.warn('Auto-schedule invoke failed', e);
-      }
+      // Auto-scheduler removed - skipping auto-schedule
 
       // Find and activate next stage
       const { data: nextStage, error: nextStageError } = await supabase

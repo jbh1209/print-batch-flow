@@ -19,7 +19,7 @@ import { ProductionMetrics } from './ProductionMetrics';
 import { ResourceUtilization } from './ResourceUtilization';
 import { BottleneckAnalysis } from './BottleneckAnalysis';
 import { SmartQueueDashboard } from './SmartQueueDashboard';
-import { DynamicReschedulingDashboard } from './DynamicReschedulingDashboard';
+// Removed dynamic rescheduling dashboard
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -252,10 +252,10 @@ export const ProductionAdminDashboard: React.FC = () => {
 
       {/* Main Dashboard Tabs */}
       <Tabs defaultValue="calendar" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="calendar">Planning Calendar</TabsTrigger>
           <TabsTrigger value="queues">Smart Queues</TabsTrigger>
-          <TabsTrigger value="rescheduling">Dynamic Rescheduling</TabsTrigger>
+          {/* Removed rescheduling tab */}
           <TabsTrigger value="metrics">Performance Metrics</TabsTrigger>
           <TabsTrigger value="resources">Resource Utilization</TabsTrigger>
           <TabsTrigger value="analysis">Bottleneck Analysis</TabsTrigger>
@@ -269,9 +269,7 @@ export const ProductionAdminDashboard: React.FC = () => {
           <SmartQueueDashboard />
         </TabsContent>
 
-        <TabsContent value="rescheduling" className="space-y-4">
-          <DynamicReschedulingDashboard />
-        </TabsContent>
+        {/* Removed rescheduling content */}
 
         <TabsContent value="metrics" className="space-y-4">
           <ProductionMetrics />

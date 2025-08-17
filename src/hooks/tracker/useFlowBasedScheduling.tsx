@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { autoSchedulerService } from '@/services/autoSchedulerService';
+// Removed scheduler service
 import { stageQueueManager } from '@/services/stageQueueManager';
 import { useToast } from '@/hooks/use-toast';
 
@@ -105,7 +105,8 @@ export const useFlowBasedScheduling = (): UseFlowBasedSchedulingReturn => {
     try {
       setIsCalculating(true);
       
-      const result = await autoSchedulerService.scheduleJob(jobId, jobTableName);
+      // Scheduler service removed - return placeholder result
+      const result = { success: false, message: 'Scheduler service removed' };
 
       if (result.success) {
         toast({

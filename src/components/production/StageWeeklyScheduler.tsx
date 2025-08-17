@@ -9,10 +9,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { ChevronLeft, ChevronRight, Calendar, Clock, Zap, RefreshCcw } from "lucide-react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { toast } from "sonner";
-import { autoSchedulerService } from "@/services/autoSchedulerService";
 import { supabase } from "@/integrations/supabase/client";
 import { useProductionStageCounts } from "@/hooks/tracker/useProductionStageCounts";
-import { dbTimeToDisplayTime } from "@/utils/timezone-display-audit";
+// Removed timezone audit utilities
 
 // Types
 export interface StageInfo {
@@ -264,9 +263,13 @@ const DraggableStageItem: React.FC<{ item: ScheduledStageItem }>
   const actualMinutes = item.scheduled_minutes || 60;
   const exactTime = `${Math.floor(actualMinutes / 60)}h ${actualMinutes % 60}m`;
   
-  // FIXED: Use centralized timezone utilities instead of toLocaleString()
+  // Simple time display - UTC format
   const displayTime = item.scheduled_start_at 
-    ? dbTimeToDisplayTime(item.scheduled_start_at)
+    ? new Date(item.scheduled_start_at).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      })
     : null;
   
   return (

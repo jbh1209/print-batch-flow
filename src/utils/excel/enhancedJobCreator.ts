@@ -1207,16 +1207,9 @@ private async setSimpleDueDate(jobId: string, woNo: string): Promise<void> {
   try {
     this.logger.addDebugInfo(`📅 Setting simple due date for job ${woNo} (${jobId})`);
     
-    // Import and use the simple due date calculator
-    const { SimpleDueDateCalculator } = await import('@/services/simpleDueDateCalculator');
-    const success = await SimpleDueDateCalculator.updateJobDueDate(jobId);
-    
-    if (success) {
-      this.logger.addDebugInfo(`✅ Simple due date set for job ${woNo}`);
-    } else {
-      this.logger.addDebugInfo(`⚠️ Failed to set simple due date for job ${woNo}, using fallback`);
-      await this.setFallbackDueDate(jobId);
-    }
+    // Simple due date calculator removed - using fallback
+    this.logger.addDebugInfo(`⚠️ Simple due date calculator removed, using fallback for job ${woNo}`);
+    await this.setFallbackDueDate(jobId);
     
   } catch (error) {
     this.logger.addDebugInfo(`❌ Error setting simple due date for job ${woNo}: ${error}`);
