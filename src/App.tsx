@@ -81,7 +81,7 @@ import { productConfigs } from "@/config/productTypes";
 import AdminDashboard from "@/pages/admin";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
-import ScheduleBoardPage from "@/pages/ScheduleBoardPage";
+
 import Layout from "@/components/Layout";
 // Removed legacy test components
 // Removed scheduler components
@@ -201,7 +201,7 @@ function App() {
                   <Route path="jobs" element={<TrackerJobs />} />
                   <Route path="production" element={<TrackerProduction />} />
                   <Route path="kanban" element={<TrackerKanban />} />
-                  <Route path="schedule-board" element={<ScheduleBoardPage />} />
+                  
                   <Route path="factory-floor" element={<FactoryFloor />} />
                   <Route path="dtp-workflow" element={<TrackerDTPWorkflow />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
