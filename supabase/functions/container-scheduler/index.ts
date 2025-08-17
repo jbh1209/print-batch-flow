@@ -165,7 +165,7 @@ class ContainerScheduler {
           is_split_job: scheduledJob.is_split_job,
           split_job_part: scheduledJob.split_job_part,
           split_job_total_parts: scheduledJob.split_job_total_parts,
-          scheduling_method: 'container_auto'
+          scheduling_method: 'auto'
         })
         .eq('id', scheduledJob.instance_id);
 
