@@ -6,7 +6,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Calendar } from "lucide-react";
-import { type WorkingDayContainer } from "@/utils/scheduler/sequentialScheduler";
+import { type WorkingDayContainer } from "@/utils/scheduler/types";
 
 interface ScheduleColumnsViewProps {
   workingDays: WorkingDayContainer[];

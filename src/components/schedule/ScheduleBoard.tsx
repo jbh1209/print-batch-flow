@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { ScheduleSidebar } from "./ScheduleSidebar";
 import { ScheduleColumnsView } from "./ScheduleColumnsView";
-import { type WorkingDayContainer } from "@/utils/scheduler/sequentialScheduler";
+import { type WorkingDayContainer } from "@/utils/scheduler/types";
 
 interface ScheduleBoardProps {
   workingDays: WorkingDayContainer[];

@@ -3,7 +3,8 @@
  */
 
 import { useState, useCallback } from "react";
-import { calculateSequentialSchedule, updateScheduledTimes, type WorkingDayContainer } from "@/utils/scheduler/sequentialScheduler";
+import { calculateSequentialSchedule, updateScheduledTimes } from "@/utils/scheduler/productionScheduler";
+import { type WorkingDayContainer } from "@/utils/scheduler/types";
 import { toast } from "sonner";
 
 export function useSequentialScheduler() {

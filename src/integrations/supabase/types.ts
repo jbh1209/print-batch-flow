@@ -1580,6 +1580,7 @@ export type Database = {
           paper_specifications: Json | null
           prepress_specifications: Json | null
           printing_specifications: Json | null
+          proof_approved_at: string | null
           qr_code_data: string | null
           qr_code_url: string | null
           qt_no: string | null
@@ -1630,6 +1631,7 @@ export type Database = {
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
+          proof_approved_at?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
@@ -1680,6 +1682,7 @@ export type Database = {
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
+          proof_approved_at?: string | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Settings } from "lucide-react";
-import { type WorkingDayContainer } from "@/utils/scheduler/sequentialScheduler";
+import { type WorkingDayContainer } from "@/utils/scheduler/types";
 
 interface ScheduleSidebarProps {
   workingDays: WorkingDayContainer[];
