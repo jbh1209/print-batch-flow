@@ -12,6 +12,7 @@ import { ProductionHeader } from '@/components/tracker/production/ProductionHead
 import { ProductionStats } from '@/components/tracker/production/ProductionStats';
 import { EnhancedProductionJobCard } from '@/components/tracker/production/EnhancedProductionJobCard';
 import AdminHeader from '@/components/admin/AdminHeader';
+import { supabase } from '@/integrations/supabase/client';
 import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 
 const WeeklyScheduleBoard: React.FC = () => {
@@ -63,6 +64,7 @@ const WeeklyScheduleBoard: React.FC = () => {
       return currentStage === selectedStageName;
     });
   }, [jobs, selectedStageName]);
+
 
   // Enhanced stages to include batch processing and parallel stages
   const consolidatedStages = useMemo(() => {
@@ -390,10 +392,54 @@ const WeeklyScheduleBoard: React.FC = () => {
                 {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((dayName, dayIndex) => {
                   const dayDate = addDays(weekStart, dayIndex);
                   const isCurrentDay = isToday(dayDate);
+                  const dayDateString = dayDate.toDateString();
                   
-                  // For now, no jobs will show since they don't have schedule dates yet
-                  // This will be populated in the next steps when we add date assignment
-                  const dayJobs: AccessibleJob[] = [];
+                  // Get scheduled jobs for this day
+                  const [dayScheduledJobs, setDayScheduledJobs] = useState([]);
+                  
+                  useEffect(() => {
+                    const fetchDayJobs = async () => {
+                      if (!jobs.length) return;
+                      
+                      try {
+                        const { data: scheduledStages, error } = await supabase
+                          .from('job_stage_instances')
+                          .select(`
+                            job_id,
+                            production_stage_id,
+                            scheduled_start_at,
+                            scheduled_end_at,
+                            scheduled_minutes,
+                            stage_order,
+                            production_stages!inner(name, color)
+                          `)
+                          .not('scheduled_start_at', 'is', null)
+                          .gte('scheduled_start_at', dayDate.toISOString().split('T')[0])
+                          .lt('scheduled_start_at', addDays(dayDate, 1).toISOString().split('T')[0])
+                          .eq('job_table_name', 'production_jobs');
+
+                        if (error) {
+                          console.error('Error fetching scheduled jobs:', error);
+                          return;
+                        }
+
+                        // Group by job and match with job data
+                        const jobStages = scheduledStages?.map(stage => {
+                          const job = jobs.find(j => j.job_id === stage.job_id);
+                          return {
+                            ...stage,
+                            job_data: job
+                          };
+                        }).filter(stage => stage.job_data) || [];
+                        
+                        setDayScheduledJobs(jobStages);
+                      } catch (error) {
+                        console.error('Error processing scheduled jobs:', error);
+                      }
+                    };
+                    
+                    fetchDayJobs();
+                  }, [jobs, dayDateString]);
                   
                   return (
                     <Card key={dayName} className={`flex flex-col h-full ${isCurrentDay ? 'border-primary shadow-md' : ''}`}>
@@ -405,29 +451,44 @@ const WeeklyScheduleBoard: React.FC = () => {
                           </Badge>
                         </CardTitle>
                         <CardDescription>
-                          {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''} scheduled
+                          {dayScheduledJobs.length} stage{dayScheduledJobs.length !== 1 ? 's' : ''} scheduled
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="flex-1 overflow-auto">
-                        {dayJobs.length === 0 ? (
+                        {dayScheduledJobs.length === 0 ? (
                           <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
                             <div className="text-center">
                               <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
                               <p>No jobs scheduled</p>
-                              <p className="text-xs mt-1">Jobs will appear here when assigned to time slots</p>
+                              <p className="text-xs mt-1">Approve jobs to see them here</p>
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {dayJobs.map(job => (
-                              <EnhancedProductionJobCard
-                                key={job.job_id}
-                                job={job}
-                                contextStageName={selectedStageName}
-                                onJobClick={handleJobClick}
-                                onStageAction={handleStageAction}
-                                showDetails={false}
-                              />
+                            {dayScheduledJobs.map((scheduledJob, index) => (
+                              <div 
+                                key={`${scheduledJob.job_id}-${scheduledJob.production_stage_id}-${index}`}
+                                className="p-2 border rounded-md bg-card"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-sm">
+                                    {scheduledJob.job_data?.wo_no}
+                                  </span>
+                                  <div 
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: scheduledJob.production_stages.color }}
+                                  />
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {scheduledJob.production_stages.name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {Math.round(scheduledJob.scheduled_minutes || 0)}min
+                                </div>
+                                <div className="text-xs font-medium">
+                                  {scheduledJob.job_data?.customer}
+                                </div>
+                              </div>
                             ))}
                           </div>
                         )}
