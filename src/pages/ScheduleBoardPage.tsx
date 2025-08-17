@@ -1,23 +1,22 @@
 /**
- * Schedule Board Page - Sequential job stage scheduling
+ * Schedule Board Page - Read-only view of scheduled job stages
  */
 
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Save, Calendar } from "lucide-react";
-import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
-import { useSequentialScheduler } from "@/hooks/useSequentialScheduler";
+import { RefreshCw, Calendar, Zap } from "lucide-react";
+import { ReadOnlyScheduleBoard } from "@/components/schedule/ReadOnlyScheduleBoard";
+import { useScheduleReader } from "@/hooks/useScheduleReader";
 
 export default function ScheduleBoardPage() {
-  const { workingDays, isLoading, isUpdating, generateSchedule, saveSchedule } = useSequentialScheduler();
+  const { scheduleDays, isLoading, fetchSchedule, triggerReschedule } = useScheduleReader();
 
   useEffect(() => {
-    generateSchedule();
-  }, [generateSchedule]);
+    fetchSchedule();
+  }, [fetchSchedule]);
 
-  const totalStages = workingDays.reduce((total, day) => total + day.scheduled_stages.length, 0);
-  const totalUsedMinutes = workingDays.reduce((total, day) => total + day.used_minutes, 0);
+  const totalStages = scheduleDays.reduce((total, day) => total + day.total_stages, 0);
+  const totalMinutes = scheduleDays.reduce((total, day) => total + day.total_minutes, 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -27,36 +26,50 @@ export default function ScheduleBoardPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Schedule Board</h1>
             <p className="text-sm text-muted-foreground">
-              Sequential scheduling of job stages into working days
+              Read-only view of server-scheduled job stages
             </p>
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {scheduleDays.length} working days
+              </div>
+              <div className="flex items-center gap-1">
+                <span>•</span>
+                {totalStages} total stages
+              </div>
+              <div className="flex items-center gap-1">
+                <span>•</span>
+                {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m scheduled
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
-              onClick={generateSchedule}
+              onClick={fetchSchedule}
               disabled={isLoading}
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Generate Schedule
+              Refresh
             </Button>
             <Button
-              onClick={saveSchedule}
-              disabled={isUpdating || workingDays.length === 0}
+              onClick={triggerReschedule}
+              disabled={isLoading}
               size="sm"
               className="flex items-center gap-2"
             >
-              <Save className="h-4 w-4" />
-              Save Schedule
+              <Zap className="h-4 w-4" />
+              Reschedule All
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Schedule Board with Sidebar Layout */}
+      {/* Schedule Board */}
       <div className="flex-1 overflow-hidden">
-        <ScheduleBoard workingDays={workingDays} />
+        <ReadOnlyScheduleBoard scheduleDays={scheduleDays} />
       </div>
     </div>
   );
