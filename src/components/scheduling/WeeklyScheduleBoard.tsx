@@ -20,6 +20,7 @@ const WeeklyScheduleBoard: React.FC = () => {
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
+  const [weekScheduledJobs, setWeekScheduledJobs] = useState<Record<string, any[]>>({});
 
   const { 
     jobs, 
@@ -210,6 +211,69 @@ const WeeklyScheduleBoard: React.FC = () => {
     setCurrentWeek(new Date());
   };
 
+  // Fetch all scheduled jobs for the week
+  useEffect(() => {
+    const fetchWeekJobs = async () => {
+      if (!jobs.length) return;
+      
+      try {
+        const { data: scheduledStages, error } = await supabase
+          .from('job_stage_instances')
+          .select(`
+            job_id,
+            production_stage_id,
+            scheduled_start_at,
+            scheduled_end_at,
+            scheduled_minutes,
+            stage_order,
+            production_stages!inner(name, color)
+          `)
+          .not('scheduled_start_at', 'is', null)
+          .gte('scheduled_start_at', weekStart.toISOString().split('T')[0])
+          .lt('scheduled_start_at', addDays(weekEnd, 1).toISOString().split('T')[0])
+          .eq('job_table_name', 'production_jobs');
+
+        if (error) {
+          console.error('Error fetching scheduled jobs:', error);
+          return;
+        }
+
+        // Group by day and match with job data
+        const groupedByDay: Record<string, any[]> = {
+          Monday: [],
+          Tuesday: [],
+          Wednesday: [],
+          Thursday: [],
+          Friday: []
+        };
+
+        scheduledStages?.forEach(stage => {
+          const job = jobs.find(j => j.job_id === stage.job_id);
+          if (job) {
+            const stageDate = new Date(stage.scheduled_start_at);
+            const dayIndex = stageDate.getDay();
+            // Convert Sunday=0 to Monday=0 system
+            const adjustedDayIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+            
+            if (adjustedDayIndex >= 0 && adjustedDayIndex <= 4) {
+              const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][adjustedDayIndex];
+              groupedByDay[dayName].push({
+                ...stage,
+                job_data: job
+              });
+            }
+          }
+        });
+        
+        setWeekScheduledJobs(groupedByDay);
+      } catch (error) {
+        console.error('Error processing scheduled jobs:', error);
+      }
+    };
+    
+    fetchWeekJobs();
+  }, [jobs, weekStart, weekEnd]);
+
   useEffect(() => {
     document.title = "Weekly Schedule Board | Production Planning";
   }, []);
@@ -392,54 +456,9 @@ const WeeklyScheduleBoard: React.FC = () => {
                 {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((dayName, dayIndex) => {
                   const dayDate = addDays(weekStart, dayIndex);
                   const isCurrentDay = isToday(dayDate);
-                  const dayDateString = dayDate.toDateString();
                   
-                  // Get scheduled jobs for this day
-                  const [dayScheduledJobs, setDayScheduledJobs] = useState([]);
-                  
-                  useEffect(() => {
-                    const fetchDayJobs = async () => {
-                      if (!jobs.length) return;
-                      
-                      try {
-                        const { data: scheduledStages, error } = await supabase
-                          .from('job_stage_instances')
-                          .select(`
-                            job_id,
-                            production_stage_id,
-                            scheduled_start_at,
-                            scheduled_end_at,
-                            scheduled_minutes,
-                            stage_order,
-                            production_stages!inner(name, color)
-                          `)
-                          .not('scheduled_start_at', 'is', null)
-                          .gte('scheduled_start_at', dayDate.toISOString().split('T')[0])
-                          .lt('scheduled_start_at', addDays(dayDate, 1).toISOString().split('T')[0])
-                          .eq('job_table_name', 'production_jobs');
-
-                        if (error) {
-                          console.error('Error fetching scheduled jobs:', error);
-                          return;
-                        }
-
-                        // Group by job and match with job data
-                        const jobStages = scheduledStages?.map(stage => {
-                          const job = jobs.find(j => j.job_id === stage.job_id);
-                          return {
-                            ...stage,
-                            job_data: job
-                          };
-                        }).filter(stage => stage.job_data) || [];
-                        
-                        setDayScheduledJobs(jobStages);
-                      } catch (error) {
-                        console.error('Error processing scheduled jobs:', error);
-                      }
-                    };
-                    
-                    fetchDayJobs();
-                  }, [jobs, dayDateString]);
+                  // Get scheduled jobs for this day from the week data
+                  const dayScheduledJobs = weekScheduledJobs[dayName] || [];
                   
                   return (
                     <Card key={dayName} className={`flex flex-col h-full ${isCurrentDay ? 'border-primary shadow-md' : ''}`}>
