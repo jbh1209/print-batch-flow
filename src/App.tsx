@@ -81,6 +81,7 @@ import { productConfigs } from "@/config/productTypes";
 import AdminDashboard from "@/pages/admin";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
+import ScheduleBoardPage from "@/pages/ScheduleBoardPage";
 import Layout from "@/components/Layout";
 // Removed legacy test components
 // Removed scheduler components
@@ -225,6 +226,11 @@ function App() {
                 <Route path="/admin/excel-mapping" element={
                   <ProtectedRoute>
                     <ExcelMapping />
+                  </ProtectedRoute>
+                } />
+                <Route path="/schedule-board" element={
+                  <ProtectedRoute>
+                    <ScheduleBoardPage />
                   </ProtectedRoute>
                 } />
                 {/* Legacy test routes removed */}
