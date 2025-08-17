@@ -19,6 +19,8 @@ const AdminSchedulePage: React.FC = () => {
   }, []);
 
   const [isRunning, setIsRunning] = useState(false);
+  const [isUniversalScheduling, setIsUniversalScheduling] = useState(false);
+
   const runAutoScheduler = async () => {
     try {
       setIsRunning(true);
@@ -77,6 +79,32 @@ const AdminSchedulePage: React.FC = () => {
     }
   };
 
+  const runUniversalScheduler = async () => {
+    try {
+      setIsUniversalScheduling(true);
+      console.log("🌐 Starting Universal Container Scheduler...");
+      
+      const { data, error } = await supabase.functions.invoke("universal-scheduler");
+      
+      if (error) {
+        console.error("❌ Universal scheduler error:", error);
+        throw error;
+      }
+      
+      const results = data?.results;
+      console.log("✅ Universal scheduling complete:", results);
+      
+      toast.success(
+        `Universal scheduling complete: ${results?.total_jobs_scheduled || 0} jobs scheduled across ${results?.total_stages_processed || 0} stages (${results?.total_split_jobs || 0} split jobs)`
+      );
+    } catch (err: any) {
+      console.error("💥 UNIVERSAL SCHEDULER FAILED:", err);
+      toast.error(err?.message || "Failed to run universal scheduler");
+    } finally {
+      setIsUniversalScheduling(false);
+    }
+  };
+
   if (isLoading) {
     return <LoadingState />;
   }
@@ -96,9 +124,24 @@ const AdminSchedulePage: React.FC = () => {
         subtitle="Stage-centric planner showing active stages for the selected week."
       />
 
-      <div className="mb-4 flex justify-end">
-        <Button size="sm" variant="secondary" onClick={runAutoScheduler} disabled={isRunning} aria-label="Run auto-scheduler">
+      <div className="mb-4 flex justify-end gap-2">
+        <Button 
+          size="sm" 
+          variant="secondary" 
+          onClick={runAutoScheduler} 
+          disabled={isRunning || isUniversalScheduling} 
+          aria-label="Run auto-scheduler"
+        >
           {isRunning ? "Running..." : "Run auto-scheduler"}
+        </Button>
+        <Button 
+          size="sm" 
+          variant="default" 
+          onClick={runUniversalScheduler} 
+          disabled={isRunning || isUniversalScheduling} 
+          aria-label="Schedule all jobs universally"
+        >
+          {isUniversalScheduling ? "Scheduling All..." : "Schedule All Jobs"}
         </Button>
       </div>
 
