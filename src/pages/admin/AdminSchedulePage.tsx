@@ -20,6 +20,7 @@ const AdminSchedulePage: React.FC = () => {
 
   const [isRunning, setIsRunning] = useState(false);
   const [isUniversalScheduling, setIsUniversalScheduling] = useState(false);
+  const [isContainerScheduling, setIsContainerScheduling] = useState(false);
 
   const runAutoScheduler = async () => {
     try {
@@ -105,6 +106,32 @@ const AdminSchedulePage: React.FC = () => {
     }
   };
 
+  const runContainerScheduler = async () => {
+    try {
+      setIsContainerScheduling(true);
+      console.log("📦 Starting Container Scheduler...");
+      
+      const { data, error } = await supabase.functions.invoke("container-scheduler");
+      
+      if (error) {
+        console.error("❌ Container scheduler error:", error);
+        throw error;
+      }
+      
+      const results = data?.results;
+      console.log("✅ Container scheduling complete:", results);
+      
+      toast.success(
+        `Container scheduling complete: ${results?.total_jobs_scheduled || 0} jobs scheduled in ${results?.containers_used || 0} containers (${results?.total_split_jobs || 0} split jobs)`
+      );
+    } catch (err: any) {
+      console.error("💥 CONTAINER SCHEDULER FAILED:", err);
+      toast.error(err?.message || "Failed to run container scheduler");
+    } finally {
+      setIsContainerScheduling(false);
+    }
+  };
+
   if (isLoading) {
     return <LoadingState />;
   }
@@ -129,16 +156,25 @@ const AdminSchedulePage: React.FC = () => {
           size="sm" 
           variant="secondary" 
           onClick={runAutoScheduler} 
-          disabled={isRunning || isUniversalScheduling} 
+          disabled={isRunning || isUniversalScheduling || isContainerScheduling} 
           aria-label="Run auto-scheduler"
         >
           {isRunning ? "Running..." : "Run auto-scheduler"}
         </Button>
         <Button 
           size="sm" 
+          variant="outline" 
+          onClick={runContainerScheduler} 
+          disabled={isRunning || isUniversalScheduling || isContainerScheduling} 
+          aria-label="Schedule jobs into daily containers"
+        >
+          {isContainerScheduling ? "Filling Containers..." : "Container Scheduler"}
+        </Button>
+        <Button 
+          size="sm" 
           variant="default" 
           onClick={runUniversalScheduler} 
-          disabled={isRunning || isUniversalScheduling} 
+          disabled={isRunning || isUniversalScheduling || isContainerScheduling} 
           aria-label="Schedule all jobs universally"
         >
           {isUniversalScheduling ? "Scheduling All..." : "Schedule All Jobs"}
