@@ -29,11 +29,11 @@ Deno.serve(async (req) => {
 
     // Import BusinessLogicEngine (we'll inline the scheduling logic here for edge function)
     const result = await scheduleJobLogic(supabase, {
-      jobId: body.job_id,
-      jobTableName: body.job_table_name || 'production_jobs',
-      targetDateTime: body.target_date_time,
-      stageId: body.stage_id,
-      userId: body.user_id,
+      jobId: body.job_id || body.jobId,
+      jobTableName: body.job_table_name || body.jobTableName || 'production_jobs',
+      targetDateTime: body.target_date_time || body.targetDateTime,
+      stageId: body.stage_id || body.stageId,
+      userId: body.user_id || body.userId,
     });
 
     return new Response(JSON.stringify(result), {

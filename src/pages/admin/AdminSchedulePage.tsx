@@ -47,10 +47,10 @@ const AdminSchedulePage: React.FC = () => {
         try {
           console.log(`🎯 Invoking parallel-auto-scheduler for job ${job.wo_no} (${job.id})`);
           
-          const { data, error } = await supabase.functions.invoke("scheduler", {
+          const { data, error } = await supabase.functions.invoke("parallel-auto-scheduler", {
             body: {
-              jobId: job.id,
-              jobTableName: 'production_jobs'
+              job_id: job.id,
+              job_table_name: 'production_jobs'
             }
           });
           
