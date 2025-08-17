@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -21,10 +20,10 @@ serve(async (req) => {
     const { job_id, job_table_name = 'production_jobs' } = await req.json();
     console.log(`🚀 Simple Scheduler starting for job ${job_id}`);
 
-    // Get all stages for this job, ordered by stage_order
+    // Get stages for this job
     const { data: stages, error: stagesError } = await supabase
       .from('job_stage_instances')
-      .select('id, production_stage_id, stage_order, estimated_duration_minutes')
+      .select('id, stage_order, estimated_duration_minutes')
       .eq('job_id', job_id)
       .eq('job_table_name', job_table_name)
       .order('stage_order', { ascending: true });
@@ -34,7 +33,7 @@ serve(async (req) => {
     }
 
     if (!stages || stages.length === 0) {
-      console.log('⚠️ No stages found for job');
+      console.log('⚠️ No stages found');
       return new Response(
         JSON.stringify({ success: false, message: 'No stages found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -43,139 +42,93 @@ serve(async (req) => {
 
     console.log(`📊 Found ${stages.length} stages to schedule`);
 
-    // FIXED: Start from today in UTC, never schedule in the past
-    const nowUTC = new Date();
-    const todayUTC = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate(), 8, 0, 0, 0));
-    const tomorrowUTC = new Date(todayUTC.getTime() + 24 * 60 * 60 * 1000); // Add 1 day in milliseconds
-    
-    // Start from tomorrow (never today to avoid past scheduling)
-    const startDate = new Date(tomorrowUTC);
-    console.log(`🕐 Scheduling starts from: ${startDate.toISOString()}`);
-    
-    // FIXED: Find next available container with proper capacity checking
-    async function findNextAvailableContainer(fromDateUTC: Date): Promise<{ date: Date, usedMinutes: number }> {
-      let checkDate = new Date(fromDateUTC); // Create immutable copy
+    // Simple date logic: start from today UTC, format as YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`📅 Today is: ${today}`);
+
+    // Find next available working day with capacity
+    async function findNextAvailableWorkingDay(startDate: string, requiredMinutes: number): Promise<{ date: string, usedMinutes: number }> {
+      let checkDate = new Date(startDate + 'T00:00:00.000Z');
       
       while (true) {
-        // Skip weekends (0 = Sunday, 6 = Saturday)
-        if (checkDate.getUTCDay() === 0 || checkDate.getUTCDay() === 6) {
-          checkDate = new Date(checkDate.getTime() + 24 * 60 * 60 * 1000); // Add 1 day
+        const dateStr = checkDate.toISOString().split('T')[0];
+        
+        // Skip weekends
+        const dayOfWeek = checkDate.getUTCDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          checkDate.setUTCDate(checkDate.getUTCDate() + 1);
           continue;
         }
         
-        console.log(`🔍 Checking capacity for: ${checkDate.toISOString().split('T')[0]}`);
+        console.log(`🔍 Checking ${dateStr} for ${requiredMinutes} minutes`);
         
-        // Query existing scheduled jobs for this exact date
-        const dayStart = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), 0, 0, 0, 0));
-        const dayEnd = new Date(Date.UTC(checkDate.getUTCFullYear(), checkDate.getUTCMonth(), checkDate.getUTCDate(), 23, 59, 59, 999));
-        
+        // Query scheduled minutes for this date
         const { data: existingJobs, error } = await supabase
           .from('job_stage_instances')
           .select('scheduled_minutes')
-          .gte('scheduled_start_at', dayStart.toISOString())
-          .lt('scheduled_start_at', dayEnd.toISOString())
+          .gte('scheduled_start_at', dateStr + 'T00:00:00.000Z')
+          .lt('scheduled_start_at', dateStr + 'T23:59:59.999Z')
           .not('scheduled_minutes', 'is', null);
         
         if (error) {
-          console.warn(`⚠️ Error checking schedules for ${checkDate.toISOString().split('T')[0]}: ${error.message}`);
-          return { date: new Date(checkDate), usedMinutes: 0 };
+          console.warn(`⚠️ Error checking ${dateStr}: ${error.message}`);
+          return { date: dateStr, usedMinutes: 0 };
         }
         
         const usedMinutes = existingJobs?.reduce((sum, job) => sum + (job.scheduled_minutes || 0), 0) || 0;
-        const availableMinutes = 480 - usedMinutes; // 8 hours = 480 minutes total capacity
+        const remainingMinutes = 480 - usedMinutes; // 8-hour shifts
         
-        console.log(`📊 ${checkDate.toISOString().split('T')[0]}: ${usedMinutes}/480 minutes used, ${availableMinutes} available`);
+        console.log(`📊 ${dateStr}: ${usedMinutes}/480 minutes used, ${remainingMinutes} available`);
         
-        if (availableMinutes > 0) {
-          return { date: new Date(checkDate), usedMinutes };
+        if (remainingMinutes >= requiredMinutes) {
+          return { date: dateStr, usedMinutes };
         }
         
-        // This day is full, try next day
-        checkDate = new Date(checkDate.getTime() + 24 * 60 * 60 * 1000);
+        // Try next day
+        checkDate.setUTCDate(checkDate.getUTCDate() + 1);
       }
     }
-    
-    // Find the first available container
-    let containerInfo = await findNextAvailableContainer(startDate);
-    let currentContainerDate = containerInfo.date;
-    let currentContainerMinutes = containerInfo.usedMinutes;
-    
-    console.log(`📦 Starting container: ${currentContainerDate.toISOString().split('T')[0]} with ${currentContainerMinutes} minutes already used`);
 
-    for (const stage of stages) {
-      const durationMinutes = stage.estimated_duration_minutes || 60; // Default 1 hour
+    // Schedule each stage sequentially
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      const durationMinutes = stage.estimated_duration_minutes || 60;
       
-      console.log(`🔧 Processing stage ${stage.stage_order}: needs ${durationMinutes} minutes`);
+      console.log(`🔧 Scheduling stage ${stage.stage_order}: ${durationMinutes} minutes`);
       
-      // Check if stage fits in current container (480 minutes = 8 hours total capacity)
-      const remainingCapacity = 480 - currentContainerMinutes;
-      console.log(`📦 Current container has ${remainingCapacity} minutes remaining (${currentContainerMinutes}/480 used)`);
+      // Find next available day for this stage
+      const { date: scheduleDate, usedMinutes } = await findNextAvailableWorkingDay(today, durationMinutes);
       
-      if (durationMinutes <= remainingCapacity) {
-        // FIXED: Schedule AFTER existing work in container
-        const containerStartUTC = new Date(Date.UTC(
-          currentContainerDate.getUTCFullYear(), 
-          currentContainerDate.getUTCMonth(), 
-          currentContainerDate.getUTCDate(), 
-          8, 0, 0, 0
-        ));
-        
-        // Start time = container start + existing minutes
-        const startTime = new Date(containerStartUTC.getTime() + (currentContainerMinutes * 60 * 1000));
-        const endTime = new Date(startTime.getTime() + (durationMinutes * 60 * 1000));
-        
-        console.log(`⏰ Scheduling in current container: ${startTime.toISOString()} to ${endTime.toISOString()}`);
-
-        // Update stage with schedule
-        await supabase
-          .from('job_stage_instances')
-          .update({
-            scheduled_start_at: startTime.toISOString(),
-            scheduled_end_at: endTime.toISOString(),
-            scheduled_minutes: durationMinutes
-          })
-          .eq('id', stage.id);
-
-        // Update container usage
-        currentContainerMinutes += durationMinutes;
-        console.log(`✅ Scheduled stage ${stage.stage_order} in current container: ${startTime.toISOString().split('T')[1].slice(0,5)}-${endTime.toISOString().split('T')[1].slice(0,5)} (container now ${currentContainerMinutes}/480 minutes)`);
-      } else {
-        // FIXED: Move to next available container with proper date increment
-        console.log(`⏭️ Stage doesn't fit, finding next container...`);
-        const nextSearchDate = new Date(currentContainerDate.getTime() + 24 * 60 * 60 * 1000); // Add 1 day
-        containerInfo = await findNextAvailableContainer(nextSearchDate);
-        currentContainerDate = containerInfo.date;
-        currentContainerMinutes = containerInfo.usedMinutes;
-        
-        console.log(`📦 New container: ${currentContainerDate.toISOString().split('T')[0]} with ${currentContainerMinutes} minutes used`);
-
-        // FIXED: Schedule AFTER existing work in new container  
-        const containerStartUTC = new Date(Date.UTC(
-          currentContainerDate.getUTCFullYear(), 
-          currentContainerDate.getUTCMonth(), 
-          currentContainerDate.getUTCDate(), 
-          8, 0, 0, 0
-        ));
-        
-        const startTime = new Date(containerStartUTC.getTime() + (currentContainerMinutes * 60 * 1000));
-        const endTime = new Date(startTime.getTime() + (durationMinutes * 60 * 1000));
-        
-        console.log(`⏰ Scheduling in new container: ${startTime.toISOString()} to ${endTime.toISOString()}`);
-
-        // Update stage with schedule
-        await supabase
-          .from('job_stage_instances')
-          .update({
-            scheduled_start_at: startTime.toISOString(),
-            scheduled_end_at: endTime.toISOString(),
-            scheduled_minutes: durationMinutes
-          })
-          .eq('id', stage.id);
-
-        // Update container usage
-        currentContainerMinutes += durationMinutes;
-        console.log(`✅ Scheduled stage ${stage.stage_order} in new container: ${startTime.toISOString().split('T')[1].slice(0,5)}-${endTime.toISOString().split('T')[1].slice(0,5)} (container now ${currentContainerMinutes}/480 minutes)`);
+      // Calculate start time: shift starts at 08:00 UTC + existing work
+      const startTime = new Date(scheduleDate + 'T08:00:00.000Z');
+      startTime.setUTCMinutes(startTime.getUTCMinutes() + usedMinutes);
+      
+      const endTime = new Date(startTime.getTime() + (durationMinutes * 60 * 1000));
+      
+      console.log(`⏰ Scheduling on ${scheduleDate}: ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      
+      // Validate we're not scheduling in the past
+      const now = new Date();
+      if (startTime < now) {
+        console.error(`❌ PAST SCHEDULING DETECTED: ${startTime.toISOString()} is before ${now.toISOString()}`);
+        throw new Error('Cannot schedule in the past');
       }
+      
+      // Update the stage
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          scheduled_start_at: startTime.toISOString(),
+          scheduled_end_at: endTime.toISOString(),
+          scheduled_minutes: durationMinutes
+        })
+        .eq('id', stage.id);
+      
+      if (updateError) {
+        throw new Error(`Failed to update stage ${stage.id}: ${updateError.message}`);
+      }
+      
+      console.log(`✅ Scheduled stage ${stage.stage_order} on ${scheduleDate} from ${startTime.toISOString().split('T')[1].slice(0,5)} to ${endTime.toISOString().split('T')[1].slice(0,5)}`);
     }
 
     console.log(`🎯 Successfully scheduled ${stages.length} stages`);
@@ -190,7 +143,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Simple scheduler error:', error);
+    console.error('❌ Scheduler error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
@@ -200,6 +153,3 @@ serve(async (req) => {
     );
   }
 });
-
-// REMOVED: This function had the double increment bug and is no longer needed
-// The scheduling logic now uses explicit UTC date arithmetic instead

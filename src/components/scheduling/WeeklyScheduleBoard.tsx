@@ -463,7 +463,7 @@ const WeeklyScheduleBoard: React.FC = () => {
                   // Apply stage filtering if a specific stage is selected
                   if (selectedStageName && selectedStageName !== 'Batch Processing' && selectedStageName !== 'All Jobs') {
                     dayScheduledJobs = dayScheduledJobs.filter(job => 
-                      job.production_stages.name === selectedStageName
+                      job.production_stages?.name === selectedStageName
                     );
                   }
                   
