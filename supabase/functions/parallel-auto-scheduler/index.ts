@@ -53,7 +53,23 @@ const DEFAULT_HOURS: WorkingHours = {
   workingWeekdays: [1, 2, 3, 4, 5],      // Mon-Fri
 };
 
-// ===== TIME UTILITIES (NO DEPENDENCIES - CLEAN) =====
+// ===== TIME UTILITIES (SAST TIMEZONE AWARE) =====
+
+// Convert SAST to UTC for database storage
+function createSASTTimeAsUTC(dateStr: string, timeStr: string): Date {
+  // Create a date in SAST timezone
+  const sastDateTime = new Date(`${dateStr}T${timeStr}:00+02:00`);
+  // Return the UTC equivalent for database storage
+  return new Date(sastDateTime.getTime());
+}
+
+// Get current SAST time as UTC for calculations
+function getCurrentSASTAsUTC(): Date {
+  const now = new Date();
+  // Convert current UTC to SAST, then back to UTC for storage
+  const sastTime = new Date(now.getTime() + (2 * 60 * 60 * 1000)); // Add 2 hours for SAST
+  return sastTime;
+}
 
 function minutesFromMidnight(d: Date): number {
   return d.getHours() * 60 + d.getMinutes();
@@ -192,16 +208,16 @@ serve(async (req) => {
     // STEP 1: Load existing scheduled work to seed queue tails
     const { data: existingWork } = await supabase
       .from('job_stage_instances')
-      .select('production_stage_id, auto_scheduled_start_at, auto_scheduled_end_at, scheduled_start_at, scheduled_end_at')
+      .select('production_stage_id, scheduled_start_at, scheduled_end_at, scheduled_minutes')
       .in('status', ['pending', 'active', 'completed'])
-      .not('auto_scheduled_start_at', 'is', null)
-      .not('auto_scheduled_end_at', 'is', null);
+      .not('scheduled_start_at', 'is', null)
+      .not('scheduled_end_at', 'is', null);
 
     // Build resource queue tails
     const resourceTails: Record<string, Date> = {};
     for (const work of existingWork || []) {
-      const start = work.auto_scheduled_start_at || work.scheduled_start_at;
-      const end = work.auto_scheduled_end_at || work.scheduled_end_at;
+      const start = work.scheduled_start_at;
+      const end = work.scheduled_end_at;
       if (start && end) {
         const endDate = new Date(end);
         const current = resourceTails[work.production_stage_id]?.getTime() ?? 0;
@@ -248,15 +264,18 @@ serve(async (req) => {
 
     console.log(`📋 Found ${jobStages.length} schedulable stages`)
 
-    // STEP 3: Build order input for scheduler
+    // STEP 3: Build order input for scheduler with proper SAST timing
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const earliestStart = createSASTTimeAsUTC(today, '08:00'); // 8:00 AM SAST = 6:00 AM UTC
+    
     const order: OrderInput = {
       orderId: job_id,
-      earliestStart: new Date(),
+      earliestStart: earliestStart,
       priority: 1,
       stages: jobStages.map(stage => ({
         stageId: stage.id,
         type: stage.production_stages?.name || 'Unknown',
-        durationMinutes: stage.estimated_duration_minutes || 120,
+        durationMinutes: Math.max(stage.estimated_duration_minutes || 30, 20), // Minimum 20 minutes, default 30
         resourceId: stage.production_stage_id,
         order: stage.stage_order
       }))
@@ -267,17 +286,18 @@ serve(async (req) => {
 
     console.log(`✅ Scheduled ${result.stages.length} stages`)
 
-    // STEP 5: Update database with results
+    // STEP 5: Update database with results (using correct column names)
     let updateCount = 0;
     for (const stage of result.stages) {
+      const durationMinutes = Math.round((stage.end.getTime() - stage.start.getTime()) / 60000);
+      
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
-          auto_scheduled_start_at: stage.start.toISOString(),
-          auto_scheduled_end_at: stage.end.toISOString(),
-          auto_scheduled_duration_minutes: 
-            Math.round((stage.end.getTime() - stage.start.getTime()) / 60000),
-          schedule_status: 'auto_scheduled',
+          scheduled_start_at: stage.start.toISOString(),
+          scheduled_end_at: stage.end.toISOString(),
+          scheduled_minutes: durationMinutes,
+          schedule_status: 'scheduled',
           updated_at: new Date().toISOString()
         })
         .eq('id', stage.stageId);
@@ -286,7 +306,10 @@ serve(async (req) => {
         console.error(`❌ Failed to update stage ${stage.stageId}:`, updateError);
       } else {
         updateCount++;
-        console.log(`✅ Updated ${stage.type}: ${stage.start.toISOString().split('T')[1].substring(0,5)} - ${stage.end.toISOString().split('T')[1].substring(0,5)}`);
+        // Convert UTC times back to SAST for display (add 2 hours)
+        const sastStart = new Date(stage.start.getTime() + (2 * 60 * 60 * 1000));
+        const sastEnd = new Date(stage.end.getTime() + (2 * 60 * 60 * 1000));
+        console.log(`✅ Updated ${stage.type}: ${sastStart.toISOString().split('T')[1].substring(0,5)} - ${sastEnd.toISOString().split('T')[1].substring(0,5)} SAST (${durationMinutes}min)`);
       }
     }
 
