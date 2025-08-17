@@ -1,37 +1,36 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { LoadingState } from '@/components/users/LoadingState';
+import { AccessRestrictedMessage } from '@/components/users/AccessRestrictedMessage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Package } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Settings, Plus, Clock, CheckCircle, AlertCircle, Play } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, addDays, subWeeks, addWeeks, isToday } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { useAccessibleJobs } from '@/hooks/tracker/useAccessibleJobs';
+import { ProductionHeader } from '@/components/tracker/production/ProductionHeader';
+import { ProductionStats } from '@/components/tracker/production/ProductionStats';
+import { EnhancedProductionJobCard } from '@/components/tracker/production/EnhancedProductionJobCard';
+import AdminHeader from '@/components/admin/AdminHeader';
+import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 
-interface JobOrder {
-  id: string;
-  wo_no: string;
-  customer: string;
-  description: string;
-  status: string;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  estimated_hours: number;
-  current_stage?: string;
-  due_date?: string;
-}
-
-interface ScheduleSlot {
-  date: Date;
-  dayName: string;
-  shift: 'morning' | 'afternoon';
-  orders: JobOrder[];
-  totalHours: number;
-  capacity: number; // 4 hours per shift
-}
-
-export const WeeklyScheduleBoard: React.FC = () => {
+const WeeklyScheduleBoard: React.FC = () => {
+  const { isAdmin, isLoading: authLoading } = useAdminAuth();
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
-  const [scheduleData, setScheduleData] = useState<ScheduleSlot[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
+
+  const { 
+    jobs, 
+    isLoading, 
+    error,
+    startJob,
+    completeJob,
+    refreshJobs,
+    invalidateCache
+  } = useAccessibleJobs({
+    permissionType: 'manage'
+  });
 
   // Calculate week boundaries
   const weekStart = useMemo(() => {
@@ -42,75 +41,158 @@ export const WeeklyScheduleBoard: React.FC = () => {
     return endOfWeek(currentWeek, { weekStartsOn: 1 }); // Sunday end
   }, [currentWeek]);
 
-  // Generate schedule slots for Monday-Friday
-  const generateScheduleSlots = useMemo(() => {
-    const slots: ScheduleSlot[] = [];
-    
-    // Monday to Friday (5 days)
-    for (let i = 0; i < 5; i++) {
-      const date = addDays(weekStart, i);
-      const dayName = format(date, 'EEEE');
-      
-      // Morning shift (8:00 AM - 12:00 PM)
-      slots.push({
-        date,
-        dayName,
-        shift: 'morning',
-        orders: [],
-        totalHours: 0,
-        capacity: 4 // 4 hours capacity
-      });
-      
-      // Afternoon shift (1:00 PM - 5:00 PM)
-      slots.push({
-        date,
-        dayName,
-        shift: 'afternoon',
-        orders: [],
-        totalHours: 0,
-        capacity: 4 // 4 hours capacity
-      });
+  // Enhanced filtering to handle batch processing jobs and parallel stages
+  const filteredJobs = useMemo(() => {
+    if (!selectedStageName) {
+      return jobs;
     }
-    
-    return slots;
-  }, [weekStart]);
 
-  // Load production jobs for the week
-  const loadWeeklyJobs = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Get all active production jobs
-      const { data: jobs, error: jobsError } = await supabase
-        .from('production_jobs')
-        .select('*')
-        .in('status', ['pending', 'active', 'Pre-Press', 'Ready for Batch'])
-        .order('created_at', { ascending: true });
-
-      if (jobsError) {
-        throw jobsError;
+    return jobs.filter(job => {
+      // Special handling for batch processing
+      if (selectedStageName === 'In Batch Processing') {
+        return job.status === 'In Batch Processing';
       }
-
-      // For now, just populate the slots structure without actual scheduling
-      // This will be enhanced when we add date/time assignment functionality
-      const updatedSlots = generateScheduleSlots.map(slot => ({
-        ...slot,
-        orders: [], // Will be populated when jobs have schedule assignments
-        totalHours: 0
-      }));
-
-      setScheduleData(updatedSlots);
       
-      console.log(`📅 Weekly Schedule: ${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`);
-      console.log(`🏭 Found ${jobs?.length || 0} active jobs (not yet scheduled to time slots)`);
+      // Check if job should appear in this stage based on parallel stages
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        return job.parallel_stages.some(stage => stage.stage_name === selectedStageName);
+      }
       
-    } catch (err) {
-      console.error('Error loading weekly jobs:', err);
-      setError(`Failed to load jobs: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
+      // Fallback to original logic for jobs without parallel stage data
+      const currentStage = job.current_stage_name || job.display_stage_name;
+      return currentStage === selectedStageName;
+    });
+  }, [jobs, selectedStageName]);
+
+  // Enhanced stages to include batch processing and parallel stages
+  const consolidatedStages = useMemo(() => {
+    const stageMap = new Map();
+    
+    jobs.forEach(job => {
+      // Add parallel stages from each job
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        job.parallel_stages.forEach(stage => {
+          stageMap.set(stage.stage_id, {
+            stage_id: stage.stage_id,
+            stage_name: stage.stage_name,
+            stage_color: stage.stage_color || '#6B7280'
+          });
+        });
+      } else if (job.current_stage_id && job.current_stage_name) {
+        // Fallback for jobs without parallel stage data
+        stageMap.set(job.current_stage_id, {
+          stage_id: job.current_stage_id,
+          stage_name: job.current_stage_name,
+          stage_color: job.current_stage_color || '#6B7280'
+        });
+      }
+    });
+    
+    // Add virtual batch processing stage if we have jobs in that status
+    const batchJobs = jobs.filter(job => job.status === 'In Batch Processing');
+    if (batchJobs.length > 0) {
+      stageMap.set('batch-processing', {
+        stage_id: 'batch-processing',
+        stage_name: 'In Batch Processing',
+        stage_color: '#F59E0B'
+      });
     }
+    
+    return Array.from(stageMap.values());
+  }, [jobs]);
+
+  const getJobCountForStage = (stageName: string) => {
+    return jobs.filter(job => {
+      const currentStage = job.current_stage_name || job.display_stage_name;
+      
+      // Check if job's current stage matches
+      if (currentStage === stageName) {
+        return true;
+      }
+      
+      // Check if job has parallel stages that match
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        return job.parallel_stages.some(stage => stage.stage_name === stageName);
+      }
+      
+      return false;
+    }).length;
+  };
+
+  const getJobCountByStatus = (status: string) => {
+    return jobs.filter(job => {
+      const hasActiveStage = job.current_stage_status === 'active';
+      const hasPendingStages = job.current_stage_status === 'pending';
+      const allCompleted = job.workflow_progress === 100;
+      
+      switch (status) {
+        case 'completed': return allCompleted;
+        case 'in-progress': return hasActiveStage;
+        case 'pending': return hasPendingStages;
+        case 'overdue':
+          if (!job.due_date) return false;
+          const dueDate = new Date(job.due_date);
+          const today = new Date();
+          return dueDate < today && !allCompleted;
+        default: return false;
+      }
+    }).length;
+  };
+
+  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
+    console.log('Stage selected:', { stageId, stageName });
+    setSelectedStageId(stageId);
+    setSelectedStageName(stageName);
+  };
+
+  const handleStageClick = (stageId: string, stageName: string) => {
+    console.log('Sidebar stage clicked:', { stageId, stageName, selectedStageId, selectedStageName });
+    
+    if (selectedStageId === stageId) {
+      // Clicking the same stage - deselect it
+      handleStageSelect(null, null);
+    } else {
+      // Select the new stage
+      handleStageSelect(stageId, stageName);
+    }
+  };
+
+  const handleAllJobsClick = () => {
+    console.log('All jobs clicked');
+    handleStageSelect(null, null);
+  };
+
+  const handleStatusFilter = (status: string) => {
+    console.log('Status filter clicked:', status);
+    // For now, just show all jobs - could extend this later
+    handleStageSelect(null, null);
+  };
+
+  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
+    try {
+      if (action === 'start') {
+        const success = await startJob(jobId, stageId);
+        if (success) {
+          console.log('Stage started successfully');
+        }
+      } else if (action === 'complete') {
+        const success = await completeJob(jobId, stageId);
+        if (success) {
+          console.log('Stage completed successfully');
+        }
+      } else if (action === 'qr-scan') {
+        console.log('QR scan action triggered');
+      }
+      
+      await refreshJobs();
+      
+    } catch (error) {
+      console.error('Error performing stage action:', error);
+    }
+  };
+
+  const handleJobClick = (job: AccessibleJob) => {
+    console.log('Job clicked:', job.wo_no);
   };
 
   // Navigation functions
@@ -126,220 +208,240 @@ export const WeeklyScheduleBoard: React.FC = () => {
     setCurrentWeek(new Date());
   };
 
-  // Load data when week changes
   useEffect(() => {
-    loadWeeklyJobs();
-  }, [currentWeek]);
+    document.title = "Weekly Schedule Board | Production Planning";
+  }, []);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-500 text-white';
-      case 'high': return 'bg-orange-500 text-white';
-      case 'normal': return 'bg-blue-500 text-white';
-      case 'low': return 'bg-gray-500 text-white';
-      default: return 'bg-gray-500 text-white';
-    }
-  };
+  if (authLoading || isLoading) {
+    return <LoadingState />;
+  }
 
-  const getShiftTimeLabel = (shift: 'morning' | 'afternoon') => {
-    return shift === 'morning' ? '8:00 AM - 12:00 PM' : '1:00 PM - 5:00 PM';
-  };
-
-  const getCapacityColor = (used: number, capacity: number) => {
-    const percentage = (used / capacity) * 100;
-    if (percentage >= 100) return 'text-red-600';
-    if (percentage >= 80) return 'text-orange-600';
-    if (percentage >= 60) return 'text-yellow-600';
-    return 'text-green-600';
-  };
+  if (!isAdmin) {
+    return (
+      <div className="p-6">
+        <AccessRestrictedMessage />
+      </div>
+    );
+  }
 
   if (error) {
     return (
-      <Card className="border-red-200 bg-red-50">
-        <CardContent className="p-6">
-          <div className="text-red-800">
-            <h3 className="font-semibold mb-2">Error Loading Schedule</h3>
-            <p>{error}</p>
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Error loading production data</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Week Navigation */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Calendar className="h-6 w-6 text-primary" />
-                Weekly Schedule Board
-              </CardTitle>
-              <CardDescription>
-                Production schedule for {format(weekStart, 'MMMM d')} - {format(weekEnd, 'd, yyyy')}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-                This Week
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToNextWeek}>
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+    <div className="min-h-screen bg-background">
+      <div className="p-6">
+        <AdminHeader
+          title="Weekly Schedule Board"
+          subtitle="Plan and organize production jobs across Monday to Friday shifts"
+        />
+
+        <div className="mt-6 flex h-[calc(100vh-200px)]">
+          {/* Left Sidebar - Production Stages (same as Production workflow) */}
+          <div className="w-64 border-r bg-white overflow-y-auto">
+            <div className="w-full overflow-y-auto p-4">
+              {/* Production Stages */}
+              <Card className="mb-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Production Stages
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  <Button 
+                    variant={!selectedStageId ? "default" : "ghost"} 
+                    size="sm" 
+                    className="w-full justify-start text-xs h-8"
+                    onClick={handleAllJobsClick}
+                  >
+                    All Jobs
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      {jobs.length}
+                    </Badge>
+                  </Button>
+                  {consolidatedStages.map(stage => {
+                    const jobCount = getJobCountForStage(stage.stage_name);
+                    const isSelected = selectedStageId === stage.stage_id;
+                    return (
+                      <Button 
+                        key={stage.stage_id}
+                        variant={isSelected ? "default" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start text-xs h-8"
+                        onClick={() => handleStageClick(stage.stage_id, stage.stage_name)}
+                      >
+                        <div 
+                          className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                          style={{ backgroundColor: stage.stage_color }}
+                        />
+                        <span className="truncate flex-1 text-left">
+                          {stage.stage_name}
+                        </span>
+                        <Badge variant="secondary" className="ml-auto text-xs font-bold">
+                          {jobCount}
+                        </Badge>
+                      </Button>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              {/* Quick Status Filters */}
+              <Card className="mb-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    Status Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  {[
+                    { id: 'completed', label: 'Completed', icon: CheckCircle, color: 'text-green-500' },
+                    { id: 'in-progress', label: 'In Progress', icon: Play, color: 'text-blue-500' },
+                    { id: 'pending', label: 'Pending', icon: Clock, color: 'text-yellow-500' },
+                    { id: 'overdue', label: 'Overdue', icon: AlertCircle, color: 'text-red-500' }
+                  ].map(status => (
+                    <Button 
+                      key={status.id}
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full justify-start text-xs h-8"
+                      onClick={() => handleStatusFilter(status.id)}
+                    >
+                      <status.icon className={`h-3 w-3 mr-2 ${status.color}`} />
+                      <span className="flex-1 text-left">{status.label}</span>
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {getJobCountByStatus(status.id)}
+                      </Badge>
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Stage Management */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Stage Management</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button variant="outline" size="sm" className="w-full justify-start text-xs">
+                    <Plus className="h-3 w-3 mr-2" />
+                    Add Stage
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full justify-start text-xs">
+                    <Settings className="h-3 w-3 mr-2" />
+                    Configure Workflow
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </div>
-        </CardHeader>
-      </Card>
 
-      {/* Weekly Grid - Monday to Friday */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((dayName, dayIndex) => {
-          const daySlots = scheduleData.filter(slot => slot.dayName === dayName);
-          const dayDate = addDays(weekStart, dayIndex);
-          const isCurrentDay = isToday(dayDate);
-          
-          return (
-            <Card key={dayName} className={`${isCurrentDay ? 'border-primary shadow-md' : ''}`}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span className={isCurrentDay ? 'text-primary' : ''}>{dayName}</span>
-                  <Badge variant={isCurrentDay ? 'default' : 'outline'}>
-                    {format(dayDate, 'MMM d')}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Morning Shift */}
-                {daySlots
-                  .filter(slot => slot.shift === 'morning')
-                  .map((slot, index) => (
-                    <div key={`morning-${index}`} className="border rounded-lg p-3 bg-yellow-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-yellow-600" />
-                          <span className="text-sm font-medium text-yellow-800">Morning</span>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {slot.totalHours}h / {slot.capacity}h
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-yellow-700 mb-2">
-                        {getShiftTimeLabel('morning')}
-                      </div>
-                      
-                      {/* Orders in this slot */}
-                      {slot.orders.length === 0 ? (
-                        <div className="text-xs text-gray-500 italic text-center py-2">
-                          No jobs scheduled
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {slot.orders.map(order => (
-                            <div key={order.id} className="bg-white rounded p-2 border">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-sm">{order.wo_no}</span>
-                                <Badge className={getPriorityColor(order.priority)}>
-                                  {order.priority}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-gray-600">{order.customer}</div>
-                              <div className="text-xs text-gray-500">{order.estimated_hours}h</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header with Week Navigation */}
+            <div className="border-b bg-white p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Weekly Schedule: {format(weekStart, 'MMMM d')} - {format(weekEnd, 'd, yyyy')}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedStageName ? `Showing ${selectedStageName} jobs` : 'Showing all jobs'} scheduled for this week
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                    This Week
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={goToNextWeek}>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
 
-                {/* Afternoon Shift */}
-                {daySlots
-                  .filter(slot => slot.shift === 'afternoon')
-                  .map((slot, index) => (
-                    <div key={`afternoon-${index}`} className="border rounded-lg p-3 bg-blue-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-800">Afternoon</span>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {slot.totalHours}h / {slot.capacity}h
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-blue-700 mb-2">
-                        {getShiftTimeLabel('afternoon')}
-                      </div>
-                      
-                      {/* Orders in this slot */}
-                      {slot.orders.length === 0 ? (
-                        <div className="text-xs text-gray-500 italic text-center py-2">
-                          No jobs scheduled
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {slot.orders.map(order => (
-                            <div key={order.id} className="bg-white rounded p-2 border">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-sm">{order.wo_no}</span>
-                                <Badge className={getPriorityColor(order.priority)}>
-                                  {order.priority}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-gray-600">{order.customer}</div>
-                              <div className="text-xs text-gray-500">{order.estimated_hours}h</div>
+              {/* Production Stats */}
+              <ProductionStats 
+                jobs={filteredJobs}
+                jobsWithoutCategory={[]}
+              />
+            </div>
+
+            {/* Weekly Grid - Monday to Friday */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="grid grid-cols-5 gap-4 h-full">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((dayName, dayIndex) => {
+                  const dayDate = addDays(weekStart, dayIndex);
+                  const isCurrentDay = isToday(dayDate);
+                  
+                  // For now, no jobs will show since they don't have schedule dates yet
+                  // This will be populated in the next steps when we add date assignment
+                  const dayJobs: AccessibleJob[] = [];
+                  
+                  return (
+                    <Card key={dayName} className={`flex flex-col h-full ${isCurrentDay ? 'border-primary shadow-md' : ''}`}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center justify-between">
+                          <span className={isCurrentDay ? 'text-primary' : ''}>{dayName}</span>
+                          <Badge variant={isCurrentDay ? 'default' : 'outline'}>
+                            {format(dayDate, 'MMM d')}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''} scheduled
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-1 overflow-auto">
+                        {dayJobs.length === 0 ? (
+                          <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                            <div className="text-center">
+                              <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              <p>No jobs scheduled</p>
+                              <p className="text-xs mt-1">Jobs will appear here when assigned to time slots</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </CardContent>
-            </Card>
-          );
-        })}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {dayJobs.map(job => (
+                              <EnhancedProductionJobCard
+                                key={job.job_id}
+                                job={job}
+                                contextStageName={selectedStageName}
+                                onJobClick={handleJobClick}
+                                onStageAction={handleStageAction}
+                                showDetails={false}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Summary Info */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-primary">10</div>
-              <div className="text-sm text-muted-foreground">Total Shifts</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">40h</div>
-              <div className="text-sm text-muted-foreground">Total Capacity</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">0h</div>
-              <div className="text-sm text-muted-foreground">Hours Scheduled</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-blue-600">0%</div>
-              <div className="text-sm text-muted-foreground">Utilization</div>
-            </div>
-          </div>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            💡 Jobs will appear here once they have been assigned to specific time slots
-          </div>
-        </CardContent>
-      </Card>
-
-      {isLoading && (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Package className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p>Loading weekly schedule...</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
+
+export default WeeklyScheduleBoard;
