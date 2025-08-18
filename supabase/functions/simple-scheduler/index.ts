@@ -71,7 +71,7 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
       .select('id, wo_no, proof_approved_at, status')
       .not('proof_approved_at', 'is', null)
       .in('status', ['approved', 'ready', 'in production', 'Pre-Press'])
-      .not('status', 'in', ['completed', 'cancelled', 'rejected', 'Completed']);
+      .not('status', 'in', '(completed,cancelled,rejected,Completed)');
 
     if (jobError) {
       console.error('❌ Error fetching approved jobs:', jobError);
