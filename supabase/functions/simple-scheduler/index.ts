@@ -62,46 +62,137 @@ async function getNextWorkingDay(supabase: any, startDate: Date): Promise<Date> 
 }
 
 async function getPendingStages(supabase: any): Promise<PendingStage[]> {
-  const { data: stages, error } = await supabase
-    .from('job_stage_instances')
-    .select(`
-      id,
-      job_id,
-      job_table_name,
-      production_stage_id,
-      stage_order,
-      estimated_duration_minutes,
-      category_id,
-      production_stages!inner(name),
-      production_jobs!inner(wo_no, proof_approved_at)
-    `)
-    .eq('status', 'pending')
-    .not('production_stages.name', 'ilike', '%dtp%')
-    .not('production_stages.name', 'ilike', '%proof%')
-    .not('production_stages.name', 'ilike', '%batch%allocation%')
-    
+  console.log('🔍 Fetching pending stage instances...');
+  
+  try {
+    // STEP 1: Get all pending job stage instances
+    const { data: stageInstances, error: stageError } = await supabase
+      .from('job_stage_instances')
+      .select(`
+        id,
+        job_id,
+        job_table_name,
+        production_stage_id,
+        stage_order,
+        estimated_duration_minutes,
+        category_id
+      `)
+      .eq('status', 'pending');
 
-  if (error) {
+    if (stageError) {
+      console.error('❌ Error fetching stage instances:', stageError);
+      throw stageError;
+    }
+
+    console.log(`📋 Found ${stageInstances?.length || 0} pending stage instances`);
+
+    if (!stageInstances || stageInstances.length === 0) {
+      return [];
+    }
+
+    // STEP 2: Get unique production stage IDs to fetch stage details
+    const stageIds = [...new Set(stageInstances.map(si => si.production_stage_id))];
+    
+    const { data: productionStages, error: stagesError } = await supabase
+      .from('production_stages')
+      .select('id, name')
+      .in('id', stageIds);
+
+    if (stagesError) {
+      console.error('❌ Error fetching production stages:', stagesError);
+      throw stagesError;
+    }
+
+    console.log(`📋 Found ${productionStages?.length || 0} production stages`);
+
+    // STEP 3: Get unique job IDs for production_jobs
+    const prodJobIds = stageInstances
+      .filter(si => si.job_table_name === 'production_jobs')
+      .map(si => si.job_id);
+    
+    let productionJobs: any[] = [];
+    if (prodJobIds.length > 0) {
+      const { data: jobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, proof_approved_at')
+        .in('id', prodJobIds);
+
+      if (jobsError) {
+        console.error('❌ Error fetching production jobs:', jobsError);
+        throw jobsError;
+      }
+
+      productionJobs = jobs || [];
+      console.log(`📋 Found ${productionJobs.length} production jobs`);
+    }
+
+    // STEP 4: Create lookup maps for efficient data joining
+    const stageMap = new Map(productionStages?.map(s => [s.id, s]) || []);
+    const jobMap = new Map(productionJobs.map(j => [j.id, j]));
+
+    // STEP 5: Combine data and filter out excluded stage types
+    const mappedStages: PendingStage[] = [];
+
+    for (const stageInstance of stageInstances) {
+      const stage = stageMap.get(stageInstance.production_stage_id);
+      const job = jobMap.get(stageInstance.job_id);
+
+      if (!stage) {
+        console.warn(`⚠️ No stage found for ID: ${stageInstance.production_stage_id}`);
+        continue;
+      }
+
+      // Filter out DTP, proof, and batch allocation stages
+      const stageName = stage.name.toLowerCase();
+      if (stageName.includes('dtp') || 
+          stageName.includes('proof') || 
+          stageName.includes('batch') && stageName.includes('allocation')) {
+        console.log(`🚫 Skipping excluded stage: ${stage.name}`);
+        continue;
+      }
+
+      if (!job && stageInstance.job_table_name === 'production_jobs') {
+        console.warn(`⚠️ No job found for ID: ${stageInstance.job_id}`);
+        continue;
+      }
+
+      mappedStages.push({
+        id: stageInstance.id,
+        job_id: stageInstance.job_id,
+        job_table_name: stageInstance.job_table_name,
+        production_stage_id: stageInstance.production_stage_id,
+        stage_name: stage.name,
+        job_wo_no: job?.wo_no || `Job-${stageInstance.job_id.slice(0, 8)}`,
+        stage_order: stageInstance.stage_order,
+        estimated_duration_minutes: stageInstance.estimated_duration_minutes || 60,
+        proof_approved_at: job?.proof_approved_at ? new Date(job.proof_approved_at) : new Date(),
+        category_id: stageInstance.category_id
+      });
+    }
+
+    // STEP 6: Sort by proof_approved_at (FIFO order)
+    mappedStages.sort((a, b) => a.proof_approved_at.getTime() - b.proof_approved_at.getTime());
+    
+    console.log(`✅ Successfully processed ${mappedStages.length} valid pending stages`);
+    
+    // Log stage type breakdown
+    const stageTypeCount = new Map<string, number>();
+    mappedStages.forEach(stage => {
+      const count = stageTypeCount.get(stage.stage_name) || 0;
+      stageTypeCount.set(stage.stage_name, count + 1);
+    });
+    
+    console.log('📊 Stage breakdown:');
+    stageTypeCount.forEach((count, stageName) => {
+      console.log(`   ${stageName}: ${count} stages`);
+    });
+    
+    return mappedStages;
+    
+  } catch (error) {
+    console.error('❌ Critical error in getPendingStages:', error);
     throw error;
   }
-
-  const mappedStages = (stages || []).map(stage => ({
-    id: stage.id,
-    job_id: stage.job_id,
-    job_table_name: stage.job_table_name,
-    production_stage_id: stage.production_stage_id,
-    stage_name: (stage.production_stages as any)?.name || 'Unknown Stage',
-    job_wo_no: (stage.production_jobs as any)?.wo_no || 'Unknown',
-    stage_order: stage.stage_order,
-    estimated_duration_minutes: stage.estimated_duration_minutes || 60,
-    proof_approved_at: new Date((stage.production_jobs as any)?.proof_approved_at || new Date()),
-    category_id: stage.category_id
-  }));
-
-  // Sort by proof_approved_at (FIFO order)
-  mappedStages.sort((a, b) => a.proof_approved_at.getTime() - b.proof_approved_at.getTime());
-  
-  return mappedStages;
 }
 
 function groupStagesByType(stages: PendingStage[]): { [stageType: string]: PendingStage[] } {
