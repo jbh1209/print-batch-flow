@@ -1,6 +1,6 @@
 /**
- * Simple FIFO Production Scheduler
- * Triggered when jobs are approved and need scheduling
+ * Simple FIFO Production Scheduler - REWRITTEN FOR TRUE SEQUENTIAL SCHEDULING
+ * Each stage starts exactly when the previous stage ends - NO GAPS!
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
@@ -19,21 +19,7 @@ interface PendingStage {
   category_id: string;
 }
 
-interface WorkingDay {
-  date: string;
-  total_capacity_minutes: number;
-  used_minutes: number;
-  remaining_minutes: number;
-}
-
-interface TimeSlot {
-  start: Date;
-  end: Date;
-  duration_minutes: number;
-}
-
 const DEFAULT_CAPACITY = {
-  daily_capacity_minutes: 450, // 8:00-16:30 with 30min lunch
   shift_start_hour: 8,
   shift_end_hour: 16,
   shift_end_minute: 30,
@@ -43,36 +29,6 @@ const DEFAULT_CAPACITY = {
 
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
-}
-
-function calculateDayTimeSlots(date: Date): TimeSlot[] {
-  const slots: TimeSlot[] = [];
-  
-  // Morning slot: 8:00-13:00 (5 hours = 300 minutes)
-  const morningStart = new Date(date);
-  morningStart.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
-  const morningEnd = new Date(date);
-  morningEnd.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, 0, 0, 0);
-  
-  slots.push({
-    start: morningStart,
-    end: morningEnd,
-    duration_minutes: 300
-  });
-  
-  // Afternoon slot: 13:30-16:30 (3 hours = 180 minutes) 
-  const afternoonStart = new Date(date);
-  afternoonStart.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, DEFAULT_CAPACITY.lunch_break_duration_minutes, 0, 0);
-  const afternoonEnd = new Date(date);
-  afternoonEnd.setHours(DEFAULT_CAPACITY.shift_end_hour, DEFAULT_CAPACITY.shift_end_minute, 0, 0);
-  
-  slots.push({
-    start: afternoonStart,
-    end: afternoonEnd,
-    duration_minutes: 150
-  });
-  
-  return slots;
 }
 
 async function isWorkingDay(supabase: any, date: Date): Promise<boolean> {
@@ -103,29 +59,6 @@ async function getNextWorkingDay(supabase: any, startDate: Date): Promise<Date> 
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }
-}
-
-async function generateWorkingDays(supabase: any, startDate: Date, daysToGenerate: number = 30): Promise<WorkingDay[]> {
-  const workingDays: WorkingDay[] = [];
-  let currentDate = await getNextWorkingDay(supabase, startDate);
-  
-  for (let i = 0; i < daysToGenerate; i++) {
-    const timeSlots = calculateDayTimeSlots(currentDate);
-    const totalCapacity = timeSlots.reduce((sum, slot) => sum + slot.duration_minutes, 0);
-    
-    workingDays.push({
-      date: formatDate(currentDate),
-      total_capacity_minutes: totalCapacity,
-      used_minutes: 0,
-      remaining_minutes: totalCapacity
-    });
-    
-    // Move to next working day
-    currentDate.setDate(currentDate.getDate() + 1);
-    currentDate = await getNextWorkingDay(supabase, currentDate);
-  }
-  
-  return workingDays;
 }
 
 async function getPendingStages(supabase: any): Promise<PendingStage[]> {
@@ -166,51 +99,103 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
   }));
 }
 
-function scheduleStage(stage: PendingStage, workingDays: WorkingDay[]): { start: Date; end: Date } | null {
-  for (const day of workingDays) {
-    if (day.remaining_minutes >= stage.estimated_duration_minutes) {
-      // Can fit entirely in this day
-      const dayDate = new Date(day.date);
-      const timeSlots = calculateDayTimeSlots(dayDate);
-      
-      // Calculate start time based on used minutes
-      let accumulatedTime = 0;
-      for (const slot of timeSlots) {
-        const slotStartTime = accumulatedTime;
-        const slotEndTime = accumulatedTime + slot.duration_minutes;
-        
-        if (day.used_minutes >= slotStartTime && day.used_minutes < slotEndTime) {
-          // This slot is where we need to start
-          const minutesIntoSlot = day.used_minutes - slotStartTime;
-          const remainingInSlot = slot.duration_minutes - minutesIntoSlot;
-          
-          if (remainingInSlot >= stage.estimated_duration_minutes) {
-            // Can fit in this slot
-            const startTime = new Date(slot.start);
-            startTime.setMinutes(startTime.getMinutes() + minutesIntoSlot);
-            
-            const endTime = new Date(startTime);
-            endTime.setMinutes(endTime.getMinutes() + stage.estimated_duration_minutes);
-            
-            // Update day capacity
-            day.used_minutes += stage.estimated_duration_minutes;
-            day.remaining_minutes -= stage.estimated_duration_minutes;
-            
-            return { start: startTime, end: endTime };
-          }
-        }
-        
-        accumulatedTime += slot.duration_minutes;
-      }
-    }
+// NEW SIMPLE SEQUENTIAL SCHEDULER - NO MORE COMPLEX SLOT CALCULATIONS!
+class SequentialScheduler {
+  private currentScheduleTime: Date;
+  private supabase: any;
+  
+  constructor(startDate: Date, supabase: any) {
+    // Start scheduling from 8:00 AM on the first working day
+    this.currentScheduleTime = new Date(startDate);
+    this.currentScheduleTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+    this.supabase = supabase;
   }
   
-  return null; // Could not schedule
+  async scheduleStage(stage: PendingStage): Promise<{ start: Date; end: Date } | null> {
+    // Ensure we're on a working day
+    const workingDate = await getNextWorkingDay(this.supabase, this.currentScheduleTime);
+    
+    // If we moved to a different day, reset to 8:00 AM
+    if (formatDate(workingDate) !== formatDate(this.currentScheduleTime)) {
+      this.currentScheduleTime = new Date(workingDate);
+      this.currentScheduleTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+    }
+    
+    const startTime = new Date(this.currentScheduleTime);
+    const endTime = new Date(startTime);
+    endTime.setMinutes(endTime.getMinutes() + stage.estimated_duration_minutes);
+    
+    // Check if this stage crosses lunch break or end of day
+    const lunchStart = new Date(startTime);
+    lunchStart.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, 0, 0, 0);
+    
+    const lunchEnd = new Date(startTime);
+    lunchEnd.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, DEFAULT_CAPACITY.lunch_break_duration_minutes, 0, 0);
+    
+    const dayEnd = new Date(startTime);
+    dayEnd.setHours(DEFAULT_CAPACITY.shift_end_hour, DEFAULT_CAPACITY.shift_end_minute, 0, 0);
+    
+    // If start time is during lunch, move to after lunch
+    if (startTime >= lunchStart && startTime < lunchEnd) {
+      startTime.setTime(lunchEnd.getTime());
+      endTime.setTime(startTime.getTime() + (stage.estimated_duration_minutes * 60 * 1000));
+    }
+    
+    // If end time goes past lunch break, add lunch break duration
+    if (startTime < lunchStart && endTime > lunchStart) {
+      endTime.setMinutes(endTime.getMinutes() + DEFAULT_CAPACITY.lunch_break_duration_minutes);
+    }
+    
+    // If end time goes past day end, move to next working day
+    if (endTime > dayEnd) {
+      const nextDay = await getNextWorkingDay(this.supabase, new Date(startTime.getTime() + 24 * 60 * 60 * 1000));
+      startTime.setTime(nextDay.getTime());
+      startTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+      endTime.setTime(startTime.getTime() + (stage.estimated_duration_minutes * 60 * 1000));
+      
+      // Check lunch break again for the new day
+      const newLunchStart = new Date(startTime);
+      newLunchStart.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, 0, 0, 0);
+      
+      if (startTime < newLunchStart && endTime > newLunchStart) {
+        endTime.setMinutes(endTime.getMinutes() + DEFAULT_CAPACITY.lunch_break_duration_minutes);
+      }
+    }
+    
+    // Update current schedule time to end of this stage - CRITICAL FOR SEQUENTIAL SCHEDULING!
+    this.currentScheduleTime = new Date(endTime);
+    
+    console.log(`✅ SEQUENTIAL PLACEMENT: ${stage.job_wo_no} (${stage.stage_name}) scheduled from ${startTime.toISOString()} to ${endTime.toISOString()}`);
+    
+    return { start: startTime, end: endTime };
+  }
 }
 
-async function processStages(supabase: any, stages: PendingStage[], workingDays: WorkingDay[]): Promise<void> {
-  for (const stage of stages) {
-    const schedule = scheduleStage(stage, workingDays);
+async function processStagesSequentially(supabase: any, stages: PendingStage[]): Promise<void> {
+  // Clear all existing scheduled times first
+  console.log('🧹 Clearing existing scheduled times...');
+  await supabase
+    .from('job_stage_instances')
+    .update({
+      scheduled_start_at: null,
+      scheduled_end_at: null,
+      scheduled_minutes: null,
+      schedule_status: 'unscheduled'
+    })
+    .eq('status', 'pending');
+  
+  // Start scheduling from tomorrow at 8:00 AM
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() + 1);
+  startDate.setHours(0, 0, 0, 0);
+  
+  const scheduler = new SequentialScheduler(startDate, supabase);
+  
+  console.log(`🚀 Starting TRUE SEQUENTIAL scheduling for ${stages.length} stages...`);
+  
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i];
+    const schedule = await scheduler.scheduleStage(stage);
     
     if (schedule) {
       // Update the database with scheduled times
@@ -225,12 +210,12 @@ async function processStages(supabase: any, stages: PendingStage[], workingDays:
         .eq('id', stage.id);
       
       if (error) {
-        console.error(`Error updating stage ${stage.id}:`, error);
+        console.error(`❌ Error updating stage ${stage.id}:`, error);
       } else {
-        console.log(`Scheduled stage ${stage.stage_name} for job ${stage.job_wo_no}: ${schedule.start.toISOString()} - ${schedule.end.toISOString()}`);
+        console.log(`✅ [${i+1}/${stages.length}] Scheduled: ${stage.job_wo_no} - ${stage.stage_name} | ${schedule.start.toLocaleTimeString()} → ${schedule.end.toLocaleTimeString()}`);
       }
     } else {
-      console.warn(`Could not schedule stage ${stage.stage_name} for job ${stage.job_wo_no} - insufficient capacity`);
+      console.warn(`⚠️ Could not schedule stage ${stage.stage_name} for job ${stage.job_wo_no}`);
     }
   }
 }
@@ -248,11 +233,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('Starting FIFO scheduler...');
+    console.log('🔥 REWRITTEN SEQUENTIAL FIFO SCHEDULER STARTING...');
     
-    // Get all pending stages sorted by proof approval date
+    // Get all pending stages sorted by proof approval date (STRICT FIFO ORDER)
     const pendingStages = await getPendingStages(supabase);
-    console.log(`Found ${pendingStages.length} pending stages`);
+    console.log(`📋 Found ${pendingStages.length} pending stages for sequential scheduling`);
     
     if (pendingStages.length === 0) {
       return new Response(
@@ -261,27 +246,22 @@ Deno.serve(async (req) => {
       );
     }
     
-    // Generate working days starting from tomorrow
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() + 1);
-    startDate.setHours(0, 0, 0, 0);
+    // Process all stages in TRUE SEQUENTIAL ORDER - NO GAPS!
+    await processStagesSequentially(supabase, pendingStages);
     
-    const workingDays = await generateWorkingDays(supabase, startDate, 30);
-    console.log(`Generated ${workingDays.length} working days`);
-    
-    // Process all stages in FIFO order
-    await processStages(supabase, pendingStages, workingDays);
+    console.log(`✅ SEQUENTIAL SCHEDULING COMPLETE! Processed ${pendingStages.length} stages with NO GAPS!`);
     
     return new Response(
       JSON.stringify({ 
-        message: `Processed ${pendingStages.length} stages across ${workingDays.length} working days`,
-        scheduled_stages: pendingStages.length
+        message: `✅ SEQUENTIAL FIFO scheduling completed! Processed ${pendingStages.length} stages with true sequential placement (no gaps)`,
+        scheduled_stages: pendingStages.length,
+        scheduling_method: 'TRUE_SEQUENTIAL_FIFO'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
   } catch (error) {
-    console.error('Error in simple-scheduler:', error);
+    console.error('❌ Error in sequential scheduler:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
