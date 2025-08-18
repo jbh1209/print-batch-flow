@@ -213,6 +213,13 @@ function App() {
                   <Route path="mobile" element={<MobileFactory />} />
                 </Route>
                 
+                {/* Schedule Board standalone route */}
+                <Route path="/schedule-board" element={
+                  <ProtectedRoute>
+                    <ScheduleBoardPage />
+                  </ProtectedRoute>
+                } />
+                
                 {/* Admin routes without BatchFlow layout */}
                 <Route path="/admin" element={
                   <ProtectedRoute>
