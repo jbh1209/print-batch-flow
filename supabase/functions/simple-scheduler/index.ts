@@ -79,13 +79,13 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
     .not('production_stages.name', 'ilike', '%dtp%')
     .not('production_stages.name', 'ilike', '%proof%')
     .not('production_stages.name', 'ilike', '%batch%allocation%')
-    .order('production_jobs.proof_approved_at', { ascending: true });
+    
 
   if (error) {
     throw error;
   }
 
-  return (stages || []).map(stage => ({
+  const mappedStages = (stages || []).map(stage => ({
     id: stage.id,
     job_id: stage.job_id,
     job_table_name: stage.job_table_name,
@@ -97,6 +97,11 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
     proof_approved_at: new Date((stage.production_jobs as any)?.proof_approved_at || new Date()),
     category_id: stage.category_id
   }));
+
+  // Sort by proof_approved_at (FIFO order)
+  mappedStages.sort((a, b) => a.proof_approved_at.getTime() - b.proof_approved_at.getTime());
+  
+  return mappedStages;
 }
 
 function groupStagesByType(stages: PendingStage[]): { [stageType: string]: PendingStage[] } {
@@ -115,6 +120,7 @@ function groupStagesByType(stages: PendingStage[]): { [stageType: string]: Pendi
     groups[stageType].sort((a, b) => 
       a.proof_approved_at.getTime() - b.proof_approved_at.getTime()
     );
+    console.log(`🎯 ${stageType}: ${groups[stageType].length} stages (FIFO sorted)`);
   });
   
   return groups;
@@ -252,20 +258,34 @@ async function processStagesSequentially(supabase: any, stages: PendingStage[]):
     console.log(`🕐 Outside working hours. Starting from next working day: ${startDate.toLocaleString()}`);
   }
   
-  // Group stages by type for sequential processing
+  // Group stages by type for sequential processing with PRIORITY ORDER
   const stageGroups = groupStagesByType(stages);
-  const stageTypes = Object.keys(stageGroups);
   
-  console.log(`📊 STAGE GROUPS FOUND: ${stageTypes.join(', ')}`);
-  stageTypes.forEach(stageType => {
+  // Define stage type priority (HP12000 FIRST!)
+  const stagePriorityOrder = [
+    'Printing - HP 12000',
+    'Printing - T250', 
+    'UV Varnishing',
+    'Laminating',
+    'Cutting',
+    'Finishing'
+  ];
+  
+  // Get stage types in priority order, then any remaining types
+  const priorityStageTypes = stagePriorityOrder.filter(type => stageGroups[type]);
+  const remainingStageTypes = Object.keys(stageGroups).filter(type => !stagePriorityOrder.includes(type));
+  const orderedStageTypes = [...priorityStageTypes, ...remainingStageTypes];
+  
+  console.log(`📊 STAGE GROUPS FOUND (PRIORITY ORDER): ${orderedStageTypes.join(', ')}`);
+  orderedStageTypes.forEach(stageType => {
     console.log(`   ${stageType}: ${stageGroups[stageType].length} stages`);
   });
   
   const scheduler = new SequentialScheduler(startDate, supabase);
   let totalScheduled = 0;
   
-  // Process each stage type sequentially
-  for (const stageType of stageTypes) {
+  // Process each stage type sequentially in PRIORITY ORDER
+  for (const stageType of orderedStageTypes) {
     const stagesOfType = stageGroups[stageType];
     console.log(`\n🎯 SCHEDULING ALL ${stageType.toUpperCase()} STAGES (${stagesOfType.length} stages)...`);
     
