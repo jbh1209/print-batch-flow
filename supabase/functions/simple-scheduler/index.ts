@@ -115,7 +115,8 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
       const { data: jobs, error: jobsError } = await supabase
         .from('production_jobs')
         .select('id, wo_no, proof_approved_at')
-        .in('id', prodJobIds);
+        .in('id', prodJobIds)
+        .not('proof_approved_at', 'is', null);
 
       if (jobsError) {
         console.error('❌ Error fetching production jobs:', jobsError);
@@ -123,7 +124,8 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
       }
 
       productionJobs = jobs || [];
-      console.log(`📋 Found ${productionJobs.length} production jobs`);
+      console.log(`📋 Found ${productionJobs.length} proof-approved production jobs`);
+      console.log(`🔒 Excluded ${prodJobIds.length - productionJobs.length} jobs without proof approval`);
     }
 
     // STEP 4: Create lookup maps for efficient data joining
