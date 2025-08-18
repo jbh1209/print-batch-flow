@@ -64,12 +64,13 @@ export function ScheduleBoard({
           <div className="h-full overflow-x-auto overflow-y-auto">
             <div className="flex gap-4 p-4 min-w-max">
               {scheduleDays.map((day) => (
-                <ScheduleDayColumn
-                  key={day.date}
-                  day={day}
-                  selectedStageId={selectedStageId}
-                  onJobClick={handleJobClick}
-                />
+            <ScheduleDayColumn 
+              key={day.date}
+              day={day}
+              selectedStageId={selectedStageId}
+              selectedStageName={selectedStageName}
+              onJobClick={handleJobClick}
+            />
               ))}
               
               {scheduleDays.length === 0 && (

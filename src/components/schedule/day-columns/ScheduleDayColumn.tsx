@@ -9,12 +9,14 @@ import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleRea
 interface ScheduleDayColumnProps {
   day: ScheduleDayData;
   selectedStageId?: string | null;
+  selectedStageName?: string | null;
   onJobClick?: (stage: ScheduledStageData) => void;
 }
 
 export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
   day,
   selectedStageId,
+  selectedStageName,
   onJobClick
 }) => {
   // Filter stages based on selected stage
@@ -24,7 +26,7 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     return (day.time_slots || []).map(slot => ({
       ...slot,
       scheduled_stages: (slot.scheduled_stages || []).filter(stage => 
-        stage.id === selectedStageId
+        stage.production_stage_id === selectedStageId
       )
     })).filter(slot => slot.scheduled_stages && slot.scheduled_stages.length > 0);
   }, [day.time_slots, selectedStageId]);

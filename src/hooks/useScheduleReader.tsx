@@ -10,6 +10,7 @@ export interface ScheduledStageData {
   id: string;
   job_id: string;
   job_wo_no: string;
+  production_stage_id: string;
   stage_name: string;
   stage_order: number;
   estimated_duration_minutes: number;
@@ -129,6 +130,7 @@ export function useScheduleReader() {
           id: stageInstance.id,
           job_id: stageInstance.job_id,
           job_wo_no: job?.wo_no || 'Unknown',
+          production_stage_id: stageInstance.production_stage_id,
           stage_name: stage?.name || 'Unknown Stage',
           stage_order: stageInstance.stage_order,
           estimated_duration_minutes: stageInstance.estimated_duration_minutes || 60,
