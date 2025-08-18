@@ -1,5 +1,8 @@
 project_id = "kgizusgqexmlfcqfjopk"
 
+[functions.simple-scheduler]
+verify_jwt = false
+
 [functions.get-all-users]
 verify_jwt = true
 
