@@ -99,16 +99,71 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
   }));
 }
 
-// NEW SIMPLE SEQUENTIAL SCHEDULER - NO MORE COMPLEX SLOT CALCULATIONS!
+function groupStagesByType(stages: PendingStage[]): { [stageType: string]: PendingStage[] } {
+  const groups: { [stageType: string]: PendingStage[] } = {};
+  
+  stages.forEach(stage => {
+    const stageType = stage.stage_name;
+    if (!groups[stageType]) {
+      groups[stageType] = [];
+    }
+    groups[stageType].push(stage);
+  });
+  
+  // Sort each group by proof_approved_at for FIFO within stage type
+  Object.keys(groups).forEach(stageType => {
+    groups[stageType].sort((a, b) => 
+      a.proof_approved_at.getTime() - b.proof_approved_at.getTime()
+    );
+  });
+  
+  return groups;
+}
+
+function isCurrentlyInWorkingHours(): boolean {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const dayOfWeek = now.getDay();
+  
+  // Weekend check
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return false;
+  }
+  
+  // Check if within working hours (8:00 - 16:30)
+  const currentTimeInMinutes = currentHour * 60 + currentMinute;
+  const startTimeInMinutes = DEFAULT_CAPACITY.shift_start_hour * 60; // 8:00
+  const endTimeInMinutes = DEFAULT_CAPACITY.shift_end_hour * 60 + DEFAULT_CAPACITY.shift_end_minute; // 16:30
+  
+  return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
+}
+
+// NEW SIMPLE SEQUENTIAL SCHEDULER - START FROM NOW!
 class SequentialScheduler {
   private currentScheduleTime: Date;
   private supabase: any;
   
   constructor(startDate: Date, supabase: any) {
-    // Start scheduling from 8:00 AM on the first working day
     this.currentScheduleTime = new Date(startDate);
-    this.currentScheduleTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
     this.supabase = supabase;
+    
+    // If the start date is today and we're in working hours, start from NOW
+    const now = new Date();
+    const isToday = formatDate(this.currentScheduleTime) === formatDate(now);
+    
+    if (isToday && isCurrentlyInWorkingHours()) {
+      // Start from current time, rounded up to next 5-minute interval
+      this.currentScheduleTime = new Date(now);
+      const minutes = this.currentScheduleTime.getMinutes();
+      const roundedMinutes = Math.ceil(minutes / 5) * 5;
+      this.currentScheduleTime.setMinutes(roundedMinutes, 0, 0);
+      console.log(`🕐 Starting from NOW (${this.currentScheduleTime.toLocaleTimeString()}) - we're in working hours!`);
+    } else {
+      // Start from 8:00 AM on the specified day
+      this.currentScheduleTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+      console.log(`🕐 Starting from ${this.currentScheduleTime.toLocaleTimeString()} on ${formatDate(this.currentScheduleTime)}`);
+    }
   }
   
   async scheduleStage(stage: PendingStage): Promise<{ start: Date; end: Date } | null> {
@@ -184,38 +239,61 @@ async function processStagesSequentially(supabase: any, stages: PendingStage[]):
     })
     .eq('status', 'pending');
   
-  // Start scheduling from tomorrow at 8:00 AM
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() + 1);
-  startDate.setHours(0, 0, 0, 0);
+  // Determine start date: NOW if in working hours, else next working day
+  const now = new Date();
+  let startDate: Date;
+  
+  if (isCurrentlyInWorkingHours()) {
+    startDate = new Date(now);
+    console.log(`🕐 We're in working hours! Starting from NOW: ${startDate.toLocaleTimeString()}`);
+  } else {
+    startDate = await getNextWorkingDay(supabase, now);
+    startDate.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+    console.log(`🕐 Outside working hours. Starting from next working day: ${startDate.toLocaleString()}`);
+  }
+  
+  // Group stages by type for sequential processing
+  const stageGroups = groupStagesByType(stages);
+  const stageTypes = Object.keys(stageGroups);
+  
+  console.log(`📊 STAGE GROUPS FOUND: ${stageTypes.join(', ')}`);
+  stageTypes.forEach(stageType => {
+    console.log(`   ${stageType}: ${stageGroups[stageType].length} stages`);
+  });
   
   const scheduler = new SequentialScheduler(startDate, supabase);
+  let totalScheduled = 0;
   
-  console.log(`🚀 Starting TRUE SEQUENTIAL scheduling for ${stages.length} stages...`);
-  
-  for (let i = 0; i < stages.length; i++) {
-    const stage = stages[i];
-    const schedule = await scheduler.scheduleStage(stage);
+  // Process each stage type sequentially
+  for (const stageType of stageTypes) {
+    const stagesOfType = stageGroups[stageType];
+    console.log(`\n🎯 SCHEDULING ALL ${stageType.toUpperCase()} STAGES (${stagesOfType.length} stages)...`);
     
-    if (schedule) {
-      // Update the database with scheduled times
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({
-          scheduled_start_at: schedule.start.toISOString(),
-          scheduled_end_at: schedule.end.toISOString(),
-          scheduled_minutes: stage.estimated_duration_minutes,
-          schedule_status: 'scheduled'
-        })
-        .eq('id', stage.id);
+    for (let i = 0; i < stagesOfType.length; i++) {
+      const stage = stagesOfType[i];
+      const schedule = await scheduler.scheduleStage(stage);
       
-      if (error) {
-        console.error(`❌ Error updating stage ${stage.id}:`, error);
+      if (schedule) {
+        // Update the database with scheduled times
+        const { error } = await supabase
+          .from('job_stage_instances')
+          .update({
+            scheduled_start_at: schedule.start.toISOString(),
+            scheduled_end_at: schedule.end.toISOString(),
+            scheduled_minutes: stage.estimated_duration_minutes,
+            schedule_status: 'scheduled'
+          })
+          .eq('id', stage.id);
+        
+        if (error) {
+          console.error(`❌ Error updating stage ${stage.id}:`, error);
+        } else {
+          totalScheduled++;
+          console.log(`✅ [${totalScheduled}/${stages.length}] ${stageType}: ${stage.job_wo_no} | ${schedule.start.toLocaleTimeString()} → ${schedule.end.toLocaleTimeString()}`);
+        }
       } else {
-        console.log(`✅ [${i+1}/${stages.length}] Scheduled: ${stage.job_wo_no} - ${stage.stage_name} | ${schedule.start.toLocaleTimeString()} → ${schedule.end.toLocaleTimeString()}`);
+        console.warn(`⚠️ Could not schedule stage ${stage.stage_name} for job ${stage.job_wo_no}`);
       }
-    } else {
-      console.warn(`⚠️ Could not schedule stage ${stage.stage_name} for job ${stage.job_wo_no}`);
     }
   }
 }
@@ -233,7 +311,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('🔥 REWRITTEN SEQUENTIAL FIFO SCHEDULER STARTING...');
+    console.log('🔥 START-FROM-NOW SEQUENTIAL FIFO SCHEDULER STARTING...');
     
     // Get all pending stages sorted by proof approval date (STRICT FIFO ORDER)
     const pendingStages = await getPendingStages(supabase);
@@ -246,16 +324,20 @@ Deno.serve(async (req) => {
       );
     }
     
-    // Process all stages in TRUE SEQUENTIAL ORDER - NO GAPS!
+    const inWorkingHours = isCurrentlyInWorkingHours();
+    console.log(`⏰ Current time check: ${inWorkingHours ? 'IN WORKING HOURS' : 'OUTSIDE WORKING HOURS'}`);
+    
+    // Process all stages by stage type in TRUE SEQUENTIAL ORDER - NO GAPS!
     await processStagesSequentially(supabase, pendingStages);
     
-    console.log(`✅ SEQUENTIAL SCHEDULING COMPLETE! Processed ${pendingStages.length} stages with NO GAPS!`);
+    console.log(`✅ STAGE-TYPE SEQUENTIAL SCHEDULING COMPLETE! Processed ${pendingStages.length} stages with NO GAPS!`);
     
     return new Response(
       JSON.stringify({ 
-        message: `✅ SEQUENTIAL FIFO scheduling completed! Processed ${pendingStages.length} stages with true sequential placement (no gaps)`,
+        message: `✅ START-FROM-NOW SEQUENTIAL scheduling completed! Processed ${pendingStages.length} stages by stage type with true sequential placement`,
         scheduled_stages: pendingStages.length,
-        scheduling_method: 'TRUE_SEQUENTIAL_FIFO'
+        scheduling_method: 'START_FROM_NOW_STAGE_TYPE_SEQUENTIAL',
+        started_from_current_time: inWorkingHours
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
