@@ -65,12 +65,11 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
   console.log('🔍 Fetching ONLY approved and ready stages...');
   
   try {
-    // STEP 1: Get ONLY stages from APPROVED jobs (critical fix!)
+    // STEP 1: Get ONLY stages from APPROVED jobs (proof_approved_at IS NOT NULL)
     const { data: approvedJobs, error: jobError } = await supabase
       .from('production_jobs')
       .select('id, wo_no, proof_approved_at, status')
       .not('proof_approved_at', 'is', null)
-      .in('status', ['approved', 'ready', 'in production', 'Pre-Press'])
       .not('status', 'in', '(completed,cancelled,rejected,Completed)');
 
     if (jobError) {
