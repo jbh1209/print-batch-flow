@@ -179,21 +179,29 @@ export function useScheduleReader() {
 
   const triggerReschedule = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('simple-scheduler');
+      console.log('🔄 Triggering reschedule via simple-scheduler edge function...');
       
+      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+        body: { mode: 'reschedule_all' }
+      });
+
       if (error) {
         console.error('Error triggering reschedule:', error);
         toast.error('Failed to trigger reschedule');
         return false;
       }
+
+      console.log('✅ Reschedule triggered successfully:', data);
+      toast.success(`Successfully rescheduled ${data?.scheduled_count || 0} stages`);
       
-      toast.success('Reschedule triggered successfully');
-      // Refresh the schedule
-      await fetchSchedule();
+      // Refresh the schedule after a short delay
+      setTimeout(() => {
+        fetchSchedule();
+      }, 2000);
       return true;
       
     } catch (error) {
-      console.error('Error in triggerReschedule:', error);
+      console.error('Error triggering reschedule:', error);
       toast.error('Failed to trigger reschedule');
       return false;
     }

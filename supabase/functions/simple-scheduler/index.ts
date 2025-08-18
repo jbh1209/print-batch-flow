@@ -1,10 +1,40 @@
 /**
- * Simple FIFO Production Scheduler - REWRITTEN FOR TRUE SEQUENTIAL SCHEDULING
- * Each stage starts exactly when the previous stage ends - NO GAPS!
+ * Sequential production scheduler - Simple FIFO implementation with NO GAPS
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { zonedTimeToUtc, utcToZonedTime } from 'https://esm.sh/date-fns-tz@3.2.0';
+import { corsHeaders } from '../_shared/cors.ts';
+
+// ---- SAST timezone helpers ----
+const SAST_TZ = 'Africa/Johannesburg';
+const BUSINESS_START = { hh: 8, mm: 0 };
+const BUSINESS_END = { hh: 17, mm: 30 };
+
+function sastWallClockToUtc(yyyyMmDd: string, hh: number, mm: number): Date {
+  const s = `${yyyyMmDd}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00`;
+  return zonedTimeToUtc(s, SAST_TZ);
+}
+
+function getBusinessWindowUtcForDay(dUtc: Date): { startUtc: Date; endUtc: Date } {
+  const sast = utcToZonedTime(dUtc, SAST_TZ);
+  const yyyyMmDd = `${sast.getFullYear()}-${String(sast.getMonth()+1).padStart(2,'0')}-${String(sast.getDate()).padStart(2,'0')}`;
+  const startUtc = sastWallClockToUtc(yyyyMmDd, BUSINESS_START.hh, BUSINESS_START.mm);
+  const endUtc = sastWallClockToUtc(yyyyMmDd, BUSINESS_END.hh, BUSINESS_END.mm);
+  return { startUtc, endUtc };
+}
+
+function clampToBusinessWindowUtc(cursorUtc: Date): Date {
+  const { startUtc, endUtc } = getBusinessWindowUtcForDay(cursorUtc);
+  if (cursorUtc < startUtc) return startUtc;
+  if (cursorUtc >= endUtc) {
+    // jump to next day start (SAST)
+    const nextDaySast = utcToZonedTime(new Date(endUtc.getTime() + 24*60*60*1000), SAST_TZ);
+    const yyyyMmDd = `${nextDaySast.getFullYear()}-${String(nextDaySast.getMonth()+1).padStart(2,'0')}-${String(nextDaySast.getDate()).padStart(2,'0')}`;
+    return sastWallClockToUtc(yyyyMmDd, BUSINESS_START.hh, BUSINESS_START.mm);
+  }
+  return cursorUtc;
+}
 
 interface PendingStage {
   id: string;
@@ -19,75 +49,34 @@ interface PendingStage {
   category_id: string;
 }
 
-const DEFAULT_CAPACITY = {
-  shift_start_hour: 8,
-  shift_end_hour: 16,
-  shift_end_minute: 30,
-  lunch_break_start_hour: 13,
-  lunch_break_duration_minutes: 30
-};
-
-function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
-async function isWorkingDay(supabase: any, date: Date): Promise<boolean> {
-  const dayOfWeek = date.getDay();
-  
-  // Weekend check
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return false;
-  }
-  
-  // Check for public holidays
-  const { data: holiday } = await supabase
-    .from('public_holidays')
-    .select('id')
-    .eq('date', formatDate(date))
-    .eq('is_active', true)
-    .maybeSingle();
-  
-  return !holiday;
-}
-
-async function getNextWorkingDay(supabase: any, startDate: Date): Promise<Date> {
-  let currentDate = new Date(startDate);
-  
-  while (true) {
-    if (await isWorkingDay(supabase, currentDate)) {
-      return currentDate;
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-}
-
 async function getPendingStages(supabase: any): Promise<PendingStage[]> {
   console.log('🔍 Fetching ONLY approved and ready stages...');
   
   try {
-    // STEP 1: Get ONLY stages from APPROVED jobs (proof_approved_at IS NOT NULL)
+    // Use the new view to get jobs ready for production
     const { data: approvedJobs, error: jobError } = await supabase
-      .from('production_jobs')
-      .select('id, wo_no, proof_approved_at, status')
-      .not('proof_approved_at', 'is', null)
-      .not('status', 'in', '(completed,cancelled,rejected,Completed)');
+      .from('v_jobs_ready_for_production')
+      .select('id, wo_no, proof_approved_at, status, created_at')
+      .eq('is_ready_for_production', true)
+      .in('status', ['pending', 'active'])
+      .order('proof_approved_at', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (jobError) {
       console.error('❌ Error fetching approved jobs:', jobError);
       throw jobError;
     }
 
-    console.log(`📋 Found ${approvedJobs?.length || 0} approved jobs (status: approved/ready/in production)`);
-
-    if (!approvedJobs || approvedJobs.length === 0) {
-      console.log('✅ No approved jobs found - nothing to schedule');
+    console.log(`✅ Found ${approvedJobs?.length || 0} approved jobs`);
+    if (!approvedJobs?.length) {
+      console.log('⚠️ No approved jobs found - nothing to schedule');
       return [];
     }
 
-    const approvedJobIds = approvedJobs.map(j => j.id);
+    const jobIds = approvedJobs.map(job => job.id);
 
-    // STEP 2: Get stage instances ONLY from approved jobs
-    const { data: stageInstances, error: stageError } = await supabase
+    // Get stages for these jobs
+    const { data: stages, error: stageError } = await supabase
       .from('job_stage_instances')
       .select(`
         id,
@@ -97,102 +86,33 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
         stage_order,
         estimated_duration_minutes,
         category_id,
-        status
+        production_stages!inner(name),
+        production_jobs!inner(wo_no, proof_approved_at)
       `)
+      .in('job_id', jobIds)
       .in('status', ['pending', 'active', 'scheduled'])
-      .in('job_id', approvedJobIds)
-      .eq('job_table_name', 'production_jobs');
+      .not('production_stages.name', 'ilike', '%dtp%')
+      .not('production_stages.name', 'ilike', '%proof%')
+      .not('production_stages.name', 'ilike', '%batch%allocation%')
+      .order('production_jobs.proof_approved_at', { ascending: true });
 
     if (stageError) {
-      console.error('❌ Error fetching stage instances:', stageError);
+      console.error('❌ Error fetching stages:', stageError);
       throw stageError;
     }
 
-    console.log(`📋 Found ${stageInstances?.length || 0} stage instances from approved jobs`);
-
-    if (!stageInstances || stageInstances.length === 0) {
-      return [];
-    }
-
-    // STEP 3: Get stage details
-    const stageIds = [...new Set(stageInstances.map(si => si.production_stage_id))];
-    
-    const { data: productionStages, error: stagesError } = await supabase
-      .from('production_stages')
-      .select('id, name')
-      .in('id', stageIds);
-
-    if (stagesError) {
-      console.error('❌ Error fetching production stages:', stagesError);
-      throw stagesError;
-    }
-
-    console.log(`📋 Found ${productionStages?.length || 0} production stages`);
-
-    const productionJobs = approvedJobs;
-
-    // STEP 4: Create lookup maps for efficient data joining
-    const stageMap = new Map(productionStages?.map(s => [s.id, s]) || []);
-    const jobMap = new Map(productionJobs.map(j => [j.id, j]));
-
-    // STEP 5: Combine data and filter out excluded stage types
-    const mappedStages: PendingStage[] = [];
-
-    for (const stageInstance of stageInstances) {
-      const stage = stageMap.get(stageInstance.production_stage_id);
-      const job = jobMap.get(stageInstance.job_id);
-
-      if (!stage) {
-        console.warn(`⚠️ No stage found for ID: ${stageInstance.production_stage_id}`);
-        continue;
-      }
-
-      // Filter out DTP, proof, and batch allocation stages
-      const stageName = stage.name.toLowerCase();
-      if (stageName.includes('dtp') || 
-          stageName.includes('proof') || 
-          stageName.includes('batch') && stageName.includes('allocation')) {
-        console.log(`🚫 Skipping excluded stage: ${stage.name}`);
-        continue;
-      }
-
-      if (!job && stageInstance.job_table_name === 'production_jobs') {
-        console.warn(`⚠️ No job found for ID: ${stageInstance.job_id}`);
-        continue;
-      }
-
-      mappedStages.push({
-        id: stageInstance.id,
-        job_id: stageInstance.job_id,
-        job_table_name: stageInstance.job_table_name,
-        production_stage_id: stageInstance.production_stage_id,
-        stage_name: stage.name,
-        job_wo_no: job?.wo_no || `Job-${stageInstance.job_id.slice(0, 8)}`,
-        stage_order: stageInstance.stage_order,
-        estimated_duration_minutes: stageInstance.estimated_duration_minutes || 60,
-        proof_approved_at: job?.proof_approved_at ? new Date(job.proof_approved_at) : new Date(),
-        category_id: stageInstance.category_id
-      });
-    }
-
-    // STEP 6: Sort by proof_approved_at (FIFO order)
-    mappedStages.sort((a, b) => a.proof_approved_at.getTime() - b.proof_approved_at.getTime());
-    
-    console.log(`✅ Successfully processed ${mappedStages.length} valid pending stages`);
-    
-    // Log stage type breakdown
-    const stageTypeCount = new Map<string, number>();
-    mappedStages.forEach(stage => {
-      const count = stageTypeCount.get(stage.stage_name) || 0;
-      stageTypeCount.set(stage.stage_name, count + 1);
-    });
-    
-    console.log('📊 Stage breakdown:');
-    stageTypeCount.forEach((count, stageName) => {
-      console.log(`   ${stageName}: ${count} stages`);
-    });
-    
-    return mappedStages;
+    return (stages || []).map(stage => ({
+      id: stage.id,
+      job_id: stage.job_id,
+      job_table_name: stage.job_table_name,
+      production_stage_id: stage.production_stage_id,
+      stage_name: (stage.production_stages as any)?.name || 'Unknown Stage',
+      job_wo_no: (stage.production_jobs as any)?.wo_no || 'Unknown',
+      stage_order: stage.stage_order,
+      estimated_duration_minutes: stage.estimated_duration_minutes || 60,
+      proof_approved_at: new Date((stage.production_jobs as any)?.proof_approved_at || new Date()),
+      category_id: stage.category_id
+    }));
     
   } catch (error) {
     console.error('❌ Critical error in getPendingStages:', error);
@@ -200,215 +120,158 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
   }
 }
 
-function groupStagesByType(stages: PendingStage[]): { [stageType: string]: PendingStage[] } {
-  const groups: { [stageType: string]: PendingStage[] } = {};
-  
-  stages.forEach(stage => {
-    const stageType = stage.stage_name;
-    if (!groups[stageType]) {
-      groups[stageType] = [];
-    }
-    groups[stageType].push(stage);
-  });
-  
-  // Sort each group by proof_approved_at for FIFO within stage type
-  Object.keys(groups).forEach(stageType => {
-    groups[stageType].sort((a, b) => 
-      a.proof_approved_at.getTime() - b.proof_approved_at.getTime()
-    );
-    console.log(`🎯 ${stageType}: ${groups[stageType].length} stages (FIFO sorted)`);
-  });
-  
-  return groups;
-}
-
-function isCurrentlyInWorkingHours(): boolean {
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  const dayOfWeek = now.getDay();
-  
-  // Weekend check
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return false;
-  }
-  
-  // Check if within working hours (8:00 - 16:30)
-  const currentTimeInMinutes = currentHour * 60 + currentMinute;
-  const startTimeInMinutes = DEFAULT_CAPACITY.shift_start_hour * 60; // 8:00
-  const endTimeInMinutes = DEFAULT_CAPACITY.shift_end_hour * 60 + DEFAULT_CAPACITY.shift_end_minute; // 16:30
-  
-  return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
-}
-
-// CLEAN SEQUENTIAL SCHEDULER - Always starts from clean slate
+// Sequential Scheduler with proper UTC time handling
 class SequentialScheduler {
-  private currentScheduleTime: Date;
-  private supabase: any;
-  
-  constructor(startDate: Date, supabase: any) {
-    this.currentScheduleTime = new Date(startDate);
+  scheduleStartTime: Date;
+  cursor: Date;
+  supabase: any;
+
+  constructor(startTimeUtc: Date, supabase: any) {
+    this.scheduleStartTime = startTimeUtc;
+    this.cursor = startTimeUtc;
     this.supabase = supabase;
-    console.log(`🕐 Clean start from ${this.currentScheduleTime.toLocaleString()}`);
   }
-  
-  async scheduleStage(stage: PendingStage): Promise<{ start: Date; end: Date } | null> {
-    // Ensure we're on a working day
-    const workingDate = await getNextWorkingDay(this.supabase, this.currentScheduleTime);
-    
-    // If we moved to a different day, reset to 8:00 AM
-    if (formatDate(workingDate) !== formatDate(this.currentScheduleTime)) {
-      this.currentScheduleTime = new Date(workingDate);
-      this.currentScheduleTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+
+  async findEarliestSlotUtc(
+    stageId: string,
+    durationMin: number,
+    dayStartUtc: Date,
+    dayEndUtc: Date
+  ): Promise<{ startUtc: Date; endUtc: Date } | null> {
+    const { data, error } = await this.supabase
+      .from('job_stage_instances')
+      .select('scheduled_start_at, scheduled_end_at')
+      .eq('production_stage_id', stageId)
+      .gte('scheduled_start_at', dayStartUtc.toISOString())
+      .lt('scheduled_start_at', dayEndUtc.toISOString());
+
+    if (error) throw error;
+
+    const existing = (data || []).map((r: any) => ({
+      startUtc: new Date(r.scheduled_start_at),
+      endUtc: new Date(r.scheduled_end_at),
+    })).sort((a,b) => a.startUtc.getTime() - b.startUtc.getTime());
+
+    // Build gaps
+    const free: Array<{ s: Date; e: Date }> = [];
+    let cursor = dayStartUtc;
+    for (const b of existing) {
+      if (b.startUtc > cursor) free.push({ s: cursor, e: b.startUtc });
+      if (b.endUtc > cursor) cursor = b.endUtc;
     }
-    
-    const startTime = new Date(this.currentScheduleTime);
-    const endTime = new Date(startTime);
-    endTime.setMinutes(endTime.getMinutes() + stage.estimated_duration_minutes);
-    
-    // Check if this stage crosses lunch break or end of day
-    const lunchStart = new Date(startTime);
-    lunchStart.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, 0, 0, 0);
-    
-    const lunchEnd = new Date(startTime);
-    lunchEnd.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, DEFAULT_CAPACITY.lunch_break_duration_minutes, 0, 0);
-    
-    const dayEnd = new Date(startTime);
-    dayEnd.setHours(DEFAULT_CAPACITY.shift_end_hour, DEFAULT_CAPACITY.shift_end_minute, 0, 0);
-    
-    // If start time is during lunch, move to after lunch
-    if (startTime >= lunchStart && startTime < lunchEnd) {
-      startTime.setTime(lunchEnd.getTime());
-      endTime.setTime(startTime.getTime() + (stage.estimated_duration_minutes * 60 * 1000));
+    if (cursor < dayEndUtc) free.push({ s: cursor, e: dayEndUtc });
+
+    for (const gap of free) {
+      const gapMin = (gap.e.getTime() - gap.s.getTime()) / 60000;
+      if (gapMin >= durationMin) {
+        const startUtc = gap.s;
+        const endUtc = new Date(startUtc.getTime() + durationMin * 60000);
+        return { startUtc, endUtc };
+      }
     }
+
+    return null;
+  }
+
+  async scheduleStage(stage: PendingStage, userId?: string): Promise<boolean> {
+    const durationMinutes = stage.estimated_duration_minutes || 60;
     
-    // If end time goes past lunch break, add lunch break duration
-    if (startTime < lunchStart && endTime > lunchStart) {
-      endTime.setMinutes(endTime.getMinutes() + DEFAULT_CAPACITY.lunch_break_duration_minutes);
-    }
+    console.log(`📋 Scheduling: ${stage.job_wo_no} (${stage.stage_name}) - ${durationMinutes} minutes`);
     
-    // If end time goes past day end, move to next working day
-    if (endTime > dayEnd) {
-      const nextDay = await getNextWorkingDay(this.supabase, new Date(startTime.getTime() + 24 * 60 * 60 * 1000));
-      startTime.setTime(nextDay.getTime());
-      startTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
-      endTime.setTime(startTime.getTime() + (stage.estimated_duration_minutes * 60 * 1000));
+    // Find available time slot within working hours
+    let attempts = 0;
+    const maxAttempts = 30; // Prevent infinite loops
+    
+    while (attempts < maxAttempts) {
+      attempts++;
       
-      // Check lunch break again for the new day
-      const newLunchStart = new Date(startTime);
-      newLunchStart.setHours(DEFAULT_CAPACITY.lunch_break_start_hour, 0, 0, 0);
+      const { startUtc: dayStartUtc, endUtc: dayEndUtc } = getBusinessWindowUtcForDay(this.cursor);
       
-      if (startTime < newLunchStart && endTime > newLunchStart) {
-        endTime.setMinutes(endTime.getMinutes() + DEFAULT_CAPACITY.lunch_break_duration_minutes);
+      const slot = await this.findEarliestSlotUtc(stage.production_stage_id, durationMinutes, dayStartUtc, dayEndUtc);
+      
+      if (slot) {
+        // Schedule the stage
+        const { error: updateError } = await this.supabase
+          .from('job_stage_instances')
+          .update({
+            scheduled_start_at: slot.startUtc.toISOString(),
+            scheduled_end_at: slot.endUtc.toISOString(),
+            scheduled_minutes: durationMinutes,
+            schedule_status: 'scheduled',
+            scheduling_method: 'auto',
+            scheduled_by_user_id: userId || null
+          })
+          .eq('id', stage.id);
+        
+        if (updateError) {
+          console.error(`❌ Error updating stage ${stage.id}:`, updateError);
+          return false;
+        }
+        
+        const timeStr = slot.startUtc.toISOString().substring(11, 16);
+        const endStr = slot.endUtc.toISOString().substring(11, 16);
+        console.log(`✅ SEQUENTIAL PLACEMENT: ${stage.job_wo_no} (${stage.stage_name}) scheduled from ${slot.startUtc.toISOString()} to ${slot.endUtc.toISOString()}`);
+        
+        // Move cursor to end of this booking for consecutive stages
+        this.cursor = slot.endUtc;
+        return true;
+      } else {
+        // Move to next business day
+        this.cursor = clampToBusinessWindowUtc(new Date(dayEndUtc.getTime() + 1000));
       }
     }
     
-    // Update current schedule time to end of this stage - CRITICAL FOR SEQUENTIAL SCHEDULING!
-    this.currentScheduleTime = new Date(endTime);
-    
-    console.log(`✅ SEQUENTIAL PLACEMENT: ${stage.job_wo_no} (${stage.stage_name}) scheduled from ${startTime.toISOString()} to ${endTime.toISOString()}`);
-    
-    return { start: startTime, end: endTime };
+    console.error(`❌ Failed to schedule stage after ${maxAttempts} attempts: ${stage.job_wo_no} (${stage.stage_name})`);
+    return false;
   }
 }
 
-async function processStagesSequentially(supabase: any, stages: PendingStage[]): Promise<void> {
-  // NUCLEAR RESET: Clear all existing scheduled times AND reset status for ALL reschedulable stages
-  console.log('💥 NUCLEAR RESET: Clearing ALL scheduled times and resetting ALL statuses...');
+/**
+ * Process stages sequentially with pure FIFO order
+ */
+async function processStagesSequentially(stages: PendingStage[], supabase: any, userId?: string): Promise<number> {
+  console.log(`🎯 PROCESSING ${stages.length} STAGES IN PURE FIFO ORDER...`);
   
-  const { data: resetResult, error: resetError } = await supabase
+  // NUCLEAR RESET: Clear all scheduled times first
+  console.log('💥 NUCLEAR RESET: Clearing all existing schedules...');
+  const { error: resetError } = await supabase
     .from('job_stage_instances')
     .update({
       scheduled_start_at: null,
       scheduled_end_at: null,
       scheduled_minutes: null,
-      schedule_status: 'unscheduled',
-      status: 'pending',  // Reset everything back to pending for true nuclear reset
-      is_rework: true     // Required for active stages to be reset to pending (satisfies database trigger)
+      schedule_status: 'unscheduled'
     })
-    .in('status', ['pending', 'active', 'scheduled'])
-    .select('id');
-
+    .in('status', ['pending', 'active', 'scheduled']);
+    
   if (resetError) {
     console.error('❌ Error during nuclear reset:', resetError);
     throw resetError;
   }
   
-  const resetCount = resetResult?.length || 0;
-  console.log(`💥 NUCLEAR RESET COMPLETE: Reset ${resetCount} stages to pending status`);
+  // Start scheduling from now, clamped to business window
+  const scheduleStartUtc = clampToBusinessWindowUtc(new Date());
+  console.log(`🎯 Starting schedule from: ${scheduleStartUtc.toISOString()}`);
   
-  // ALWAYS start from next working day 8:00 AM (clean slate after nuclear reset)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const startDate = await getNextWorkingDay(supabase, tomorrow);
-  startDate.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
-  console.log(`🕐 Clean slate start: ${startDate.toLocaleString()}`);
+  const scheduler = new SequentialScheduler(scheduleStartUtc, supabase);
   
-  // Group stages by type for sequential processing with PRIORITY ORDER
-  const stageGroups = groupStagesByType(stages);
-  
-  // Define stage type priority - this maintains stage queues
-  const stagePriorityOrder = [
-    'Printing - HP 12000',
-    'Printing - T250', 
-    'Printing - 7900',
-    'UV Varnishing',
-    'Laminating',
-    'Cutting',
-    'Zund',
-    'Gathering',
-    'Saddle Stitching',
-    'Wire Binding',
-    'Scoring',
-    'Finishing',
-    'Packaging'
-  ];
-  
-  // Get stage types in priority order, then any remaining types
-  const priorityStageTypes = stagePriorityOrder.filter(type => stageGroups[type]);
-  const remainingStageTypes = Object.keys(stageGroups).filter(type => !stagePriorityOrder.includes(type));
-  const orderedStageTypes = [...priorityStageTypes, ...remainingStageTypes];
-  
-  console.log(`📊 STAGE GROUPS FOUND (PRIORITY ORDER): ${orderedStageTypes.join(', ')}`);
-  orderedStageTypes.forEach(stageType => {
-    console.log(`   ${stageType}: ${stageGroups[stageType].length} stages`);
-  });
-  
-  const scheduler = new SequentialScheduler(startDate, supabase);
   let totalScheduled = 0;
   
-  // Process each stage type sequentially in PRIORITY ORDER
-  for (const stageType of orderedStageTypes) {
-    const stagesOfType = stageGroups[stageType];
-    console.log(`\n🎯 SCHEDULING ALL ${stageType.toUpperCase()} STAGES (${stagesOfType.length} stages)...`);
+  // Pure FIFO processing - no grouping by stage type
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i];
+    const success = await scheduler.scheduleStage(stage, userId);
     
-    for (let i = 0; i < stagesOfType.length; i++) {
-      const stage = stagesOfType[i];
-      const schedule = await scheduler.scheduleStage(stage);
-      
-      if (schedule) {
-        // Update the database with scheduled times
-        const { error } = await supabase
-          .from('job_stage_instances')
-          .update({
-            scheduled_start_at: schedule.start.toISOString(),
-            scheduled_end_at: schedule.end.toISOString(),
-            scheduled_minutes: stage.estimated_duration_minutes,
-            schedule_status: 'scheduled'
-          })
-          .eq('id', stage.id);
-        
-        if (error) {
-          console.error(`❌ Error updating stage ${stage.id}:`, error);
-        } else {
-          totalScheduled++;
-          console.log(`✅ [${totalScheduled}/${stages.length}] ${stageType}: ${stage.job_wo_no} | ${schedule.start.toLocaleTimeString()} → ${schedule.end.toLocaleTimeString()}`);
-        }
-      } else {
-        console.warn(`⚠️ Could not schedule stage ${stage.stage_name} for job ${stage.job_wo_no}`);
-      }
+    if (success) {
+      totalScheduled++;
+      console.log(`✅ [${totalScheduled}/${stages.length}] ${stage.job_wo_no} (${stage.stage_name}) scheduled`);
+    } else {
+      console.error(`❌ Failed to schedule: ${stage.job_wo_no} (${stage.stage_name})`);
     }
   }
+  
+  console.log(`✅ FIFO RESCHEDULE COMPLETE! Scheduled ${totalScheduled} stages in pure FIFO order!`);
+  return totalScheduled;
 }
 
 Deno.serve(async (req) => {
@@ -424,7 +287,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('🔥 START-FROM-NOW SEQUENTIAL FIFO SCHEDULER STARTING...');
+    console.log('🔥 PURE FIFO SCHEDULER STARTING...');
     
     // Get all pending stages sorted by proof approval date (STRICT FIFO ORDER)
     const pendingStages = await getPendingStages(supabase);
@@ -432,31 +295,31 @@ Deno.serve(async (req) => {
     
     if (pendingStages.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No pending stages to schedule' }),
+        JSON.stringify({ 
+          message: 'No pending stages to schedule',
+          scheduled_count: 0
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    const inWorkingHours = isCurrentlyInWorkingHours();
-    console.log(`⏰ Current time check: ${inWorkingHours ? 'IN WORKING HOURS' : 'OUTSIDE WORKING HOURS'}`);
+    // Process all stages in PURE FIFO order
+    const scheduledCount = await processStagesSequentially(pendingStages, supabase);
     
-    // Process all stages by stage type in TRUE SEQUENTIAL ORDER - NO GAPS!
-    await processStagesSequentially(supabase, pendingStages);
-    
-    console.log(`✅ NUCLEAR RESCHEDULE COMPLETE! Reset and rescheduled ${pendingStages.length} stages with NO GAPS!`);
+    console.log(`✅ PURE FIFO RESCHEDULE COMPLETE! Scheduled ${scheduledCount} stages!`);
     
     return new Response(
       JSON.stringify({ 
-        message: `✅ NUCLEAR RESCHEDULE completed! Reset and rescheduled ${pendingStages.length} stages by stage type with true sequential placement`,
-        scheduled_stages: pendingStages.length,
-        scheduling_method: 'START_FROM_NOW_STAGE_TYPE_SEQUENTIAL',
-        started_from_current_time: inWorkingHours
+        message: `✅ Pure FIFO reschedule completed! Scheduled ${scheduledCount} stages`,
+        scheduled_count: scheduledCount,
+        scheduling_method: 'PURE_FIFO',
+        total_stages_found: pendingStages.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
   } catch (error) {
-    console.error('❌ Error in sequential scheduler:', error);
+    console.error('❌ Error in scheduler:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

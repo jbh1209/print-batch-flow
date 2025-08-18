@@ -194,6 +194,13 @@ export type Database = {
             referencedRelation: "production_jobs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "batch_job_references_production_job_id_fkey"
+            columns: ["production_job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
         ]
       }
       batches: {
@@ -2606,7 +2613,173 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_jobs_ready_for_production: {
+        Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
+          batch_category: string | null
+          batch_ready: boolean | null
+          category: string | null
+          category_id: string | null
+          contact: string | null
+          created_at: string | null
+          customer: string | null
+          date: string | null
+          delivery_specifications: Json | null
+          due_date: string | null
+          due_date_buffer_days: number | null
+          due_date_locked: boolean | null
+          due_date_warning_level: string | null
+          expedite_reason: string | null
+          expedited_at: string | null
+          expedited_by: string | null
+          finishing_specifications: Json | null
+          has_custom_workflow: boolean | null
+          highlighted: boolean | null
+          id: string | null
+          internal_completion_date: string | null
+          is_batch_master: boolean | null
+          is_expedited: boolean | null
+          is_ready_for_production: boolean | null
+          last_due_date_check: string | null
+          location: string | null
+          manual_due_date: string | null
+          manual_sla_days: number | null
+          operation_quantities: Json | null
+          paper_specifications: Json | null
+          prepress_specifications: Json | null
+          printing_specifications: Json | null
+          proof_approved_at: string | null
+          qr_code_data: string | null
+          qr_code_url: string | null
+          qt_no: string | null
+          qty: number | null
+          reference: string | null
+          rep: string | null
+          size: string | null
+          so_no: string | null
+          specification: string | null
+          status: string | null
+          tentative_due_date: string | null
+          updated_at: string | null
+          user_id: string | null
+          user_name: string | null
+          wo_no: string | null
+        }
+        Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
+          batch_category?: string | null
+          batch_ready?: boolean | null
+          category?: string | null
+          category_id?: string | null
+          contact?: string | null
+          created_at?: string | null
+          customer?: string | null
+          date?: string | null
+          delivery_specifications?: Json | null
+          due_date?: string | null
+          due_date_buffer_days?: number | null
+          due_date_locked?: boolean | null
+          due_date_warning_level?: string | null
+          expedite_reason?: string | null
+          expedited_at?: string | null
+          expedited_by?: string | null
+          finishing_specifications?: Json | null
+          has_custom_workflow?: boolean | null
+          highlighted?: boolean | null
+          id?: string | null
+          internal_completion_date?: string | null
+          is_batch_master?: boolean | null
+          is_expedited?: boolean | null
+          is_ready_for_production?: never
+          last_due_date_check?: string | null
+          location?: string | null
+          manual_due_date?: string | null
+          manual_sla_days?: number | null
+          operation_quantities?: Json | null
+          paper_specifications?: Json | null
+          prepress_specifications?: Json | null
+          printing_specifications?: Json | null
+          proof_approved_at?: string | null
+          qr_code_data?: string | null
+          qr_code_url?: string | null
+          qt_no?: string | null
+          qty?: number | null
+          reference?: string | null
+          rep?: string | null
+          size?: string | null
+          so_no?: string | null
+          specification?: string | null
+          status?: string | null
+          tentative_due_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          wo_no?: string | null
+        }
+        Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
+          batch_category?: string | null
+          batch_ready?: boolean | null
+          category?: string | null
+          category_id?: string | null
+          contact?: string | null
+          created_at?: string | null
+          customer?: string | null
+          date?: string | null
+          delivery_specifications?: Json | null
+          due_date?: string | null
+          due_date_buffer_days?: number | null
+          due_date_locked?: boolean | null
+          due_date_warning_level?: string | null
+          expedite_reason?: string | null
+          expedited_at?: string | null
+          expedited_by?: string | null
+          finishing_specifications?: Json | null
+          has_custom_workflow?: boolean | null
+          highlighted?: boolean | null
+          id?: string | null
+          internal_completion_date?: string | null
+          is_batch_master?: boolean | null
+          is_expedited?: boolean | null
+          is_ready_for_production?: never
+          last_due_date_check?: string | null
+          location?: string | null
+          manual_due_date?: string | null
+          manual_sla_days?: number | null
+          operation_quantities?: Json | null
+          paper_specifications?: Json | null
+          prepress_specifications?: Json | null
+          printing_specifications?: Json | null
+          proof_approved_at?: string | null
+          qr_code_data?: string | null
+          qr_code_url?: string | null
+          qt_no?: string | null
+          qty?: number | null
+          reference?: string | null
+          rep?: string | null
+          size?: string | null
+          so_no?: string | null
+          specification?: string | null
+          status?: string | null
+          tentative_due_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          wo_no?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_jobs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       activate_batch_allocation_for_job: {
