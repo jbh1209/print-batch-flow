@@ -39,39 +39,82 @@ export function useScheduleReader() {
   const fetchSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch all scheduled stages for the next 30 days
-      const { data: stages, error } = await supabase
+      // Step 1: Fetch scheduled stage instances
+      const { data: stageInstances, error: stagesError } = await supabase
         .from('job_stage_instances')
         .select(`
           id,
           job_id,
+          production_stage_id,
           stage_order,
           estimated_duration_minutes,
           scheduled_start_at,
           scheduled_end_at,
           status,
-          production_stages!inner(name, color),
-          production_jobs!inner(wo_no)
+          job_table_name
         `)
         .not('scheduled_start_at', 'is', null)
         .not('scheduled_end_at', 'is', null)
         .gte('scheduled_start_at', new Date().toISOString())
         .order('scheduled_start_at', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching scheduled stages:', error);
-        toast.error('Failed to fetch schedule');
+      if (stagesError) {
+        console.error('Error fetching scheduled stages:', stagesError);
+        toast.error('Failed to fetch scheduled stages');
         return;
       }
 
-      // Group stages by date and time slot
+      if (!stageInstances || stageInstances.length === 0) {
+        setScheduleDays([]);
+        toast.success('No scheduled stages found');
+        return;
+      }
+
+      // Step 2: Get unique stage and job IDs for batch fetching
+      const stageIds = [...new Set(stageInstances.map(s => s.production_stage_id))];
+      const jobIds = [...new Set(stageInstances.map(s => s.job_id))];
+
+      // Step 3: Fetch production stages data
+      const { data: productionStages, error: stagesLookupError } = await supabase
+        .from('production_stages')
+        .select('id, name, color')
+        .in('id', stageIds);
+
+      if (stagesLookupError) {
+        console.error('Error fetching production stages:', stagesLookupError);
+      }
+
+      // Step 4: Fetch production jobs data
+      const { data: productionJobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no')
+        .in('id', jobIds);
+
+      if (jobsError) {
+        console.error('Error fetching production jobs:', jobsError);
+      }
+
+      // Step 5: Create lookup maps for fast access
+      const stageMap = new Map(
+        (productionStages || []).map(stage => [stage.id, stage])
+      );
+      const jobMap = new Map(
+        (productionJobs || []).map(job => [job.id, job])
+      );
+
+      // Step 6: Group stages by date and time slot
       const scheduleMap = new Map<string, Map<string, ScheduledStageData[]>>();
+      const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
       
-      (stages || []).forEach(stage => {
-        const startTime = new Date(stage.scheduled_start_at);
+      stageInstances.forEach(stageInstance => {
+        const startTime = new Date(stageInstance.scheduled_start_at);
         const date = startTime.toISOString().split('T')[0];
         const hour = startTime.getHours();
         const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+        
+        // Get related data from lookup maps
+        const stage = stageMap.get(stageInstance.production_stage_id);
+        const job = jobMap.get(stageInstance.job_id);
         
         if (!scheduleMap.has(date)) {
           scheduleMap.set(date, new Map());
@@ -83,22 +126,21 @@ export function useScheduleReader() {
         }
         
         dayMap.get(timeSlot)!.push({
-          id: stage.id,
-          job_id: stage.job_id,
-          job_wo_no: (stage.production_jobs as any)?.wo_no || 'Unknown',
-          stage_name: (stage.production_stages as any)?.name || 'Unknown Stage',
-          stage_order: stage.stage_order,
-          estimated_duration_minutes: stage.estimated_duration_minutes || 60,
-          scheduled_start_at: stage.scheduled_start_at,
-          scheduled_end_at: stage.scheduled_end_at,
-          status: stage.status,
-          stage_color: (stage.production_stages as any)?.color || '#6B7280'
+          id: stageInstance.id,
+          job_id: stageInstance.job_id,
+          job_wo_no: job?.wo_no || 'Unknown',
+          stage_name: stage?.name || 'Unknown Stage',
+          stage_order: stageInstance.stage_order,
+          estimated_duration_minutes: stageInstance.estimated_duration_minutes || 60,
+          scheduled_start_at: stageInstance.scheduled_start_at,
+          scheduled_end_at: stageInstance.scheduled_end_at,
+          status: stageInstance.status,
+          stage_color: stage?.color || '#6B7280'
         });
       });
 
-      // Convert to array format
+      // Step 7: Convert to array format
       const scheduleDays: ScheduleDayData[] = [];
-      const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
       
       scheduleMap.forEach((dayMap, date) => {
         const dateObj = new Date(date);
@@ -124,11 +166,11 @@ export function useScheduleReader() {
       scheduleDays.sort((a, b) => a.date.localeCompare(b.date));
       
       setScheduleDays(scheduleDays);
-      toast.success(`Loaded schedule with ${stages?.length || 0} stages`);
+      toast.success(`Loaded schedule with ${stageInstances.length} stages across ${scheduleDays.length} days`);
       
     } catch (error) {
       console.error('Error in fetchSchedule:', error);
-      toast.error('Failed to fetch schedule');
+      toast.error('Failed to fetch schedule data');
     } finally {
       setIsLoading(false);
     }
