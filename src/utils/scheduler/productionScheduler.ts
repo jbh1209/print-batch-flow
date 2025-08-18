@@ -24,7 +24,7 @@ async function getPendingStages(): Promise<Omit<ScheduledStage, 'scheduled_start
       production_stages!inner(name),
       production_jobs!inner(wo_no, proof_approved_at)
     `)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'active', 'scheduled'])
     .not('production_stages.name', 'ilike', '%dtp%')
     .not('production_stages.name', 'ilike', '%proof%')
     .not('production_stages.name', 'ilike', '%batch%allocation%')
@@ -54,11 +54,29 @@ async function getPendingStages(): Promise<Omit<ScheduledStage, 'scheduled_start
  */
 export async function calculateSequentialSchedule(): Promise<WorkingDayContainer[]> {
   try {
-    console.log('Starting sequential scheduler...');
+    console.log('Starting NUCLEAR sequential scheduler...');
     
-    // Get all pending stages
+    // NUCLEAR RESET: First clear all scheduled times for ALL reschedulable stages
+    console.log('💥 Performing nuclear reset of all scheduled times...');
+    const { error: resetError } = await supabase
+      .from('job_stage_instances')
+      .update({
+        scheduled_start_at: null,
+        scheduled_end_at: null,
+        scheduled_minutes: null,
+        schedule_status: 'unscheduled',
+        status: 'pending'
+      })
+      .in('status', ['pending', 'active', 'scheduled']);
+    
+    if (resetError) {
+      console.error('Error during nuclear reset:', resetError);
+      throw resetError;
+    }
+    
+    // Get all reschedulable stages (now all reset to pending)
     const pendingStages = await getPendingStages();
-    console.log(`Found ${pendingStages.length} pending stages`);
+    console.log(`💥 Nuclear reset complete! Found ${pendingStages.length} stages to reschedule`);
     
     if (pendingStages.length === 0) {
       return [];

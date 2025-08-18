@@ -62,10 +62,11 @@ async function getNextWorkingDay(supabase: any, startDate: Date): Promise<Date> 
 }
 
 async function getPendingStages(supabase: any): Promise<PendingStage[]> {
-  console.log('🔍 Fetching pending stage instances...');
+  console.log('🔍 Fetching ALL schedulable stage instances...');
   
   try {
-    // STEP 1: Get all pending job stage instances
+    // STEP 1: Get ALL schedulable job stage instances (not just pending!)
+    // Nuclear option: include 'pending', 'active', 'scheduled' - anything that can be rescheduled
     const { data: stageInstances, error: stageError } = await supabase
       .from('job_stage_instances')
       .select(`
@@ -75,16 +76,17 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
         production_stage_id,
         stage_order,
         estimated_duration_minutes,
-        category_id
+        category_id,
+        status
       `)
-      .eq('status', 'pending');
+      .in('status', ['pending', 'active', 'scheduled']);
 
     if (stageError) {
       console.error('❌ Error fetching stage instances:', stageError);
       throw stageError;
     }
 
-    console.log(`📋 Found ${stageInstances?.length || 0} pending stage instances`);
+    console.log(`📋 Found ${stageInstances?.length || 0} schedulable stage instances (all statuses: pending, active, scheduled)`);
 
     if (!stageInstances || stageInstances.length === 0) {
       return [];
@@ -326,17 +328,28 @@ class SequentialScheduler {
 }
 
 async function processStagesSequentially(supabase: any, stages: PendingStage[]): Promise<void> {
-  // Clear all existing scheduled times first
-  console.log('🧹 Clearing existing scheduled times...');
-  await supabase
+  // NUCLEAR RESET: Clear all existing scheduled times AND reset status for ALL reschedulable stages
+  console.log('💥 NUCLEAR RESET: Clearing ALL scheduled times and resetting ALL statuses...');
+  
+  const { data: resetResult, error: resetError } = await supabase
     .from('job_stage_instances')
     .update({
       scheduled_start_at: null,
       scheduled_end_at: null,
       scheduled_minutes: null,
-      schedule_status: 'unscheduled'
+      schedule_status: 'unscheduled',
+      status: 'pending'  // Reset everything back to pending for true nuclear reset
     })
-    .eq('status', 'pending');
+    .in('status', ['pending', 'active', 'scheduled'])
+    .select('id');
+
+  if (resetError) {
+    console.error('❌ Error during nuclear reset:', resetError);
+    throw resetError;
+  }
+  
+  const resetCount = resetResult?.length || 0;
+  console.log(`💥 NUCLEAR RESET COMPLETE: Reset ${resetCount} stages to pending status`);
   
   // Determine start date: NOW if in working hours, else next working day
   const now = new Date();
@@ -443,11 +456,11 @@ Deno.serve(async (req) => {
     // Process all stages by stage type in TRUE SEQUENTIAL ORDER - NO GAPS!
     await processStagesSequentially(supabase, pendingStages);
     
-    console.log(`✅ STAGE-TYPE SEQUENTIAL SCHEDULING COMPLETE! Processed ${pendingStages.length} stages with NO GAPS!`);
+    console.log(`✅ NUCLEAR RESCHEDULE COMPLETE! Reset and rescheduled ${pendingStages.length} stages with NO GAPS!`);
     
     return new Response(
       JSON.stringify({ 
-        message: `✅ START-FROM-NOW SEQUENTIAL scheduling completed! Processed ${pendingStages.length} stages by stage type with true sequential placement`,
+        message: `✅ NUCLEAR RESCHEDULE completed! Reset and rescheduled ${pendingStages.length} stages by stage type with true sequential placement`,
         scheduled_stages: pendingStages.length,
         scheduling_method: 'START_FROM_NOW_STAGE_TYPE_SEQUENTIAL',
         started_from_current_time: inWorkingHours
