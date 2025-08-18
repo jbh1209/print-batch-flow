@@ -338,7 +338,8 @@ async function processStagesSequentially(supabase: any, stages: PendingStage[]):
       scheduled_end_at: null,
       scheduled_minutes: null,
       schedule_status: 'unscheduled',
-      status: 'pending'  // Reset everything back to pending for true nuclear reset
+      status: 'pending',  // Reset everything back to pending for true nuclear reset
+      is_rework: true     // Required for active stages to be reset to pending (satisfies database trigger)
     })
     .in('status', ['pending', 'active', 'scheduled'])
     .select('id');
