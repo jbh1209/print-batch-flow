@@ -3,7 +3,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { zonedTimeToUtc, utcToZonedTime } from 'https://esm.sh/date-fns-tz@3.2.0';
+import { zonedTimeToUtc, utcToZonedTime } from 'https://esm.sh/date-fns-tz@2.0.1';
 import { corsHeaders } from '../_shared/cors.ts';
 
 // ---- SAST timezone helpers ----
