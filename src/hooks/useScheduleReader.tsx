@@ -56,7 +56,6 @@ export function useScheduleReader() {
         `)
         .not('scheduled_start_at', 'is', null)
         .not('scheduled_end_at', 'is', null)
-        .gte('scheduled_start_at', new Date().toISOString())
         .order('scheduled_start_at', { ascending: true });
 
       if (stagesError) {
