@@ -62,11 +62,32 @@ async function getNextWorkingDay(supabase: any, startDate: Date): Promise<Date> 
 }
 
 async function getPendingStages(supabase: any): Promise<PendingStage[]> {
-  console.log('🔍 Fetching ALL schedulable stage instances...');
+  console.log('🔍 Fetching ONLY approved and ready stages...');
   
   try {
-    // STEP 1: Get ALL schedulable job stage instances (not just pending!)
-    // Nuclear option: include 'pending', 'active', 'scheduled' - anything that can be rescheduled
+    // STEP 1: Get ONLY stages from APPROVED jobs (critical fix!)
+    const { data: approvedJobs, error: jobError } = await supabase
+      .from('production_jobs')
+      .select('id, wo_no, proof_approved_at, status')
+      .not('proof_approved_at', 'is', null)
+      .in('status', ['approved', 'ready', 'in production', 'Pre-Press'])
+      .not('status', 'in', ['completed', 'cancelled', 'rejected', 'Completed']);
+
+    if (jobError) {
+      console.error('❌ Error fetching approved jobs:', jobError);
+      throw jobError;
+    }
+
+    console.log(`📋 Found ${approvedJobs?.length || 0} approved jobs (status: approved/ready/in production)`);
+
+    if (!approvedJobs || approvedJobs.length === 0) {
+      console.log('✅ No approved jobs found - nothing to schedule');
+      return [];
+    }
+
+    const approvedJobIds = approvedJobs.map(j => j.id);
+
+    // STEP 2: Get stage instances ONLY from approved jobs
     const { data: stageInstances, error: stageError } = await supabase
       .from('job_stage_instances')
       .select(`
@@ -79,20 +100,22 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
         category_id,
         status
       `)
-      .in('status', ['pending', 'active', 'scheduled']);
+      .in('status', ['pending', 'active', 'scheduled'])
+      .in('job_id', approvedJobIds)
+      .eq('job_table_name', 'production_jobs');
 
     if (stageError) {
       console.error('❌ Error fetching stage instances:', stageError);
       throw stageError;
     }
 
-    console.log(`📋 Found ${stageInstances?.length || 0} schedulable stage instances (all statuses: pending, active, scheduled)`);
+    console.log(`📋 Found ${stageInstances?.length || 0} stage instances from approved jobs`);
 
     if (!stageInstances || stageInstances.length === 0) {
       return [];
     }
 
-    // STEP 2: Get unique production stage IDs to fetch stage details
+    // STEP 3: Get stage details
     const stageIds = [...new Set(stageInstances.map(si => si.production_stage_id))];
     
     const { data: productionStages, error: stagesError } = await supabase
@@ -107,28 +130,7 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
 
     console.log(`📋 Found ${productionStages?.length || 0} production stages`);
 
-    // STEP 3: Get unique job IDs for production_jobs
-    const prodJobIds = stageInstances
-      .filter(si => si.job_table_name === 'production_jobs')
-      .map(si => si.job_id);
-    
-    let productionJobs: any[] = [];
-    if (prodJobIds.length > 0) {
-      const { data: jobs, error: jobsError } = await supabase
-        .from('production_jobs')
-        .select('id, wo_no, proof_approved_at')
-        .in('id', prodJobIds)
-        .not('proof_approved_at', 'is', null);
-
-      if (jobsError) {
-        console.error('❌ Error fetching production jobs:', jobsError);
-        throw jobsError;
-      }
-
-      productionJobs = jobs || [];
-      console.log(`📋 Found ${productionJobs.length} proof-approved production jobs`);
-      console.log(`🔒 Excluded ${prodJobIds.length - productionJobs.length} jobs without proof approval`);
-    }
+    const productionJobs = approvedJobs;
 
     // STEP 4: Create lookup maps for efficient data joining
     const stageMap = new Map(productionStages?.map(s => [s.id, s]) || []);
@@ -240,7 +242,7 @@ function isCurrentlyInWorkingHours(): boolean {
   return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
 }
 
-// NEW SIMPLE SEQUENTIAL SCHEDULER - START FROM NOW!
+// CLEAN SEQUENTIAL SCHEDULER - Always starts from clean slate
 class SequentialScheduler {
   private currentScheduleTime: Date;
   private supabase: any;
@@ -248,23 +250,7 @@ class SequentialScheduler {
   constructor(startDate: Date, supabase: any) {
     this.currentScheduleTime = new Date(startDate);
     this.supabase = supabase;
-    
-    // If the start date is today and we're in working hours, start from NOW
-    const now = new Date();
-    const isToday = formatDate(this.currentScheduleTime) === formatDate(now);
-    
-    if (isToday && isCurrentlyInWorkingHours()) {
-      // Start from current time, rounded up to next 5-minute interval
-      this.currentScheduleTime = new Date(now);
-      const minutes = this.currentScheduleTime.getMinutes();
-      const roundedMinutes = Math.ceil(minutes / 5) * 5;
-      this.currentScheduleTime.setMinutes(roundedMinutes, 0, 0);
-      console.log(`🕐 Starting from NOW (${this.currentScheduleTime.toLocaleTimeString()}) - we're in working hours!`);
-    } else {
-      // Start from 8:00 AM on the specified day
-      this.currentScheduleTime.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
-      console.log(`🕐 Starting from ${this.currentScheduleTime.toLocaleTimeString()} on ${formatDate(this.currentScheduleTime)}`);
-    }
+    console.log(`🕐 Clean start from ${this.currentScheduleTime.toLocaleString()}`);
   }
   
   async scheduleStage(stage: PendingStage): Promise<{ start: Date; end: Date } | null> {
@@ -352,30 +338,31 @@ async function processStagesSequentially(supabase: any, stages: PendingStage[]):
   const resetCount = resetResult?.length || 0;
   console.log(`💥 NUCLEAR RESET COMPLETE: Reset ${resetCount} stages to pending status`);
   
-  // Determine start date: NOW if in working hours, else next working day
-  const now = new Date();
-  let startDate: Date;
-  
-  if (isCurrentlyInWorkingHours()) {
-    startDate = new Date(now);
-    console.log(`🕐 We're in working hours! Starting from NOW: ${startDate.toLocaleTimeString()}`);
-  } else {
-    startDate = await getNextWorkingDay(supabase, now);
-    startDate.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
-    console.log(`🕐 Outside working hours. Starting from next working day: ${startDate.toLocaleString()}`);
-  }
+  // ALWAYS start from next working day 8:00 AM (clean slate after nuclear reset)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const startDate = await getNextWorkingDay(supabase, tomorrow);
+  startDate.setHours(DEFAULT_CAPACITY.shift_start_hour, 0, 0, 0);
+  console.log(`🕐 Clean slate start: ${startDate.toLocaleString()}`);
   
   // Group stages by type for sequential processing with PRIORITY ORDER
   const stageGroups = groupStagesByType(stages);
   
-  // Define stage type priority (HP12000 FIRST!)
+  // Define stage type priority - this maintains stage queues
   const stagePriorityOrder = [
     'Printing - HP 12000',
     'Printing - T250', 
+    'Printing - 7900',
     'UV Varnishing',
     'Laminating',
     'Cutting',
-    'Finishing'
+    'Zund',
+    'Gathering',
+    'Saddle Stitching',
+    'Wire Binding',
+    'Scoring',
+    'Finishing',
+    'Packaging'
   ];
   
   // Get stage types in priority order, then any remaining types
