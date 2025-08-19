@@ -38,27 +38,21 @@ Deno.serve(async (req) => {
     }
     console.log('✅ All scheduled data cleared');
     
-    // STEP 2: Get pending jobs (NOT completed) - simplified approach
+    // STEP 2: Get pending jobs (NOT completed) - fixed approach
     console.log('📋 Getting pending jobs...');
     
     // First get all job stage instances that are pending/active
     const { data: stageInstances, error: stageError } = await supabase
       .from('job_stage_instances')
-      .select(`
-        id,
-        job_id,
-        estimated_duration_minutes,
-        production_stages!inner(name)
-      `)
-      .in('status', ['pending', 'active'])
-      .not('production_stages.name', 'ilike', '%dtp%')
-      .not('production_stages.name', 'ilike', '%proof%')
-      .not('production_stages.name', 'ilike', '%batch%allocation%');
+      .select('id, job_id, production_stage_id, estimated_duration_minutes')
+      .in('status', ['pending', 'active']);
     
     if (stageError) {
       console.error('❌ Stage instances fetch error:', stageError);
       throw stageError;
     }
+    
+    console.log(`🔍 Found ${stageInstances?.length || 0} total stage instances`);
     
     if (!stageInstances || stageInstances.length === 0) {
       console.log('✅ No stage instances found');
@@ -68,8 +62,43 @@ Deno.serve(async (req) => {
       );
     }
     
-    // Get unique job IDs
-    const jobIds = [...new Set(stageInstances.map(s => s.job_id))];
+    // Get production stages to filter out unwanted stages
+    const { data: productionStages, error: stagesError } = await supabase
+      .from('production_stages')
+      .select('id, name')
+      .in('id', stageInstances.map(s => s.production_stage_id));
+    
+    if (stagesError) {
+      console.error('❌ Production stages fetch error:', stagesError);
+      throw stagesError;
+    }
+    
+    console.log(`🔍 Found ${productionStages?.length || 0} production stages`);
+    
+    // Filter out unwanted stages (DTP, Proof, Batch Allocation)
+    const filteredStageInstances = stageInstances.filter(stage => {
+      const prodStage = productionStages.find(ps => ps.id === stage.production_stage_id);
+      if (!prodStage) return false;
+      
+      const stageName = prodStage.name.toLowerCase();
+      return !stageName.includes('dtp') && 
+             !stageName.includes('proof') && 
+             !stageName.includes('batch allocation');
+    });
+    
+    console.log(`🔍 After filtering: ${filteredStageInstances.length} stage instances remain`);
+    
+    if (filteredStageInstances.length === 0) {
+      console.log('✅ No stage instances found after filtering');
+      return new Response(
+        JSON.stringify({ message: 'No stages to schedule after filtering', scheduled_count: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get unique job IDs from filtered stages
+    const jobIds = [...new Set(filteredStageInstances.map(s => s.job_id))];
+    console.log(`🔍 Looking for ${jobIds.length} unique jobs`);
     
     // Get production jobs that are approved and not completed
     const { data: jobs, error: jobError } = await supabase
@@ -85,16 +114,19 @@ Deno.serve(async (req) => {
       throw jobError;
     }
     
-    // Combine the data
-    const stages = stageInstances
+    console.log(`🔍 Found ${jobs?.length || 0} approved production jobs`);
+    
+    // Combine the data with proper stage names
+    const stages = filteredStageInstances
       .filter(stage => jobs.some(job => job.id === stage.job_id))
       .map(stage => {
         const job = jobs.find(j => j.id === stage.job_id);
+        const prodStage = productionStages.find(ps => ps.id === stage.production_stage_id);
         return {
           id: stage.id,
           job_id: stage.job_id,
           estimated_duration_minutes: stage.estimated_duration_minutes,
-          production_stages: stage.production_stages,
+          production_stages: { name: prodStage?.name || 'Unknown' },
           production_jobs: job
         };
       })
