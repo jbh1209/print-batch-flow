@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       .not('production_stages.name', 'ilike', '%proof%')
       .not('production_stages.name', 'ilike', '%batch%allocation%')
       .not('production_jobs.proof_approved_at', 'is', null)
-      .order('production_jobs.proof_approved_at', { ascending: true });
+      .order('proof_approved_at', { ascending: true, foreignTable: 'production_jobs' });
 
     if (fetchError) {
       console.error('❌ Fetch error:', fetchError);
