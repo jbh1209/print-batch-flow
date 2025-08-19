@@ -46,11 +46,22 @@ Deno.serve(async (req) => {
       .eq('status', 'pending')
       .neq('production_jobs.status', 'Completed')
       .not('production_jobs.proof_approved_at', 'is', null)
-      .order('production_jobs.proof_approved_at', { ascending: true });
+      .order('proof_approved_at', { referencedTable: 'production_jobs', ascending: true });
 
     if (stageError) {
       console.error('❌ Error fetching stages:', stageError);
-      throw stageError;
+      console.error('❌ Full error details:', JSON.stringify(stageError, null, 2));
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to fetch pending stages', 
+          details: stageError.message,
+          code: stageError.code 
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     if (!pendingStages || pendingStages.length === 0) {
