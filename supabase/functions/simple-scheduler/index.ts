@@ -38,24 +38,69 @@ Deno.serve(async (req) => {
     }
     console.log('✅ All scheduled data cleared');
     
-    // STEP 2: Get pending jobs (NOT completed)
+    // STEP 2: Get pending jobs (NOT completed) - simplified approach
     console.log('📋 Getting pending jobs...');
-    const { data: stages, error: fetchError } = await supabase
+    
+    // First get all job stage instances that are pending/active
+    const { data: stageInstances, error: stageError } = await supabase
       .from('job_stage_instances')
       .select(`
         id,
         job_id,
         estimated_duration_minutes,
-        production_stages!inner(name),
-        production_jobs!inner(wo_no, proof_approved_at, status)
+        production_stages!inner(name)
       `)
       .in('status', ['pending', 'active'])
-      .neq('production_jobs.status', 'Completed')
       .not('production_stages.name', 'ilike', '%dtp%')
       .not('production_stages.name', 'ilike', '%proof%')
-      .not('production_stages.name', 'ilike', '%batch%allocation%')
-      .not('production_jobs.proof_approved_at', 'is', null)
-      .order('proof_approved_at', { ascending: true, foreignTable: 'production_jobs' });
+      .not('production_stages.name', 'ilike', '%batch%allocation%');
+    
+    if (stageError) {
+      console.error('❌ Stage instances fetch error:', stageError);
+      throw stageError;
+    }
+    
+    if (!stageInstances || stageInstances.length === 0) {
+      console.log('✅ No stage instances found');
+      return new Response(
+        JSON.stringify({ message: 'No stages to schedule', scheduled_count: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get unique job IDs
+    const jobIds = [...new Set(stageInstances.map(s => s.job_id))];
+    
+    // Get production jobs that are approved and not completed
+    const { data: jobs, error: jobError } = await supabase
+      .from('production_jobs')
+      .select('id, wo_no, proof_approved_at, status')
+      .in('id', jobIds)
+      .neq('status', 'Completed')
+      .not('proof_approved_at', 'is', null)
+      .order('proof_approved_at', { ascending: true });
+    
+    if (jobError) {
+      console.error('❌ Jobs fetch error:', jobError);
+      throw jobError;
+    }
+    
+    // Combine the data
+    const stages = stageInstances
+      .filter(stage => jobs.some(job => job.id === stage.job_id))
+      .map(stage => {
+        const job = jobs.find(j => j.id === stage.job_id);
+        return {
+          id: stage.id,
+          job_id: stage.job_id,
+          estimated_duration_minutes: stage.estimated_duration_minutes,
+          production_stages: stage.production_stages,
+          production_jobs: job
+        };
+      })
+      .sort((a, b) => new Date(a.production_jobs.proof_approved_at).getTime() - new Date(b.production_jobs.proof_approved_at).getTime());
+    
+    const fetchError = null;
 
     if (fetchError) {
       console.error('❌ Fetch error:', fetchError);
