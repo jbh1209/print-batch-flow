@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
         scheduled_by_user_id: null,
         scheduling_method: null
       })
-      .neq('id', 'is', null);
+      .not('id', 'is', null);
     
     if (resetError) {
       console.error('❌ Reset error:', resetError);
