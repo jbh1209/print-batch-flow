@@ -63,27 +63,54 @@ Deno.serve(async (req) => {
     }
     
     // Get production stages to filter out unwanted stages
+    const stageIds = stageInstances.map(s => s.production_stage_id).filter(Boolean);
+    
+    if (stageIds.length === 0) {
+      console.log('✅ No valid production stage IDs found');
+      return new Response(
+        JSON.stringify({ message: 'No valid stage IDs to process', scheduled_count: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const { data: productionStages, error: stagesError } = await supabase
       .from('production_stages')
       .select('id, name')
-      .in('id', stageInstances.map(s => s.production_stage_id));
+      .in('id', stageIds);
     
     if (stagesError) {
       console.error('❌ Production stages fetch error:', stagesError);
       throw stagesError;
     }
     
-    console.log(`🔍 Found ${productionStages?.length || 0} production stages`);
+    if (!productionStages || productionStages.length === 0) {
+      console.log('✅ No production stages found');
+      return new Response(
+        JSON.stringify({ message: 'No production stages found', scheduled_count: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
-    // Filter out unwanted stages (DTP, Proof, Batch Allocation)
+    console.log(`🔍 Found ${productionStages.length} production stages`);
+    
+    // Filter out unwanted stages (DTP, Proof, Batch Allocation) with safe string handling
     const filteredStageInstances = stageInstances.filter(stage => {
-      const prodStage = productionStages.find(ps => ps.id === stage.production_stage_id);
-      if (!prodStage) return false;
-      
-      const stageName = prodStage.name.toLowerCase();
-      return !stageName.includes('dtp') && 
-             !stageName.includes('proof') && 
-             !stageName.includes('batch allocation');
+      try {
+        if (!stage.production_stage_id) return false;
+        
+        const prodStage = productionStages.find(ps => ps.id === stage.production_stage_id);
+        if (!prodStage || !prodStage.name) return false;
+        
+        const stageName = prodStage.name.toLowerCase();
+        const isExcluded = stageName.includes('dtp') || 
+                          stageName.includes('proof') || 
+                          stageName.includes('batch allocation');
+        
+        return !isExcluded;
+      } catch (error) {
+        console.error('❌ Error filtering stage:', error, stage);
+        return false;
+      }
     });
     
     console.log(`🔍 After filtering: ${filteredStageInstances.length} stage instances remain`);
@@ -96,9 +123,17 @@ Deno.serve(async (req) => {
       );
     }
     
-    // Get unique job IDs from filtered stages
-    const jobIds = [...new Set(filteredStageInstances.map(s => s.job_id))];
+    // Get unique job IDs from filtered stages with validation
+    const jobIds = [...new Set(filteredStageInstances.map(s => s.job_id).filter(Boolean))];
     console.log(`🔍 Looking for ${jobIds.length} unique jobs`);
+    
+    if (jobIds.length === 0) {
+      console.log('✅ No valid job IDs found');
+      return new Response(
+        JSON.stringify({ message: 'No valid job IDs to process', scheduled_count: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Get production jobs that are approved and not completed
     const { data: jobs, error: jobError } = await supabase
@@ -114,23 +149,59 @@ Deno.serve(async (req) => {
       throw jobError;
     }
     
-    console.log(`🔍 Found ${jobs?.length || 0} approved production jobs`);
+    if (!jobs || jobs.length === 0) {
+      console.log('✅ No approved production jobs found');
+      return new Response(
+        JSON.stringify({ message: 'No approved jobs to schedule', scheduled_count: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
-    // Combine the data with proper stage names
+    console.log(`🔍 Found ${jobs.length} approved production jobs`);
+    
+    // Combine the data with proper stage names and validation
     const stages = filteredStageInstances
-      .filter(stage => jobs.some(job => job.id === stage.job_id))
-      .map(stage => {
-        const job = jobs.find(j => j.id === stage.job_id);
-        const prodStage = productionStages.find(ps => ps.id === stage.production_stage_id);
-        return {
-          id: stage.id,
-          job_id: stage.job_id,
-          estimated_duration_minutes: stage.estimated_duration_minutes,
-          production_stages: { name: prodStage?.name || 'Unknown' },
-          production_jobs: job
-        };
+      .filter(stage => {
+        try {
+          return stage.job_id && jobs.some(job => job.id === stage.job_id);
+        } catch (error) {
+          console.error('❌ Error matching stage to job:', error, stage);
+          return false;
+        }
       })
-      .sort((a, b) => new Date(a.production_jobs.proof_approved_at).getTime() - new Date(b.production_jobs.proof_approved_at).getTime());
+      .map(stage => {
+        try {
+          const job = jobs.find(j => j.id === stage.job_id);
+          const prodStage = productionStages.find(ps => ps.id === stage.production_stage_id);
+          
+          if (!job || !prodStage) {
+            console.error('❌ Missing job or stage data:', { stage: stage.id, jobFound: !!job, stageFound: !!prodStage });
+            return null;
+          }
+          
+          return {
+            id: stage.id,
+            job_id: stage.job_id,
+            estimated_duration_minutes: stage.estimated_duration_minutes || 30, // Default fallback
+            production_stages: { name: prodStage.name },
+            production_jobs: job
+          };
+        } catch (error) {
+          console.error('❌ Error mapping stage data:', error, stage);
+          return null;
+        }
+      })
+      .filter(Boolean) // Remove any null entries
+      .sort((a, b) => {
+        try {
+          const dateA = new Date(a.production_jobs.proof_approved_at).getTime();
+          const dateB = new Date(b.production_jobs.proof_approved_at).getTime();
+          return dateA - dateB;
+        } catch (error) {
+          console.error('❌ Error sorting stages:', error);
+          return 0;
+        }
+      });
     
     const fetchError = null;
 
