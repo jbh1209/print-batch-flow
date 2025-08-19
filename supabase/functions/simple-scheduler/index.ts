@@ -1,39 +1,41 @@
 /**
- * Sequential production scheduler - Simple FIFO implementation with NO GAPS
+ * Sequential production scheduler - Pure UTC FIFO implementation
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { zonedTimeToUtc, utcToZonedTime } from 'https://esm.sh/date-fns-tz@2.0.1';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// ---- SAST timezone helpers ----
-const SAST_TZ = 'Africa/Johannesburg';
-const BUSINESS_START = { hh: 8, mm: 0 };
-const BUSINESS_END = { hh: 17, mm: 30 };
+// Business hours in UTC (8:00-16:30 with 13:00-13:30 lunch break)
+const BUSINESS_START_HOUR = 8;
+const BUSINESS_END_HOUR = 16;
+const BUSINESS_END_MINUTE = 30;
+const LUNCH_START_HOUR = 13;
+const LUNCH_END_HOUR = 13;
+const LUNCH_END_MINUTE = 30;
 
-function sastWallClockToUtc(yyyyMmDd: string, hh: number, mm: number): Date {
-  const s = `${yyyyMmDd}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00`;
-  return zonedTimeToUtc(s, SAST_TZ);
+function getBusinessWindowUtc(date: Date): { startUtc: Date; endUtc: Date; lunchStartUtc: Date; lunchEndUtc: Date } {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  
+  const startUtc = new Date(Date.UTC(year, month, day, BUSINESS_START_HOUR, 0, 0));
+  const endUtc = new Date(Date.UTC(year, month, day, BUSINESS_END_HOUR, BUSINESS_END_MINUTE, 0));
+  const lunchStartUtc = new Date(Date.UTC(year, month, day, LUNCH_START_HOUR, 0, 0));
+  const lunchEndUtc = new Date(Date.UTC(year, month, day, LUNCH_END_HOUR, LUNCH_END_MINUTE, 0));
+  
+  return { startUtc, endUtc, lunchStartUtc, lunchEndUtc };
 }
 
-function getBusinessWindowUtcForDay(dUtc: Date): { startUtc: Date; endUtc: Date } {
-  const sast = utcToZonedTime(dUtc, SAST_TZ);
-  const yyyyMmDd = `${sast.getFullYear()}-${String(sast.getMonth()+1).padStart(2,'0')}-${String(sast.getDate()).padStart(2,'0')}`;
-  const startUtc = sastWallClockToUtc(yyyyMmDd, BUSINESS_START.hh, BUSINESS_START.mm);
-  const endUtc = sastWallClockToUtc(yyyyMmDd, BUSINESS_END.hh, BUSINESS_END.mm);
-  return { startUtc, endUtc };
-}
-
-function clampToBusinessWindowUtc(cursorUtc: Date): Date {
-  const { startUtc, endUtc } = getBusinessWindowUtcForDay(cursorUtc);
-  if (cursorUtc < startUtc) return startUtc;
-  if (cursorUtc >= endUtc) {
-    // jump to next day start (SAST)
-    const nextDaySast = utcToZonedTime(new Date(endUtc.getTime() + 24*60*60*1000), SAST_TZ);
-    const yyyyMmDd = `${nextDaySast.getFullYear()}-${String(nextDaySast.getMonth()+1).padStart(2,'0')}-${String(nextDaySast.getDate()).padStart(2,'0')}`;
-    return sastWallClockToUtc(yyyyMmDd, BUSINESS_START.hh, BUSINESS_START.mm);
+function getNextWorkingDay(date: Date): Date {
+  const nextDay = new Date(date);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  
+  // Skip weekends
+  while (nextDay.getUTCDay() === 0 || nextDay.getUTCDay() === 6) {
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
   }
-  return cursorUtc;
+  
+  return nextDay;
 }
 
 interface PendingStage {
@@ -50,32 +52,10 @@ interface PendingStage {
 }
 
 async function getPendingStages(supabase: any): Promise<PendingStage[]> {
-  console.log('🔍 Fetching ONLY approved and ready stages...');
+  console.log('🔍 Fetching pending stages for scheduling...');
   
   try {
-    // Use the new view to get jobs ready for production
-    const { data: approvedJobs, error: jobError } = await supabase
-      .from('v_jobs_ready_for_production')
-      .select('id, wo_no, proof_approved_at, status, created_at')
-      .eq('is_ready_for_production', true)
-      .in('status', ['pending', 'active'])
-      .order('proof_approved_at', { ascending: true })
-      .order('created_at', { ascending: true });
-
-    if (jobError) {
-      console.error('❌ Error fetching approved jobs:', jobError);
-      throw jobError;
-    }
-
-    console.log(`✅ Found ${approvedJobs?.length || 0} approved jobs`);
-    if (!approvedJobs?.length) {
-      console.log('⚠️ No approved jobs found - nothing to schedule');
-      return [];
-    }
-
-    const jobIds = approvedJobs.map(job => job.id);
-
-    // Get stages for these jobs
+    // Get all job stage instances that are NOT completed and ready for scheduling
     const { data: stages, error: stageError } = await supabase
       .from('job_stage_instances')
       .select(`
@@ -86,20 +66,25 @@ async function getPendingStages(supabase: any): Promise<PendingStage[]> {
         stage_order,
         estimated_duration_minutes,
         category_id,
+        status,
         production_stages!inner(name),
-        production_jobs!inner(wo_no, proof_approved_at)
+        production_jobs!inner(wo_no, proof_approved_at, status)
       `)
-      .in('job_id', jobIds)
-      .in('status', ['pending', 'active', 'scheduled'])
+      .in('status', ['pending', 'active'])
+      .neq('production_jobs.status', 'Completed')
       .not('production_stages.name', 'ilike', '%dtp%')
       .not('production_stages.name', 'ilike', '%proof%')
       .not('production_stages.name', 'ilike', '%batch%allocation%')
-      .order('production_jobs.proof_approved_at', { ascending: true });
+      .not('production_jobs.proof_approved_at', 'is', null)
+      .order('production_jobs.proof_approved_at', { ascending: true })
+      .order('stage_order', { ascending: true });
 
     if (stageError) {
       console.error('❌ Error fetching stages:', stageError);
       throw stageError;
     }
+
+    console.log(`✅ Found ${stages?.length || 0} pending stages`);
 
     return (stages || []).map(stage => ({
       id: stage.id,
@@ -132,45 +117,49 @@ class SequentialScheduler {
     this.supabase = supabase;
   }
 
-  async findEarliestSlotUtc(
-    stageId: string,
+  findNextAvailableSlot(
     durationMin: number,
-    dayStartUtc: Date,
-    dayEndUtc: Date
-  ): Promise<{ startUtc: Date; endUtc: Date } | null> {
-    const { data, error } = await this.supabase
-      .from('job_stage_instances')
-      .select('scheduled_start_at, scheduled_end_at')
-      .eq('production_stage_id', stageId)
-      .gte('scheduled_start_at', dayStartUtc.toISOString())
-      .lt('scheduled_start_at', dayEndUtc.toISOString());
-
-    if (error) throw error;
-
-    const existing = (data || []).map((r: any) => ({
-      startUtc: new Date(r.scheduled_start_at),
-      endUtc: new Date(r.scheduled_end_at),
-    })).sort((a,b) => a.startUtc.getTime() - b.startUtc.getTime());
-
-    // Build gaps
-    const free: Array<{ s: Date; e: Date }> = [];
-    let cursor = dayStartUtc;
-    for (const b of existing) {
-      if (b.startUtc > cursor) free.push({ s: cursor, e: b.startUtc });
-      if (b.endUtc > cursor) cursor = b.endUtc;
+    startFromUtc: Date
+  ): { startUtc: Date; endUtc: Date } {
+    const { startUtc: dayStartUtc, endUtc: dayEndUtc, lunchStartUtc, lunchEndUtc } = getBusinessWindowUtc(startFromUtc);
+    
+    // If we're before business hours, start at business hours
+    if (startFromUtc < dayStartUtc) {
+      startFromUtc = dayStartUtc;
     }
-    if (cursor < dayEndUtc) free.push({ s: cursor, e: dayEndUtc });
-
-    for (const gap of free) {
-      const gapMin = (gap.e.getTime() - gap.s.getTime()) / 60000;
-      if (gapMin >= durationMin) {
-        const startUtc = gap.s;
-        const endUtc = new Date(startUtc.getTime() + durationMin * 60000);
-        return { startUtc, endUtc };
-      }
+    
+    // If we're after business hours, move to next working day
+    if (startFromUtc >= dayEndUtc) {
+      const nextDay = getNextWorkingDay(startFromUtc);
+      const { startUtc: nextDayStart } = getBusinessWindowUtc(nextDay);
+      return this.findNextAvailableSlot(durationMin, nextDayStart);
     }
-
-    return null;
+    
+    // Check if slot fits before lunch
+    const morningEndUtc = lunchStartUtc;
+    const availableBeforeLunch = (morningEndUtc.getTime() - startFromUtc.getTime()) / 60000;
+    
+    if (availableBeforeLunch >= durationMin) {
+      // Fits before lunch
+      const endUtc = new Date(startFromUtc.getTime() + durationMin * 60000);
+      return { startUtc: startFromUtc, endUtc };
+    }
+    
+    // Check if slot fits after lunch
+    const afternoonStartUtc = lunchEndUtc;
+    const availableAfterLunch = (dayEndUtc.getTime() - afternoonStartUtc.getTime()) / 60000;
+    
+    if (availableAfterLunch >= durationMin) {
+      // Fits after lunch
+      const startUtc = Math.max(startFromUtc.getTime(), afternoonStartUtc.getTime()) === startFromUtc.getTime() && startFromUtc >= afternoonStartUtc ? startFromUtc : afternoonStartUtc;
+      const endUtc = new Date(startUtc.getTime() + durationMin * 60000);
+      return { startUtc: new Date(startUtc), endUtc };
+    }
+    
+    // Doesn't fit today, move to next working day
+    const nextDay = getNextWorkingDay(startFromUtc);
+    const { startUtc: nextDayStart } = getBusinessWindowUtc(nextDay);
+    return this.findNextAvailableSlot(durationMin, nextDayStart);
   }
 
   async scheduleStage(stage: PendingStage, userId?: string): Promise<boolean> {
@@ -178,51 +167,34 @@ class SequentialScheduler {
     
     console.log(`📋 Scheduling: ${stage.job_wo_no} (${stage.stage_name}) - ${durationMinutes} minutes`);
     
-    // Find available time slot within working hours
-    let attempts = 0;
-    const maxAttempts = 30; // Prevent infinite loops
+    // Find next available slot starting from current cursor
+    const slot = this.findNextAvailableSlot(durationMinutes, this.cursor);
     
-    while (attempts < maxAttempts) {
-      attempts++;
-      
-      const { startUtc: dayStartUtc, endUtc: dayEndUtc } = getBusinessWindowUtcForDay(this.cursor);
-      
-      const slot = await this.findEarliestSlotUtc(stage.production_stage_id, durationMinutes, dayStartUtc, dayEndUtc);
-      
-      if (slot) {
-        // Schedule the stage
-        const { error: updateError } = await this.supabase
-          .from('job_stage_instances')
-          .update({
-            scheduled_start_at: slot.startUtc.toISOString(),
-            scheduled_end_at: slot.endUtc.toISOString(),
-            scheduled_minutes: durationMinutes,
-            schedule_status: 'scheduled',
-            scheduling_method: 'auto',
-            scheduled_by_user_id: userId || null
-          })
-          .eq('id', stage.id);
-        
-        if (updateError) {
-          console.error(`❌ Error updating stage ${stage.id}:`, updateError);
-          return false;
-        }
-        
-        const timeStr = slot.startUtc.toISOString().substring(11, 16);
-        const endStr = slot.endUtc.toISOString().substring(11, 16);
-        console.log(`✅ SEQUENTIAL PLACEMENT: ${stage.job_wo_no} (${stage.stage_name}) scheduled from ${slot.startUtc.toISOString()} to ${slot.endUtc.toISOString()}`);
-        
-        // Move cursor to end of this booking for consecutive stages
-        this.cursor = slot.endUtc;
-        return true;
-      } else {
-        // Move to next business day
-        this.cursor = clampToBusinessWindowUtc(new Date(dayEndUtc.getTime() + 1000));
-      }
+    // Schedule the stage
+    const { error: updateError } = await this.supabase
+      .from('job_stage_instances')
+      .update({
+        scheduled_start_at: slot.startUtc.toISOString(),
+        scheduled_end_at: slot.endUtc.toISOString(),
+        scheduled_minutes: durationMinutes,
+        schedule_status: 'scheduled',
+        scheduling_method: 'auto',
+        scheduled_by_user_id: userId || null
+      })
+      .eq('id', stage.id);
+    
+    if (updateError) {
+      console.error(`❌ Error updating stage ${stage.id}:`, updateError);
+      return false;
     }
     
-    console.error(`❌ Failed to schedule stage after ${maxAttempts} attempts: ${stage.job_wo_no} (${stage.stage_name})`);
-    return false;
+    const timeStr = slot.startUtc.toISOString().substring(11, 16);
+    const endStr = slot.endUtc.toISOString().substring(11, 16);
+    console.log(`✅ SCHEDULED: ${stage.job_wo_no} (${stage.stage_name}) ${timeStr}-${endStr}`);
+    
+    // Move cursor to end of this booking for next stage
+    this.cursor = slot.endUtc;
+    return true;
   }
 }
 
@@ -232,32 +204,42 @@ class SequentialScheduler {
 async function processStagesSequentially(stages: PendingStage[], supabase: any, userId?: string): Promise<number> {
   console.log(`🎯 PROCESSING ${stages.length} STAGES IN PURE FIFO ORDER...`);
   
-  // NUCLEAR RESET: Clear all scheduled times first
-  console.log('💥 NUCLEAR RESET: Clearing all existing schedules...');
+  // COMPLETE NUCLEAR RESET: Clear ALL scheduled data regardless of status
+  console.log('💥 COMPLETE NUCLEAR RESET: Clearing ALL existing schedule data...');
   const { error: resetError } = await supabase
     .from('job_stage_instances')
     .update({
       scheduled_start_at: null,
       scheduled_end_at: null,
       scheduled_minutes: null,
-      schedule_status: 'unscheduled'
+      schedule_status: 'unscheduled',
+      scheduled_by_user_id: null,
+      scheduling_method: null
     })
-    .in('status', ['pending', 'active', 'scheduled']);
+    .not('id', 'is', null); // Clear for ALL records
     
   if (resetError) {
-    console.error('❌ Error during nuclear reset:', resetError);
+    console.error('❌ Error during complete nuclear reset:', resetError);
     throw resetError;
   }
   
-  // Start scheduling from now, clamped to business window
-  const scheduleStartUtc = clampToBusinessWindowUtc(new Date());
-  console.log(`🎯 Starting schedule from: ${scheduleStartUtc.toISOString()}`);
+  // Start scheduling from tomorrow at 8:00 AM UTC
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  tomorrow.setUTCHours(BUSINESS_START_HOUR, 0, 0, 0);
   
-  const scheduler = new SequentialScheduler(scheduleStartUtc, supabase);
+  // Skip weekends
+  while (tomorrow.getUTCDay() === 0 || tomorrow.getUTCDay() === 6) {
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  }
+  
+  console.log(`🎯 Starting schedule from tomorrow: ${tomorrow.toISOString()}`);
+  
+  const scheduler = new SequentialScheduler(tomorrow, supabase);
   
   let totalScheduled = 0;
   
-  // Pure FIFO processing - no grouping by stage type
+  // Pure FIFO processing - schedule each stage sequentially
   for (let i = 0; i < stages.length; i++) {
     const stage = stages[i];
     const success = await scheduler.scheduleStage(stage, userId);
@@ -270,7 +252,7 @@ async function processStagesSequentially(stages: PendingStage[], supabase: any, 
     }
   }
   
-  console.log(`✅ FIFO RESCHEDULE COMPLETE! Scheduled ${totalScheduled} stages in pure FIFO order!`);
+  console.log(`✅ FIFO RESCHEDULE COMPLETE! Scheduled ${totalScheduled} stages starting tomorrow!`);
   return totalScheduled;
 }
 
@@ -287,7 +269,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('🔥 PURE FIFO SCHEDULER STARTING...');
+    console.log('🔥 PURE UTC FIFO SCHEDULER STARTING...');
     
     // Get all pending stages sorted by proof approval date (STRICT FIFO ORDER)
     const pendingStages = await getPendingStages(supabase);
@@ -306,14 +288,15 @@ Deno.serve(async (req) => {
     // Process all stages in PURE FIFO order
     const scheduledCount = await processStagesSequentially(pendingStages, supabase);
     
-    console.log(`✅ PURE FIFO RESCHEDULE COMPLETE! Scheduled ${scheduledCount} stages!`);
+    console.log(`✅ PURE UTC FIFO RESCHEDULE COMPLETE! Scheduled ${scheduledCount} stages starting tomorrow!`);
     
     return new Response(
       JSON.stringify({ 
-        message: `✅ Pure FIFO reschedule completed! Scheduled ${scheduledCount} stages`,
+        message: `✅ Pure UTC FIFO reschedule completed! Scheduled ${scheduledCount} stages starting tomorrow`,
         scheduled_count: scheduledCount,
-        scheduling_method: 'PURE_FIFO',
-        total_stages_found: pendingStages.length
+        scheduling_method: 'PURE_UTC_FIFO',
+        total_stages_found: pendingStages.length,
+        start_date: 'tomorrow_8am_utc'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
