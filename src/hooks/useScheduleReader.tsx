@@ -179,10 +179,10 @@ export function useScheduleReader() {
 
   const triggerReschedule = useCallback(async () => {
     try {
-      console.log('🔄 Triggering reschedule via simple-scheduler edge function...');
+      console.log('🔄 Triggering reschedule via scheduler-run edge function...');
       
-      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
-        body: { mode: 'reschedule_all' }
+      const { data, error } = await supabase.functions.invoke('scheduler-run', {
+        body: { commit: true, proposed: true, onlyIfUnset: true }
       });
 
       if (error) {
@@ -192,7 +192,7 @@ export function useScheduleReader() {
       }
 
       console.log('✅ Reschedule triggered successfully:', data);
-      toast.success(`Successfully rescheduled ${data?.scheduled_count || 0} stages`);
+      toast.success(`Successfully rescheduled ${data?.scheduled || 0} stages`);
       
       // Refresh the schedule after a short delay
       setTimeout(() => {
