@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Calendar, Zap } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import type { ScheduleDayData } from "@/hooks/useScheduleReader";
 
 interface ScheduleWorkflowHeaderProps {
@@ -18,6 +20,7 @@ export const ScheduleWorkflowHeader: React.FC<ScheduleWorkflowHeaderProps> = ({
   onRefresh,
   onReschedule
 }) => {
+  const [busy, setBusy] = useState(false);
   const totalStages = scheduleDays.reduce((total, day) => total + day.total_stages, 0);
   const totalMinutes = scheduleDays.reduce((total, day) => total + day.total_minutes, 0);
   
@@ -32,6 +35,38 @@ export const ScheduleWorkflowHeader: React.FC<ScheduleWorkflowHeaderProps> = ({
       });
     });
     return count;
+  };
+
+  const runNuclear = async () => {
+    const confirm = window.confirm(
+      'This will wipe auto-scheduled times from the next working day onward and rebuild the schedule. Continue?'
+    );
+    if (!confirm) return;
+
+    setBusy(true);
+    try {
+      const payload = {
+        commit: true,
+        proposed: false,
+        onlyIfUnset: false,
+        nuclear: true,
+        startFrom: new Date().toISOString().slice(0, 10)
+      };
+
+      const { data, error } = await supabase.functions.invoke('scheduler-run', { body: payload });
+      if (error) throw error;
+
+      const updated = data?.applied?.updated ?? 0;
+      const base = data?.baseStart?.slice(0, 10);
+      toast.success(`Rescheduled ${updated} stages starting from ${base || 'next working day'}.`);
+
+      onRefresh();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Failed to reschedule: ${e?.message || e}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -77,13 +112,13 @@ export const ScheduleWorkflowHeader: React.FC<ScheduleWorkflowHeaderProps> = ({
           Refresh
         </Button>
         <Button
-          onClick={onReschedule}
-          disabled={isLoading}
+          onClick={runNuclear}
+          disabled={isLoading || busy}
           size="sm"
           className="flex items-center gap-2"
         >
           <Zap className="h-4 w-4" />
-          Reschedule All
+          {busy ? 'Rescheduling…' : 'Reschedule All'}
         </Button>
       </div>
     </div>
