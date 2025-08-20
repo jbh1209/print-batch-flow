@@ -182,7 +182,7 @@ export function useScheduleReader() {
       console.log('🔄 Triggering reschedule via scheduler-run edge function...');
       
       const { data, error } = await supabase.functions.invoke('scheduler-run', {
-        body: { commit: true, proposed: true, onlyIfUnset: true }
+        body: { commit: true, proposed: false, onlyIfUnset: true }
       });
 
       if (error) {
