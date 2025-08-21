@@ -1,109 +1,95 @@
 // src/components/schedule/header/ScheduleWorkflowHeader.tsx
-import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase'; // <-- adjust path if needed
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Calendar, Zap } from "lucide-react";
+import type { ScheduleDayData } from "@/hooks/useScheduleReader";
 
-type Props = {
-  onRefresh?: () => Promise<void> | void;   // parent can pass a reloader
-  className?: string;
-};
+interface ScheduleWorkflowHeaderProps {
+  scheduleDays: ScheduleDayData[];
+  selectedStageName?: string | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+  onReschedule: () => void;
+}
 
-export default function ScheduleWorkflowHeader({ onRefresh, className }: Props) {
-  const [busy, setBusy] = useState(false);
-  const [lastSummary, setLastSummary] = useState<null | {
-    updated: number;
-    baseStart?: string;
-  }>(null);
+export const ScheduleWorkflowHeader: React.FC<ScheduleWorkflowHeaderProps> = ({
+  scheduleDays,
+  selectedStageName,
+  isLoading,
+  onRefresh,
+  onReschedule
+}) => {
+  const totalStages = scheduleDays.reduce((total, day) => total + day.total_stages, 0);
+  const totalMinutes = scheduleDays.reduce((total, day) => total + day.total_minutes, 0);
 
-  const handleRefresh = async () => {
-    try {
-      if (onRefresh) await onRefresh();
-      else window.location.reload();
-    } catch (e) {
-      console.error(e);
-    }
+  const getFilteredJobCount = () => {
+    if (!selectedStageName) return totalStages;
+    let count = 0;
+    scheduleDays.forEach(day => {
+      day.time_slots?.forEach(slot => {
+        const stageJobs = slot.scheduled_stages?.filter(s => s.stage_name === selectedStageName) || [];
+        count += stageJobs.length;
+      });
+    });
+    return count;
   };
 
-  // Nuclear reset: wipe auto schedule from the next working day and rebuild everything
-  const handleRescheduleAll = async () => {
+  const confirmAndReschedule = async () => {
     const ok = window.confirm(
-      'Nuclear reschedule:\n\n' +
-      '• Clears auto-scheduled times from the next working day\n' +
-      '• Rebuilds the schedule for all approved orders\n\n' +
-      'Proceed?'
+      "This will wipe auto-scheduled times from the next working day onward and rebuild the schedule. Continue?"
     );
     if (!ok) return;
-
-    setBusy(true);
-    setLastSummary(null);
-
-    try {
-      const payload = {
-        commit: true,
-        proposed: false,
-        onlyIfUnset: false,                     // overwrite
-        nuclear: true,                          // wipe + rebuild
-        startFrom: new Date().toISOString().slice(0, 10), // today; server shifts to next work window
-        // wipeAll: true,                       // OPTIONAL: uncomment to wipe past placements too
-      };
-
-      const { data, error } = await supabase.functions.invoke('scheduler-run', { body: payload });
-      if (error) throw error;
-
-      const updated = data?.applied?.updated ?? 0;
-      const baseStart = data?.baseStart as string | undefined;
-      setLastSummary({ updated, baseStart });
-
-      // Optionally toast UI; keeping console/alert for simplicity
-      console.log('Reschedule result:', data);
-      alert(`Rescheduled ${updated} stages${baseStart ? ` (from ${baseStart.slice(0,10)})` : ''}.`);
-
-      await handleRefresh();
-    } catch (e: any) {
-      console.error(e);
-      alert(`Failed to reschedule: ${e?.message || e}`);
-    } finally {
-      setBusy(false);
-    }
+    await onReschedule(); // page handles the actual invoke + refresh
   };
 
   return (
-    <div className={className ?? ''} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <button
-        type="button"
-        className="btn btn-light"
-        onClick={handleRefresh}
-        disabled={busy}
-        title="Reload the current week"
-      >
-        Refresh
-      </button>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-bold">Schedule Board</h1>
+        <p className="text-muted-foreground">Production workflow organized by working days</p>
+        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {scheduleDays.length} working days
+          </div>
+          <div className="flex items-center gap-1">
+            <span>•</span>
+            {selectedStageName ? (
+              <>
+                {getFilteredJobCount()} jobs in {selectedStageName}
+              </>
+            ) : (
+              <>{totalStages} total stages</>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <span>•</span>
+            {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m scheduled
+          </div>
+        </div>
+      </div>
 
-      <button
-        type="button"
-        className="btn btn-dark"
-        onClick={handleRescheduleAll}
-        disabled={busy}
-        title="Wipe & rebuild schedule from next working day"
-      >
-        {busy ? 'Rescheduling…' : 'Reschedule All'}
-      </button>
-
-      {lastSummary && (
-        <span
-          style={{
-            marginLeft: 8,
-            padding: '2px 8px',
-            fontSize: 12,
-            borderRadius: 12,
-            background: '#eef3ff',
-            color: '#1f3a8a'
-          }}
-          title={lastSummary.baseStart ? `Base start: ${lastSummary.baseStart}` : 'Reschedule result'}
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={onRefresh}
+          disabled={isLoading}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
         >
-          {lastSummary.updated} updated
-          {lastSummary.baseStart ? ` • from ${lastSummary.baseStart.slice(0, 10)}` : ''}
-        </span>
-      )}
+          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+        <Button
+          onClick={confirmAndReschedule}
+          disabled={isLoading}
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <Zap className="h-4 w-4" />
+          Reschedule All
+        </Button>
+      </div>
     </div>
   );
-}
+};
