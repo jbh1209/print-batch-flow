@@ -190,9 +190,6 @@ Deno.serve(async (req: Request) => {
       if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
       applied = data;
 
-      const ids = updates.map(u=>u.id);
-      const { error: mirrorErr } = await supabase.rpc("mirror_jsi_to_stage_time_slots", { p_stage_ids: ids });
-      if (mirrorErr) throw new Error("mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr));
     }
 
     return new Response(JSON.stringify({ ok:true, scheduled: updates.length, applied, baseStart }), {
