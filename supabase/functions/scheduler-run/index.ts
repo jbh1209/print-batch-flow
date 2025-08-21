@@ -1,4 +1,3 @@
-// supabase/functions/scheduler-run/index.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -20,13 +19,12 @@ interface JobRow {
 }
 interface StageRow {
   id: UUID; job_id: UUID; status: string; quantity: number | null; job_table: string;
-  stage_name: string; stage_group_id: UUID | null; stage_order: number | null;
+  stage_name: string; stage_group: string | null; stage_order: number | null;
   setup_minutes: number; estimated_minutes: number; scheduled_start_at: string | null;
   scheduled_end_at: string | null; scheduled_minutes: number | null; schedule_status: string | null;
   production_stage_id: UUID;
 }
 interface PlacementUpdate { id: UUID; start_at: string; end_at: string; minutes: number; }
-interface ScheduleResult { updates: PlacementUpdate[]; }
 
 const MS = 60000;
 const addMin = (d: Date, m: number) => new Date(d.getTime() + m*MS);
@@ -65,7 +63,7 @@ function dailyWindows(input: SchedulerInput, day: Date): Interval[] {
   }
   return wins.sort((a,b)=>a.start.getTime()-b.start.getTime());
 }
-function* iterWindows(input: SchedulerInput, from: Date, horizonDays=120): Generator<Interval> {
+function* iterWindows(input: SchedulerInput, from: Date, horizonDays=365): Generator<Interval> {
   for(let i=0;i<horizonDays;i++){
     const day = addMin(new Date(from.getFullYear(),from.getMonth(),from.getDate()), i*24*60);
     if(isHoliday(input.holidays, day)) continue;
@@ -95,10 +93,11 @@ function placeDuration(input: SchedulerInput, earliest: Date, minutes: number): 
   return placed;
 }
 function nextWorkingStart(input: SchedulerInput, from: Date): Date {
-  for(const w of iterWindows(input, from, 365)) return w.start;
+  for(const w of iterWindows(input, from)) return w.start;
   return from;
 }
-function planSchedule(input: SchedulerInput, baseStart?: Date): ScheduleResult {
+
+function planSchedule(input: SchedulerInput, baseStart?: Date){
   const jobs = input.jobs
     .filter(j => j.proof_approved_at)
     .map(j => ({...j, approvedAt: new Date(j.proof_approved_at!)}))
@@ -115,6 +114,8 @@ function planSchedule(input: SchedulerInput, baseStart?: Date): ScheduleResult {
     for(const ord of orders){
       for(const st of stages.filter(s=> (s.stage_order??9999)===ord )){
         const resource = st.production_stage_id;
+
+        // earliest = max(approval, baseStart, predecessor end, resource free)
         let earliest = job.approvedAt;
         if(baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
         for(const prev of stages){
@@ -150,7 +151,8 @@ Deno.serve(async (req: Request) => {
     const proposed    = qp("proposed","true")==="true";
     const onlyIfUnset = qp("onlyIfUnset","true")==="true";
     const nuclear     = qp("nuclear","false")==="true";
-    const startFrom   = qp("startFrom",""); // ISO date or ''
+    const startFrom   = qp("startFrom","");     // yyyy-mm-dd
+    const wipeAll     = qp("wipeAll","false")==="true";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SUPABASE_URL_INTERNAL");
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -165,14 +167,14 @@ Deno.serve(async (req: Request) => {
     if (exportErr) throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
     const input = snap as SchedulerInput;
 
-    // 2) Compute base start for nuclear runs
+    // 2) Nuclear base start
     let baseStart: Date | undefined;
     if (nuclear) {
       const seed = startFrom ? new Date(startFrom) : addMin(new Date(), 24*60);
       baseStart = nextWorkingStart(input, seed);
       if (commit) {
-        const { data: cleared, error: clearErr } = await supabase.rpc("unschedule_auto_stages",
-          { from_date: baseStart.toISOString().slice(0,10) });
+        const { error: clearErr } = await supabase.rpc("unschedule_auto_stages",
+          { from_date: baseStart.toISOString().slice(0,10), wipe_all: wipeAll });
         if (clearErr) throw new Error("unschedule_auto_stages failed: " + JSON.stringify(clearErr));
       }
     }
@@ -180,7 +182,7 @@ Deno.serve(async (req: Request) => {
     // 3) Plan
     const { updates } = planSchedule(input, baseStart);
 
-    // 4) Apply
+    // 4) Apply + mirror
     let applied: unknown = { updated: 0 };
     if (commit && updates.length) {
       const { data, error } = await supabase.rpc("apply_stage_updates_safe",
@@ -188,7 +190,6 @@ Deno.serve(async (req: Request) => {
       if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
       applied = data;
 
-      // (optional) mirror to the calendar table your board uses
       const ids = updates.map(u=>u.id);
       const { error: mirrorErr } = await supabase.rpc("mirror_jsi_to_stage_time_slots", { p_stage_ids: ids });
       if (mirrorErr) throw new Error("mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr));
