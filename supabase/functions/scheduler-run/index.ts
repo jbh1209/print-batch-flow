@@ -1,23 +1,21 @@
 // supabase/functions/scheduler-run/index.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// --- CORS
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// --- Types
 type UUID = string;
 
-interface BreakDef { start_time: string; minutes: number }
-interface ShiftRow {
-  id: UUID; day_of_week: number; shift_start_time: string; shift_end_time: string; is_working_day: boolean;
-}
-interface HolidayRow { date: string; name: string }
-interface RouteRow { category_id: UUID; production_stage_id: UUID; stage_order: number }
+type Shift = {
+  id: UUID;
+  day_of_week: number;           // 0..6
+  shift_start_time: string;      // "08:00:00"
+  shift_end_time: string;        // "17:00:00"
+  is_working_day: boolean;
+};
 
-interface StageRow {
+type Holiday = { date: string; name: string };
+
+type BreakDef = { start_time: string; minutes: number };
+
+type StageRow = {
   id: UUID;
   job_id: UUID;
   status: string;
@@ -33,9 +31,9 @@ interface StageRow {
   scheduled_minutes: number | null;
   schedule_status: string | null;
   production_stage_id: UUID;
-}
+};
 
-interface JobRow {
+type JobRow = {
   job_id: UUID;
   wo_number: string;
   customer_name: string;
@@ -44,27 +42,33 @@ interface JobRow {
   proof_approved_at: string | null;
   estimated_run_minutes: number;
   stages: StageRow[];
-}
+};
 
-interface SchedulerInput {
+type SchedulerInput = {
   meta: { generated_at: string; breaks?: BreakDef[] };
-  shifts: ShiftRow[];
-  holidays: HolidayRow[];
-  routes: RouteRow[];
+  shifts: Shift[];
+  holidays: Holiday[];
+  routes: { category_id: UUID; production_stage_id: UUID; stage_order: number }[];
   jobs: JobRow[];
-}
+};
 
-// --- Time helpers
+type PlacementUpdate = { id: UUID; start_at: string; end_at: string; minutes: number };
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 const MS = 60_000;
 const addMin = (d: Date, m: number) => new Date(d.getTime() + m * MS);
-const parseClock = (t: string) => { const [h, m, s = "0"] = t.split(":"); return { h: +h, m: +m, s: +s }; };
+const parseClock = (t: string) => { const [h, m, s = "0"] = t.split(":"); return { h:+h, m:+m, s:+s }; };
 
-type Interval = { start: Date; end: Date };
-
-function isHoliday(holidays: HolidayRow[], day: Date) {
+function isHoliday(holidays: Holiday[], day: Date) {
   const y = day.getFullYear(), m = String(day.getMonth() + 1).padStart(2, "0"), d = String(day.getDate()).padStart(2, "0");
   return holidays.some(h => h.date.startsWith(`${y}-${m}-${d}`));
 }
+
+type Interval = { start: Date; end: Date };
 
 function dailyWindows(input: SchedulerInput, day: Date): Interval[] {
   const dow = day.getDay();
@@ -79,32 +83,29 @@ function dailyWindows(input: SchedulerInput, day: Date): Interval[] {
 
     let segs: Interval[] = [{ start, end }];
 
-    for (const br of (input.meta.breaks ?? [])) {
+    for (const br of input.meta.breaks ?? []) {
       const bt = parseClock(br.start_time);
       const b0 = new Date(day.getFullYear(), day.getMonth(), day.getDate(), bt.h, bt.m, +bt.s);
       const b1 = addMin(b0, br.minutes);
-
       const next: Interval[] = [];
       for (const g of segs) {
-        if (b1 <= g.start || b0 >= g.end) { next.push(g); continue; }
-        if (g.start < b0) next.push({ start: g.start, end: b0 });
-        if (b1 < g.end)   next.push({ start: b1, end: g.end });
+        if (b1 <= g.start || b0 >= g.end) next.push(g);
+        else {
+          if (g.start < b0) next.push({ start: g.start, end: b0 });
+          if (b1 < g.end)   next.push({ start: b1, end: g.end });
+        }
       }
       segs = next;
     }
-
     wins.push(...segs);
   }
-
   return wins.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
-function* iterWindows(input: SchedulerInput, from: Date, horizonDays = 365): Generator<Interval> {
-  // Iterate day-by-day from local midnight of `from`, honoring holidays and breaks
+function* iterWindows(input: SchedulerInput, from: Date, horizonDays = 365) {
   for (let i = 0; i < horizonDays; i++) {
     const day = addMin(new Date(from.getFullYear(), from.getMonth(), from.getDate()), i * 24 * 60);
     if (isHoliday(input.holidays, day)) continue;
-
     for (const w of dailyWindows(input, day)) {
       if (w.end <= from) continue;
       const s = new Date(Math.max(w.start.getTime(), from.getTime()));
@@ -138,93 +139,68 @@ function nextWorkingStart(input: SchedulerInput, from: Date): Date {
   return from;
 }
 
-// --- Planner
-function planSchedule(input: SchedulerInput, baseStart?: Date, pinToBase = false) {
-  // Sort jobs by approval time just for order, but we may pin their initial start to baseStart.
+function planSchedule(input: SchedulerInput, baseStart?: Date) {
   const jobs = input.jobs
     .filter(j => j.proof_approved_at)
-    .map(j => ({ ...j, approvedAt: new Date(j.proof_approved_at as string) }))
+    .map(j => ({ ...j, approvedAt: new Date(j.proof_approved_at!) }))
     .sort((a, b) => a.approvedAt.getTime() - b.approvedAt.getTime());
 
-  // resource -> when it becomes free
   const resourceFree = new Map<UUID, Date>();
-  if (baseStart) {
-    // Optional: start every resource at the same “baseStart” to keep day one tidy/contiguous
-    for (const r of new Set(input.routes.map(r => r.production_stage_id))) {
-      resourceFree.set(r, new Date(baseStart));
-    }
-  }
-
-  const updates: { id: UUID; start_at: string; end_at: string; minutes: number }[] = [];
-
+  const updates: PlacementUpdate[] = [];
   for (const job of jobs) {
-    // Only schedule the stages we got from the input (already filtered to pending & allowed groups)
     const stages = [...job.stages].sort((a, b) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999));
+    const orders = Array.from(new Set(stages.map(s => s.stage_order ?? 9999))).sort((a, b) => a - b);
     const doneAt = new Map<UUID, Date>();
 
-    for (const st of stages) {
-      const resource = st.production_stage_id;
+    for (const ord of orders) {
+      for (const st of stages.filter(s => (s.stage_order ?? 9999) === ord)) {
+        const resource = st.production_stage_id;
 
-      // 🔑 EARLIEST: pin to baseStart on nuclear runs, otherwise use approval time
-      let earliest = pinToBase && baseStart ? new Date(baseStart) : job.approvedAt;
-      earliest = baseStart ? new Date(Math.max(earliest.getTime(), baseStart.getTime())) : earliest;
-
-      // respect predecessors among ONLY the included stages
-      for (const prev of stages) {
-        if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
-          const e = doneAt.get(prev.id);
-          if (e && e > earliest) earliest = e;
+        // earliest = max(approval, baseStart, predecessor end, resource free)
+        let earliest = job.approvedAt;
+        if (baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
+        for (const prev of stages) {
+          if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
+            const end = doneAt.get(prev.id);
+            if (end && end > earliest) earliest = end;
+          }
         }
+        const free = resourceFree.get(resource);
+        if (free && free > earliest) earliest = free;
+
+        const mins = Math.max(0, Math.round((st.estimated_minutes || 0) + (st.setup_minutes || 0)));
+        const segs = mins ? placeDuration(input, earliest, mins) : [{ start: earliest, end: earliest }];
+        const start = segs[0].start, end = segs[segs.length - 1].end;
+
+        updates.push({ id: st.id, start_at: start.toISOString(), end_at: end.toISOString(), minutes: mins });
+        doneAt.set(st.id, end);
+        resourceFree.set(resource, end);
       }
-
-      // respect resource availability
-      const free = resourceFree.get(resource);
-      if (free && free > earliest) earliest = free;
-
-      const mins = Math.max(0, Math.round((st.estimated_minutes || 0) + (st.setup_minutes || 0)));
-      const segs = mins ? placeDuration(input, earliest, mins) : [{ start: earliest, end: earliest }];
-
-      const start = segs[0].start, end = segs[segs.length - 1].end;
-      updates.push({ id: st.id, start_at: start.toISOString(), end_at: end.toISOString(), minutes: mins });
-
-      doneAt.set(st.id, end);
-      resourceFree.set(resource, end);
     }
   }
-
   return { updates };
 }
 
-// --- Handler
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const url = new URL(req.url);
+    const url  = new URL(req.url);
     const body = req.method === "POST" ? (await req.json().catch(() => ({}))) : {};
-    const qp = (k: string, def: string) => (url.searchParams.get(k) ?? (body as any)[k] ?? def);
+    const qp   = (k: string, def: string) => (url.searchParams.get(k) ?? (body as any)[k] ?? def);
 
-    // Flags
     const commit      = qp("commit", "true") === "true";
-    const proposed    = qp("proposed", "false") === "true";
-    const onlyIfUnset = qp("onlyIfUnset", "false") === "true";
+    const proposed    = qp("proposed", "true") === "true";
+    const onlyIfUnset = qp("onlyIfUnset", "true") === "true";
     const nuclear     = qp("nuclear", "false") === "true";
-    const wipeAll     = qp("wipeAll",  "false") === "true";
-
-    // The date the user pressed the button (use local date string to avoid UTC drift)
-    const startFromStr = qp("startFrom", "");
-    // interpret YYYY-MM-DD as local midnight
-    const startFrom = startFromStr ? (() => {
-      const [y, m, d] = startFromStr.split("-").map(Number);
-      return new Date(y, (m - 1), d, 0, 0, 0);  // local time
-    })() : new Date();
+    const startFrom   = qp("startFrom", "");                 // yyyy-mm-dd
+    const wipeAll     = qp("wipeAll", "false") === "true";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SUPABASE_URL_INTERNAL");
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceKey) {
-      return new Response(JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
@@ -233,33 +209,41 @@ Deno.serve(async (req: Request) => {
     if (exportErr) throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
     const input = snap as SchedulerInput;
 
-    // 2) Decide baseStart and clear
+    // 2) Base start + wipe (nuclear)
     let baseStart: Date | undefined;
     if (nuclear) {
-      // “Next working window” from the user’s date:
-      baseStart = nextWorkingStart(input, startFrom);
+      // treat the provided yyyy-mm-dd as a local date at midnight
+      const seed = startFrom ? new Date(startFrom + "T00:00:00") : new Date();
+      baseStart = nextWorkingStart(input, seed);
 
       if (commit) {
-        // wipe everything when wipeAll = true, otherwise wipe from baseStart forward
         const { error: clearErr } = await supabase.rpc("unschedule_auto_stages", {
           from_date: baseStart.toISOString().slice(0, 10),
-          wipe_all: wipeAll,
+          wipe_all: wipeAll
         });
         if (clearErr) throw new Error("unschedule_auto_stages failed: " + JSON.stringify(clearErr));
       }
     }
 
-    // 3) Plan — on nuclear runs we PIN to the baseStart so nothing uses old approval timestamps
-    const { updates } = planSchedule(input, baseStart, nuclear);
+    // 3) Plan
+    const { updates } = planSchedule(input, baseStart);
 
-    // 4) Apply
+    // 4) Apply + mirror
     let applied: unknown = { updated: 0 };
     if (commit && updates.length) {
       const { data, error } = await supabase.rpc("apply_stage_updates_safe", {
-        updates, commit: true, only_if_unset: onlyIfUnset, as_proposed: proposed
+        updates,
+        commit: true,
+        only_if_unset: onlyIfUnset,   // snake_case params
+        as_proposed: proposed         // snake_case params
       });
       if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
       applied = data;
+
+      // IMPORTANT: mirror to the board table
+      const ids = updates.map(u => u.id);
+      const { error: mirrorErr } = await supabase.rpc("mirror_jsi_to_stage_time_slots", { p_stage_ids: ids });
+      if (mirrorErr) throw new Error("mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr));
     }
 
     return new Response(JSON.stringify({ ok: true, scheduled: updates.length, applied, baseStart }), {
@@ -268,7 +252,8 @@ Deno.serve(async (req: Request) => {
 
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
 });
