@@ -1,283 +1,305 @@
-// src/hooks/useScheduleReader.ts
-/**
- * Hook for reading scheduled job stages (read-only) from stage_time_slots.
- * - Uses slot.duration_minutes (real minutes)
- * - Renders times in the factory time zone (not the browser's)
- * - Emits a "carry-over" record at the next day's first shift when a slot spans days
- */
+// supabase/functions/scheduler-run/index.ts
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+/* -------------------- helpers -------------------- */
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-/** 👇 Set your factory time zone here (or via Vite env VITE_FACTORY_TZ) */
-const FACTORY_TZ =
-  (import.meta as any)?.env?.VITE_FACTORY_TZ || "Africa/Johannesburg";
+const MS = 60_000;
+const addMin = (d: Date, m: number) => new Date(d.getTime() + m * MS);
 
-/** 👇 First shift start (local factory time). If you later store shifts, you can fetch them. */
-const FIRST_SHIFT_START = "08:00";
+// accept boolean or "true"/"false"/"1"/"0"
+const asBool = (v: unknown, def: boolean) => {
+  if (v === undefined || v === null) return def;
+  if (typeof v === "boolean") return v;
+  const s = String(v).toLowerCase().trim();
+  return s === "true" || s === "1";
+};
 
-/** Build a formatter to extract parts in a fixed time zone */
-function fmtParts(d: Date, opts: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: FACTORY_TZ, ...opts })
-    .formatToParts(d)
-    .reduce<Record<string, string>>((acc, p) => {
-      if (p.type !== "literal") acc[p.type] = p.value;
-      return acc;
-    }, {});
-}
-
-/** Format to YYYY-MM-DD in factory TZ */
-function toTZDateString(d: Date) {
-  const p = fmtParts(d, { year: "numeric", month: "2-digit", day: "2-digit" });
-  return `${p.year}-${p.month}-${p.day}`;
-}
-
-/** Format to HH:MM (24h) in factory TZ */
-function toTZTimeHHMM(d: Date) {
-  const p = fmtParts(d, { hour: "2-digit", minute: "2-digit", hour12: false });
-  return `${p.hour}:${p.minute}`;
-}
-
-/** Build a Date in factory TZ from YYYY-MM-DD + HH:MM */
-function fromTZ(date: string, hhmm: string) {
-  // Construct an ISO string in that TZ by temporarily formatting using the TZ offset.
-  // Simpler approach: interpret as “local to FACTORY_TZ” then convert via Date.parse of UTC string.
-  // We can safely create a Date from the individual parts & then shift using the TZ formatted string.
-  const [H, M] = hhmm.split(":").map((x) => +x);
-  // Start with the date at 00:00 in the factory timezone:
-  const seed = new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), 0, 0, 0));
-  // Add H:M in the factory timezone by asking what clock reads there:
-  const p0 = fmtParts(seed, { hour: "2-digit", minute: "2-digit", hour12: false });
-  // Find delta minutes between desired (H:M) and (p0.hour:p0.minute) in TZ
-  const want = H * 60 + M;
-  const have = (+p0.hour) * 60 + (+p0.minute);
-  const deltaMin = want - have;
-  return new Date(seed.getTime() + deltaMin * 60_000);
-}
-
-/** Types for the board UI */
-export interface ScheduledStageData {
-  id: string; // stage_instance_id (or a synthetic id for carry-over)
-  job_id: string;
-  job_wo_no: string;
+type Shift = { day_of_week: number; is_working_day: boolean; shift_start_time: string; shift_end_time: string };
+type Break = { start_time: string; minutes: number };
+type StageExport = {
+  id: string;
   production_stage_id: string;
-  stage_name: string;
   stage_order: number | null;
-  minutes: number; // <- real minutes for the chip
-  scheduled_start_at: string; // ISO
-  scheduled_end_at: string;   // ISO
-  status: string;             // "pending" etc (we keep "pending" for UI)
-  stage_color?: string;
-  is_carry_over?: boolean;    // marks the 08:00 record on the next day
+
+  // IMPORTANT: these names must match your export
+  estimated_duration_minutes?: number | null;
+  actual_duration_minutes?: number | null;
+  setup_time_minutes?: number | null;
+
+  // may be present if previously scheduled; we overwrite
+  scheduled_minutes?: number | null;
+};
+type JobExport = {
+  id: string;
+  proof_approved_at: string | null;
+  stages: StageExport[];
+};
+type ExportShape = {
+  meta: { breaks?: Break[] };
+  shifts: Shift[];
+  holidays: { date: string }[];
+  jobs: JobExport[];
+};
+
+const parseClock = (t: string) => {
+  const [h, m, s = "0"] = t.split(":");
+  return { h: +h, m: +m, s: +s };
+};
+function isHoliday(holidays: { date: string }[], day: Date) {
+  const y = day.getFullYear(),
+    m = String(day.getMonth() + 1).padStart(2, "0"),
+    d = String(day.getDate()).padStart(2, "0");
+  return holidays.some((h) => h.date.startsWith(`${y}-${m}-${d}`));
 }
+function dailyWindows(input: ExportShape, day: Date) {
+  const dow = day.getDay();
+  const todays = input.shifts.filter((s) => s.day_of_week === dow && s.is_working_day);
+  const wins: { start: Date; end: Date }[] = [];
+  for (const s of todays) {
+    const st = parseClock(s.shift_start_time),
+      et = parseClock(s.shift_end_time);
+    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), st.h, st.m, +st.s);
+    const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), et.h, et.m, +et.s);
+    if (end <= start) continue;
 
-export interface TimeSlotData {
-  time_slot: string; // "08:00", "09:00" ...
-  scheduled_stages: ScheduledStageData[];
-}
-
-export interface ScheduleDayData {
-  date: string;      // YYYY-MM-DD (factory TZ)
-  day_name: string;  // "Monday" ...
-  time_slots: TimeSlotData[];
-  total_stages: number;
-  total_minutes: number;
-}
-
-export function useScheduleReader() {
-  const [scheduleDays, setScheduleDays] = useState<ScheduleDayData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const fetchSchedule = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // 1) Pull the mirrored board rows
-      const { data: slots, error: slotErr } = await supabase
-        .from("stage_time_slots")
-        .select(
-          `
-          stage_instance_id,
-          job_id,
-          production_stage_id,
-          slot_start_time,
-          slot_end_time,
-          duration_minutes,
-          job_table,
-          stage_order
-        `
-        )
-        .order("slot_start_time", { ascending: true });
-
-      if (slotErr) {
-        console.error("Error fetching stage_time_slots:", slotErr);
-        toast.error("Failed to fetch schedule");
-        return;
-      }
-
-      if (!slots || slots.length === 0) {
-        setScheduleDays([]);
-        toast.success("No scheduled stages found");
-        return;
-      }
-
-      // 2) Batch lookups for names/colors/WO
-      const stageIds = [...new Set(slots.map((s) => s.production_stage_id))];
-      const jobIds = [...new Set(slots.map((s) => s.job_id))];
-
-      const [{ data: stages }, { data: jobs }] = await Promise.all([
-        supabase.from("production_stages").select("id, name, color").in("id", stageIds),
-        supabase.from("production_jobs").select("id, wo_no").in("id", jobIds),
-      ]);
-
-      const stageMap = new Map((stages || []).map((s) => [s.id, s]));
-      const jobMap = new Map((jobs || []).map((j) => [j.id, j]));
-
-      // 3) Build a schedule map: date -> hour -> stages
-      const scheduleMap = new Map<string, Map<string, ScheduledStageData[]>>();
-
-      // Build a reasonable hour grid (08:00..17:00). If you want more, extend here.
-      const HOURS = Array.from({ length: 10 }).map((_, i) =>
-        String(8 + i).padStart(2, "0") + ":00"
-      );
-
-      function pushToDay(date: string, hhmm: string, rec: ScheduledStageData) {
-        if (!scheduleMap.has(date)) scheduleMap.set(date, new Map());
-        const dayMap = scheduleMap.get(date)!;
-        if (!dayMap.has(hhmm)) dayMap.set(hhmm, []);
-        dayMap.get(hhmm)!.push(rec);
-      }
-
-      // Helper to compute carry-over chunk minutes on the ending day (from first shift to end)
-      function carryMinutesForEndDay(endISO: string) {
-        const end = new Date(endISO);
-        const endDate = toTZDateString(end);
-        const shiftStart = fromTZ(endDate, FIRST_SHIFT_START);
-        const mins = Math.max(0, Math.round((end.getTime() - shiftStart.getTime()) / 60_000));
-        return mins;
-      }
-
-      for (const s of slots) {
-        const start = new Date(s.slot_start_time);
-        const end = new Date(s.slot_end_time);
-
-        const dateStart = toTZDateString(start);
-        const dateEnd = toTZDateString(end);
-        const hourStart = toTZTimeHHMM(start); // in factory TZ
-
-        const stageMeta = stageMap.get(s.production_stage_id);
-        const jobMeta = jobMap.get(s.job_id);
-
-        // Main record (as planned)
-        const rec: ScheduledStageData = {
-          id: s.stage_instance_id,
-          job_id: s.job_id,
-          job_wo_no: jobMeta?.wo_no || "Unknown",
-          production_stage_id: s.production_stage_id,
-          stage_name: stageMeta?.name || "Unknown Stage",
-          stage_order: s.stage_order ?? null,
-          minutes: Number(s.duration_minutes) || 0,
-          scheduled_start_at: new Date(start).toISOString(),
-          scheduled_end_at: new Date(end).toISOString(),
-          status: "pending",
-          stage_color: stageMeta?.color || "#6B7280",
-        };
-
-        pushToDay(dateStart, hourStart, rec);
-
-        // If the slot spills into the next day, add a carry-over record at that day’s first shift.
-        if (dateEnd !== dateStart) {
-          const carryMins = carryMinutesForEndDay(end.toISOString());
-          if (carryMins > 0) {
-            const carryStart = fromTZ(dateEnd, FIRST_SHIFT_START);
-            const carry: ScheduledStageData = {
-              ...rec,
-              id: `${rec.id}__carry_${dateEnd}`, // synthetic id so React lists are stable
-              minutes: carryMins,
-              scheduled_start_at: carryStart.toISOString(),
-              scheduled_end_at: end.toISOString(),
-              is_carry_over: true,
-            };
-            pushToDay(dateEnd, FIRST_SHIFT_START, carry);
-          }
+    // apply breaks
+    let segs: { start: Date; end: Date }[] = [{ start, end }];
+    for (const br of input.meta.breaks ?? []) {
+      const bt = parseClock(br.start_time);
+      const b0 = new Date(day.getFullYear(), day.getMonth(), day.getDate(), bt.h, bt.m, +bt.s);
+      const b1 = addMin(b0, br.minutes);
+      const next: typeof segs = [];
+      for (const g of segs) {
+        if (b1 <= g.start || b0 >= g.end) {
+          next.push(g);
+        } else {
+          if (g.start < b0) next.push({ start: g.start, end: b0 });
+          if (b1 < g.end) next.push({ start: b1, end: g.end });
         }
       }
-
-      // 4) Materialize to array for the UI
-      const days: ScheduleDayData[] = [];
-      scheduleMap.forEach((dayMap, date) => {
-        // Build hourly slots for the panel in a fixed order
-        const timeSlots: TimeSlotData[] = HOURS.map((h) => ({
-          time_slot: h,
-          scheduled_stages: dayMap.get(h) || [],
-        }));
-
-        const totalStages = Array.from(dayMap.values()).reduce(
-          (n, arr) => n + arr.length,
-          0
-        );
-        const totalMinutes = Array.from(dayMap.values()).flat().reduce((n, r) => n + (r.minutes || 0), 0);
-
-        const d = new Date(date + "T00:00:00Z");
-        const dayName = new Intl.DateTimeFormat("en-GB", {
-          weekday: "long",
-          timeZone: FACTORY_TZ,
-        }).format(d);
-
-        days.push({
-          date,
-          day_name: dayName,
-          time_slots: timeSlots,
-          total_stages: totalStages,
-          total_minutes: totalMinutes,
-        });
-      });
-
-      days.sort((a, b) => a.date.localeCompare(b.date));
-
-      setScheduleDays(days);
-      toast.success(`Loaded ${days.reduce((n, d) => n + d.total_stages, 0)} slots across ${days.length} day(s)`);
-    } catch (err) {
-      console.error("Error in fetchSchedule:", err);
-      toast.error("Failed to fetch schedule data");
-    } finally {
-      setIsLoading(false);
+      segs = next;
     }
-  }, []);
-
-  const triggerReschedule = useCallback(async () => {
-    try {
-      // UX ping
-      try { toast.message?.("Rebuilding schedule…"); } catch {}
-
-      const startFrom = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-      const { data, error } = await supabase.functions.invoke("scheduler-run", {
-        body: {
-          commit: true,
-          proposed: false,
-          onlyIfUnset: false,
-          nuclear: true,
-          startFrom,
-          wipeAll: true,
-        },
-      });
-
-      if (error) {
-        console.error("Error triggering reschedule:", error);
-        toast.error("Reschedule failed");
-        return false;
-      }
-      console.log("scheduler-run response:", data);
-
-      await fetchSchedule();
-      try { toast.success?.(`Rescheduled ${data?.scheduled ?? 0} stages`); } catch {}
-      return true;
-    } catch (err) {
-      console.error("Error triggering reschedule:", err);
-      toast.error("Reschedule failed");
-      return false;
-    }
-  }, [fetchSchedule]);
-
-  return { scheduleDays, isLoading, fetchSchedule, triggerReschedule };
+    wins.push(...segs);
+  }
+  return wins.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
+function* iterWindows(input: ExportShape, from: Date, horizonDays = 365) {
+  for (let i = 0; i < horizonDays; i++) {
+    const day = addMin(new Date(from.getFullYear(), from.getMonth(), from.getDate()), i * 24 * 60);
+    if (isHoliday(input.holidays, day)) continue;
+    for (const w of dailyWindows(input, day)) {
+      if (w.end <= from) continue;
+      const s = new Date(Math.max(w.start.getTime(), from.getTime()));
+      yield { start: s, end: w.end };
+    }
+  }
+}
+function placeDuration(input: ExportShape, earliest: Date, minutes: number) {
+  let left = Math.max(0, Math.ceil(minutes));
+  const placed: { start: Date; end: Date }[] = [];
+  let cursor = new Date(earliest);
+  for (const w of iterWindows(input, cursor)) {
+    if (left <= 0) break;
+    const cap = Math.floor((w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS);
+    const use = Math.min(cap, left);
+    if (use > 0) {
+      const s = new Date(Math.max(w.start.getTime(), cursor.getTime()));
+      const e = addMin(s, use);
+      placed.push({ start: s, end: e });
+      left -= use;
+      cursor = e;
+    }
+  }
+  return placed;
+}
+function nextWorkingStart(input: ExportShape, from: Date) {
+  for (const w of iterWindows(input, from, 365)) return w.start;
+  return from;
+}
+
+function planSchedule(input: ExportShape, baseStart?: Date | null) {
+  const jobs = input.jobs
+    .filter((j) => j.proof_approved_at)
+    .map((j) => ({ ...j, approvedAt: new Date(j.proof_approved_at as string) }))
+    .sort((a, b) => a.approvedAt.getTime() - b.approvedAt.getTime());
+
+  const resourceFree = new Map<string, Date>();
+  const updates: { id: string; start_at: string; end_at: string; minutes: number }[] = [];
+
+  for (const job of jobs) {
+    const stages = [...job.stages].sort(
+      (a, b) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999)
+    );
+    const orders = Array.from(new Set(stages.map((s) => s.stage_order ?? 9999))).sort((a, b) => a - b);
+
+    const doneAt = new Map<string, Date>();
+
+    for (const ord of orders) {
+      for (const st of stages.filter((s) => (s.stage_order ?? 9999) === ord)) {
+        const resource = st.production_stage_id;
+
+        let earliest = job.approvedAt;
+        if (baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
+
+        // respect dependencies in the same job/order
+        for (const prev of stages) {
+          if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
+            const end = doneAt.get(prev.id);
+            if (end && end > earliest) earliest = end;
+          }
+        }
+        const free = resourceFree.get(resource);
+        if (free && free > earliest) earliest = free;
+
+        // -------- CORRECT MINUTE SOURCES --------
+        const raw =
+          (Number.isFinite(st.actual_duration_minutes as any)
+            ? (st.actual_duration_minutes as number)
+            : null) ??
+          (Number.isFinite(st.estimated_duration_minutes as any)
+            ? (st.estimated_duration_minutes as number)
+            : null) ??
+          0;
+
+        const setup = Number.isFinite(st.setup_time_minutes as any)
+          ? (st.setup_time_minutes as number)
+          : 0;
+
+        // at least 1 minute so we never stack multiple jobs at identical times
+        const mins = Math.max(1, Math.round(raw + setup));
+
+        // place across working windows
+        const segs = placeDuration(input, earliest, mins);
+        const start = segs[0].start;
+        const end = segs[segs.length - 1].end;
+
+        updates.push({
+          id: st.id,
+          start_at: start.toISOString(),
+          end_at: end.toISOString(),
+          minutes: mins,
+        });
+
+        doneAt.set(st.id, end);
+        resourceFree.set(resource, end);
+      }
+    }
+  }
+
+  return { updates };
+}
+
+/* -------------------- handler -------------------- */
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const url = new URL(req.url);
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const qp = (k: string, def?: unknown) => url.searchParams.get(k) ?? (body as any)[k] ?? def;
+
+    const commit = asBool(qp("commit", true), true);
+    const proposed = asBool(qp("proposed", false), false);
+    const onlyIfUnset = asBool(qp("onlyIfUnset", true), true);
+    const nuclear = asBool(qp("nuclear", false), false);
+    const wipeAll = asBool(qp("wipeAll", false), false);
+    const startFromStr = String(qp("startFrom", "") ?? "");
+    const startFrom = startFromStr ? new Date(startFromStr) : null;
+
+    const supabaseUrl =
+      Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SUPABASE_URL_INTERNAL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    // 1) Snapshot
+    const { data: snap, error: exportErr } = await supabase.rpc("export_scheduler_input");
+    if (exportErr) throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
+    const input = snap as ExportShape;
+
+    // 2) Pick base start + tolerant wipe
+    let baseStart: Date | null = null;
+    let unscheduledFromDate: string | null = null;
+
+    if (nuclear) {
+      const seed = startFrom ? startFrom : addMin(new Date(), 24 * 60); // default: tomorrow
+      baseStart = nextWorkingStart(input, seed);
+      unscheduledFromDate = baseStart.toISOString().slice(0, 10);
+
+      if (commit) {
+        if (wipeAll) {
+          // try (from_date, wipe_all) → fall back to (from_date) if overloaded
+          const { error } = await supabase.rpc("unschedule_auto_stages", {
+            from_date: unscheduledFromDate,
+            wipe_all: true,
+          });
+          if (error) {
+            const { error: e2 } = await supabase.rpc("unschedule_auto_stages", {
+              from_date: unscheduledFromDate,
+            });
+            if (e2)
+              throw new Error(
+                "unschedule_auto_stages failed (wipe_all + fallback): " +
+                  JSON.stringify({ with_wipe_all: error, fallback: e2 })
+              );
+          }
+        } else {
+          const { error } = await supabase.rpc("unschedule_auto_stages", {
+            from_date: unscheduledFromDate,
+          });
+          if (error) throw new Error("unschedule_auto_stages failed: " + JSON.stringify(error));
+        }
+      }
+    }
+
+    // 3) Plan
+    const { updates } = planSchedule(input, baseStart);
+
+    // 4) Apply + mirror to board
+    let applied: unknown = { updated: 0 };
+    if (commit && updates.length) {
+      const { data, error } = await supabase.rpc("apply_stage_updates_safe", {
+        updates,
+        commit: true,
+        only_if_unset: onlyIfUnset,
+        as_proposed: proposed,
+      });
+      if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
+      applied = data;
+
+      const ids = updates.map((u) => u.id);
+      const { error: mirrorErr } = await supabase.rpc("mirror_jsi_to_stage_time_slots", {
+        p_stage_ids: ids,
+      });
+      if (mirrorErr)
+        throw new Error("mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr));
+    }
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        scheduled: updates.length,
+        applied,
+        nuclear,
+        startFrom: startFromStr || null,
+        baseStart: baseStart?.toISOString() ?? null,
+        unscheduledFromDate,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
