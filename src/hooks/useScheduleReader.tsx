@@ -1,5 +1,9 @@
 // src/hooks/useScheduleReader.ts
-/** Hook for reading scheduled job stages (read-only) */
+/**
+ * Hook for reading scheduled job stages (read-only)
+ * - Buckets by ISO HH (no browser TZ drift)
+ * - Exposes start_hhmm / end_hhmm already formatted from ISO
+ */
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,47 +15,30 @@ export interface ScheduledStageData {
   production_stage_id: string;
   stage_name: string;
   stage_order: number;
-  // minutes shown on the badge — derived from scheduled start/end
-  minutes: number;
+  estimated_duration_minutes: number;
   scheduled_start_at: string;
   scheduled_end_at: string;
+  start_hhmm: string; // NEW: "HH:MM" derived from ISO string
+  end_hhmm: string;   // NEW: "HH:MM" derived from ISO string
   status: string;
   stage_color?: string;
 }
 
 export interface TimeSlotData {
-  time_slot: string;
+  time_slot: string; // "08:00", "09:00", ...
   scheduled_stages: ScheduledStageData[];
 }
 
 export interface ScheduleDayData {
-  date: string;
+  date: string; // "YYYY-MM-DD"
   day_name: string;
   time_slots: TimeSlotData[];
   total_stages: number;
   total_minutes: number;
 }
 
-/** ----- Time-zone helpers (show factory time, not browser local) ----- */
-const FACTORY_TZ = "Africa/Johannesburg"; // <-- change if needed
-
-// get an object with year-month-day + hour in factory TZ
-function toFactoryParts(iso: string) {
-  const dt = new Date(iso);
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: FACTORY_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  });
-  // @ts-ignore
-  const parts = Object.fromEntries(fmt.formatToParts(dt).map(p => [p.type, p.value]));
-  const date = `${parts.year}-${parts.month}-${parts.day}`;
-  const hour = Number(parts.hour);
-  return { date, hour };
-}
+const HH = (iso?: string) => (iso ? iso.slice(11, 13) : "");
+const HHMM = (iso?: string) => (iso ? iso.slice(11, 16) : "");
 
 export function useScheduleReader() {
   const [scheduleDays, setScheduleDays] = useState<ScheduleDayData[]>([]);
@@ -60,19 +47,21 @@ export function useScheduleReader() {
   const fetchSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1) Fetch scheduled stage instances
+      // 1) base rows
       const { data: stageInstances, error: stagesError } = await supabase
         .from("job_stage_instances")
-        .select(`
-          id,
-          job_id,
-          production_stage_id,
-          stage_order,
-          scheduled_start_at,
-          scheduled_end_at,
-          status,
-          job_table_name
-        `)
+        .select(
+          `
+            id,
+            job_id,
+            production_stage_id,
+            stage_order,
+            estimated_duration_minutes,
+            scheduled_start_at,
+            scheduled_end_at,
+            status
+          `
+        )
         .not("scheduled_start_at", "is", null)
         .not("scheduled_end_at", "is", null)
         .order("scheduled_start_at", { ascending: true });
@@ -80,97 +69,117 @@ export function useScheduleReader() {
       if (stagesError) {
         console.error("Error fetching scheduled stages:", stagesError);
         toast.error("Failed to fetch scheduled stages");
+        setScheduleDays([]);
         return;
       }
 
-      if (!stageInstances || stageInstances.length === 0) {
+      if (!stageInstances?.length) {
         setScheduleDays([]);
         toast.success("No scheduled stages found");
         return;
       }
 
-      // 2) Lookups
-      const stageIds = [...new Set(stageInstances.map((s: any) => s.production_stage_id))];
-      const jobIds = [...new Set(stageInstances.map((s: any) => s.job_id))];
+      // 2) lookups
+      const stageIds = [...new Set(stageInstances.map((s) => s.production_stage_id))];
+      const jobIds = [...new Set(stageInstances.map((s) => s.job_id))];
 
-      const [{ data: productionStages }, { data: productionJobs }] = await Promise.all([
-        supabase.from("production_stages").select("id, name, color").in("id", stageIds),
-        supabase.from("production_jobs").select("id, wo_no").in("id", jobIds),
-      ]);
+      const [{ data: productionStages }, { data: productionJobs }] =
+        await Promise.all([
+          supabase
+            .from("production_stages")
+            .select("id, name, color")
+            .in("id", stageIds),
+          supabase
+            .from("production_jobs")
+            .select("id, wo_no")
+            .in("id", jobIds),
+        ]);
 
-      const stageMap = new Map((productionStages || []).map((s: any) => [s.id, s]));
-      const jobMap = new Map((productionJobs || []).map((j: any) => [j.id, j]));
+      const stageMap = new Map(
+        (productionStages ?? []).map((s) => [s.id, s])
+      );
+      const jobMap = new Map((productionJobs ?? []).map((j) => [j.id, j]));
 
-      // 3) Bucket into day -> hourly slots in factory TZ
+      // 3) bucket by date + HH using ISO slices (tz-safe)
       const scheduleMap = new Map<string, Map<string, ScheduledStageData[]>>();
-      const timeSlots = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00"];
+      const timeSlots = [
+        "08:00",
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00",
+      ];
 
-      for (const si of stageInstances as any[]) {
-        // minutes from scheduled range
-        const ms =
-          new Date(si.scheduled_end_at).getTime() -
-          new Date(si.scheduled_start_at).getTime();
-        const minutes = Math.max(1, Math.round(ms / 60_000));
-
-        // bucket by factory date/hour
-        const { date, hour } = toFactoryParts(si.scheduled_start_at);
-        const timeSlot = `${hour.toString().padStart(2, "0")}:00`;
-
-        const stage = stageMap.get(si.production_stage_id);
-        const job = jobMap.get(si.job_id);
+      for (const si of stageInstances) {
+        const startISO: string = si.scheduled_start_at as string;
+        const endISO: string = si.scheduled_end_at as string;
+        const date = startISO.slice(0, 10); // YYYY-MM-DD
+        const hour = HH(startISO);
+        const timeSlot = `${hour}:00`;
 
         if (!scheduleMap.has(date)) scheduleMap.set(date, new Map());
         const dayMap = scheduleMap.get(date)!;
         if (!dayMap.has(timeSlot)) dayMap.set(timeSlot, []);
 
+        const stage = stageMap.get(si.production_stage_id);
+        const job = jobMap.get(si.job_id);
+
         dayMap.get(timeSlot)!.push({
           id: si.id,
           job_id: si.job_id,
-          job_wo_no: job?.wo_no || "Unknown",
+          job_wo_no: job?.wo_no ?? "Unknown",
           production_stage_id: si.production_stage_id,
-          stage_name: stage?.name || "Unknown Stage",
-          stage_order: si.stage_order,
-          minutes,
-          scheduled_start_at: si.scheduled_start_at,
-          scheduled_end_at: si.scheduled_end_at,
+          stage_name: stage?.name ?? "Unknown Stage",
+          stage_order: si.stage_order ?? 9999,
+          estimated_duration_minutes: si.estimated_duration_minutes ?? 0,
+          scheduled_start_at: startISO,
+          scheduled_end_at: endISO,
+          start_hhmm: HHMM(startISO), // <- use these on the card
+          end_hhmm: HHMM(endISO),
           status: si.status,
-          stage_color: stage?.color || "#6B7280",
+          stage_color: stage?.color ?? "#6B7280",
         });
       }
 
-      // 4) Build day array
-      const out: ScheduleDayData[] = [];
+      // 4) flatten to UI structure
+      const days: ScheduleDayData[] = [];
       scheduleMap.forEach((dayMap, date) => {
-        const dayName = new Intl.DateTimeFormat("en-GB", {
-          weekday: "long",
-          timeZone: FACTORY_TZ,
-        }).format(new Date(date + "T00:00:00Z"));
-
+        const dateObj = new Date(date);
         const timeSlotData: TimeSlotData[] = timeSlots.map((slot) => ({
           time_slot: slot,
-          scheduled_stages: dayMap.get(slot) || [],
+          scheduled_stages: dayMap.get(slot) ?? [],
         }));
 
-        const allStages = Array.from(dayMap.values()).flat();
-        const totalStages = allStages.length;
-        const totalMinutes = allStages.reduce((sum, s) => sum + (s.minutes || 0), 0);
+        const all = Array.from(dayMap.values()).flat();
+        const totalStages = all.length;
+        const totalMinutes = all.reduce(
+          (sum, st) => sum + (st.estimated_duration_minutes ?? 0),
+          0
+        );
 
-        out.push({
+        days.push({
           date,
-          day_name: dayName,
+          day_name: dateObj.toLocaleDateString("en-GB", { weekday: "long" }),
           time_slots: timeSlotData,
           total_stages: totalStages,
           total_minutes: totalMinutes,
         });
       });
 
-      out.sort((a, b) => a.date.localeCompare(b.date));
+      days.sort((a, b) => a.date.localeCompare(b.date));
+      setScheduleDays(days);
 
-      setScheduleDays(out);
-      toast.success(`Loaded schedule with ${stageInstances.length} stages across ${out.length} days`);
-    } catch (error) {
-      console.error("Error in fetchSchedule:", error);
+      toast.success(
+        `Loaded schedule with ${stageInstances.length} stages across ${days.length} days`
+      );
+    } catch (err) {
+      console.error("Error in fetchSchedule:", err);
       toast.error("Failed to fetch schedule data");
+      setScheduleDays([]);
     } finally {
       setIsLoading(false);
     }
@@ -178,28 +187,19 @@ export function useScheduleReader() {
 
   const triggerReschedule = useCallback(async () => {
     try {
-      toast.message?.("Rebuilding schedule…");
       const { data, error } = await supabase.functions.invoke("scheduler-run", {
-        body: {
-          commit: true,
-          proposed: false,
-          onlyIfUnset: false,
-          nuclear: true,
-          wipeAll: true,
-          startFrom: new Date().toISOString().slice(0, 10),
-        },
+        body: { commit: true, proposed: false, onlyIfUnset: true },
       });
       if (error) {
         console.error("Error triggering reschedule:", error);
         toast.error("Failed to trigger reschedule");
         return false;
       }
-      console.log("scheduler-run response:", data);
-      toast.success(`Rescheduled ${data?.scheduled ?? 0} stages`);
-      await fetchSchedule();
+      toast.success(`Successfully rescheduled ${data?.scheduled || 0} stages`);
+      setTimeout(() => fetchSchedule(), 1200);
       return true;
-    } catch (error) {
-      console.error("Error triggering reschedule:", error);
+    } catch (err) {
+      console.error("Error triggering reschedule:", err);
       toast.error("Failed to trigger reschedule");
       return false;
     }
