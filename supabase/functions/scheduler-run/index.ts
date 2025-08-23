@@ -1,13 +1,13 @@
 // supabase/functions/scheduler-run/index.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-/* -------------------- CORS -------------------- */
+/* -------------------- helpers -------------------- */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
-/* -------------------- Time helpers -------------------- */
 const MS = 60_000;
 const addMin = (d: Date, m: number) => new Date(d.getTime() + m * MS);
 const parseClock = (t: string) => {
@@ -16,110 +16,71 @@ const parseClock = (t: string) => {
 };
 
 // accept boolean or "true"/"false"/"1"/"0"
-const asBool = (v: any, def: boolean) => {
+const asBool = (v: unknown, def: boolean) => {
   if (v === undefined || v === null) return def;
   if (typeof v === "boolean") return v;
   const s = String(v).toLowerCase().trim();
   return s === "true" || s === "1";
 };
 
-// ---- Factory timezone (VERY IMPORTANT) ----
-// Set this in your Supabase function env vars.
-// e.g. FACTORY_TZ="Africa/Johannesburg"  (or your local zone)
-const FACTORY_TZ = Deno.env.get("FACTORY_TZ") ?? "UTC";
-
-// get the timezone offset in ms for a given UTC timestamp in a zone
-function tzOffsetMs(tz: string, utcMillis: number) {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const parts = dtf.formatToParts(new Date(utcMillis));
-  const map: Record<string, string> = {};
-  for (const p of parts) if (p.type !== "literal") map[p.type] = p.value;
-  const asUTC = Date.UTC(+map.year, +map.month - 1, +map.day, +map.hour, +map.minute, +map.second);
-  return asUTC - utcMillis;
-}
-
-/**
- * Convert a *factory wall time* (y,m,d,h,mi,s) into the UTC instant that
- * corresponds to that local time in FACTORY_TZ.
- * Month is JS 0-based (use date.getMonth()).
- */
-function zonedTimeToUtc(y: number, m: number, d: number, h = 0, mi = 0, s = 0) {
-  const guess = Date.UTC(y, m, d, h, mi, s);
-  const off = tzOffsetMs(FACTORY_TZ, guess);
-  return new Date(guess - off);
-}
-
-/* -------------------- Workday helpers -------------------- */
-function isHoliday(holidays: any[], day: Date) {
-  const y = day.getUTCFullYear();
-  const m = String(day.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(day.getUTCDate()).padStart(2, "0");
+function isHoliday(
+  holidays: Array<{ date: string }>,
+  day: Date,
+): boolean {
+  const y = day.getFullYear();
+  const m = String(day.getMonth() + 1).padStart(2, "0");
+  const d = String(day.getDate()).padStart(2, "0");
   return holidays.some((h) => h.date.startsWith(`${y}-${m}-${d}`));
 }
 
-/**
- * Build all working windows for a *factory* day.
- * NOTE: We construct the window edges in FACTORY_TZ and convert to UTC so
- * they display at the intended local wall time.
- */
-function dailyWindows(input: any, factoryDayUTC: Date) {
-  // Build a "factory day" calendar using FACTORY_TZ components
-  // Find the factory DOW for this UTC midnight
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: FACTORY_TZ,
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const p = dtf.formatToParts(factoryDayUTC);
-  const parts: Record<string, string> = {};
-  for (const x of p) if (x.type !== "literal") parts[x.type] = x.value;
-
-  // Reconstruct factory Y-M-D
-  const fy = +parts.year;
-  const fm = +parts.month - 1; // JS month
-  const fd = +parts.day;
-
-  // DOW (0=Sunday..6=Saturday) in the *factory* zone
-  const dow = new Date(zonedTimeToUtc(fy, fm, fd, 12, 0, 0)).getUTCDay();
-
-  // shifts for this factory DOW
-  const todays = input.shifts.filter((s: any) => s.day_of_week === dow && s.is_working_day);
+function dailyWindows(input: any, day: Date) {
+  const dow = day.getDay();
+  const todays = input.shifts.filter(
+    (s: any) => s.day_of_week === dow && s.is_working_day,
+  );
 
   const wins: Array<{ start: Date; end: Date }> = [];
   for (const s of todays) {
     const st = parseClock(s.shift_start_time);
     const et = parseClock(s.shift_end_time);
-
-    const start = zonedTimeToUtc(fy, fm, fd, st.h, st.m, +st.s);
-    const end = zonedTimeToUtc(fy, fm, fd, et.h, et.m, +et.s);
+    const start = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      st.h,
+      st.m,
+      +st.s,
+    );
+    const end = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      et.h,
+      et.m,
+      +et.s,
+    );
     if (end <= start) continue;
 
-    // cut out breaks (also created in factory local time)
+    // begin with the whole shift then subtract breaks
     let segs: Array<{ start: Date; end: Date }> = [{ start, end }];
+
     for (const br of input.meta.breaks ?? []) {
       const bt = parseClock(br.start_time);
-      const b0 = zonedTimeToUtc(fy, fm, fd, bt.h, bt.m, +bt.s);
+      const b0 = new Date(
+        day.getFullYear(),
+        day.getMonth(),
+        day.getDate(),
+        bt.h,
+        bt.m,
+        +bt.s,
+      );
       const b1 = addMin(b0, br.minutes);
 
       const next: typeof segs = [];
       for (const g of segs) {
-        if (b1 <= g.start || b0 >= g.end) next.push(g);
-        else {
+        if (b1 <= g.start || b0 >= g.end) {
+          next.push(g);
+        } else {
           if (g.start < b0) next.push({ start: g.start, end: b0 });
           if (b1 < g.end) next.push({ start: b1, end: g.end });
         }
@@ -133,48 +94,37 @@ function dailyWindows(input: any, factoryDayUTC: Date) {
   return wins.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
-/**
- * Iterate all windows from a given UTC instant, stepping by factory days.
- */
-function* iterWindows(input: any, fromUTC: Date, horizonDays = 365) {
-  // Find the factory midnight (00:00) for the day that contains `fromUTC`
-  const ftParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: FACTORY_TZ,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(fromUTC);
-  const map: Record<string, string> = {};
-  for (const p of ftParts) if (p.type !== "literal") map[p.type] = p.value;
-  const fy = +map.year;
-  const fm = +map.month - 1;
-  const fd = +map.day;
-
-  // factory midnight of that day, in UTC
-  let factoryMidnightUTC = zonedTimeToUtc(fy, fm, fd, 0, 0, 0);
-
+function* iterWindows(input: any, from: Date, horizonDays = 365) {
   for (let i = 0; i < horizonDays; i++) {
-    const dayUTC = addMin(factoryMidnightUTC, i * 24 * 60);
-    if (isHoliday(input.holidays, dayUTC)) continue;
+    const day = addMin(
+      new Date(from.getFullYear(), from.getMonth(), from.getDate()),
+      i * 24 * 60,
+    );
+    if (isHoliday(input.holidays, day)) continue;
 
-    for (const w of dailyWindows(input, dayUTC)) {
-      if (w.end <= fromUTC) continue;
-      const s = new Date(Math.max(w.start.getTime(), fromUTC.getTime()));
+    for (const w of dailyWindows(input, day)) {
+      if (w.end <= from) continue;
+      const s = new Date(Math.max(w.start.getTime(), from.getTime()));
       yield { start: s, end: w.end };
     }
   }
 }
 
-/** Place a duration across working windows (UTC instants) */
-function placeDuration(input: any, earliestUTC: Date, minutes: number) {
+function placeDuration(
+  input: any,
+  earliest: Date,
+  minutes: number,
+): Array<{ start: Date; end: Date }> {
   let left = Math.max(0, Math.ceil(minutes));
   const placed: Array<{ start: Date; end: Date }> = [];
-  let cursor = new Date(earliestUTC);
+  let cursor = new Date(earliest);
 
   for (const w of iterWindows(input, cursor)) {
     if (left <= 0) break;
-    const cap = Math.floor((w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS);
+
+    const cap = Math.floor(
+      (w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS,
+    );
     const use = Math.min(cap, left);
     if (use > 0) {
       const s = new Date(Math.max(w.start.getTime(), cursor.getTime()));
@@ -187,60 +137,88 @@ function placeDuration(input: any, earliestUTC: Date, minutes: number) {
   return placed;
 }
 
-function nextWorkingStart(input: any, fromUTC: Date) {
-  for (const w of iterWindows(input, fromUTC, 365)) return w.start;
-  return fromUTC;
+function nextWorkingStart(input: any, from: Date) {
+  for (const w of iterWindows(input, from, 365)) return w.start;
+  return from;
 }
 
-/* -------------------- Planning -------------------- */
-function planSchedule(input: any, baseStartUTC: Date | null) {
-  // Only approved jobs, oldest first
+/** Build plan from export payload. */
+function planSchedule(input: any, baseStart?: Date | null) {
+  // 1) candidate jobs (approved), ordered by approval
   const jobs = input.jobs
     .filter((j: any) => j.proof_approved_at)
     .map((j: any) => ({ ...j, approvedAt: new Date(j.proof_approved_at) }))
     .sort((a: any, b: any) => a.approvedAt.getTime() - b.approvedAt.getTime());
 
-  const resourceFree = new Map<string, Date>(); // production_stage_id -> next free UTC instant
-  const updates: Array<{ id: string; start_at: string; end_at: string; minutes: number }> = [];
+  // 2) resource availability
+  const resourceFree = new Map<string, Date>();
+  const updates: Array<{
+    id: string;
+    start_at: string;
+    end_at: string;
+    minutes: number;
+  }> = [];
 
   for (const job of jobs) {
     const stages = [...job.stages].sort(
-      (a: any, b: any) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999)
+      (a: any, b: any) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999),
     );
-    const orders = Array.from(new Set(stages.map((s: any) => s.stage_order ?? 9999))).sort(
-      (a, b) => a - b
-    );
+    const orders = Array.from(
+      new Set(stages.map((s: any) => s.stage_order ?? 9999)),
+    ).sort((a, b) => a - b);
 
-    const doneAt = new Map<string, Date>(); // stage_instance_id -> end UTC
+    const doneAt = new Map<string, Date>();
 
     for (const ord of orders) {
-      for (const st of stages.filter((s: any) => (s.stage_order ?? 9999) === ord)) {
-        const resource = st.production_stage_id;
+      for (const st of stages.filter(
+        (s: any) => (s.stage_order ?? 9999) === ord,
+      )) {
+        const resource: string = st.production_stage_id;
 
-        // earliest = max(approved, baseStart (if any), all deps finished, resource free)
-        let earliest = job.approvedAt;
-        if (baseStartUTC) earliest = new Date(Math.max(earliest.getTime(), baseStartUTC.getTime()));
+        // earliest time this stage can start
+        let earliest: Date = job.approvedAt;
+        if (baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
 
+        // respect dependencies (previous stage end times)
         for (const prev of stages) {
           if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
             const end = doneAt.get(prev.id);
             if (end && end > earliest) earliest = end;
           }
         }
+
+        // respect resource availability
         const free = resourceFree.get(resource);
         if (free && free > earliest) earliest = free;
 
-        // exact minutes from DB: estimated + setup
-        const mins = Math.max(
-          0,
-          Math.round((st.estimated_duration_minutes || 0) + (st.setup_time_minutes || 0))
-        );
+        // ---- minutes calculation (robust to different field names)
+        // Prefer actual > estimated; always add setup; enforce at least 1 minute.
+        const actual =
+          Number.isFinite(st.actual_minutes)
+            ? (st.actual_minutes as number)
+            : Number.isFinite(st.actual_duration_minutes)
+              ? (st.actual_duration_minutes as number)
+              : null;
 
-        const segs =
-          mins > 0
-            ? placeDuration(input, earliest, mins)
-            : [{ start: earliest, end: earliest }];
+        const est =
+          Number.isFinite(st.estimated_minutes)
+            ? (st.estimated_minutes as number)
+            : Number.isFinite(st.estimated_duration_minutes)
+              ? (st.estimated_duration_minutes as number)
+              : null;
 
+        const setup =
+          Number.isFinite(st.setup_minutes)
+            ? (st.setup_minutes as number)
+            : Number.isFinite(st.setup_time_minutes)
+              ? (st.setup_time_minutes as number)
+              : 0;
+
+        const raw = (actual ?? est ?? 0);
+        const mins = Math.max(1, Math.round(raw + setup)); // ⬅️ never 0
+
+        // Always place across working windows; no 0-minute special case
+        const segs = placeDuration(input, earliest, mins);
         const start = segs[0].start;
         const end = segs[segs.length - 1].end;
 
@@ -251,6 +229,7 @@ function planSchedule(input: any, baseStartUTC: Date | null) {
           minutes: mins,
         });
 
+        // update trackers
         doneAt.set(st.id, end);
         resourceFree.set(resource, end);
       }
@@ -260,13 +239,16 @@ function planSchedule(input: any, baseStartUTC: Date | null) {
   return { updates };
 }
 
-/* -------------------- HTTP handler -------------------- */
+/* -------------------- handler -------------------- */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
     const url = new URL(req.url);
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const body =
+      req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const qp = (k: string, def?: any) => url.searchParams.get(k) ?? (body as any)[k] ?? def;
 
     const commit = asBool(qp("commit", true), true);
@@ -281,38 +263,42 @@ Deno.serve(async (req) => {
     const supabaseUrl =
       Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SUPABASE_URL_INTERNAL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
     if (!supabaseUrl || !serviceKey) {
       return new Response(
-        JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    // 1) Export snapshot
-    const { data: snap, error: exportErr } = await supabase.rpc("export_scheduler_input");
-    if (exportErr)
-      throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
+
+    // 1) Snapshot (export everything needed to plan)
+    const { data: snap, error: exportErr } = await supabase.rpc(
+      "export_scheduler_input",
+    );
+    if (exportErr) {
+      throw new Error(
+        "export_scheduler_input failed: " + JSON.stringify(exportErr),
+      );
+    }
     const input = snap;
 
-    // 2) Nuclear: base start computed in FACTORY_TZ, then wipe
+    // 2) "Nuclear" base start + tolerant wipe (optional)
     let baseStart: Date | null = null;
     let unscheduledFromDate: string | null = null;
 
     if (nuclear) {
-      // default to “tomorrow at factory midnight”, then shift to first working window
-      const seedLocal = startFrom
-        ? startFrom
-        : addMin(new Date(), 24 * 60); // tomorrow date
-      const fy = seedLocal.getUTCFullYear();
-      const fm = seedLocal.getUTCMonth();
-      const fd = seedLocal.getUTCDate();
+      const seed = startFrom ? startFrom : addMin(new Date(), 24 * 60); // default: tomorrow
+      baseStart = nextWorkingStart(input, seed);
+      unscheduledFromDate = baseStart.toISOString().slice(0, 10);
 
-      const seedUTC = zonedTimeToUtc(fy, fm, fd, 0, 0, 0);
-      baseStart = nextWorkingStart(input, seedUTC);
-
-      unscheduledFromDate = baseStart.toISOString().slice(0, 10); // YYYY-MM-DD
       if (commit) {
+        // Prefer the newer signature (from_date, wipe_all). Fallback to legacy (from_date).
         if (wipeAll) {
           const { error } = await supabase.rpc("unschedule_auto_stages", {
             from_date: unscheduledFromDate,
@@ -322,43 +308,56 @@ Deno.serve(async (req) => {
             const { error: e2 } = await supabase.rpc("unschedule_auto_stages", {
               from_date: unscheduledFromDate,
             });
-            if (e2)
+            if (e2) {
               throw new Error(
                 "unschedule_auto_stages failed (wipe_all + fallback): " +
-                  JSON.stringify({ with_wipe_all: error, fallback: e2 })
+                  JSON.stringify({ with_wipe_all: error, fallback: e2 }),
               );
+            }
           }
         } else {
           const { error } = await supabase.rpc("unschedule_auto_stages", {
             from_date: unscheduledFromDate,
           });
-          if (error) throw new Error("unschedule_auto_stages failed: " + JSON.stringify(error));
+          if (error)
+            throw new Error(
+              "unschedule_auto_stages failed: " + JSON.stringify(error),
+            );
         }
       }
     }
 
-    // 3) Plan (with exact minutes & factory-TZ windows)
+    // 3) Plan
     const { updates } = planSchedule(input, baseStart);
 
-    // 4) Apply & mirror
+    // 4) Apply + mirror
     let applied: any = { updated: 0 };
+
     if (commit && updates.length) {
-      const { data, error } = await supabase.rpc("apply_stage_updates_safe", {
-        updates,
-        commit: true,
-        only_if_unset: onlyIfUnset,
-        as_proposed: proposed,
-      });
-      if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
+      const { data, error } = await supabase.rpc(
+        "apply_stage_updates_safe",
+        {
+          updates,
+          commit: true,
+          only_if_unset: onlyIfUnset,
+          as_proposed: proposed,
+        },
+      );
+      if (error)
+        throw new Error(
+          "apply_stage_updates_safe failed: " + JSON.stringify(error),
+        );
       applied = data;
 
+      // mirror to board table
       const ids = updates.map((u) => u.id);
-      const { error: mirrorErr } = await supabase.rpc("mirror_jsi_to_stage_time_slots", {
-        p_stage_ids: ids,
-      });
+      const { error: mirrorErr } = await supabase.rpc(
+        "mirror_jsi_to_stage_time_slots",
+        { p_stage_ids: ids },
+      );
       if (mirrorErr)
         throw new Error(
-          "mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr)
+          "mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr),
         );
     }
 
@@ -371,9 +370,8 @@ Deno.serve(async (req) => {
         startFrom: startFromStr || null,
         baseStart: baseStart?.toISOString() ?? null,
         unscheduledFromDate,
-        factoryTz: FACTORY_TZ,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
