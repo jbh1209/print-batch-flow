@@ -23,20 +23,18 @@ const asBool = (v: unknown, def: boolean) => {
   return s === "true" || s === "1";
 };
 
-function isHoliday(holidays: any[], day: Date) {
+function isHoliday(holidays: { date: string }[], day: Date) {
   const y = day.getFullYear();
   const m = String(day.getMonth() + 1).padStart(2, "0");
   const d = String(day.getDate()).padStart(2, "0");
-  return holidays?.some((h) => h.date?.startsWith(`${y}-${m}-${d}`));
+  return holidays.some((h) => h.date.startsWith(`${y}-${m}-${d}`));
 }
 
 function dailyWindows(input: any, day: Date) {
   const dow = day.getDay();
-  const todays = (input.shifts ?? []).filter(
-    (s: any) => s.day_of_week === dow && s.is_working_day
-  );
-
+  const todays = input.shifts.filter((s: any) => s.day_of_week === dow && s.is_working_day);
   const wins: { start: Date; end: Date }[] = [];
+
   for (const s of todays) {
     const st = parseClock(s.shift_start_time);
     const et = parseClock(s.shift_end_time);
@@ -44,9 +42,9 @@ function dailyWindows(input: any, day: Date) {
     const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), et.h, et.m, +et.s);
     if (end <= start) continue;
 
-    // subtract breaks
     let segs = [{ start, end }];
-    for (const br of input.meta?.breaks ?? []) {
+
+    for (const br of input.meta.breaks ?? []) {
       const bt = parseClock(br.start_time);
       const b0 = new Date(day.getFullYear(), day.getMonth(), day.getDate(), bt.h, bt.m, +bt.s);
       const b1 = addMin(b0, br.minutes);
@@ -60,8 +58,10 @@ function dailyWindows(input: any, day: Date) {
       }
       segs = next;
     }
+
     wins.push(...segs);
   }
+
   return wins.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
@@ -81,6 +81,7 @@ function placeDuration(input: any, earliest: Date, minutes: number) {
   let left = Math.max(0, Math.ceil(minutes));
   const placed: { start: Date; end: Date }[] = [];
   let cursor = new Date(earliest);
+
   for (const w of iterWindows(input, cursor)) {
     if (left <= 0) break;
     const cap = Math.floor((w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS);
@@ -101,21 +102,21 @@ function nextWorkingStart(input: any, from: Date) {
   return from;
 }
 
-function planSchedule(input: any, baseStart?: Date | null) {
-  const jobs = (input.jobs ?? [])
+function planSchedule(input: any, baseStart: Date | null) {
+  const jobs = input.jobs
     .filter((j: any) => j.proof_approved_at)
     .map((j: any) => ({ ...j, approvedAt: new Date(j.proof_approved_at) }))
     .sort((a: any, b: any) => a.approvedAt.getTime() - b.approvedAt.getTime());
 
   const resourceFree = new Map<string, Date>();
-  const updates: any[] = [];
+  const updates: { id: string; start_at: string; end_at: string; minutes: number }[] = [];
 
   for (const job of jobs) {
-    const stages = [...(job.stages ?? [])].sort(
+    const stages = [...job.stages].sort(
       (a: any, b: any) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999)
     );
     const orders = Array.from(new Set(stages.map((s: any) => s.stage_order ?? 9999))).sort(
-      (a, b) => a - b
+      (a: number, b: number) => a - b
     );
 
     const doneAt = new Map<string, Date>();
@@ -124,44 +125,40 @@ function planSchedule(input: any, baseStart?: Date | null) {
       for (const st of stages.filter((s: any) => (s.stage_order ?? 9999) === ord)) {
         const resource: string = st.production_stage_id;
 
+        // Earliest start: job approvedAt, baseStart, predecessors, resource availability
         let earliest: Date = job.approvedAt;
         if (baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
-
-        // wait for predecessors
         for (const prev of stages) {
           if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
             const end = doneAt.get(prev.id);
             if (end && end > earliest) earliest = end;
           }
         }
-
-        // resource availability
         const free = resourceFree.get(resource);
         if (free && free > earliest) earliest = free;
 
-        // ----- MINUTES (fixed column names) -----
-        const actual = Number.isFinite(st.actual_duration_minutes)
-          ? (st.actual_duration_minutes as number)
-          : null;
+        // ---------- FIXED MINUTES SOURCE ----------
+        // Prefer actual > estimated > scheduled, plus setup. Use your real column names.
+        const raw =
+          Number.isFinite(st.actual_duration_minutes as number)
+            ? (st.actual_duration_minutes as number)
+            : Number.isFinite(st.estimated_duration_minutes as number)
+            ? (st.estimated_duration_minutes as number)
+            : Number.isFinite(st.scheduled_minutes as number)
+            ? (st.scheduled_minutes as number)
+            : 0;
 
-        const estimated = Number.isFinite(st.estimated_duration_minutes)
-          ? (st.estimated_duration_minutes as number)
-          : null;
-
-        const fallbackScheduled = Number.isFinite(st.scheduled_minutes)
-          ? (st.scheduled_minutes as number)
-          : null;
-
-        const raw = (actual ?? estimated ?? fallbackScheduled ?? 0);
-        const setup = Number.isFinite(st.setup_time_minutes)
+        const setup = Number.isFinite(st.setup_time_minutes as number)
           ? (st.setup_time_minutes as number)
           : 0;
 
-        // at least 1 minute so we never overlap multiple jobs at same instant
+        // Never zero (we can’t place a zero-length task)
         const mins = Math.max(1, Math.round(raw + setup));
-        // ---------------------------------------
 
-        const segs = mins ? placeDuration(input, earliest, mins) : [{ start: earliest, end: earliest }];
+        // Place across shift windows
+        const segs =
+          mins > 0 ? placeDuration(input, earliest, mins) : [{ start: earliest, end: earliest }];
+
         const start = segs[0].start;
         const end = segs[segs.length - 1].end;
 
@@ -183,20 +180,22 @@ function planSchedule(input: any, baseStart?: Date | null) {
 
 /* -------------------- handler -------------------- */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS")
+    return new Response("ok", {
+      headers: corsHeaders,
+    });
 
   try {
     const url = new URL(req.url);
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const qp = (k: string, def?: any) => url.searchParams.get(k) ?? (body as any)[k] ?? def;
+    const body = req.method === "POST" ? (await req.json().catch(() => ({}))) : {};
+    const qp = (k: string, def?: unknown) => url.searchParams.get(k) ?? (body as any)[k] ?? def;
 
     const commit = asBool(qp("commit", true), true);
     const proposed = asBool(qp("proposed", false), false);
     const onlyIfUnset = asBool(qp("onlyIfUnset", true), true);
     const nuclear = asBool(qp("nuclear", false), false);
     const wipeAll = asBool(qp("wipeAll", false), false);
+
     const startFromStr = String(qp("startFrom", "") ?? "");
     const startFrom = startFromStr ? new Date(startFromStr) : null;
 
@@ -213,14 +212,14 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    // 1) Snapshot planner input
+    // 1) Snapshot
     const { data: snap, error: exportErr } = await supabase.rpc("export_scheduler_input");
     if (exportErr) throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
     const input = snap;
 
     // 2) Nuclear base start + tolerant wipe
     let baseStart: Date | null = null;
-    let unscheduledFromDate: string | null = null;
+    let unscheduledFromDate: string | undefined;
 
     if (nuclear) {
       const seed = startFrom ? startFrom : addMin(new Date(), 24 * 60); // default tomorrow
@@ -229,7 +228,6 @@ Deno.serve(async (req) => {
 
       if (commit) {
         if (wipeAll) {
-          // try wipe_all first, then fall back
           const { error } = await supabase.rpc("unschedule_auto_stages", {
             from_date: unscheduledFromDate,
             wipe_all: true,
@@ -238,12 +236,11 @@ Deno.serve(async (req) => {
             const { error: e2 } = await supabase.rpc("unschedule_auto_stages", {
               from_date: unscheduledFromDate,
             });
-            if (e2) {
+            if (e2)
               throw new Error(
                 "unschedule_auto_stages failed (wipe_all + fallback): " +
                   JSON.stringify({ with_wipe_all: error, fallback: e2 })
               );
-            }
           }
         } else {
           const { error } = await supabase.rpc("unschedule_auto_stages", {
@@ -285,7 +282,7 @@ Deno.serve(async (req) => {
         nuclear,
         startFrom: startFromStr || null,
         baseStart: baseStart?.toISOString() ?? null,
-        unscheduledFromDate,
+        unscheduledFromDate: unscheduledFromDate ?? null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
