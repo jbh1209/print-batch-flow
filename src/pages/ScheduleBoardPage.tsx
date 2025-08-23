@@ -13,10 +13,9 @@ export default function ScheduleBoardPage() {
 
   const handleReschedule = async () => {
     try {
-      // Optional UX
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      // today; the Edge Function will shift to the NEXT working day's first window
+      // Local YYYY-MM-DD; the Edge Function moves to the next working day's first window
       const startFrom = new Date().toISOString().slice(0, 10);
 
       const { data, error } = await supabase.functions.invoke("scheduler-run", {
@@ -25,19 +24,30 @@ export default function ScheduleBoardPage() {
           proposed: false,
           onlyIfUnset: false,
           nuclear: true,
-          startFrom,     // yyyy-mm-dd
-          wipeAll: true, // ask the RPC to wipe auto slots before planning
+          startFrom,    // yyyy-mm-dd
+          wipeAll: true // ask the DB to clear auto slots before planning
         },
       });
 
-      if (error) throw error;
-      console.log("scheduler-run response:", data);
+      // Surface the real server error body if present
+      if (error) {
+        const resp: Response | undefined = (error as any)?.context?.response;
+        if (resp) {
+          const text = await resp.text();
+          console.error("scheduler-run error body:", text);
+          try { toast.error?.(`Reschedule failed: ${text}`); } catch {}
+        }
+        throw error;
+      }
 
+      console.log("scheduler-run response:", data);
       await fetchSchedule();
       try { toast.success?.(`Rescheduled ${data?.scheduled ?? 0} stages`); } catch {}
-    } catch (e) {
+    } catch (e: any) {
       console.error("Reschedule failed:", e);
-      try { toast.error?.("Reschedule failed"); } catch {}
+      if (!e?.context?.response) {
+        try { toast.error?.(`Reschedule failed: ${e?.message ?? e}`); } catch {}
+      }
     }
   };
 
