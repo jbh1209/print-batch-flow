@@ -27,7 +27,7 @@ type Shift = {
   day_of_week: number; // 0..6 (Sun..Sat)
   is_working_day: boolean;
   shift_start_time: string; // "08:00:00"
-  shift_end_time: string; // "16:30:00"
+  shift_end_time: string;  // "16:30:00"
 };
 
 type Holiday = { date: string }; // 'YYYY-MM-DD...'
@@ -47,7 +47,7 @@ type ExportInput = {
       production_stage_id: string;
       stage_order: number | null;
 
-      // IMPORTANT: these names match your DB columns
+      // names match your DB columns
       actual_duration_minutes: number | null;
       estimated_duration_minutes: number | null;
       setup_time_minutes: number | null;
@@ -197,7 +197,7 @@ function planSchedule(input: ExportInput, baseStart: Date | null) {
 
     for (const ord of orders) {
       const sameOrder = stages.filter(
-        (s) (s.stage_order ?? 9999) === ord
+        (s) => (s.stage_order ?? 9999) === ord   // <-- FIXED: the missing =>
       );
 
       for (const st of sameOrder) {
@@ -216,7 +216,7 @@ function planSchedule(input: ExportInput, baseStart: Date | null) {
         const free = resourceFree.get(resource);
         if (free && free > earliest) earliest = free;
 
-        // ---------- MINUTES (fix: use the correct column names) ----------
+        // ---------- minutes (actual > estimated) + setup ----------
         const raw =
           Number.isFinite(st.actual_duration_minutes)
             ? (st.actual_duration_minutes as number)
@@ -228,7 +228,6 @@ function planSchedule(input: ExportInput, baseStart: Date | null) {
           ? (st.setup_time_minutes as number)
           : 0;
 
-        // keep a 1-minute floor to avoid zero-length segments
         const mins = Math.max(1, Math.round(raw + setup));
 
         const segs =
@@ -305,6 +304,11 @@ Deno.serve(async (req) => {
       );
     }
     const input = snap as ExportInput;
+    console.log("export snapshot:", {
+      jobs: input.jobs?.length ?? 0,
+      shifts: input.shifts?.length ?? 0,
+      holidays: input.holidays?.length ?? 0,
+    });
 
     // 2) Decide base start and optionally wipe existing auto slots
     let baseStart: Date | null = null;
@@ -348,6 +352,7 @@ Deno.serve(async (req) => {
 
     // 3) Plan
     const { updates } = planSchedule(input, baseStart);
+    console.log("planner updates:", updates.length);
 
     // 4) Apply to DB + mirror
     let applied: unknown = { updated: 0 };
@@ -395,6 +400,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
+    console.error("scheduler-run crash:", e);
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
