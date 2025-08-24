@@ -1,120 +1,168 @@
 // supabase/functions/scheduler-run/index.ts
+// Schedules job stages across working windows and writes the plan back to the DB.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-/* -------------------- helpers -------------------- */
+/* -------------------- CORS & time helpers -------------------- */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 const MS = 60_000;
-
 const addMin = (d: Date, m: number) => new Date(d.getTime() + m * MS);
 
-// accept boolean or "true"/"false"/"1"/"0"
-const asBool = (v: unknown, def: boolean) => {
+const parseClock = (t: string) => {
+  const [h, m, s = "0"] = (t || "0:0:0").split(":");
+  return { h: +h, m: +m, s: +s };
+};
+
+const asBool = (v: any, def: boolean) => {
   if (v === undefined || v === null) return def;
   if (typeof v === "boolean") return v;
   const s = String(v).toLowerCase().trim();
   return s === "true" || s === "1";
 };
 
-const toInt = (v: unknown, def = 0) => {
+const toInt = (v: any, def = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.round(n) : def;
 };
-
-const pickFirstNumber = (...vals: unknown[]) => {
+const firstPositive = (...vals: any[]) => {
   for (const v of vals) {
     const n = Number(v);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isFinite(n) && n > 0) return Math.round(n);
   }
   return 0;
 };
 
-function parseClock(t: string) {
-  // "HH:MM:SS" or "HH:MM"
-  const [h, m, s = "0"] = t.split(":");
-  return { h: +h, m: +m, s: +s };
-}
-
-function isHoliday(holidays: { date: string }[], day: Date) {
-  const y = day.getFullYear();
-  const mo = String(day.getMonth() + 1).padStart(2, "0");
-  const d = String(day.getDate()).padStart(2, "0");
-  return holidays.some((h) => h.date?.startsWith(`${y}-${mo}-${d}`));
-}
-
+/* -------------------- DB helpers -------------------- */
 type ShiftRow = {
-  day_of_week: number; // 0=Sun..6=Sat OR 1=Mon..7=Sun; works either way
+  day_of_week: number; // 0=Sun ... 6=Sat
   is_working_day: boolean;
   shift_start_time: string; // "08:00:00"
-  shift_end_time: string;   // "16:30:00"
+  shift_end_time: string; // "16:30:00"
 };
 
-type BreakRow = {
-  start_time: string; // "12:30:00"
-  minutes: number;
-};
+type HolidayRow = Record<string, any>;
 
-type Meta = {
-  shifts: ShiftRow[];
-  breaks: BreakRow[];
-  holidays: { date: string }[];
-};
-
-function dailyWindows(meta: Meta, day: Date) {
-  // support 0-based (Sun=0) or 1-based (Mon=1) DOW in your table
-  const jsDow = day.getDay(); // 0..6 Sun..Sat
-  const candidates = meta.shifts.filter((s) => {
-    const dow1 = s.day_of_week;       // table value
-    const dow0 = dow1 === 7 ? 0 : dow1; // convert 7->0 if present
-    const normalized = dow1 > 6 ? dow0 : dow1; // (0..6) or already (0..6)
-    return normalized === jsDow && s.is_working_day;
-  });
-
-  const wins: { start: Date; end: Date }[] = [];
-
-  for (const s of candidates) {
-    const st = parseClock(s.shift_start_time);
-    const et = parseClock(s.shift_end_time);
-    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), st.h, st.m, +st.s);
-    const end   = new Date(day.getFullYear(), day.getMonth(), day.getDate(), et.h, et.m, +et.s);
-    if (end <= start) continue;
-
-    // start with one window for the shift
-    let segs: { start: Date; end: Date }[] = [{ start, end }];
-
-    // subtract breaks if provided
-    for (const br of meta.breaks ?? []) {
-      const bt = parseClock(br.start_time);
-      const b0 = new Date(day.getFullYear(), day.getMonth(), day.getDate(), bt.h, bt.m, +bt.s);
-      const b1 = addMin(b0, toInt(br.minutes, 0));
-      const next: typeof segs = [];
-      for (const g of segs) {
-        if (b1 <= g.start || b0 >= g.end) {
-          next.push(g);
-        } else {
-          if (g.start < b0) next.push({ start: g.start, end: b0 });
-          if (b1 < g.end)   next.push({ start: b1,    end: g.end });
-        }
-      }
-      segs = next;
-    }
-
-    wins.push(...segs);
+async function loadShifts(supabase: any): Promise<ShiftRow[]> {
+  const { data, error } = await supabase
+    .from("shift_schedules")
+    .select("day_of_week,is_working_day,shift_start_time,shift_end_time")
+    .order("day_of_week", { ascending: true });
+  if (error) {
+    console.warn("shift_schedules not available, using defaults:", error);
   }
-
-  wins.sort((a, b) => a.start.getTime() - b.start.getTime());
-  return wins;
+  if (!data || !data.length) {
+    // Default: Mon–Fri 08:00–16:30
+    const def: ShiftRow[] = [];
+    for (let dow = 0; dow < 7; dow++) {
+      if (dow >= 1 && dow <= 5) {
+        def.push({
+          day_of_week: dow,
+          is_working_day: true,
+          shift_start_time: "08:00:00",
+          shift_end_time: "16:30:00",
+        });
+      } else {
+        def.push({
+          day_of_week: dow,
+          is_working_day: false,
+          shift_start_time: "00:00:00",
+          shift_end_time: "00:00:00",
+        });
+      }
+    }
+    return def;
+  }
+  // make sure DOW are 0..6
+  return data.map((r: any) => ({
+    day_of_week: toInt(r.day_of_week, 0),
+    is_working_day: !!r.is_working_day,
+    shift_start_time: String(r.shift_start_time ?? "08:00:00"),
+    shift_end_time: String(r.shift_end_time ?? "16:30:00"),
+  }));
 }
 
-function* iterWindows(meta: Meta, from: Date, horizonDays = 365) {
-  for (let i = 0; i < horizonDays; i++) {
-    const day = addMin(new Date(from.getFullYear(), from.getMonth(), from.getDate()), i * 24 * 60);
-    if (isHoliday(meta.holidays, day)) continue;
+async function loadHolidays(supabase: any): Promise<string[]> {
+  const { data, error } = await supabase.from("public_holidays").select("*");
+  if (error) {
+    console.warn("public_holidays not available, ignoring:", error);
+    return [];
+  }
+  const dates: string[] = [];
+  for (const row of data as HolidayRow[]) {
+    const d =
+      row.date ??
+      row.holiday_date ??
+      row.holiday ??
+      row.holidayDate ??
+      null;
+    if (!d) continue;
+    const s = String(d).slice(0, 10); // "YYYY-MM-DD"
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) dates.push(s);
+  }
+  return dates;
+}
 
-    for (const w of dailyWindows(meta, day)) {
+function isHoliday(holidayDates: string[], day: Date) {
+  const y = day.getFullYear();
+  const m = String(day.getMonth() + 1).padStart(2, "0");
+  const d = String(day.getDate()).padStart(2, "0");
+  return holidayDates.includes(`${y}-${m}-${d}`);
+}
+
+/* -------------------- working windows -------------------- */
+
+function dailyWindows(
+  shifts: ShiftRow[],
+  day: Date
+): { start: Date; end: Date }[] {
+  const dow = day.getDay(); // 0..6 (Sun..Sat)
+  const todays = shifts.filter(
+    (s) => toInt(s.day_of_week, 0) === dow && !!s.is_working_day
+  );
+  const wins: { start: Date; end: Date }[] = [];
+
+  for (const s of todays) {
+    const st = parseClock(s.shift_start_time);
+    const et = parseClock(s.shift_end_time);
+    const start = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      st.h,
+      st.m,
+      +st.s
+    );
+    const end = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      et.h,
+      et.m,
+      +et.s
+    );
+    if (end > start) wins.push({ start, end });
+  }
+  return wins.sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+function* iterWindows(
+  shifts: ShiftRow[],
+  holidays: string[],
+  from: Date,
+  horizonDays = 365
+) {
+  for (let i = 0; i < horizonDays; i++) {
+    const day = addMin(
+      new Date(from.getFullYear(), from.getMonth(), from.getDate()),
+      i * 24 * 60
+    );
+    if (isHoliday(holidays, day)) continue;
+    for (const w of dailyWindows(shifts, day)) {
       if (w.end <= from) continue;
       const s = new Date(Math.max(w.start.getTime(), from.getTime()));
       yield { start: s, end: w.end };
@@ -122,14 +170,25 @@ function* iterWindows(meta: Meta, from: Date, horizonDays = 365) {
   }
 }
 
-function placeDuration(meta: Meta, earliest: Date, minutes: number) {
-  let left = Math.max(0, Math.ceil(minutes));
+function nextWorkingStart(shifts: ShiftRow[], holidays: string[], from: Date) {
+  for (const w of iterWindows(shifts, holidays, from, 365)) return w.start;
+  return from;
+}
+
+function placeDuration(
+  shifts: ShiftRow[],
+  holidays: string[],
+  earliest: Date,
+  minutes: number
+) {
+  let left = Math.max(1, Math.ceil(minutes));
   const placed: { start: Date; end: Date }[] = [];
   let cursor = new Date(earliest);
-
-  for (const w of iterWindows(meta, cursor)) {
+  for (const w of iterWindows(shifts, holidays, cursor)) {
     if (left <= 0) break;
-    const cap = Math.floor((w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS);
+    const cap = Math.floor(
+      (w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS
+    );
     const use = Math.min(cap, left);
     if (use > 0) {
       const s = new Date(Math.max(w.start.getTime(), cursor.getTime()));
@@ -142,99 +201,113 @@ function placeDuration(meta: Meta, earliest: Date, minutes: number) {
   return placed;
 }
 
-function nextWorkingStart(meta: Meta, from: Date) {
-  for (const w of iterWindows(meta, from, 366)) return w.start;
-  return from;
+/* -------------------- planning -------------------- */
+/**
+ * We expect the export function to return something like:
+ * {
+ *   jobs: [{ id, proof_approved_at, stages: [{ id, production_stage_id, stage_order, ...duration fields... }] }],
+ *   meta: { ... }, // unused here
+ * }
+ * If you don't have `export_scheduler_input`, you can swap this to a view query.
+ */
+async function exportInput(supabase: any) {
+  const { data, error } = await supabase.rpc("export_scheduler_input");
+  if (error) throw new Error("export_scheduler_input failed: " + JSON.stringify(error));
+  return data;
 }
 
-/* -------------------- main planner -------------------- */
-type StageInput = {
-  id: string;
-  production_stage_id: string;
-  stage_order?: number | null;
-  // duration-ish fields (may or may not exist depending on your export)
-  actual_duration_minutes?: number;
-  actual_minutes?: number;
-  estimated_duration_minutes?: number;
-  estimated_minutes?: number;
-  scheduled_minutes?: number;
-  setup_time_minutes?: number;
-  setup_minutes?: number;
-};
+function planSchedule(
+  input: any,
+  shifts: ShiftRow[],
+  holidays: string[],
+  baseStart?: Date | null
+) {
+  // 1) order jobs by approval
+  const jobs = (input.jobs || [])
+    .filter((j: any) => j.proof_approved_at)
+    .map((j: any) => ({ ...j, approvedAt: new Date(j.proof_approved_at) }))
+    .sort((a: any, b: any) => a.approvedAt.getTime() - b.approvedAt.getTime());
 
-type JobInput = {
-  id: string;
-  proof_approved_at?: string | null;
-  stages: StageInput[];
-};
+  const updates: Array<{
+    id: string;
+    start_at: string;
+    end_at: string;
+    minutes: number;
+  }> = [];
 
-type ExportPayload = {
-  jobs: JobInput[];
-  meta?: Partial<Meta>;
-};
-
-function planSchedule(meta: Meta, jobs: JobInput[], baseStart?: Date) {
-  // order jobs by proof_approved_at
-  const ordered = jobs
-    .filter((j) => true) // allow all jobs; you can re-add proof gating if desired
-    .map((j) => ({
-      ...j,
-      approvedAt: j.proof_approved_at ? new Date(j.proof_approved_at) : new Date(0),
-    }))
-    .sort((a, b) => a.approvedAt.getTime() - b.approvedAt.getTime());
-
+  // Track resource availability
   const resourceFree = new Map<string, Date>();
-  const updates: { id: string; start_at: string; end_at: string; minutes: number }[] = [];
 
-  for (const job of ordered) {
-    const stages = [...job.stages].sort(
+  for (const job of jobs) {
+    const stages = [...(job.stages || [])].sort(
       (a, b) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999)
     );
 
-    // capture completion time per stage to chain same-order groups
+    const orders = Array.from(
+      new Set(stages.map((s: any) => s.stage_order ?? 9999))
+    ).sort((a, b) => a - b);
+
     const doneAt = new Map<string, Date>();
-    const orders = Array.from(new Set(stages.map((s) => s.stage_order ?? 9999))).sort((a, b) => a - b);
 
     for (const ord of orders) {
-      for (const st of stages.filter((s) => (s.stage_order ?? 9999) === ord)) {
-        const resource = st.production_stage_id;
+      for (const st of stages.filter(
+        (s: any) => (s.stage_order ?? 9999) === ord
+      )) {
+        const resource = String(st.production_stage_id);
+
         let earliest = job.approvedAt;
         if (baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
 
-        // chain after any earlier-order stage
+        // dependency: any lower order stages must be done
         for (const prev of stages) {
           if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
-            const end = doneAt.get(prev.id);
-            if (end && end > earliest) earliest = end;
+            const d = doneAt.get(prev.id);
+            if (d && d > earliest) earliest = d;
           }
         }
-        const free = resourceFree.get(resource);
-        if (free && free > earliest) earliest = free;
 
-        // ----- robust minutes: actual > estimated > scheduled + setup -----
-        const run = pickFirstNumber(
+        // resource-free
+        const rf = resourceFree.get(resource);
+        if (rf && rf > earliest) earliest = rf;
+
+        // minutes: (actual|estimated|scheduled) + setup
+        const run = firstPositive(
           st.actual_duration_minutes,
           st.actual_minutes,
           st.estimated_duration_minutes,
           st.estimated_minutes,
           st.scheduled_minutes
         );
-        const setup = pickFirstNumber(st.setup_time_minutes, st.setup_minutes);
+        const setup = firstPositive(st.setup_time_minutes, st.setup_minutes);
+        const mins = Math.max(1, toInt(run + setup, 0));
 
-        const mins = Math.max(1, toInt(run + setup, 0)); // never NaN, never < 1
-
+        // place across windows
         const segs =
-          mins > 0 ? placeDuration(meta, earliest, mins) : [{ start: earliest, end: earliest }];
+          mins > 0 ? placeDuration(shifts, holidays, earliest, mins) : [];
 
-        // If (for some reason) nothing placed, at least set a 1-minute block
-        const start = segs.length ? segs[0].start : new Date(earliest);
-        const end = segs.length ? segs[segs.length - 1].end : addMin(earliest, 1);
+        if (!segs.length) {
+          // no capacity found; leave as a 1-minute noop to avoid nulls
+          const s = nextWorkingStart(shifts, holidays, earliest);
+          const e = addMin(s, 1);
+          updates.push({
+            id: st.id,
+            start_at: s.toISOString(),
+            end_at: e.toISOString(),
+            minutes: 1,
+          });
+          doneAt.set(st.id, e);
+          resourceFree.set(resource, e);
+          continue;
+        }
+
+        const start = segs[0].start;
+        const end = segs[segs.length - 1].end;
 
         updates.push({
           id: st.id,
-          start_at: start.toISOString(),
-          end_at: end.toISOString(),
-          minutes: Math.max(mins, 1),
+          start_at: start.toISOString(), // UTC
+          end_at: end.toISOString(), // UTC
+          minutes: mins,
         });
 
         doneAt.set(st.id, end);
@@ -242,46 +315,27 @@ function planSchedule(meta: Meta, jobs: JobInput[], baseStart?: Date) {
       }
     }
   }
-
   return { updates };
 }
 
-/* -------------------- load meta directly from tables -------------------- */
-async function loadMeta(supabase: ReturnType<typeof createClient>): Promise<Meta> {
-  // shifts
-  const { data: shifts, error: shiftsErr } = await supabase
-    .from("shift_schedules")
-    .select("day_of_week, is_working_day, shift_start_time, shift_end_time")
-    .order("day_of_week", { ascending: true });
-
-  if (shiftsErr) throw new Error("shift_schedules query failed: " + JSON.stringify(shiftsErr));
-  const shiftRows: ShiftRow[] = (shifts ?? []) as any;
-
-  // holidays (optional)
-  let holidays: { date: string }[] = [];
-  const { data: hol, error: holErr } = await supabase.from("public_holidays").select("date");
-  if (!holErr && hol) holidays = hol as any;
-
-  // breaks (optional table; if you add one later, wire it up here)
-  const breaks: BreakRow[] = [];
-
-  return { shifts: shiftRows, breaks, holidays };
-}
-
 /* -------------------- handler -------------------- */
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
     const url = new URL(req.url);
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const qp = (k: string, def?: any) => (url.searchParams.get(k) ?? (body as any)[k] ?? def);
+    const body =
+      req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const qp = (k: string, def: any) => url.searchParams.get(k) ?? (body as any)[k] ?? def;
 
     const commit = asBool(qp("commit", true), true);
     const proposed = asBool(qp("proposed", false), false);
     const onlyIfUnset = asBool(qp("onlyIfUnset", true), true);
-    const nuclear = asBool(qp("nuclear", false), false);
-    const wipeAll = asBool(qp("wipeAll", false), false);
+    const nuclear = asBool(qp("nuclear", true), true); // default true for clean rebuild
+    const wipeAll = asBool(qp("wipeAll", true), true); // default true to avoid duplicates
     const startFromStr = String(qp("startFrom", "") ?? "");
     const startFrom = startFromStr ? new Date(startFromStr) : null;
 
@@ -290,7 +344,9 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceKey) {
       return new Response(
-        JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
+        JSON.stringify({
+          error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -299,23 +355,26 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // 1) Load jobs+stages via your export RPC
-    const { data: snap, error: exportErr } = await supabase.rpc("export_scheduler_input");
-    if (exportErr) throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
-    const exportInput = snap as ExportPayload;
+    // 0) Factory calendar
+    const [shifts, holidays] = await Promise.all([
+      loadShifts(supabase),
+      loadHolidays(supabase),
+    ]);
 
-    // 2) Build meta directly from tables so we *strictly* respect shifts/holidays
-    const meta = await loadMeta(supabase);
+    // 1) Snapshot jobs/stages ready to schedule
+    const snap = await exportInput(supabase);
 
-    // 3) Compute a base start date
-    let baseStart: Date | undefined;
-    let unscheduledFromDate: string | undefined;
+    // 2) Determine base start
+    let baseStart: Date | null = null;
+    let unscheduledFromDate: string | null = null;
+
     if (nuclear) {
       const seed = startFrom ? startFrom : addMin(new Date(), 24 * 60); // default tomorrow
-      baseStart = nextWorkingStart(meta, seed);
+      baseStart = nextWorkingStart(shifts, holidays, seed);
       unscheduledFromDate = baseStart.toISOString().slice(0, 10);
 
       if (commit) {
+        // Wipe auto rows to avoid duplicates
         if (wipeAll) {
           const { error } = await supabase.rpc("unschedule_auto_stages", {
             from_date: unscheduledFromDate,
@@ -342,28 +401,35 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4) Plan
-    const jobs = exportInput.jobs ?? [];
-    const { updates } = planSchedule(meta, jobs, baseStart);
+    // 3) Plan using real minutes + shifts/holidays
+    const { updates } = planSchedule(snap, shifts, holidays, baseStart);
 
-    // 5) Apply + mirror
+    // 4) Apply to DB (JSI) and rebuild the mirror table
     let applied: any = { updated: 0 };
     if (commit && updates.length) {
+      // Write back start/end + minutes to job_stage_instances
       const { data, error } = await supabase.rpc("apply_stage_updates_safe", {
         updates,
         commit: true,
         only_if_unset: onlyIfUnset,
         as_proposed: proposed,
       });
-      if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
+      if (error)
+        throw new Error(
+          "apply_stage_updates_safe failed: " + JSON.stringify(error)
+        );
       applied = data;
 
+      // Mirror to stage_time_slots
       const ids = updates.map((u) => u.id);
-      const { error: mirrorErr } = await supabase.rpc("mirror_jsi_to_stage_time_slots", {
-        p_stage_ids: ids,
-      });
+      const { error: mirrorErr } = await supabase.rpc(
+        "mirror_jsi_to_stage_time_slots",
+        { p_stage_ids: ids }
+      );
       if (mirrorErr)
-        throw new Error("mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr));
+        throw new Error(
+          "mirror_jsi_to_stage_time_slots failed: " + JSON.stringify(mirrorErr)
+        );
     }
 
     return new Response(
@@ -374,7 +440,7 @@ Deno.serve(async (req) => {
         nuclear,
         startFrom: startFromStr || null,
         baseStart: baseStart?.toISOString() ?? null,
-        unscheduledFromDate: unscheduledFromDate ?? null,
+        unscheduledFromDate,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
