@@ -108,12 +108,12 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
                       </div>
                       
                       <div className="text-xs text-muted-foreground space-y-1">
-                        {stage.scheduled_start_at && (
+                        {stage.start_hhmm && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {format(new Date(stage.scheduled_start_at), 'HH:mm')}
-                            {stage.scheduled_end_at && (
-                              <span> - {format(new Date(stage.scheduled_end_at), 'HH:mm')}</span>
+                            {stage.start_hhmm}
+                            {stage.end_hhmm && (
+                              <span> - {stage.end_hhmm}</span>
                             )}
                           </div>
                         )}

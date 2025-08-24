@@ -14,8 +14,8 @@ interface ReadOnlyScheduleBoardProps {
 }
 
 function StageCard({ stage }: { stage: ScheduledStageData }) {
-  const startTime = new Date(stage.scheduled_start_at);
-  const endTime = new Date(stage.scheduled_end_at);
+  const startTime = stage.start_hhmm;
+  const endTime = stage.end_hhmm;
   
   const formatTime = (date: Date) => 
     date.toLocaleTimeString('en-GB', { 
@@ -40,7 +40,7 @@ function StageCard({ stage }: { stage: ScheduledStageData }) {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatTime(startTime)} - {formatTime(endTime)}
+            {startTime} - {endTime}
           </div>
           <div>
             {stage.estimated_duration_minutes}min
