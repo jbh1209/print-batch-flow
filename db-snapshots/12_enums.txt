@@ -1,0 +1,404 @@
+[
+  {
+    "enum_schema": "auth",
+    "enum_name": "aal_level",
+    "label": "aal1",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "aal_level",
+    "label": "aal2",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "aal_level",
+    "label": "aal3",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "code_challenge_method",
+    "label": "s256",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "code_challenge_method",
+    "label": "plain",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "factor_status",
+    "label": "unverified",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "factor_status",
+    "label": "verified",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "factor_type",
+    "label": "totp",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "factor_type",
+    "label": "webauthn",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "factor_type",
+    "label": "phone",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "one_time_token_type",
+    "label": "confirmation_token",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "one_time_token_type",
+    "label": "reauthentication_token",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "one_time_token_type",
+    "label": "recovery_token",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "one_time_token_type",
+    "label": "email_change_token_new",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "one_time_token_type",
+    "label": "email_change_token_current",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "auth",
+    "enum_name": "one_time_token_type",
+    "label": "phone_change_token",
+    "enumsortorder": 6
+  },
+  {
+    "enum_schema": "net",
+    "enum_name": "request_status",
+    "label": "PENDING",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "net",
+    "enum_name": "request_status",
+    "label": "SUCCESS",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "net",
+    "enum_name": "request_status",
+    "label": "ERROR",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "batch_status",
+    "label": "pending",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "batch_status",
+    "label": "processing",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "batch_status",
+    "label": "completed",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "batch_status",
+    "label": "cancelled",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "batch_status",
+    "label": "sent_to_print",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "lamination_type",
+    "label": "gloss",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "lamination_type",
+    "label": "matt",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "lamination_type",
+    "label": "soft_touch",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "lamination_type",
+    "label": "none",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "mapping_type",
+    "label": "production_stage",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "mapping_type",
+    "label": "print_specification",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "mapping_type",
+    "label": "paper_specification",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "mapping_type",
+    "label": "delivery_specification",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "page_status",
+    "label": "queued",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "page_status",
+    "label": "batched",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "page_status",
+    "label": "completed",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "page_status",
+    "label": "cancelled",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "page_status",
+    "label": "sent_to_print",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "paper_type",
+    "label": "Matt",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "paper_type",
+    "label": "Gloss",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "printer_type",
+    "label": "HP 12000",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "printer_type",
+    "label": "HP 7900",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "production_status",
+    "label": "Pre-Press",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "production_status",
+    "label": "Printing",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "production_status",
+    "label": "Finishing",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "production_status",
+    "label": "Packaging",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "production_status",
+    "label": "Shipped",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "production_status",
+    "label": "Completed",
+    "enumsortorder": 6
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "sheet_size",
+    "label": "455x640mm",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "sheet_size",
+    "label": "530x750mm",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "sheet_size",
+    "label": "320x455mm",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "size_enum",
+    "label": "A6",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "size_enum",
+    "label": "A5",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "size_enum",
+    "label": "A4",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "size_enum",
+    "label": "DL",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "public",
+    "enum_name": "size_enum",
+    "label": "A3",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "action",
+    "label": "INSERT",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "action",
+    "label": "UPDATE",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "action",
+    "label": "DELETE",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "action",
+    "label": "TRUNCATE",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "action",
+    "label": "ERROR",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "eq",
+    "enumsortorder": 1
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "neq",
+    "enumsortorder": 2
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "lt",
+    "enumsortorder": 3
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "lte",
+    "enumsortorder": 4
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "gt",
+    "enumsortorder": 5
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "gte",
+    "enumsortorder": 6
+  },
+  {
+    "enum_schema": "realtime",
+    "enum_name": "equality_op",
+    "label": "in",
+    "enumsortorder": 7
+  }
+]

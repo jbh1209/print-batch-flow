@@ -1,0 +1,477 @@
+[
+  {
+    "table_schema": "auth",
+    "table_name": "audit_log_entries",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "flow_state",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "identities",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "instances",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_amr_claims",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_challenges",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_factors",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "one_time_tokens",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "refresh_tokens",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_providers",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_relay_states",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "schema_migrations",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sessions",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_domains",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_providers",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "users",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "cron",
+    "table_name": "job",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "cron",
+    "table_name": "job_run_details",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "extensions",
+    "table_name": "pg_stat_statements",
+    "table_type": "VIEW"
+  },
+  {
+    "table_schema": "extensions",
+    "table_name": "pg_stat_statements_info",
+    "table_type": "VIEW"
+  },
+  {
+    "table_schema": "net",
+    "table_name": "_http_response",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "net",
+    "table_name": "http_request_queue",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "active_job_assignments",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "app_settings",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "barcode_scan_log",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batch_allocation_logs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batch_job_references",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batches",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "box_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "business_card_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "categories",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "category_production_stages",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cover_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "daily_workload",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "departments",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "due_date_recalculation_queue",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "excel_import_mappings",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "flyer_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_print_specifications",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_priority_overrides",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_stage_instances",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "machine_availability",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "postcard_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "poster_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "print_specifications",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "printers",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_field_options",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_fields",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_page_templates",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_pages",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_specification_compatibility",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_types",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_schedule",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_stages",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "proof_links",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "public_holidays",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "scheduler_webhook_log",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "scheduling_decision_logs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "scheduling_integrity_logs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shift_schedules",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "sleeve_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_capacity_profiles",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_capacity_snapshots",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_groups",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_specifications",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_time_slots",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_workload_tracking",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "sticker_jobs",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_department_assignments",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_group_memberships",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_group_stage_permissions",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_groups",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_roles",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "v_jobs_ready_for_production",
+    "table_type": "VIEW"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "v_scheduler_stages_ready",
+    "table_type": "VIEW"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_21",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_22",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_23",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_24",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_25",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_26",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_27",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "schema_migrations",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "subscription",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "buckets",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "migrations",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "objects",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "s3_multipart_uploads",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "s3_multipart_uploads_parts",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "supabase_migrations",
+    "table_name": "schema_migrations",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_schema": "vault",
+    "table_name": "decrypted_secrets",
+    "table_type": "VIEW"
+  },
+  {
+    "table_schema": "vault",
+    "table_name": "secrets",
+    "table_type": "BASE TABLE"
+  }
+]

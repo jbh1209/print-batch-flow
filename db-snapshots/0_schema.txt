@@ -1,0 +1,194 @@
+[
+  {
+    "schema": "auth"
+  },
+  {
+    "schema": "cron"
+  },
+  {
+    "schema": "extensions"
+  },
+  {
+    "schema": "graphql"
+  },
+  {
+    "schema": "graphql_public"
+  },
+  {
+    "schema": "net"
+  },
+  {
+    "schema": "pg_temp_10"
+  },
+  {
+    "schema": "pg_temp_11"
+  },
+  {
+    "schema": "pg_temp_12"
+  },
+  {
+    "schema": "pg_temp_13"
+  },
+  {
+    "schema": "pg_temp_15"
+  },
+  {
+    "schema": "pg_temp_16"
+  },
+  {
+    "schema": "pg_temp_17"
+  },
+  {
+    "schema": "pg_temp_18"
+  },
+  {
+    "schema": "pg_temp_19"
+  },
+  {
+    "schema": "pg_temp_22"
+  },
+  {
+    "schema": "pg_temp_23"
+  },
+  {
+    "schema": "pg_temp_24"
+  },
+  {
+    "schema": "pg_temp_25"
+  },
+  {
+    "schema": "pg_temp_26"
+  },
+  {
+    "schema": "pg_temp_27"
+  },
+  {
+    "schema": "pg_temp_28"
+  },
+  {
+    "schema": "pg_temp_29"
+  },
+  {
+    "schema": "pg_temp_3"
+  },
+  {
+    "schema": "pg_temp_30"
+  },
+  {
+    "schema": "pg_temp_31"
+  },
+  {
+    "schema": "pg_temp_32"
+  },
+  {
+    "schema": "pg_temp_33"
+  },
+  {
+    "schema": "pg_temp_35"
+  },
+  {
+    "schema": "pg_temp_6"
+  },
+  {
+    "schema": "pg_temp_7"
+  },
+  {
+    "schema": "pg_temp_8"
+  },
+  {
+    "schema": "pg_toast_temp_10"
+  },
+  {
+    "schema": "pg_toast_temp_11"
+  },
+  {
+    "schema": "pg_toast_temp_12"
+  },
+  {
+    "schema": "pg_toast_temp_13"
+  },
+  {
+    "schema": "pg_toast_temp_15"
+  },
+  {
+    "schema": "pg_toast_temp_16"
+  },
+  {
+    "schema": "pg_toast_temp_17"
+  },
+  {
+    "schema": "pg_toast_temp_18"
+  },
+  {
+    "schema": "pg_toast_temp_19"
+  },
+  {
+    "schema": "pg_toast_temp_22"
+  },
+  {
+    "schema": "pg_toast_temp_23"
+  },
+  {
+    "schema": "pg_toast_temp_24"
+  },
+  {
+    "schema": "pg_toast_temp_25"
+  },
+  {
+    "schema": "pg_toast_temp_26"
+  },
+  {
+    "schema": "pg_toast_temp_27"
+  },
+  {
+    "schema": "pg_toast_temp_28"
+  },
+  {
+    "schema": "pg_toast_temp_29"
+  },
+  {
+    "schema": "pg_toast_temp_3"
+  },
+  {
+    "schema": "pg_toast_temp_30"
+  },
+  {
+    "schema": "pg_toast_temp_31"
+  },
+  {
+    "schema": "pg_toast_temp_32"
+  },
+  {
+    "schema": "pg_toast_temp_33"
+  },
+  {
+    "schema": "pg_toast_temp_35"
+  },
+  {
+    "schema": "pg_toast_temp_6"
+  },
+  {
+    "schema": "pg_toast_temp_7"
+  },
+  {
+    "schema": "pg_toast_temp_8"
+  },
+  {
+    "schema": "pgbouncer"
+  },
+  {
+    "schema": "public"
+  },
+  {
+    "schema": "realtime"
+  },
+  {
+    "schema": "storage"
+  },
+  {
+    "schema": "supabase_migrations"
+  },
+  {
+    "schema": "vault"
+  }
+]

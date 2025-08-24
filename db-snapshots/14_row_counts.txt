@@ -1,0 +1,477 @@
+[
+  {
+    "table_schema": "auth",
+    "table_name": "audit_log_entries",
+    "est_rows": 9728
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "flow_state",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "identities",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "instances",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_amr_claims",
+    "est_rows": 212
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_challenges",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "mfa_factors",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "one_time_tokens",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "refresh_tokens",
+    "est_rows": 3528
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_providers",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_relay_states",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "schema_migrations",
+    "est_rows": 61
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sessions",
+    "est_rows": 225
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_domains",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_providers",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "users",
+    "est_rows": 10
+  },
+  {
+    "table_schema": "cron",
+    "table_name": "job",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "cron",
+    "table_name": "job_run_details",
+    "est_rows": 8358
+  },
+  {
+    "table_schema": "extensions",
+    "table_name": "pg_stat_statements",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "extensions",
+    "table_name": "pg_stat_statements_info",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "net",
+    "table_name": "_http_response",
+    "est_rows": 180
+  },
+  {
+    "table_schema": "net",
+    "table_name": "http_request_queue",
+    "est_rows": 0
+  },
+  {
+    "table_schema": "public",
+    "table_name": "active_job_assignments",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "app_settings",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "barcode_scan_log",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batch_allocation_logs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batch_job_references",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batches",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "box_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "business_card_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "categories",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "category_production_stages",
+    "est_rows": 341
+  },
+  {
+    "table_schema": "public",
+    "table_name": "cover_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "daily_workload",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "departments",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "due_date_recalculation_queue",
+    "est_rows": 23
+  },
+  {
+    "table_schema": "public",
+    "table_name": "excel_import_mappings",
+    "est_rows": 879
+  },
+  {
+    "table_schema": "public",
+    "table_name": "flyer_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_print_specifications",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_priority_overrides",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_stage_instances",
+    "est_rows": 231
+  },
+  {
+    "table_schema": "public",
+    "table_name": "machine_availability",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "postcard_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "poster_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "print_specifications",
+    "est_rows": 62
+  },
+  {
+    "table_schema": "public",
+    "table_name": "printers",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_field_options",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_fields",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_page_templates",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_pages",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_specification_compatibility",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "product_types",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_jobs",
+    "est_rows": 23
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_schedule",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_stages",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "profiles",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "proof_links",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "public_holidays",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "scheduler_webhook_log",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "scheduling_decision_logs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "scheduling_integrity_logs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shift_schedules",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "sleeve_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_capacity_profiles",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_capacity_snapshots",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_groups",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_specifications",
+    "est_rows": 63
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_time_slots",
+    "est_rows": 150
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_workload_tracking",
+    "est_rows": 81
+  },
+  {
+    "table_schema": "public",
+    "table_name": "sticker_jobs",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_department_assignments",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_group_memberships",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_group_stage_permissions",
+    "est_rows": 114
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_groups",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "user_roles",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "v_jobs_ready_for_production",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "public",
+    "table_name": "v_scheduler_stages_ready",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_21",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_22",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_23",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_24",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_25",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_26",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "messages_2025_08_27",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "schema_migrations",
+    "est_rows": 63
+  },
+  {
+    "table_schema": "realtime",
+    "table_name": "subscription",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "buckets",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "migrations",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "objects",
+    "est_rows": 460
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "s3_multipart_uploads",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "storage",
+    "table_name": "s3_multipart_uploads_parts",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "supabase_migrations",
+    "table_name": "schema_migrations",
+    "est_rows": 163
+  },
+  {
+    "table_schema": "vault",
+    "table_name": "decrypted_secrets",
+    "est_rows": -1
+  },
+  {
+    "table_schema": "vault",
+    "table_name": "secrets",
+    "est_rows": -1
+  }
+]

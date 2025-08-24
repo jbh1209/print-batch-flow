@@ -1,0 +1,135 @@
+[
+  {
+    "table_schema": "auth",
+    "table_name": "one_time_tokens",
+    "constraint_name": "one_time_tokens_token_hash_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((char_length(token_hash) > 0))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_providers",
+    "constraint_name": "entity_id not empty",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((char_length(entity_id) > 0))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_providers",
+    "constraint_name": "metadata_url not empty",
+    "constraint_type": "CHECK",
+    "definition": "CHECK (((metadata_url = NULL::text) OR (char_length(metadata_url) > 0)))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_providers",
+    "constraint_name": "metadata_xml not empty",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((char_length(metadata_xml) > 0))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "saml_relay_states",
+    "constraint_name": "request_id not empty",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((char_length(request_id) > 0))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_domains",
+    "constraint_name": "domain not empty",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((char_length(domain) > 0))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "sso_providers",
+    "constraint_name": "resource_id not empty",
+    "constraint_type": "CHECK",
+    "definition": "CHECK (((resource_id = NULL::text) OR (char_length(resource_id) > 0)))"
+  },
+  {
+    "table_schema": "auth",
+    "table_name": "users",
+    "constraint_name": "users_email_change_confirm_status_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK (((email_change_confirm_status >= 0) AND (email_change_confirm_status <= 2)))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "batch_job_references",
+    "constraint_name": "batch_job_references_status_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "excel_import_mappings",
+    "constraint_name": "excel_import_mappings_confidence_score_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK (((confidence_score >= 1) AND (confidence_score <= 100)))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_stage_instances",
+    "constraint_name": "job_stage_instances_part_assignment_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((part_assignment = ANY (ARRAY['cover'::text, 'text'::text, 'both'::text, 'none'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_stage_instances",
+    "constraint_name": "job_stage_instances_part_type_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK (((part_type IS NULL) OR (part_type = ANY (ARRAY['cover'::text, 'text'::text, 'insert'::text]))))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_stage_instances",
+    "constraint_name": "job_stage_instances_scheduling_method_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((scheduling_method = ANY (ARRAY['manual'::text, 'auto'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "job_stage_instances",
+    "constraint_name": "job_stage_instances_status_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text, 'on_hold'::text, 'reworked'::text, 'awaiting_approval'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "machine_availability",
+    "constraint_name": "machine_availability_status_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((status = ANY (ARRAY['available'::text, 'maintenance'::text, 'breakdown'::text, 'offline'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_jobs",
+    "constraint_name": "production_jobs_due_date_warning_level_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((due_date_warning_level = ANY (ARRAY['green'::text, 'amber'::text, 'red'::text, 'critical'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "production_stages",
+    "constraint_name": "production_stages_speed_unit_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((speed_unit = ANY (ARRAY['sheets_per_hour'::text, 'items_per_hour'::text, 'minutes_per_item'::text])))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "shift_schedules",
+    "constraint_name": "shift_schedules_day_of_week_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK (((day_of_week >= 0) AND (day_of_week <= 6)))"
+  },
+  {
+    "table_schema": "public",
+    "table_name": "stage_specifications",
+    "constraint_name": "stage_specifications_speed_unit_check",
+    "constraint_type": "CHECK",
+    "definition": "CHECK ((speed_unit = ANY (ARRAY['sheets_per_hour'::text, 'items_per_hour'::text, 'minutes_per_item'::text])))"
+  }
+]

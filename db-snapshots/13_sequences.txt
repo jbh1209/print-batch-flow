@@ -1,0 +1,86 @@
+[
+  {
+    "sequence_schema": "auth",
+    "sequence_name": "refresh_tokens_id_seq",
+    "sequenceowner": "supabase_auth_admin",
+    "data_type": "bigint",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": "9223372036854775807",
+    "increment_by": 1,
+    "is_cycled": false,
+    "cache_size": 1
+  },
+  {
+    "sequence_schema": "cron",
+    "sequence_name": "jobid_seq",
+    "sequenceowner": "supabase_admin",
+    "data_type": "bigint",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": "9223372036854775807",
+    "increment_by": 1,
+    "is_cycled": false,
+    "cache_size": 1
+  },
+  {
+    "sequence_schema": "cron",
+    "sequence_name": "runid_seq",
+    "sequenceowner": "supabase_admin",
+    "data_type": "bigint",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": "9223372036854775807",
+    "increment_by": 1,
+    "is_cycled": false,
+    "cache_size": 1
+  },
+  {
+    "sequence_schema": "graphql",
+    "sequence_name": "seq_schema_version",
+    "sequenceowner": "supabase_admin",
+    "data_type": "integer",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": 2147483647,
+    "increment_by": 1,
+    "is_cycled": true,
+    "cache_size": 1
+  },
+  {
+    "sequence_schema": "net",
+    "sequence_name": "http_request_queue_id_seq",
+    "sequenceowner": "supabase_admin",
+    "data_type": "bigint",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": "9223372036854775807",
+    "increment_by": 1,
+    "is_cycled": false,
+    "cache_size": 1
+  },
+  {
+    "sequence_schema": "public",
+    "sequence_name": "scheduler_webhook_log_id_seq",
+    "sequenceowner": "postgres",
+    "data_type": "bigint",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": "9223372036854775807",
+    "increment_by": 1,
+    "is_cycled": false,
+    "cache_size": 1
+  },
+  {
+    "sequence_schema": "realtime",
+    "sequence_name": "subscription_id_seq",
+    "sequenceowner": "supabase_admin",
+    "data_type": "bigint",
+    "start_value": 1,
+    "min_value": 1,
+    "max_value": "9223372036854775807",
+    "increment_by": 1,
+    "is_cycled": false,
+    "cache_size": 1
+  }
+]
