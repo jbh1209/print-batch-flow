@@ -1,61 +1,72 @@
 // supabase/functions/scheduler-run/index.ts
-// Schedules job_stage_instances using exact minutes from DB and working windows.
-// - minutes = job_stage_instances.estimated_duration_minutes + setup_time_minutes
-// - respects shift_schedules + public_holidays
-// - handles timezone so 08:00 local (Africa/Johannesburg, UTC+2) is NOT shown as 10:00 on the board
-// - supports nuclear (wipe + rebuild from next working day)
+// Schedules newly-approved jobs (or all jobs, if you want), respecting working hours,
+// holidays, lunch breaks, machine exclusivity, and stage dependencies.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-/* -------------------- CORS (keeps browser console clean on errors) -------------------- */
+/* -------------------- CORS -------------------- */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 
-/* -------------------- Types we actually use -------------------- */
+/* -------------------- Types (loose to match your snapshot) -------------------- */
 type UUID = string;
 
 type ShiftRow = {
-  day_of_week: number;            // 0=Sun ... 6=Sat
+  day_of_week: number;            // 0..6, Sun..Sat
   shift_start_time: string;       // "08:00:00"
   shift_end_time: string;         // "16:30:00"
   is_working_day: boolean;
-  is_active?: boolean | null;
 };
 
-type HolidayRow = { date: string; is_active?: boolean | null };
+type HolidayRow = { date: string; name: string };
 
-type JobExport = {
+type StageRow = {
+  id: UUID;                       // job_stage_instances.id
   job_id: UUID;
-  proof_approved_at: string | null;
-  stages: Array<{
-    id: UUID;                     // job_stage_instances.id
-    job_id: UUID;
-    production_stage_id: UUID;
-    stage_order: number | null;
-    status?: string | null;
-  }>;
+  production_stage_id: UUID;
+  stage_order: number | null;     // dependency tier
+  // Stage name/group if present in your export (we’ll use it to skip PROOF/DTP/BATCH)
+  stage_name?: string | null;
+  stage_group?: string | null;
+
+  // Various duration fields that may exist in your DB:
+  estimated_minutes?: number | null;
+  setup_minutes?: number | null;
+
+  // Canonical columns we actually rely on after your latest dumps:
+  estimated_duration_minutes?: number | null; // jsi.estimated_duration_minutes
+  setup_time_minutes?: number | null;         // jsi.setup_time_minutes
+  scheduled_minutes?: number | null;          // jsi.scheduled_minutes (pre-filled)
 };
 
-type ExportSnapshot = {
-  meta?: { breaks?: { start_time: string; minutes: number }[] } | null;
+type JobRow = {
+  job_id: UUID;
+  wo_number?: string | null;
+  customer_name?: string | null;
+  quantity?: number | null;
+  due_date?: string | null;
+  proof_approved_at: string | null;
+  stages: StageRow[];
+};
+
+type Snapshot = {
+  meta: { generated_at: string; breaks?: { start_time: string; minutes: number }[] };
   shifts: ShiftRow[];
   holidays: HolidayRow[];
-  jobs: JobExport[];
+  routes?: any;
+  jobs: JobRow[];
 };
 
-type MinutesMap = Map<UUID, number>; // stage_instance_id -> minutes to schedule
+type PlacementUpdate = { id: UUID; start_at: string; end_at: string; minutes: number };
 
-type Placement = { id: UUID; start_at: string; end_at: string; minutes: number };
-
-/* -------------------- Small utils -------------------- */
+/* -------------------- Time helpers -------------------- */
 const MS = 60_000;
 const addMin = (d: Date, m: number) => new Date(d.getTime() + m * MS);
-const parseClock = (t: string) => { const [h, m, s = "0"] = t.split(":"); return { h:+h, m:+m, s:+s }; };
+const parseClock = (t: string) => { const [h, m, s = "0"] = t.split(":"); return { h: +h, m: +m, s: +s }; };
 
-// boolean-ish query/body values -> boolean
+// boolean coercion for qp/body flags
 const asBool = (v: unknown, def: boolean) => {
   if (v === undefined || v === null) return def;
   if (typeof v === "boolean") return v;
@@ -63,96 +74,70 @@ const asBool = (v: unknown, def: boolean) => {
   return s === "true" || s === "1";
 };
 
-// We’ll treat all shift times as **local Africa/Johannesburg** and store in DB as UTC.
-// Set via env if you ever change; default +120 minutes (UTC+2).
-const TZ_OFFSET_MIN = Number(Deno.env.get("TZ_OFFSET_MINUTES") ?? "120"); // +120 = Africa/Johannesburg
-
-// Construct a Date that represents a LOCAL (Africa/Johannesburg) clock time and returns it as a UTC Date.
-// Example: local 2025-08-25 08:00 → returns 2025-08-25 06:00Z (so the browser shows 08:00 in ZA).
-function localUTC(y: number, m0: number, d: number, hh: number, mm: number, ss = 0) {
-  const utc = new Date(Date.UTC(y, m0, d, hh, mm, ss));
-  return addMin(utc, -TZ_OFFSET_MIN);
-}
-
-function sameYMD(d: Date) {
-  return { y: d.getUTCFullYear(), m0: d.getUTCMonth(), d: d.getUTCDate() };
-}
-
-/* -------------------- Working windows -------------------- */
-function isHoliday(holidays: HolidayRow[], dayUTC: Date) {
-  const y = dayUTC.getUTCFullYear();
-  const m = String(dayUTC.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(dayUTC.getUTCDate()).padStart(2, "0");
-  // holidays.date is assumed YYYY-MM-DD in local; compare by string prefix
-  return holidays.some(h => (h.is_active ?? true) && h.date.startsWith(`${y}-${m}-${d}`));
-}
-
-function dayOfWeekLocal(dayUTC: Date): number {
-  // Convert UTC midnight to local clock to decide the local weekday
-  const local = addMin(dayUTC, TZ_OFFSET_MIN);
-  return local.getUTCDay(); // 0..6 (Sun..Sat) in local sense
+/* -------------------- Calendar windows (respects shifts, breaks, holidays) -------------------- */
+function isHoliday(holidays: HolidayRow[], day: Date) {
+  const y = day.getFullYear(), m = String(day.getMonth() + 1).padStart(2, "0"), d = String(day.getDate()).padStart(2, "0");
+  return holidays.some(h => h.date.startsWith(`${y}-${m}-${d}`));
 }
 
 type Interval = { start: Date; end: Date };
 
-function dailyWindows(snapshot: ExportSnapshot, dayUTC: Date): Interval[] {
+function dailyWindows(input: Snapshot, day: Date): Interval[] {
+  const dow = day.getDay();
+  const todays = input.shifts.filter(s => s.day_of_week === dow && s.is_working_day);
   const wins: Interval[] = [];
-  const dowLocal = dayOfWeekLocal(dayUTC);
-  const todays = snapshot.shifts.filter(s => (s.is_active ?? true) && s.day_of_week === dowLocal && s.is_working_day);
-  for (const s of todays) {
-    const st = parseClock(s.shift_start_time);
-    const et = parseClock(s.shift_end_time);
-    if (et.h < st.h || (et.h === st.h && et.m <= st.m)) continue; // ignore invalid windows
 
-    const { y, m0, d } = sameYMD(dayUTC);
-    // build the window edges at **local** times then convert to UTC
-    const start = localUTC(y, m0, d, st.h, st.m, +st.s);
-    const end   = localUTC(y, m0, d, et.h, et.m, +et.s);
+  for (const s of todays) {
+    const st = parseClock(s.shift_start_time), et = parseClock(s.shift_end_time);
+    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), st.h, st.m, +st.s);
+    const end   = new Date(day.getFullYear(), day.getMonth(), day.getDate(), et.h, et.m, +et.s);
     if (end <= start) continue;
 
-    // apply breaks (local)
     let segs: Interval[] = [{ start, end }];
-    const breaks = snapshot.meta?.breaks ?? []; // e.g. [{start_time:"13:00:00", minutes:30}]
-    for (const br of breaks) {
+
+    // Split out lunch (and any other breaks you configure in export_scheduler_input.meta.breaks)
+    for (const br of input.meta.breaks ?? []) {
       const bt = parseClock(br.start_time);
-      const b0 = localUTC(y, m0, d, bt.h, bt.m, +bt.s);
+      const b0 = new Date(day.getFullYear(), day.getMonth(), day.getDate(), bt.h, bt.m, +bt.s);
       const b1 = addMin(b0, br.minutes);
       const next: Interval[] = [];
       for (const g of segs) {
-        if (b1 <= g.start || b0 >= g.end) { next.push(g); continue; }
-        if (g.start < b0) next.push({ start: g.start, end: b0 });
-        if (b1 < g.end)   next.push({ start: b1, end: g.end });
+        if (b1 <= g.start || b0 >= g.end) next.push(g);
+        else {
+          if (g.start < b0) next.push({ start: g.start, end: b0 });
+          if (b1 < g.end)   next.push({ start: b1, end: g.end });
+        }
       }
       segs = next;
     }
     wins.push(...segs);
   }
-  wins.sort((a,b)=>a.start.getTime()-b.start.getTime());
-  return wins;
+
+  // strictly sorted
+  return wins.sort((a,b) => a.start.getTime() - b.start.getTime());
 }
 
-function* iterWindows(snapshot: ExportSnapshot, fromUTC: Date, horizonDays=365): Generator<Interval> {
-  // Iterate day by day in UTC-midnight steps (we only care about local windows inside each day)
-  const day0 = new Date(Date.UTC(fromUTC.getUTCFullYear(), fromUTC.getUTCMonth(), fromUTC.getUTCDate()));
-  for (let i=0;i<horizonDays;i++) {
-    const dayUTC = addMin(day0, i*24*60);
-    if (isHoliday(snapshot.holidays, dayUTC)) continue;
-    for (const w of dailyWindows(snapshot, dayUTC)) {
-      if (w.end <= fromUTC) continue;
-      const start = new Date(Math.max(w.start.getTime(), fromUTC.getTime()));
-      yield { start, end: w.end };
+function* iterWindows(input: Snapshot, from: Date, horizonDays = 365): Generator<Interval> {
+  for (let i = 0; i < horizonDays; i++) {
+    const day = addMin(new Date(from.getFullYear(), from.getMonth(), from.getDate()), i * 24 * 60);
+    if (isHoliday(input.holidays, day)) continue;
+    for (const w of dailyWindows(input, day)) {
+      if (w.end <= from) continue;
+      const s = new Date(Math.max(w.start.getTime(), from.getTime()));
+      yield { start: s, end: w.end };
     }
   }
 }
 
-function placeDuration(snapshot: ExportSnapshot, earliestUTC: Date, minutes: number): Interval[] {
+function placeDuration(input: Snapshot, earliest: Date, minutes: number): Interval[] {
   let left = Math.max(0, Math.ceil(minutes));
   const placed: Interval[] = [];
-  let cursor = new Date(earliestUTC);
-  for (const w of iterWindows(snapshot, cursor)) {
-    if (left<=0) break;
-    const capMin = Math.floor((w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime()))/MS);
-    const use = Math.min(capMin, left);
+  let cursor = new Date(earliest);
+
+  for (const w of iterWindows(input, cursor)) {
+    if (left <= 0) break;
+    const cap = Math.floor((w.end.getTime() - Math.max(w.start.getTime(), cursor.getTime())) / MS);
+    const use = Math.min(cap, left);
     if (use > 0) {
       const s = new Date(Math.max(w.start.getTime(), cursor.getTime()));
       const e = addMin(s, use);
@@ -164,86 +149,88 @@ function placeDuration(snapshot: ExportSnapshot, earliestUTC: Date, minutes: num
   return placed;
 }
 
-function nextWorkingStart(snapshot: ExportSnapshot, seedUTC: Date): Date {
-  for (const w of iterWindows(snapshot, seedUTC, 366)) return w.start;
-  return seedUTC;
+function nextWorkingStart(input: Snapshot, from: Date): Date {
+  for (const w of iterWindows(input, from)) return w.start;
+  return from;
 }
 
-/* -------------------- Minutes source: job_stage_instances -------------------- */
-// We only trust the per-stage minutes **as imported by your matrix parser**:
-// minutes = COALESCE(estimated_duration_minutes, 0) + COALESCE(setup_time_minutes, 0)
-async function loadMinutesMap(supabase: ReturnType<typeof createClient>): Promise<MinutesMap> {
-  const map: MinutesMap = new Map();
-  // pull only the columns we need
-  const { data, error } = await supabase
-    .from("job_stage_instances")
-    .select("id, estimated_duration_minutes, setup_time_minutes")
-    .limit(10000); // plenty; adjust if you expect more
+/* -------------------- Core planner -------------------- */
 
-  if (error) throw new Error("loadMinutesMap failed: " + JSON.stringify(error));
+// exclude very-early pipeline stages from scheduling board if you want
+const EXCLUDE_STAGE_NAMES = new Set(["PROOF", "DTP", "BATCH"]);
 
-  for (const row of (data ?? [])) {
-    const est = Number(row.estimated_duration_minutes ?? 0);
-    const setup = Number(row.setup_time_minutes ?? 0);
-    const mins = Math.max(0, Math.round(est + setup));
-    map.set(row.id as UUID, mins);
-  }
-  return map;
+function minutesForStage(st: StageRow): number {
+  // Order of preference (run + setup):
+  // run: scheduled_minutes (if already computed) → estimated_duration_minutes → estimated_minutes → 0
+  // setup: setup_time_minutes → setup_minutes → 0
+  const run =
+    (st.scheduled_minutes ?? st.estimated_duration_minutes ?? st.estimated_minutes ?? 0) as number;
+  const setup =
+    (st.setup_time_minutes ?? st.setup_minutes ?? 0) as number;
+
+  return Math.max(1, Math.round(run + setup)); // never zero
 }
 
-/* -------------------- Core scheduling -------------------- */
-function plan(snapshot: ExportSnapshot, minutesMap: MinutesMap, baseStartUTC?: Date): Placement[] {
-  // Jobs: only those with approved proof
-  const jobs = snapshot.jobs
-    .filter(j => !!j.proof_approved_at)
-    .map(j => ({ ...j, approvedAtUTC: new Date(j.proof_approved_at as string) }))
-    .sort((a,b)=> a.approvedAtUTC.getTime() - b.approvedAtUTC.getTime());
+function planSchedule(input: Snapshot, baseStart?: Date, onlyJobIds?: UUID[]) {
+  // Filter jobs: approved and optionally restricted list
+  const jobs = input.jobs
+    .filter(j => j.proof_approved_at)
+    .filter(j => !onlyJobIds || onlyJobIds.includes(j.job_id))
+    .map(j => ({ ...j, approvedAt: new Date(j.proof_approved_at as string) }))
+    .sort((a, b) => a.approvedAt.getTime() - b.approvedAt.getTime());
 
-  const updates: Placement[] = [];
-  const resourceFree = new Map<UUID, Date>(); // production_stage_id -> next free UTC
-  const doneAt = new Map<UUID, Date>();       // stage_instance_id -> end UTC (for internal chain)
+  const resourceFree = new Map<UUID, Date>();     // production_stage_id → next free time
+  const doneAtByStage = new Map<UUID, Date>();    // stage_instance_id → end time
+  const updates: PlacementUpdate[] = [];
 
   for (const job of jobs) {
-    // Sort stages by explicit stage_order; keep ties parallel (same order can run simultaneously on different machines)
-    const stages = [...job.stages].sort((a,b)=>(a.stage_order ?? 9999)-(b.stage_order ?? 9999));
+    // Respect dependencies: lower stage_order must complete first.
+    const stages = [...job.stages]
+      // optionally exclude DTP/PROOF/BATCH rows from being placed on the board
+      .filter(s => !s.stage_name || !EXCLUDE_STAGE_NAMES.has(String(s.stage_name).toUpperCase()))
+      .sort((a,b) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999));
 
-    // We schedule **every** stage instance in the export (except clearly completed)
-    for (const st of stages) {
-      // Skip completed stages if export provided status
-      if ((st as any).status === "completed") continue;
+    // Distinct "tiers" (all of the same order can run in parallel if on different resources)
+    const orders = Array.from(new Set(stages.map(s => s.stage_order ?? 9999))).sort((a,b)=>a-b);
 
-      const mins = minutesMap.get(st.id) ?? 0; // exact minutes from DB
-      // earliest = max(approval, baseStart, predecessors end, resource free)
-      let earliest = new Date(job.approvedAtUTC);
-      if (baseStartUTC) earliest = new Date(Math.max(earliest.getTime(), baseStartUTC.getTime()));
+    for (const ord of orders) {
+      // For every stage in this tier
+      const tierStages = stages.filter(s => (s.stage_order ?? 9999) === ord);
+      for (const st of tierStages) {
+        const resource = st.production_stage_id;
 
-      // chain predecessors (any stage with strictly smaller stage_order)
-      for (const prev of stages) {
-        const po = prev.stage_order ?? 9999;
-        const so = st.stage_order ?? 9999;
-        if (po < so) {
-          const prevEnd = doneAt.get(prev.id);
-          if (prevEnd && prevEnd > earliest) earliest = prevEnd;
+        // Earliest start is max of: job approvedAt, baseStart (if nuclear), predecessors’ end, resource-free
+        let earliest = job.approvedAt;
+        if (baseStart) earliest = new Date(Math.max(earliest.getTime(), baseStart.getTime()));
+
+        // Predecessors = any stage with lower order (we already sorted and have tiers)
+        for (const pred of stages) {
+          if ((pred.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
+            const predEnd = doneAtByStage.get(pred.id);
+            if (predEnd && predEnd > earliest) earliest = predEnd;
+          }
         }
+
+        const free = resourceFree.get(resource);
+        if (free && free > earliest) earliest = free;
+
+        // Actual minutes:
+        const mins = minutesForStage(st);
+
+        // Place across working windows (auto carries over past 16:30, skips lunch & holidays)
+        const segs = placeDuration(input, earliest, mins);
+        const start = segs[0].start;
+        const end   = segs[segs.length - 1].end;
+
+        updates.push({ id: st.id, start_at: start.toISOString(), end_at: end.toISOString(), minutes: mins });
+
+        doneAtByStage.set(st.id, end);
+        resourceFree.set(resource, end);
       }
-
-      // resource availability (per production_stage_id)
-      const freeAt = resourceFree.get(st.production_stage_id);
-      if (freeAt && freeAt > earliest) earliest = freeAt;
-
-      // place minutes inside windows; zero minutes => keep at earliest instant
-      const segs = mins > 0 ? placeDuration(snapshot, earliest, mins) : [{ start: earliest, end: earliest }];
-      const start = segs[0].start;
-      const end   = segs[segs.length - 1].end;
-
-      updates.push({ id: st.id, start_at: start.toISOString(), end_at: end.toISOString(), minutes: mins });
-
-      doneAt.set(st.id, end);
-      resourceFree.set(st.production_stage_id, end);
     }
   }
 
-  return updates;
+  return { updates, jobs_considered: jobs.length };
 }
 
 /* -------------------- HTTP handler -------------------- */
@@ -251,102 +238,87 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const url  = new URL(req.url);
+    const url = new URL(req.url);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const qp = (k: string, def?: any) => url.searchParams.get(k) ?? (body as any)[k] ?? def;
 
-    const commit      = asBool(qp("commit", true),  true);
-    const proposed    = asBool(qp("proposed", false), false);
-    const onlyIfUnset = asBool(qp("onlyIfUnset", true), true);
-    const nuclear     = asBool(qp("nuclear", false), false);
-    const wipeAll     = asBool(qp("wipeAll", false), false);
-    const startFrom   = (qp("startFrom", "") as string) || "";
+    // flags & filters
+    const commit      = asBool(url.searchParams.get("commit")      ?? (body as any).commit,      true);
+    const proposed    = asBool(url.searchParams.get("proposed")    ?? (body as any).proposed,    false);
+    const onlyIfUnset = asBool(url.searchParams.get("onlyIfUnset") ?? (body as any).onlyIfUnset, true);
+    const nuclear     = asBool(url.searchParams.get("nuclear")     ?? (body as any).nuclear,     false);
+    const wipeAll     = asBool(url.searchParams.get("wipeAll")     ?? (body as any).wipeAll,     false);
+
+    // Optional: schedule only these job IDs (array of UUIDs as JSON)
+    const onlyJobIds: UUID[] | undefined = (body as any).onlyJobIds ?? undefined;
+
+    // Optional nuclear anchor date (yyyy-mm-dd). If omitted, we shift from "tomorrow".
+    const startFromStr = (url.searchParams.get("startFrom") ?? (body as any).startFrom ?? "") as string;
+    const startFrom = startFromStr ? new Date(startFromStr) : null;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SUPABASE_URL_INTERNAL");
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceKey) {
       return new Response(JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
     const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    // 1) Export snapshot (shifts/holidays/jobs+stages) from your DB view
+    // 1) Snapshot from DB
     const { data: snap, error: exportErr } = await supabase.rpc("export_scheduler_input");
     if (exportErr) throw new Error("export_scheduler_input failed: " + JSON.stringify(exportErr));
-    const snapshot = (snap ?? {}) as ExportSnapshot;
+    const input = snap as Snapshot;
 
-    // Ensure we have at least a default lunch break if none was provided (13:00, 30m)
-    if (!snapshot.meta) snapshot.meta = {};
-    if (!snapshot.meta.breaks || snapshot.meta.breaks.length === 0) {
-      snapshot.meta.breaks = [{ start_time: "13:00:00", minutes: 30 }];
-    }
-
-    // 2) Minutes map (exact minutes from job_stage_instances)
-    const minutesMap = await loadMinutesMap(supabase);
-
-    // 3) Determine base start for nuclear runs (next working day's first window)
-    let baseStartUTC: Date | undefined;
-    let unscheduledFromDate: string | null = null;
-
+    // 2) Nuclear base start (and optional clearing)
+    let baseStart: Date | undefined;
     if (nuclear) {
-      const seed = startFrom
-        ? new Date(startFrom + "T00:00:00Z")
-        : new Date(); // now
-      // shift seed to *local midnight* so "next working window" lands on the right day
-      const localMidnightUTC = localUTC(seed.getUTCFullYear(), seed.getUTCMonth(), seed.getUTCDate(), 0, 0, 0);
-      baseStartUTC = nextWorkingStart(snapshot, addMin(localMidnightUTC, 1)); // +1 minute to avoid boundary issues
-
-      unscheduledFromDate = ((): string => {
-        const d = addMin(baseStartUTC!, TZ_OFFSET_MIN); // turn UTC back into local date string
-        const y = d.getUTCFullYear(), m = String(d.getUTCMonth()+1).padStart(2,"0"), day = String(d.getUTCDate()).padStart(2,"0");
-        return `${y}-${m}-${day}`;
-      })();
-
+      const seed = startFrom ? startFrom : addMin(new Date(), 24 * 60); // default = tomorrow
+      baseStart = nextWorkingStart(input, seed);
       if (commit) {
-        // Try wide wipe if available; else plain from_date
+        // tolerant wipe: try (from_date, wipe_all) → fall back to (from_date)
+        const from_date = baseStart.toISOString().slice(0, 10);
         if (wipeAll) {
-          const { error: w1 } = await supabase.rpc("unschedule_auto_stages", { from_date: unscheduledFromDate, wipe_all: true });
-          if (w1) {
-            const { error: w2 } = await supabase.rpc("unschedule_auto_stages", { from_date: unscheduledFromDate });
-            if (w2) throw new Error("unschedule_auto_stages failed: " + JSON.stringify({ with_wipe_all: w1, fallback: w2 }));
+          const { error: e1 } = await supabase.rpc("unschedule_auto_stages", { from_date, wipe_all: true });
+          if (e1) {
+            const { error: e2 } = await supabase.rpc("unschedule_auto_stages", { from_date });
+            if (e2) throw new Error("unschedule_auto_stages failed (wipe_all + fallback): " + JSON.stringify({ e1, e2 }));
           }
         } else {
-          const { error: w } = await supabase.rpc("unschedule_auto_stages", { from_date: unscheduledFromDate });
-          if (w) throw new Error("unschedule_auto_stages failed: " + JSON.stringify(w));
+          const { error } = await supabase.rpc("unschedule_auto_stages", { from_date });
+          if (error) throw new Error("unschedule_auto_stages failed: " + JSON.stringify(error));
         }
       }
     }
 
-    // 4) Plan placements
-    const updates = plan(snapshot, minutesMap, baseStartUTC);
+    // 3) Plan (optionally for only specific jobs)
+    const { updates, jobs_considered } = planSchedule(input, baseStart, onlyJobIds);
 
-    // 5) Apply to DB
+    // 4) Apply to DB (job_stage_instances.*_at + *_minutes). The UI reads from JSI.
     let applied: unknown = { updated: 0 };
     if (commit && updates.length) {
       const { data, error } = await supabase.rpc("apply_stage_updates_safe", {
-        updates, commit: true, only_if_unset: onlyIfUnset, as_proposed: proposed
+        updates,
+        commit: true,
+        only_if_unset: onlyIfUnset,
+        as_proposed: proposed,
       });
       if (error) throw new Error("apply_stage_updates_safe failed: " + JSON.stringify(error));
       applied = data;
     }
 
-    // Return debug info so we can see tz and baseStart clearly
     return new Response(JSON.stringify({
       ok: true,
+      jobs_considered,
       scheduled: updates.length,
       applied,
-      tz_offset_minutes: TZ_OFFSET_MIN,
       nuclear,
-      startFrom: startFrom || null,
-      baseStartUTC: baseStartUTC?.toISOString() ?? null,
-      unscheduledFromDate
+      onlyJobIds: onlyJobIds?.length ?? 0,
+      baseStart: baseStart?.toISOString() ?? null,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
