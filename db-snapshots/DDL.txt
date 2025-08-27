@@ -1,0 +1,970 @@
+[
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 2,
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 3,
+    "column_name": "job_table_name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 4,
+    "column_name": "category_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 5,
+    "column_name": "production_stage_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 6,
+    "column_name": "stage_order",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 7,
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": "'pending'::text"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 8,
+    "column_name": "started_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 9,
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 10,
+    "column_name": "started_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 11,
+    "column_name": "completed_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 12,
+    "column_name": "notes",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 13,
+    "column_name": "qr_scan_data",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 14,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 15,
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 16,
+    "column_name": "part_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 17,
+    "column_name": "printer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 18,
+    "column_name": "rework_count",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 19,
+    "column_name": "rework_reason",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 20,
+    "column_name": "previous_stage_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 21,
+    "column_name": "is_rework",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 22,
+    "column_name": "proof_emailed_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 23,
+    "column_name": "proof_approved_manually_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 24,
+    "column_name": "client_email",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 25,
+    "column_name": "client_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 26,
+    "column_name": "proof_pdf_url",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 27,
+    "column_name": "job_order_in_stage",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "1"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 28,
+    "column_name": "part_type",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 29,
+    "column_name": "dependency_group",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 30,
+    "column_name": "stage_specification_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 31,
+    "column_name": "quantity",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 32,
+    "column_name": "estimated_duration_minutes",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 33,
+    "column_name": "actual_duration_minutes",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 34,
+    "column_name": "setup_time_minutes",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 35,
+    "column_name": "unique_stage_key",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 36,
+    "column_name": "part_assignment",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'both'::text"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 37,
+    "column_name": "scheduled_start_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 38,
+    "column_name": "scheduled_end_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 39,
+    "column_name": "scheduled_minutes",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 40,
+    "column_name": "schedule_status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'unscheduled'::text"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 41,
+    "column_name": "queue_position",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 42,
+    "column_name": "is_split_job",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 43,
+    "column_name": "split_job_part",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "1"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 44,
+    "column_name": "split_job_total_parts",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "1"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 45,
+    "column_name": "scheduling_method",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'auto'::text"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "ordinal_position": 46,
+    "column_name": "scheduled_by_user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 2,
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 3,
+    "column_name": "wo_no",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 4,
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'Pre-Press'::text"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 5,
+    "column_name": "so_no",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 6,
+    "column_name": "qt_no",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 7,
+    "column_name": "date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 8,
+    "column_name": "rep",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 9,
+    "column_name": "user_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 10,
+    "column_name": "category",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 11,
+    "column_name": "customer",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 12,
+    "column_name": "reference",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 13,
+    "column_name": "qty",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 14,
+    "column_name": "due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 15,
+    "column_name": "location",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 16,
+    "column_name": "highlighted",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 17,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 18,
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 19,
+    "column_name": "qr_code_data",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 20,
+    "column_name": "qr_code_url",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 21,
+    "column_name": "category_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 22,
+    "column_name": "has_custom_workflow",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 23,
+    "column_name": "manual_due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 24,
+    "column_name": "manual_sla_days",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 25,
+    "column_name": "is_expedited",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 26,
+    "column_name": "expedited_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 27,
+    "column_name": "expedited_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 28,
+    "column_name": "expedite_reason",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 29,
+    "column_name": "batch_category",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 30,
+    "column_name": "batch_ready",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 31,
+    "column_name": "batch_allocated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 32,
+    "column_name": "batch_allocated_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 33,
+    "column_name": "is_batch_master",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 34,
+    "column_name": "size",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 35,
+    "column_name": "specification",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 36,
+    "column_name": "contact",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 37,
+    "column_name": "paper_specifications",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 38,
+    "column_name": "delivery_specifications",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 39,
+    "column_name": "finishing_specifications",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 40,
+    "column_name": "prepress_specifications",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 41,
+    "column_name": "printing_specifications",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 42,
+    "column_name": "operation_quantities",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": "'{}'::jsonb"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 43,
+    "column_name": "due_date_warning_level",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'green'::text"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 44,
+    "column_name": "last_due_date_check",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 45,
+    "column_name": "due_date_buffer_days",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "1"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 46,
+    "column_name": "internal_completion_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 47,
+    "column_name": "due_date_locked",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 48,
+    "column_name": "tentative_due_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_jobs",
+    "ordinal_position": 49,
+    "column_name": "proof_approved_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 2,
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 3,
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 4,
+    "column_name": "order_index",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": "0"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 5,
+    "column_name": "color",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'#6B7280'::text"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 6,
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "true"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 7,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 8,
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 9,
+    "column_name": "supports_parts",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 10,
+    "column_name": "running_speed_per_hour",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 11,
+    "column_name": "make_ready_time_minutes",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "10"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 12,
+    "column_name": "speed_unit",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'sheets_per_hour'::text"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 13,
+    "column_name": "ignore_excel_quantity",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "production_stages",
+    "ordinal_position": 14,
+    "column_name": "stage_group_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 1,
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 2,
+    "column_name": "production_stage_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 3,
+    "column_name": "date",
+    "data_type": "date",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 4,
+    "column_name": "slot_start_time",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 5,
+    "column_name": "slot_end_time",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 6,
+    "column_name": "duration_minutes",
+    "data_type": "integer",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 7,
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 8,
+    "column_name": "job_table_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'production_jobs'::text"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 9,
+    "column_name": "stage_instance_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 10,
+    "column_name": "is_completed",
+    "data_type": "boolean",
+    "is_nullable": "NO",
+    "column_default": "false"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 11,
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "ordinal_position": 12,
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "NO",
+    "column_default": "now()"
+  }
+]

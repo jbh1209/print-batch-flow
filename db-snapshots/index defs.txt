@@ -1,0 +1,137 @@
+[
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_custom",
+    "indexdef": "CREATE INDEX idx_job_stage_instances_custom ON public.job_stage_instances USING btree (job_id, job_table_name) WHERE (category_id IS NULL)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_job_scoped_unique",
+    "indexdef": "CREATE UNIQUE INDEX idx_job_stage_instances_job_scoped_unique ON public.job_stage_instances USING btree (job_id, job_table_name, production_stage_id, COALESCE((stage_specification_id)::text, ''::text), COALESCE(part_name, ''::text), COALESCE(unique_stage_key, (production_stage_id)::text))"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_job_status",
+    "indexdef": "CREATE INDEX idx_job_stage_instances_job_status ON public.job_stage_instances USING btree (job_id, job_table_name, status)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_part",
+    "indexdef": "CREATE INDEX idx_job_stage_instances_part ON public.job_stage_instances USING btree (job_id, part_name)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_printer",
+    "indexdef": "CREATE INDEX idx_job_stage_instances_printer ON public.job_stage_instances USING btree (printer_id)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_specification_id",
+    "indexdef": "CREATE INDEX idx_job_stage_instances_specification_id ON public.job_stage_instances USING btree (stage_specification_id)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_stage_order",
+    "indexdef": "CREATE INDEX idx_job_stage_instances_stage_order ON public.job_stage_instances USING btree (job_id, job_table_name, stage_order)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_instances_unique_simple",
+    "indexdef": "CREATE UNIQUE INDEX idx_job_stage_instances_unique_simple ON public.job_stage_instances USING btree (job_id, job_table_name, production_stage_id) WHERE ((stage_specification_id IS NULL) AND (part_name IS NULL) AND (notes IS NULL))"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_job_stage_order",
+    "indexdef": "CREATE INDEX idx_job_stage_order ON public.job_stage_instances USING btree (production_stage_id, job_table_name, job_order_in_stage)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_jsi_job_order",
+    "indexdef": "CREATE INDEX idx_jsi_job_order ON public.job_stage_instances USING btree (job_id, stage_order)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_jsi_stage_scheduled_end",
+    "indexdef": "CREATE INDEX idx_jsi_stage_scheduled_end ON public.job_stage_instances USING btree (production_stage_id, scheduled_end_at)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_jsi_stage_scheduled_start",
+    "indexdef": "CREATE INDEX idx_jsi_stage_scheduled_start ON public.job_stage_instances USING btree (production_stage_id, scheduled_start_at)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "idx_jsi_stage_status",
+    "indexdef": "CREATE INDEX idx_jsi_stage_status ON public.job_stage_instances USING btree (production_stage_id, schedule_status)"
+  },
+  {
+    "table_name": "job_stage_instances",
+    "indexname": "job_stage_instances_pkey",
+    "indexdef": "CREATE UNIQUE INDEX job_stage_instances_pkey ON public.job_stage_instances USING btree (id)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "idx_production_jobs_due_date",
+    "indexdef": "CREATE INDEX idx_production_jobs_due_date ON public.production_jobs USING btree (due_date)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "idx_production_jobs_expedited",
+    "indexdef": "CREATE INDEX idx_production_jobs_expedited ON public.production_jobs USING btree (is_expedited, expedited_at) WHERE (is_expedited = true)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "idx_production_jobs_status",
+    "indexdef": "CREATE INDEX idx_production_jobs_status ON public.production_jobs USING btree (status)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "idx_production_jobs_user_id",
+    "indexdef": "CREATE INDEX idx_production_jobs_user_id ON public.production_jobs USING btree (user_id)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "idx_production_jobs_wo_no",
+    "indexdef": "CREATE INDEX idx_production_jobs_wo_no ON public.production_jobs USING btree (wo_no)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "idx_production_jobs_wo_no_user_unique",
+    "indexdef": "CREATE UNIQUE INDEX idx_production_jobs_wo_no_user_unique ON public.production_jobs USING btree (wo_no, user_id)"
+  },
+  {
+    "table_name": "production_jobs",
+    "indexname": "production_jobs_pkey",
+    "indexdef": "CREATE UNIQUE INDEX production_jobs_pkey ON public.production_jobs USING btree (id)"
+  },
+  {
+    "table_name": "production_stages",
+    "indexname": "production_stages_name_key",
+    "indexdef": "CREATE UNIQUE INDEX production_stages_name_key ON public.production_stages USING btree (name)"
+  },
+  {
+    "table_name": "production_stages",
+    "indexname": "production_stages_pkey",
+    "indexdef": "CREATE UNIQUE INDEX production_stages_pkey ON public.production_stages USING btree (id)"
+  },
+  {
+    "table_name": "production_stages",
+    "indexname": "unique_production_stage_name",
+    "indexdef": "CREATE UNIQUE INDEX unique_production_stage_name ON public.production_stages USING btree (name)"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "indexname": "stage_time_slots_pkey",
+    "indexdef": "CREATE UNIQUE INDEX stage_time_slots_pkey ON public.stage_time_slots USING btree (id)"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "indexname": "stage_time_slots_production_stage_id_slot_start_time_key",
+    "indexdef": "CREATE UNIQUE INDEX stage_time_slots_production_stage_id_slot_start_time_key ON public.stage_time_slots USING btree (production_stage_id, slot_start_time)"
+  },
+  {
+    "table_name": "stage_time_slots",
+    "indexname": "stage_time_slots_stage_instance_start_uidx",
+    "indexdef": "CREATE UNIQUE INDEX stage_time_slots_stage_instance_start_uidx ON public.stage_time_slots USING btree (stage_instance_id, slot_start_time)"
+  }
+]
