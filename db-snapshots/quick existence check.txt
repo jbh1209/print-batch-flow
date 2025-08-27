@@ -1,0 +1,8 @@
+[
+  {
+    "has_reschedule_all": false,
+    "has_schedule_job_via_edge": true,
+    "has_trigger_schedule": false,
+    "has_notify_scheduler": true
+  }
+]

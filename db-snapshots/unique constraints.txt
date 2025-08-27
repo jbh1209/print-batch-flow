@@ -1,0 +1,20 @@
+[
+  {
+    "index_name": "stage_time_slots_pkey",
+    "columns": "id",
+    "is_unique": true,
+    "is_primary": true
+  },
+  {
+    "index_name": "stage_time_slots_production_stage_id_slot_start_time_key",
+    "columns": "production_stage_id, slot_start_time",
+    "is_unique": true,
+    "is_primary": false
+  },
+  {
+    "index_name": "stage_time_slots_stage_instance_start_uidx",
+    "columns": "stage_instance_id, slot_start_time",
+    "is_unique": true,
+    "is_primary": false
+  }
+]

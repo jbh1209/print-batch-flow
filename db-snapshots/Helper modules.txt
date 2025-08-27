@@ -1,0 +1,13 @@
+Helper Modules
+The scheduler-run folder contains only index.ts and does not import any other local modules. All imports are external (serve and createClient), so there are no additional helper files in this directory.
+
+Payload Contract & Sample Bodies
+Request Fields
+
+Field	Type	Purpose
+commit	boolean	true to insert slots, false to simulate (dry run).
+proposed	boolean	Accepted but currently unused; retained for compatibility.
+onlyIfUnset	boolean	true (default) to skip stages already having slots; false to reflow.
+nuclear	boolean	Accepted but no destructive logic is implemented.
+onlyJobIds	UUID[]	Limit scheduling to these job IDs; if omitted, considers all pending jobs.
+baseStart	ISO timestamp	Floor start time for the first stage of each job.
