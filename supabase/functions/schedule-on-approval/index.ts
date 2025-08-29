@@ -1,39 +1,73 @@
-// File: supabase/functions/schedule-on-approval/index.ts
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+// supabase/functions/schedule-on-approval/index.ts
+// Same CORS handling as scheduler-run. Also returns a stub success.
+// Your DB trigger can post here; once the core is ready, this can call into
+// the same scheduler logic used by scheduler-run.
 
-const URL = Deno.env.get("SUPABASE_URL")!;
-const SRK =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
+type HookBody = {
+  event?: string;              // e.g. "proof_approved"
+  jobId?: string;              // optional
+  onlyJobIds?: string[];       // optional alternative
+  append?: boolean;            // optional – if true we’ll "append" in the real core
+};
 
-serve(async (req: Request) => {
+function corsHeaders(origin: string | null): HeadersInit {
+  return {
+    "Access-Control-Allow-Origin": origin ?? "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+function json(
+  body: unknown,
+  init: ResponseInit & { origin?: string | null } = {},
+): Response {
+  const origin = init.origin ?? null;
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+      ...corsHeaders(origin),
+    },
+  });
+}
+
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("origin");
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 204, headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders(origin) });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, { status: 405, origin });
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
+    let body: HookBody = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
 
-    const res = await fetch(`${URL}/functions/v1/scheduler-run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SRK}`,
-        "x-client-info": "schedule-on-approval-proxy",
+    // STUB RESULT for the approval hook.
+    return json(
+      {
+        ok: true,
+        message: "schedule-on-approval stub executed",
+        echo: { method: "POST", request: body },
       },
-      body: JSON.stringify(body),
-    });
-
-    const text = await res.text();
-    return new Response(text, {
-      status: res.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("schedule-on-approval proxy error:", e);
-    return new Response(
-      JSON.stringify({ ok: false, error: String(e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 200, origin },
+    );
+  } catch (err) {
+    console.error("schedule-on-approval error:", err);
+    return json(
+      { error: (err as Error).message ?? "Unknown error" },
+      { status: 500, origin },
     );
   }
 });
