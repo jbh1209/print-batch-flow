@@ -1,202 +1,167 @@
-// supabase/functions/scheduler-run/index.ts
-// Production wrapper for the scheduler with strict payload validation.
-// It is defensive against bad UUIDs (fixes 22P02: invalid input syntax for type uuid).
+// Minimal, robust scheduler-run wrapper.
+// - CORS for browser calls
+// - Safe JSON parsing
+// - Sanitizes onlyJobIds to avoid "invalid input syntax for type uuid: """
+// - Stubs actual scheduling so you can confirm 200s end-to-end first.
 
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
+// ---------- CORS ----------
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
+};
+
+// ---------- Types ----------
 type ScheduleRequest = {
-  commit?: boolean
-  proposed?: boolean
-  onlyIfUnset?: boolean
-  nuclear?: boolean
-  wipeAll?: boolean
-  startFrom?: string | null
-  // optional restriction to specific jobs
-  onlyJobIds?: string[] | string | null
-}
+  commit: boolean;
+  proposed?: boolean;
+  onlyIfUnset?: boolean;
+  nuclear?: boolean;
+  wipeAll?: boolean;
+  startFrom?: string | null;
+  onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
+  baseStart?: string | null;      // reserved (append)
+};
 
 type ScheduleResult = {
-  ok: true
-  jobs_considered: number
-  scheduled: number
-  applied: { updated: number }
-  note?: string
-}
+  ok: true;
+  message: string;
+  jobs_considered: number;
+  scheduled: number;
+  applied: { updated: number };
+  sanitized: {
+    onlyJobIds: string[] | undefined;
+    startFrom: string | undefined;
+  };
+};
 
-type ScheduleError = {
-  ok: false
-  code: string
-  message: string
-  details?: unknown
-}
+type ErrorResult = { ok: false; error: string };
 
-const ALLOW_ORIGINS = [
-  'https://preview--print-batch-flow.lovable.app',
-  'https://print-batch-flow.lovable.app',
-  // add more if you use other environments
-]
+// ---------- Utils ----------
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** RFC4122 v1–v5 UUID checker (strict) */
 function isUUID(v: unknown): v is string {
-  if (typeof v !== 'string') return false
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    v,
-  )
+  return typeof v === "string" && UUID_RE.test(v.trim());
 }
 
-/** Normalise onlyJobIds to a *valid* array of UUIDs or undefined */
-function normaliseOnlyJobIds(input: ScheduleRequest['onlyJobIds']): string[] | undefined {
-  if (input == null) return undefined
-  const arr = Array.isArray(input) ? input : [input]
-  const valid = arr.filter(isUUID)
-  return valid.length ? valid : undefined
+function sanitizeOnlyIds(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const ids = raw
+    .filter((x) => typeof x === "string")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0) // remove "", "   "
+    .filter((s) => isUUID(s));   // keep only valid UUIDs
+  return ids.length ? ids : undefined;
 }
 
-/** Basic next-working-start normaliser (Mon–Fri 08:00, skips weekends). */
-function normaliseStartFrom(raw: string | null | undefined): string {
-  const now = new Date()
-  let d = raw ? new Date(raw) : now
-
-  // Snap into the future if caller sent a past time
-  if (d.getTime() < now.getTime()) d = now
-
-  // force to 08:00 local time
-  d.setSeconds(0, 0)
-  d.setHours(8, 0, 0, 0)
-
-  // roll forward if weekend
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1)
-  }
-  return d.toISOString()
-}
-
-function cors(origin: string | null) {
-  const allow =
-    !origin || ALLOW_ORIGINS.includes(origin)
-      ? origin ?? '*'
-      : 'null'
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+function safeJson<T = unknown>(s: string): T | undefined {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return undefined;
   }
 }
 
-Deno.serve(async (req) => {
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
+
+function badRequest(msg: string) {
+  return json({ ok: false, error: msg } satisfies ErrorResult, 400);
+}
+
+function serverError(msg: string, extra?: unknown) {
+  console.error("[scheduler-run] error:", msg, extra ?? "");
+  return json({ ok: false, error: msg } satisfies ErrorResult, 500);
+}
+
+// ---------- Real scheduler hook (stub for now) ----------
+async function runRealScheduler(
+  _sb: SupabaseClient,
+  _payload: Required<Pick<ScheduleRequest,
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
+): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
+  // TODO: replace this block with your real scheduling engine.
+  // Keep the signature; you'll receive a sanitized payload.
+  return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
+}
+
+// ---------- HTTP entry ----------
+Deno.serve(async (req: Request) => {
   // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: cors(req.headers.get('Origin')) })
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  const headers = cors(req.headers.get('Origin'))
+  if (req.method !== "POST") {
+    return badRequest("POST only");
+  }
+
+  // Parse body safely
+  const rawText = await req.text();
+  const body = safeJson<ScheduleRequest>(rawText) ?? {};
+
+  // Hard requirement
+  if (!("commit" in body)) {
+    return badRequest("Body must include { commit: boolean, ... }");
+  }
+
+  // Sanitize inputs
+  const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
+  const startFrom =
+    typeof body.startFrom === "string" && body.startFrom.trim().length
+      ? body.startFrom.trim()
+      : undefined;
+
+  // Build sanitized payload (fill defaults)
+  const sanitizedPayload: Required<Pick<ScheduleRequest,
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
+    commit: !!body.commit,
+    proposed: !!body.proposed,
+    onlyIfUnset: !!body.onlyIfUnset,
+    nuclear: !!(body.nuclear || body.wipeAll),
+    startFrom,
+    onlyJobIds,
+  };
+
+  // Supabase client (service key, runs server-side)
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return serverError("Missing SUPABASE_URL or SERVICE_ROLE_KEY env variables");
+  }
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    global: { headers: { "x-client-info": "scheduler-run/edge" } },
+  });
 
   try {
-    const payload = (await req.json()) as ScheduleRequest
-
-    // ---- Validate/sanitise inputs (fix for 22P02) ----
-    const onlyJobIds = normaliseOnlyJobIds(payload.onlyJobIds)
-    if (Array.isArray(payload.onlyJobIds) || typeof payload.onlyJobIds === 'string') {
-      // Caller attempted to restrict. If none survived validation, refuse with 400
-      if (!onlyJobIds) {
-        const body: ScheduleError = {
-          ok: false,
-          code: 'BAD_ONLY_JOB_IDS',
-          message:
-            'onlyJobIds was provided but contained no valid UUIDs. Refusing to run.',
-        }
-        return new Response(JSON.stringify(body), {
-          status: 400,
-          headers: { ...headers, 'Content-Type': 'application/json' },
-        })
-      }
+    // If nuclear/wipeAll was requested, you can clear slots up front.
+    // (Safe to keep as no-op until you connect the real engine.)
+    if (sanitizedPayload.nuclear) {
+      // Example pattern if you choose to wipe here:
+      // await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     }
 
-    const body: Required<ScheduleRequest> = {
-      commit: Boolean(payload.commit),
-      proposed: Boolean(payload.proposed),
-      onlyIfUnset: Boolean(payload.onlyIfUnset),
-      nuclear: Boolean(payload.nuclear),
-      wipeAll: Boolean(payload.wipeAll),
-      startFrom: normaliseStartFrom(payload.startFrom ?? null),
-      onlyJobIds: onlyJobIds ?? undefined,
-    }
+    // >>> Call your actual scheduler here (currently a stub):
+    const core = await runRealScheduler(sb, sanitizedPayload);
 
-    // Create service client
-    const url = Deno.env.get('SUPABASE_URL')!
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const sb = createClient(url, serviceKey, {
-      auth: { persistSession: false },
-    })
-
-    // If wipeAll/nuclear, clear slots before compute
-    if (body.nuclear || body.wipeAll) {
-      const { error } = await sb.from('stage_time_slots').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-      if (error) {
-        console.error('wipeAll failed', error)
-        const err: ScheduleError = { ok: false, code: 'WIPE_FAILED', message: error.message, details: error }
-        return new Response(JSON.stringify(err), {
-          status: 500,
-          headers: { ...headers, 'Content-Type': 'application/json' },
-        })
-      }
-    }
-
-    // ---- SELECT candidate jobs; *never* send bad UUIDs to the DB ----
-    let q = sb.from('production_jobs')
-      .select('id, wo_no, status, proof_approved_at')
-      .is('deleted_at', null)
-
-    if (body.onlyJobIds) {
-      q = q.in('id', body.onlyJobIds)
-    } else {
-      // typical “rebuild” filter; adjust to your needs
-      q = q.not('status', 'eq', 'completed').order('proof_approved_at', { ascending: true })
-    }
-
-    const { data: jobs, error: jobsErr } = await q
-    if (jobsErr) {
-      console.error('select jobs failed', jobsErr)
-      const err: ScheduleError = {
-        ok: false, code: 'SELECT_JOBS_FAILED', message: jobsErr.message, details: jobsErr,
-      }
-      return new Response(JSON.stringify(err), {
-        status: 500,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // === YOUR actual scheduling engine goes here =========================
-    // For safety, the block below is a minimal stub that does nothing but
-    // returns success. Replace IMPLEMENT_ME with your working algorithm
-    // when ready, it will *never* see invalid UUIDs now.
-    // ====================================================================
     const result: ScheduleResult = {
       ok: true,
-      jobs_considered: jobs?.length ?? 0,
-      scheduled: 0,
-      applied: { updated: 0 },
-      note: 'Stub ran; payload validated and DB reachable.',
-    }
-    // ====================================================================
-
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { ...headers, 'Content-Type': 'application/json' },
-    })
-  } catch (e) {
-    console.error('scheduler-run fatal:', e)
-    const err: ScheduleError = {
-      ok: false,
-      code: 'UNEXPECTED',
-      message: e?.message ?? String(e),
-      details: e,
-    }
-    return new Response(JSON.stringify(err), {
-      status: 500,
-      headers: { ...cors(req.headers.get('Origin')), 'Content-Type': 'application/json' },
-    })
+      message: "scheduler-run OK",
+      jobs_considered: core.jobs_considered,
+      scheduled: core.scheduled,
+      applied: core.applied,
+      sanitized: { onlyJobIds, startFrom },
+    };
+    return json(result, 200);
+  } catch (err) {
+    return serverError("Unhandled scheduler error", err);
   }
-})
+});
