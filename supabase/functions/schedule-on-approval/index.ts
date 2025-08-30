@@ -1,94 +1,51 @@
 // supabase/functions/schedule-on-approval/index.ts
-// Small proxy that forwards to scheduler-run, with UUID validation to prevent "".
+// Thin CORS-aware proxy to /functions/v1/scheduler-run
 
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-const SCHEDULER_PATH = '/functions/v1/scheduler-run'
-
-const ALLOW_ORIGINS = [
-  'https://preview--print-batch-flow.lovable.app',
-  'https://print-batch-flow.lovable.app',
-]
-
-function isUUID(v: unknown): v is string {
-  return (
-    typeof v === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
-  )
+function corsOk() {
+  return new Response("ok", { status: 200, headers: CORS_HEADERS });
 }
 
-function cors(origin: string | null) {
-  const allow =
-    !origin || ALLOW_ORIGINS.includes(origin)
-      ? origin ?? '*'
-      : 'null'
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") return corsOk();
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ ok: false, message: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    });
   }
-}
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: cors(req.headers.get('Origin')) })
-  }
-
-  const headers = { ...cors(req.headers.get('Origin')), 'Content-Type': 'application/json' }
 
   try {
-    const raw = await req.json().catch(() => ({})) as Record<string, unknown>
-    const baseUrl = Deno.env.get('SUPABASE_URL')!
+    const bodyText = await req.text();
+    const url = new URL(req.url);
+    const base = `${url.protocol}//${url.host}`;
+    const target = `${base}/functions/v1/scheduler-run`;
 
-    // normalise onlyJobIds coming from triggers/UI
-    let onlyJobIds: string[] | undefined
-    if (raw.onlyJobIds != null) {
-      const arr = Array.isArray(raw.onlyJobIds) ? raw.onlyJobIds : [raw.onlyJobIds]
-      onlyJobIds = arr.filter(isUUID)
-      if (Array.isArray(raw.onlyJobIds) || typeof raw.onlyJobIds === 'string') {
-        if (!onlyJobIds.length) {
-          return new Response(
-            JSON.stringify({
-              ok: false,
-              code: 'BAD_ONLY_JOB_IDS',
-              message:
-                'onlyJobIds was provided to proxy but contained no valid UUIDs.',
-            }),
-            { status: 400, headers },
-          )
-        }
-      }
-    }
-
-    const body = {
-      commit: !!raw.commit,
-      proposed: !!raw.proposed,
-      onlyIfUnset: !!raw.onlyIfUnset,
-      nuclear: !!raw.nuclear,
-      wipeAll: !!raw.wipeAll,
-      startFrom: (raw.startFrom as string | undefined) ?? null,
-      onlyJobIds,
-    }
-
-    const res = await fetch(`${baseUrl}${SCHEDULER_PATH}`, {
-      method: 'POST',
+    const fwd = await fetch(target, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        // IMPORTANT: your service role key is not required here if this function
-        // is **invoking another function** within the same project.
-        Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        "Content-Type": "application/json",
+        // forward the same auth header your UI sets (Bearer <SERVICE_ROLE_KEY>)
+        authorization: req.headers.get("authorization") ?? "",
       },
-      body: JSON.stringify(body),
-    })
+      body: bodyText,
+    });
 
-    const text = await res.text()
-    return new Response(text, { status: res.status, headers })
-  } catch (e) {
-    console.error('schedule-on-approval fatal:', e)
-    return new Response(
-      JSON.stringify({ ok: false, code: 'UNEXPECTED', message: String(e) }),
-      { status: 500, headers },
-    )
+    const payload = await fwd.text(); // pass-through payload
+    return new Response(payload, {
+      status: fwd.status,
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    });
+  } catch (err) {
+    console.error("schedule-on-approval proxy error:", err);
+    return new Response(JSON.stringify({ ok: false, message: err?.message ?? "proxy error" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    });
   }
-})
+});
