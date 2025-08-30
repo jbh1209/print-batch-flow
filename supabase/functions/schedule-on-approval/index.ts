@@ -1,73 +1,94 @@
 // supabase/functions/schedule-on-approval/index.ts
-// Same CORS handling as scheduler-run. Also returns a stub success.
-// Your DB trigger can post here; once the core is ready, this can call into
-// the same scheduler logic used by scheduler-run.
+// Small proxy that forwards to scheduler-run, with UUID validation to prevent "".
 
-type HookBody = {
-  event?: string;              // e.g. "proof_approved"
-  jobId?: string;              // optional
-  onlyJobIds?: string[];       // optional alternative
-  append?: boolean;            // optional – if true we’ll "append" in the real core
-};
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
-function corsHeaders(origin: string | null): HeadersInit {
+const SCHEDULER_PATH = '/functions/v1/scheduler-run'
+
+const ALLOW_ORIGINS = [
+  'https://preview--print-batch-flow.lovable.app',
+  'https://print-batch-flow.lovable.app',
+]
+
+function isUUID(v: unknown): v is string {
+  return (
+    typeof v === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
+  )
+}
+
+function cors(origin: string | null) {
+  const allow =
+    !origin || ALLOW_ORIGINS.includes(origin)
+      ? origin ?? '*'
+      : 'null'
   return {
-    "Access-Control-Allow-Origin": origin ?? "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Max-Age": "86400",
-  };
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
-function json(
-  body: unknown,
-  init: ResponseInit & { origin?: string | null } = {},
-): Response {
-  const origin = init.origin ?? null;
-  return new Response(JSON.stringify(body), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-      ...corsHeaders(origin),
-    },
-  });
-}
-
-Deno.serve(async (req: Request) => {
-  const origin = req.headers.get("origin");
-
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders(origin) });
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: cors(req.headers.get('Origin')) })
   }
 
-  if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, { status: 405, origin });
-  }
+  const headers = { ...cors(req.headers.get('Origin')), 'Content-Type': 'application/json' }
 
   try {
-    let body: HookBody = {};
-    try {
-      body = await req.json();
-    } catch {
-      body = {};
+    const raw = await req.json().catch(() => ({})) as Record<string, unknown>
+    const baseUrl = Deno.env.get('SUPABASE_URL')!
+
+    // normalise onlyJobIds coming from triggers/UI
+    let onlyJobIds: string[] | undefined
+    if (raw.onlyJobIds != null) {
+      const arr = Array.isArray(raw.onlyJobIds) ? raw.onlyJobIds : [raw.onlyJobIds]
+      onlyJobIds = arr.filter(isUUID)
+      if (Array.isArray(raw.onlyJobIds) || typeof raw.onlyJobIds === 'string') {
+        if (!onlyJobIds.length) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              code: 'BAD_ONLY_JOB_IDS',
+              message:
+                'onlyJobIds was provided to proxy but contained no valid UUIDs.',
+            }),
+            { status: 400, headers },
+          )
+        }
+      }
     }
 
-    // STUB RESULT for the approval hook.
-    return json(
-      {
-        ok: true,
-        message: "schedule-on-approval stub executed",
-        echo: { method: "POST", request: body },
+    const body = {
+      commit: !!raw.commit,
+      proposed: !!raw.proposed,
+      onlyIfUnset: !!raw.onlyIfUnset,
+      nuclear: !!raw.nuclear,
+      wipeAll: !!raw.wipeAll,
+      startFrom: (raw.startFrom as string | undefined) ?? null,
+      onlyJobIds,
+    }
+
+    const res = await fetch(`${baseUrl}${SCHEDULER_PATH}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // IMPORTANT: your service role key is not required here if this function
+        // is **invoking another function** within the same project.
+        Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
       },
-      { status: 200, origin },
-    );
-  } catch (err) {
-    console.error("schedule-on-approval error:", err);
-    return json(
-      { error: (err as Error).message ?? "Unknown error" },
-      { status: 500, origin },
-    );
+      body: JSON.stringify(body),
+    })
+
+    const text = await res.text()
+    return new Response(text, { status: res.status, headers })
+  } catch (e) {
+    console.error('schedule-on-approval fatal:', e)
+    return new Response(
+      JSON.stringify({ ok: false, code: 'UNEXPECTED', message: String(e) }),
+      { status: 500, headers },
+    )
   }
-});
+})
