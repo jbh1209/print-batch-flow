@@ -1,39 +1,167 @@
-// File: supabase/functions/simple-scheduler/index.ts
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+// Minimal, robust scheduler-run wrapper.
+// - CORS for browser calls
+// - Safe JSON parsing
+// - Sanitizes onlyJobIds to avoid "invalid input syntax for type uuid: """
+// - Stubs actual scheduling so you can confirm 200s end-to-end first.
 
-const URL = Deno.env.get("SUPABASE_URL")!;
-const SRK =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-serve(async (req: Request) => {
+// ---------- CORS ----------
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
+};
+
+// ---------- Types ----------
+type ScheduleRequest = {
+  commit: boolean;
+  proposed?: boolean;
+  onlyIfUnset?: boolean;
+  nuclear?: boolean;
+  wipeAll?: boolean;
+  startFrom?: string | null;
+  onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
+  baseStart?: string | null;      // reserved (append)
+};
+
+type ScheduleResult = {
+  ok: true;
+  message: string;
+  jobs_considered: number;
+  scheduled: number;
+  applied: { updated: number };
+  sanitized: {
+    onlyJobIds: string[] | undefined;
+    startFrom: string | undefined;
+  };
+};
+
+type ErrorResult = { ok: false; error: string };
+
+// ---------- Utils ----------
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUUID(v: unknown): v is string {
+  return typeof v === "string" && UUID_RE.test(v.trim());
+}
+
+function sanitizeOnlyIds(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const ids = raw
+    .filter((x) => typeof x === "string")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0) // remove "", "   "
+    .filter((s) => isUUID(s));   // keep only valid UUIDs
+  return ids.length ? ids : undefined;
+}
+
+function safeJson<T = unknown>(s: string): T | undefined {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
+
+function badRequest(msg: string) {
+  return json({ ok: false, error: msg } satisfies ErrorResult, 400);
+}
+
+function serverError(msg: string, extra?: unknown) {
+  console.error("[scheduler-run] error:", msg, extra ?? "");
+  return json({ ok: false, error: msg } satisfies ErrorResult, 500);
+}
+
+// ---------- Real scheduler hook (stub for now) ----------
+async function runRealScheduler(
+  _sb: SupabaseClient,
+  _payload: Required<Pick<ScheduleRequest,
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
+): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
+  // TODO: replace this block with your real scheduling engine.
+  // Keep the signature; you'll receive a sanitized payload.
+  return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
+}
+
+// ---------- HTTP entry ----------
+Deno.serve(async (req: Request) => {
+  // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return badRequest("POST only");
+  }
+
+  // Parse body safely
+  const rawText = await req.text();
+  const body = safeJson<ScheduleRequest>(rawText) ?? {};
+
+  // Hard requirement
+  if (!("commit" in body)) {
+    return badRequest("Body must include { commit: boolean, ... }");
+  }
+
+  // Sanitize inputs
+  const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
+  const startFrom =
+    typeof body.startFrom === "string" && body.startFrom.trim().length
+      ? body.startFrom.trim()
+      : undefined;
+
+  // Build sanitized payload (fill defaults)
+  const sanitizedPayload: Required<Pick<ScheduleRequest,
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
+    commit: !!body.commit,
+    proposed: !!body.proposed,
+    onlyIfUnset: !!body.onlyIfUnset,
+    nuclear: !!(body.nuclear || body.wipeAll),
+    startFrom,
+    onlyJobIds,
+  };
+
+  // Supabase client (service key, runs server-side)
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return serverError("Missing SUPABASE_URL or SERVICE_ROLE_KEY env variables");
+  }
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    global: { headers: { "x-client-info": "scheduler-run/edge" } },
+  });
+
   try {
-    const body = await req.json().catch(() => ({}));
+    // If nuclear/wipeAll was requested, you can clear slots up front.
+    // (Safe to keep as no-op until you connect the real engine.)
+    if (sanitizedPayload.nuclear) {
+      // Example pattern if you choose to wipe here:
+      // await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    }
 
-    const res = await fetch(`${URL}/functions/v1/scheduler-run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SRK}`,
-        "x-client-info": "simple-scheduler-proxy",
-      },
-      body: JSON.stringify(body),
-    });
+    // >>> Call your actual scheduler here (currently a stub):
+    const core = await runRealScheduler(sb, sanitizedPayload);
 
-    const text = await res.text();
-    return new Response(text, {
-      status: res.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("simple-scheduler proxy error:", e);
-    return new Response(
-      JSON.stringify({ ok: false, error: String(e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    const result: ScheduleResult = {
+      ok: true,
+      message: "scheduler-run OK",
+      jobs_considered: core.jobs_considered,
+      scheduled: core.scheduled,
+      applied: core.applied,
+      sanitized: { onlyJobIds, startFrom },
+    };
+    return json(result, 200);
+  } catch (err) {
+    return serverError("Unhandled scheduler error", err);
   }
 });
