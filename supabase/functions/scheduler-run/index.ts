@@ -32,8 +32,9 @@ type ShiftWindow = { start: Date; end: Date; isWorkingDay: boolean };
 const ALLOW_ORIGIN = "*"; // optionally set to your app origin
 
 function preflightHeaders(req: Request) {
-  // reflect whatever headers the browser said it wants to send
-  const requested = req.headers.get("access-control-request-headers") ?? "authorization,content-type,apikey,x-client-info";
+  const requested =
+    req.headers.get("access-control-request-headers") ??
+    "authorization,content-type,apikey,x-client-info";
   return {
     "Access-Control-Allow-Origin": ALLOW_ORIGIN,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -45,7 +46,6 @@ function preflightHeaders(req: Request) {
 const responseHeaders = {
   "Access-Control-Allow-Origin": ALLOW_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  // keep a permissive default list for non-preflight responses
   "Access-Control-Allow-Headers": "authorization,content-type,apikey,x-client-info",
   "Content-Type": "application/json",
 };
@@ -61,7 +61,9 @@ function sbClient(): SupabaseClient {
 async function fetchShiftRow(sb: SupabaseClient, dow: number) {
   const { data, error } = await sb
     .from("shift_schedules")
-    .select("day_of_week, shift_start_time, shift_end_time, is_working_day, is_active")
+    .select(
+      "day_of_week, shift_start_time, shift_end_time, is_working_day, is_active"
+    )
     .eq("day_of_week", dow)
     .eq("is_active", true)
     .maybeSingle();
@@ -94,7 +96,6 @@ async function getShiftWindow(sb: SupabaseClient, day: Date): Promise<ShiftWindo
   const row = await fetchShiftRow(sb, dow);
   const base = day.toISOString().slice(0, 10);
   if (!row) {
-    // conservative default
     return {
       start: new Date(`${base}T08:00:00Z`),
       end: new Date(`${base}T16:30:00Z`),
@@ -260,12 +261,18 @@ async function executeScheduler(sb: SupabaseClient, req: RunRequest) {
 
     if (req.commit !== false) {
       if (slots.length) {
-        const rows = slots.map((s) => ({
-          production_stage_id: it.production_stage_id,
-          stage_instance_id: it.id,
-          slot_start_time: s.start.toISOString(),
-          slot_end_time: s.end.toISOString(),
-        }));
+        const rows = slots.map((s) => {
+          const dur = Math.max(1, minutesBetween(s.start, s.end)); // never 0
+          return {
+            production_stage_id: it.production_stage_id,
+            stage_instance_id: it.id,
+            job_id: it.job_id,                                   // ✅ include job
+            slot_date: s.start.toISOString().slice(0, 10),        // ✅ include date
+            slot_start_time: s.start.toISOString(),
+            slot_end_time: s.end.toISOString(),
+            duration_minutes: dur,                                 // ✅ required column
+          };
+        });
         const { error: insErr } = await sb.from("stage_time_slots").insert(rows);
         if (insErr) throw insErr;
         slotsInserted += rows.length;
