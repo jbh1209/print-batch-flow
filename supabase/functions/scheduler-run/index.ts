@@ -90,14 +90,14 @@ async function normalizeStart(
 async function nextWorkingStart(sb: SupabaseClient, fromTs: Date): Promise<Date> {
   // Pull a single day's rule and loop forward until we hit a valid slot start.
   // Schema:
-  //   shift_schedules(day_of_week int, start_time time, end_time time, is_working_day bool)
+  //   shift_schedules(day_of_week int, shift_start_time time, shift_end_time time, is_working_day bool)
   //   public_holidays(date date, is_active bool)
   let ts = new Date(fromTs.getTime());
   for (let guard = 0; guard < 30; guard++) {
     const dow = ts.getUTCDay(); // 0=Sun..6=Sat
     const { data: rules, error } = await sb
       .from("shift_schedules")
-      .select("day_of_week,start_time,end_time,is_working_day")
+      .select("day_of_week,shift_start_time,shift_end_time,is_working_day")
       .eq("day_of_week", dow)
       .maybeSingle();
     if (error) throw error;
@@ -113,8 +113,8 @@ async function nextWorkingStart(sb: SupabaseClient, fromTs: Date): Promise<Date>
 
     if (rules && rules.is_working_day && !isHoliday) {
       // Build the shift start/end for today in UTC
-      const start = new Date(`${asDateOnlyUTC(ts)}T${rules.start_time}Z`);
-      const end = new Date(`${asDateOnlyUTC(ts)}T${rules.end_time}Z`);
+      const start = new Date(`${asDateOnlyUTC(ts)}T${rules.shift_start_time}Z`);
+      const end = new Date(`${asDateOnlyUTC(ts)}T${rules.shift_end_time}Z`);
       if (ts < start) return start;
       if (ts >= start && ts < end) return ts; // already inside shift window
     }
