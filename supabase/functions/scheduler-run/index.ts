@@ -1,138 +1,185 @@
-// supabase/functions/scheduler-run/index.ts
-// Edge function to (re)build/append schedule into public.stage_time_slots.
-
+// deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
 
-type RunRequest = {
+type ScheduleRequest = {
   commit?: boolean;
   proposed?: boolean;
   onlyIfUnset?: boolean;
   nuclear?: boolean;
   wipeAll?: boolean;
-  startFrom?: string;         // "YYYY-MM-DD" or ISO
-  onlyJobIds?: string[];      // restrict scope
+  startFrom?: string;     // ISO date (YYYY-MM-DD) or ISO datetime
+  onlyJobIds?: string[];  // subset of jobs to schedule
 };
 
-type StageInstance = {
-  id: string;
-  job_id: string;
+type StageRow = {
+  stage_instance_id: string;
   production_stage_id: string;
+  job_id: string;
+  wo_no: string;
   stage_order: number | null;
-  scheduled_minutes: number | null;
-  status: string | null;
-  scheduled_start_at: string | null;
-  scheduled_end_at: string | null;
-  dependency_group: string | null;
+  scheduled_minutes: number | null;     // from JSI (preferred)
+  estimated_duration_minutes: number | null; // fallback
 };
 
-type ShiftWindow = { start: Date; end: Date; isWorkingDay: boolean };
-
-// ---------------- CORS helpers ----------------
-const ALLOW_ORIGIN = "*"; // set to your app origin if you want to pin it
-
-function preflightHeaders(req: Request) {
-  const requested =
-    req.headers.get("access-control-request-headers") ??
-    "authorization,content-type,apikey,x-client-info";
-  return {
-    "Access-Control-Allow-Origin": ALLOW_ORIGIN,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": requested,
-    "Access-Control-Max-Age": "86400",
-  };
-}
-
-const responseHeaders = {
-  "Access-Control-Allow-Origin": ALLOW_ORIGIN,
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization,content-type,apikey,x-client-info",
-  "Content-Type": "application/json",
+type Slot = {
+  id?: string;
+  production_stage_id: string;
+  date: string;               // YYYY-MM-DD
+  slot_start_time: string;    // ISO z
+  slot_end_time: string;      // ISO z
+  duration_minutes: number;
+  job_id: string;
+  job_table_name: "production_jobs";
+  stage_instance_id: string;
+  is_completed: boolean;
 };
 
-// ---------------- Supabase client ----------------
-function sbClient(): SupabaseClient {
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  return createClient(url, key, { auth: { persistSession: false } });
+const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+if (!SERVICE_ROLE_KEY || !SUPABASE_URL) {
+  console.error("Missing SUPABASE_URL or SERVICE_ROLE_KEY envs.");
 }
 
-// ---------------- Calendar (uses shift_start_time / shift_end_time) ----------------
-async function fetchShiftRow(sb: SupabaseClient, dow: number) {
-  const { data, error } = await sb
-    .from("shift_schedules")
-    .select(
-      "day_of_week, shift_start_time, shift_end_time, is_working_day, is_active"
-    )
-    .eq("day_of_week", dow)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (error) throw error;
-  return data as
-    | {
-        day_of_week: number;
-        shift_start_time: string;
-        shift_end_time: string;
-        is_working_day: boolean;
-        is_active: boolean;
-      }
-    | null;
+function json(status: number, body: any) {
+  return new Response(JSON.stringify(body, null, 2), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    },
+  });
 }
 
-async function isHoliday(sb: SupabaseClient, day: Date) {
-  const ymd = day.toISOString().slice(0, 10);
-  const { data, error } = await sb
-    .from("public_holidays")
-    .select("date")
-    .eq("is_active", true)
-    .eq("date", ymd)
-    .maybeSingle();
-  if (error) throw error;
-  return !!data;
+function asDateOnlyUTC(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-async function getShiftWindow(sb: SupabaseClient, day: Date): Promise<ShiftWindow> {
-  const dow = day.getUTCDay();
-  const row = await fetchShiftRow(sb, dow);
-  const base = day.toISOString().slice(0, 10);
-  if (!row) {
-    return {
-      start: new Date(`${base}T08:00:00Z`),
-      end: new Date(`${base}T16:30:00Z`),
-      isWorkingDay: false,
-    };
+function addMinutes(ts: Date, mins: number) {
+  const d = new Date(ts.getTime());
+  d.setUTCMinutes(d.getUTCMinutes() + mins);
+  return d;
+}
+
+async function normalizeStart(
+  sb: SupabaseClient,
+  requested?: string,
+): Promise<Date> {
+  // If a date comes in, use 08:00:00 that day; if datetime, keep it.
+  let base = requested ? new Date(requested) : new Date();
+  if (!requested || /^\d{4}-\d{2}-\d{2}$/.test(requested)) {
+    // bump to 08:00 UTC of that day (your shift table is UTC in DB)
+    const d = requested ? new Date(requested + "T08:00:00Z") : base;
+    base = d;
   }
-  return {
-    start: new Date(`${base}T${row.shift_start_time}Z`),
-    end: new Date(`${base}T${row.shift_end_time}Z`),
-    isWorkingDay: row.is_working_day,
-  };
+  // If it's in the past, nudge forward to now (but round up to whole minute)
+  const now = new Date();
+  if (base.getTime() < now.getTime()) {
+    base = new Date(Math.ceil(now.getTime() / (60_000)) * 60_000);
+  }
+  // If outside working times or weekend/holiday, bump to next work start.
+  const next = await nextWorkingStart(sb, base);
+  return next;
 }
 
-async function normalizeToNextWorkingStart(sb: SupabaseClient, from: Date): Promise<Date> {
-  let cursor = new Date(from);
-  for (let i = 0; i < 21; i++) {
-    const win = await getShiftWindow(sb, cursor);
-    const holiday = await isHoliday(sb, cursor);
-    const working = win.isWorkingDay && !holiday;
+async function nextWorkingStart(sb: SupabaseClient, fromTs: Date): Promise<Date> {
+  // Pull a single day's rule and loop forward until we hit a valid slot start.
+  // Schema:
+  //   shift_schedules(day_of_week int, start_time time, end_time time, is_working_day bool)
+  //   public_holidays(date date, is_active bool)
+  let ts = new Date(fromTs.getTime());
+  for (let guard = 0; guard < 30; guard++) {
+    const dow = ts.getUTCDay(); // 0=Sun..6=Sat
+    const { data: rules, error } = await sb
+      .from("shift_schedules")
+      .select("day_of_week,start_time,end_time,is_working_day")
+      .eq("day_of_week", dow)
+      .maybeSingle();
+    if (error) throw error;
 
-    if (!working) {
-      cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate() + 1));
-      continue;
+    // Check holiday
+    const { data: h } = await sb
+      .from("public_holidays")
+      .select("date,is_active")
+      .eq("date", asDateOnlyUTC(ts))
+      .eq("is_active", true);
+
+    const isHoliday = (h && h.length > 0);
+
+    if (rules && rules.is_working_day && !isHoliday) {
+      // Build the shift start/end for today in UTC
+      const start = new Date(`${asDateOnlyUTC(ts)}T${rules.start_time}Z`);
+      const end = new Date(`${asDateOnlyUTC(ts)}T${rules.end_time}Z`);
+      if (ts < start) return start;
+      if (ts >= start && ts < end) return ts; // already inside shift window
     }
-    if (cursor < win.start) return win.start;
-    if (cursor >= win.start && cursor < win.end) return cursor;
 
-    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate() + 1));
+    // advance one day to 08:00
+    const nextDay = new Date(ts.getTime());
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    ts = new Date(`${asDateOnlyUTC(nextDay)}T08:00:00Z`);
   }
-  return from;
+  return ts;
 }
 
-async function stageQueueTailOrWorkingStart(
+async function selectJobStageRows(
+  sb: SupabaseClient,
+  req: ScheduleRequest,
+): Promise<StageRow[]> {
+  let q = sb.from("job_stage_instances")
+    .select(`
+      stage_instance_id:id,
+      production_stage_id,
+      job_id,
+      wo_no:production_jobs(wo_no),
+      stage_order,
+      scheduled_minutes,
+      estimated_duration_minutes
+    `)
+    .neq("status", "completed")            // don’t reschedule done work
+    .order("stage_order", { ascending: true, nullsFirst: false });
+
+  if (req.onlyJobIds && req.onlyJobIds.length > 0) {
+    q = q.in("job_id", req.onlyJobIds);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as any[]).map((r) => ({
+    stage_instance_id: r.stage_instance_id,
+    production_stage_id: r.production_stage_id,
+    job_id: r.job_id,
+    wo_no: r.wo_no?.wo_no ?? "",
+    stage_order: r.stage_order,
+    scheduled_minutes: r.scheduled_minutes,
+    estimated_duration_minutes: r.estimated_duration_minutes,
+  }));
+}
+
+function minutesFor(row: StageRow): number {
+  // Prefer the per-JSI minutes; otherwise the estimate; final fallback 1
+  const m = row.scheduled_minutes ?? row.estimated_duration_minutes ?? 1;
+  return Math.max(1, m | 0);
+}
+
+async function wipeSlotsIfNeeded(sb: SupabaseClient, req: ScheduleRequest) {
+  if (req.nuclear || req.wipeAll) {
+    const { error } = await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) throw error;
+  }
+}
+
+async function queueTail(
   sb: SupabaseClient,
   stageId: string,
-  fallbackStart: Date,
+  base: Date,
 ): Promise<Date> {
+  // last end at for stage, but never in the past; also respect shift windows
   const { data, error } = await sb
     .from("stage_time_slots")
     .select("slot_end_time")
@@ -141,198 +188,139 @@ async function stageQueueTailOrWorkingStart(
     .limit(1);
   if (error) throw error;
 
-  const tail = data?.[0]?.slot_end_time ? new Date(data[0].slot_end_time as string) : null;
-  const normalized = await normalizeToNextWorkingStart(sb, fallbackStart);
-  return tail && tail > normalized ? tail : normalized;
+  const last = (data && data.length > 0) ? new Date(data[0].slot_end_time) : null;
+  const seed = last && last > base ? last : base;
+  return await nextWorkingStart(sb, seed);
 }
 
-// ---------------- Allocation across shifts ----------------
-function minutesBetween(a: Date, b: Date) {
-  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 60000));
-}
-
-async function allocateSlots(
-  sb: SupabaseClient,
-  startAt: Date,
-  minutes: number,
-): Promise<{ first: Date; last: Date; slots: { start: Date; end: Date }[] }> {
-  let cursor = new Date(startAt);
-  const slots: { start: Date; end: Date }[] = [];
-  let first: Date | null = null;
-  let last: Date | null = null;
-
-  while (minutes > 0) {
-    const win = await getShiftWindow(sb, cursor);
-    const holiday = await isHoliday(sb, cursor);
-    const working = win.isWorkingDay && !holiday;
-
-    if (!working || cursor >= win.end) {
-      cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate() + 1));
-      continue;
-    }
-
-    if (cursor < win.start) cursor = new Date(win.start);
-
-    const cap = minutesBetween(cursor, win.end);
-    const take = Math.min(cap, minutes);
-
-    const s = new Date(cursor);
-    const e = new Date(cursor.getTime() + take * 60000);
-
-    slots.push({ start: s, end: e });
-    if (!first) first = s;
-    last = e;
-
-    minutes -= take;
-    cursor = new Date(e);
-  }
-
-  return { first: first!, last: last!, slots };
-}
-
-// ---------------- Core scheduler (with rendezvous) ----------------
-async function executeScheduler(sb: SupabaseClient, req: RunRequest) {
-  const startBase = req.startFrom ? new Date(req.startFrom) : new Date();
-  const normalizedBase = await normalizeToNextWorkingStart(sb, startBase);
-
-  if (req.nuclear || req.wipeAll) {
-    await sb.from("stage_time_slots").delete().neq("id", 0);
-    await sb
-      .from("job_stage_instances")
-      .update({ scheduled_start_at: null, scheduled_end_at: null })
-      .in("status", ["pending", "queued"]);
-  }
-
-  let q = sb
-    .from("job_stage_instances")
-    .select(
-      "id, job_id, production_stage_id, stage_order, scheduled_minutes, status, scheduled_start_at, scheduled_end_at, dependency_group",
-    )
-    .in("status", ["pending", "queued"]);
-
-  if (req.onlyJobIds?.length) q = q.in("job_id", req.onlyJobIds);
-
-  const { data, error } = await q;
-  if (error) throw error;
-
-  const items = (data as StageInstance[]).sort(
-    (a, b) => (a.stage_order ?? 9999) - (b.stage_order ?? 9999) || a.id.localeCompare(b.id),
+async function writeSlots(sb: SupabaseClient, slots: Slot[]) {
+  if (slots.length === 0) return;
+  const { error } = await sb.from("stage_time_slots").insert(
+    slots.map(s => ({
+      production_stage_id: s.production_stage_id,
+      date: s.date,
+      slot_start_time: s.slot_start_time,
+      slot_end_time: s.slot_end_time,
+      duration_minutes: s.duration_minutes,
+      job_id: s.job_id,
+      job_table_name: s.job_table_name,
+      stage_instance_id: s.stage_instance_id,
+      is_completed: false,
+    }))
   );
-
-  const prevEndByJob = new Map<string, Date>();        // last stage end per job
-  const groupMembers = new Map<string, Set<string>>(); // group -> job ids
-
-  for (const it of items) {
-    if (it.dependency_group) {
-      const set = groupMembers.get(it.dependency_group) ?? new Set<string>();
-      set.add(it.job_id);
-      groupMembers.set(it.dependency_group, set);
-    }
-  }
-
-  let scheduled = 0;
-  let slotsInserted = 0;
-
-  for (const it of items) {
-    if (req.onlyIfUnset && (it.scheduled_start_at || it.scheduled_end_at)) continue;
-
-    const minutes = it.scheduled_minutes ?? 1;
-    if (minutes <= 0) continue;
-
-    // 1) previous stage end for this job
-    const jobPrereq = prevEndByJob.get(it.job_id) ?? normalizedBase;
-
-    // 2) rendezvous: wait until all jobs in the group have finished their prior stages
-    let groupPrereq = jobPrereq;
-    if (it.dependency_group) {
-      const members = groupMembers.get(it.dependency_group) ?? new Set<string>();
-      for (const jid of members) {
-        const end = prevEndByJob.get(jid) ?? normalizedBase;
-        if (end > groupPrereq) groupPrereq = end;
-      }
-    }
-
-    // 3) stage queue tail / working start
-    const stageTail = await stageQueueTailOrWorkingStart(sb, it.production_stage_id, normalizedBase);
-
-    const startCandidate = new Date(Math.max(jobPrereq.getTime(), groupPrereq.getTime(), stageTail.getTime()));
-
-    const { first, last, slots } = await allocateSlots(sb, startCandidate, minutes);
-
-    if (req.commit !== false) {
-      if (slots.length) {
-        const rows = slots.map((s) => {
-          const dur = Math.max(1, minutesBetween(s.start, s.end)); // never 0
-          return {
-            production_stage_id: it.production_stage_id,
-            stage_instance_id: it.id,
-            job_id: it.job_id,                                   // optional, in schema
-            date: s.start.toISOString().slice(0, 10),            // ✅ correct column name
-            slot_start_time: s.start.toISOString(),
-            slot_end_time: s.end.toISOString(),
-            duration_minutes: dur,                               // ✅ required NOT NULL
-            // job_table_name defaults to 'production_jobs'
-            // is_completed defaults to false
-            // created_at/updated_at default to now()
-          };
-        });
-        const { error: insErr } = await sb.from("stage_time_slots").insert(rows);
-        if (insErr) throw insErr;
-        slotsInserted += rows.length;
-      }
-
-      const { error: updErr } = await sb
-        .from("job_stage_instances")
-        .update({
-          scheduled_start_at: first.toISOString(),
-          scheduled_end_at: last.toISOString(),
-          status: it.status === "pending" ? "queued" : it.status,
-        })
-        .eq("id", it.id);
-      if (updErr) throw updErr;
-    }
-
-    prevEndByJob.set(it.job_id, new Date(last));
-    scheduled++;
-  }
-
-  return { ok: true, scheduled, slotsInserted, considered: items.length };
+  if (error) throw error;
 }
 
-// ---------------- HTTP entry ----------------
+async function updateJSI(
+  sb: SupabaseClient,
+  jsiId: string,
+  mins: number,
+  startIso: string,
+  endIso: string,
+) {
+  // *** IMPORTANT: UPDATE ONLY – never insert and never touch status ***
+  const { error } = await sb
+    .from("job_stage_instances")
+    .update({
+      scheduled_minutes: mins,
+      scheduled_start_at: startIso,
+      scheduled_end_at: endIso,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jsiId);
+  if (error) throw error;
+}
+
+async function schedule(
+  sb: SupabaseClient,
+  req: ScheduleRequest,
+): Promise<{ slots: number; jsis: number }> {
+  const baseStart = await normalizeStart(sb, req.startFrom);
+  await wipeSlotsIfNeeded(sb, req);
+
+  const rows = await selectJobStageRows(sb, req);
+
+  // Keep a moving pointer (tail) per machine/stage
+  const tails = new Map<string, Date>();
+  const slotsToWrite: Slot[] = [];
+  let jsiUpdates = 0;
+
+  for (const row of rows) {
+    const mins = minutesFor(row);
+
+    if (!tails.has(row.production_stage_id)) {
+      const t = await queueTail(sb, row.production_stage_id, baseStart);
+      tails.set(row.production_stage_id, t);
+    }
+
+    // append at tail; keep within working windows
+    let start = new Date(tails.get(row.production_stage_id)!.getTime());
+    start = await nextWorkingStart(sb, start);          // bump to valid window
+    const end = addMinutes(start, mins);
+
+    // prepare slot row
+    slotsToWrite.push({
+      production_stage_id: row.production_stage_id,
+      date: asDateOnlyUTC(start),
+      slot_start_time: start.toISOString(),
+      slot_end_time: end.toISOString(),
+      duration_minutes: mins,
+      job_id: row.job_id,
+      job_table_name: "production_jobs",
+      stage_instance_id: row.stage_instance_id,
+      is_completed: false,
+    });
+
+    // remember tail
+    tails.set(row.production_stage_id, end);
+
+    // write back into JSI (UPDATE ONLY)
+    await updateJSI(sb, row.stage_instance_id, mins, start.toISOString(), end.toISOString());
+    jsiUpdates += 1;
+  }
+
+  // write slots in one batch
+  await writeSlots(sb, slotsToWrite);
+
+  return { slots: slotsToWrite.length, jsis: jsiUpdates };
+}
+
 serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: preflightHeaders(req) });
+      return json(200, { ok: true });
     }
 
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "POST only" }), {
-        status: 405,
-        headers: responseHeaders,
-      });
-    }
+    const body = (await req.json().catch(() => ({}))) as ScheduleRequest;
 
-    const sb = sbClient();
-    let body: RunRequest;
-    try {
-      body = (await req.json()) as RunRequest;
-    } catch {
-      body = {};
-    }
+    // Basic validation/log
+    const requestInfo = {
+      commit: !!body.commit,
+      proposed: !!body.proposed,
+      onlyIfUnset: !!body.onlyIfUnset,
+      nuclear: !!body.nuclear,
+      wipeAll: !!body.wipeAll,
+      startFrom: body.startFrom ?? null,
+      onlyJobIds: Array.isArray(body.onlyJobIds) ? body.onlyJobIds.length : 0,
+    };
 
-    // Defaults
-    body.commit ??= true;
-    body.proposed ??= false;
-    body.onlyIfUnset ??= false;
-    body.nuclear ??= false;
-    body.wipeAll ??= false;
+    const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+      global: { headers: { "x-client-info": "scheduler-run" } },
+    });
 
-    const result = await executeScheduler(sb, body);
-    return new Response(JSON.stringify(result), { status: 200, headers: responseHeaders });
-  } catch (err) {
-    console.error("scheduler-run fatal:", err);
-    const message = err && typeof err === "object" && "message" in err ? (err as Error).message : String(err);
-    return new Response(JSON.stringify({ error: message }), { status: 500, headers: responseHeaders });
+    // Do the work
+    const { slots, jsis } = await schedule(sb, body ?? {});
+    return json(200, {
+      ok: true,
+      request: requestInfo,
+      wrote_slots: slots,
+      updated_jsi: jsis,
+    });
+  } catch (e: any) {
+    console.error("scheduler-run fatal:", e);
+    const code = e?.code ?? e?.status ?? "500";
+    const msg = e?.message ?? String(e);
+    return json(500, { ok: false, code, message: msg });
   }
 });
