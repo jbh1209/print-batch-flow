@@ -1033,6 +1033,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "job_stage_instances_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
@@ -1889,6 +1903,27 @@ export type Database = {
             referencedRelation: "job_stage_instances"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_proof_links_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_stage_windows"
+            referencedColumns: ["stage_instance_id"]
+          },
+          {
+            foreignKeyName: "fk_proof_links_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_schedule_precedence_violations"
+            referencedColumns: ["stage_instance_id"]
+          },
+          {
+            foreignKeyName: "fk_proof_links_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_scheduler_stages_ready"
+            referencedColumns: ["id"]
+          },
         ]
       }
       public_holidays: {
@@ -1921,6 +1956,54 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      scheduler_webhook_log: {
+        Row: {
+          created_at: string
+          error_text: string | null
+          event: string | null
+          http_error: string | null
+          http_status: number | null
+          id: number
+          job_id: string | null
+          logged_at: string
+          order_no: string | null
+          request_body: Json | null
+          request_id: number | null
+          response_body: string | null
+          response_excerpt: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_text?: string | null
+          event?: string | null
+          http_error?: string | null
+          http_status?: number | null
+          id?: number
+          job_id?: string | null
+          logged_at?: string
+          order_no?: string | null
+          request_body?: Json | null
+          request_id?: number | null
+          response_body?: string | null
+          response_excerpt?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_text?: string | null
+          event?: string | null
+          http_error?: string | null
+          http_status?: number | null
+          id?: number
+          job_id?: string | null
+          logged_at?: string
+          order_no?: string | null
+          request_body?: Json | null
+          request_id?: number | null
+          response_body?: string | null
+          response_excerpt?: string | null
         }
         Relationships: []
       }
@@ -2613,6 +2696,41 @@ export type Database = {
       }
     }
     Views: {
+      v_job_stage_windows: {
+        Row: {
+          first_slot: string | null
+          job_id: string | null
+          last_slot: string | null
+          prev_end: string | null
+          production_stage_id: string | null
+          stage_instance_id: string | null
+          stage_order: number | null
+          wo_no: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_jobs_ready_for_production: {
         Row: {
           batch_allocated_at: string | null
@@ -2780,8 +2898,140 @@ export type Database = {
           },
         ]
       }
+      v_schedule_precedence_violations: {
+        Row: {
+          job_id: string | null
+          max_prev_end: string | null
+          scheduled_end_at: string | null
+          scheduled_start_at: string | null
+          stage_instance_id: string | null
+          stage_order: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_scheduler_stages_ready: {
+        Row: {
+          actual_duration_minutes: number | null
+          category_id: string | null
+          client_email: string | null
+          client_name: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          dependency_group: string | null
+          estimated_duration_minutes: number | null
+          estimated_minutes: number | null
+          id: string | null
+          is_rework: boolean | null
+          is_split_job: boolean | null
+          job_id: string | null
+          job_order_in_stage: number | null
+          job_table_name: string | null
+          notes: string | null
+          part_assignment: string | null
+          part_name: string | null
+          part_type: string | null
+          previous_stage_id: string | null
+          printer_id: string | null
+          production_stage_id: string | null
+          proof_approved_manually_at: string | null
+          proof_emailed_at: string | null
+          proof_pdf_url: string | null
+          qr_scan_data: Json | null
+          quantity: number | null
+          queue_position: number | null
+          rework_count: number | null
+          rework_reason: string | null
+          schedule_status: string | null
+          scheduled_by_user_id: string | null
+          scheduled_end_at: string | null
+          scheduled_minutes: number | null
+          scheduled_start_at: string | null
+          scheduling_method: string | null
+          setup_minutes: number | null
+          setup_time_minutes: number | null
+          split_job_part: number | null
+          split_job_total_parts: number | null
+          stage_group: string | null
+          stage_name: string | null
+          stage_order: number | null
+          stage_specification_id: string | null
+          started_at: string | null
+          started_by: string | null
+          status: string | null
+          unique_stage_key: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_job_stage_instances_production_jobs"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_stage_specification_id_fkey"
+            columns: ["stage_specification_id"]
+            isOneToOne: false
+            referencedRelation: "stage_specifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      _prev_stage_end: {
+        Args: { p_stage_instance_id: string }
+        Returns: string
+      }
+      _schedule_job_via_edge: {
+        Args: { p_event?: string; p_job_id: string }
+        Returns: Json
+      }
       activate_batch_allocation_for_job: {
         Args: { p_job_id: string; p_job_table_name?: string }
         Returns: boolean
@@ -2857,6 +3107,15 @@ export type Database = {
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      apply_stage_updates_safe: {
+        Args: {
+          as_proposed?: boolean
+          commit?: boolean
+          only_if_unset?: boolean
+          updates: Json
+        }
+        Returns: Json
       }
       bulk_recalculate_job_due_dates: {
         Args: Record<PropertyKey, never>
@@ -2984,6 +3243,10 @@ export type Database = {
           scheduled_time: string
           stage_name: string
         }[]
+      }
+      export_scheduler_input: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
@@ -3330,9 +3593,31 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
+      list_working_days: {
+        Args: { end_date: string; start_date: string }
+        Returns: {
+          work_date: string
+        }[]
+      }
       mark_job_ready_for_batching: {
         Args: { p_job_id: string; p_job_table_name: string; p_user_id?: string }
         Returns: boolean
+      }
+      mirror_jsi_to_stage_time_slots: {
+        Args: { p_stage_ids: string[] }
+        Returns: undefined
+      }
+      pg_advisory_unlock: {
+        Args: { key: number }
+        Returns: boolean
+      }
+      pg_try_advisory_lock: {
+        Args: { key: number }
+        Returns: boolean
+      }
+      planned_minutes_for_jsi: {
+        Args: { p_jsi_id: string }
+        Returns: number
       }
       process_due_date_recalculation_queue: {
         Args: Record<PropertyKey, never>
@@ -3440,6 +3725,14 @@ export type Database = {
           scheduled_start: string
         }[]
       }
+      scheduler_delete_slots_for_jobs: {
+        Args: { job_ids: string[] }
+        Returns: number
+      }
+      scheduler_truncate_slots: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       set_user_role: {
         Args: { new_role: string; target_user_id: string }
         Returns: boolean
@@ -3454,6 +3747,10 @@ export type Database = {
           batch_id: string
           split_jobs_count: number
         }[]
+      }
+      sql: {
+        Args: { q: string }
+        Returns: Json
       }
       start_concurrent_printing_stages: {
         Args: {
@@ -3477,6 +3774,10 @@ export type Database = {
           fixed_count: number
           synced_count: number
         }[]
+      }
+      unschedule_auto_stages: {
+        Args: { from_date: string; wipe_all?: boolean }
+        Returns: number
       }
       update_stage_queue_end_time: {
         Args: { p_date?: string; p_new_end_time: string; p_stage_id: string }
