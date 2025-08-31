@@ -243,53 +243,67 @@ async function schedule(
 
   // Keep a moving pointer (tail) per machine/stage
   const tails = new Map<string, Date>();
-  // Track job completion times to ensure precedence within jobs
-  const jobTails = new Map<string, Date>();
   const slotsToWrite: Slot[] = [];
   let jsiUpdates = 0;
 
+  // Group stages by job_id to ensure sequential processing within each job
+  const jobGroups = new Map<string, typeof rows>();
   for (const row of rows) {
-    const mins = minutesFor(row);
-
-    // Initialize machine tail if not set
-    if (!tails.has(row.production_stage_id)) {
-      const t = await queueTail(sb, row.production_stage_id, baseStart);
-      tails.set(row.production_stage_id, t);
+    if (!jobGroups.has(row.job_id)) {
+      jobGroups.set(row.job_id, []);
     }
+    jobGroups.get(row.job_id)!.push(row);
+  }
 
-    // Get the machine's current tail
-    let machineStart = new Date(tails.get(row.production_stage_id)!.getTime());
+  // Process each job completely before moving to the next job
+  for (const [jobId, jobStages] of jobGroups) {
+    // Sort stages within this job by stage_order to ensure sequential processing
+    const sortedStages = jobStages.sort((a, b) => (a.stage_order || 0) - (b.stage_order || 0));
     
-    // Ensure this stage starts after the previous stage of the same job completes
-    const jobTail = jobTails.get(row.job_id);
-    if (jobTail && jobTail > machineStart) {
-      machineStart = new Date(jobTail.getTime());
+    let jobCompletionTime = baseStart; // Track when this job's current stage completes
+    
+    for (const row of sortedStages) {
+      const mins = minutesFor(row);
+
+      // Initialize machine tail if not set
+      if (!tails.has(row.production_stage_id)) {
+        const t = await queueTail(sb, row.production_stage_id, baseStart);
+        tails.set(row.production_stage_id, t);
+      }
+
+      // Get the machine's current tail
+      let machineStart = new Date(tails.get(row.production_stage_id)!.getTime());
+      
+      // CRITICAL: Ensure this stage starts after the previous stage of THIS job completes
+      if (jobCompletionTime > machineStart) {
+        machineStart = new Date(jobCompletionTime.getTime());
+      }
+
+      // Ensure we're within working windows
+      const start = await nextWorkingStart(sb, machineStart);
+      const end = addMinutes(start, mins);
+
+      // prepare slot row
+      slotsToWrite.push({
+        production_stage_id: row.production_stage_id,
+        date: asDateOnlyUTC(start),
+        slot_start_time: start.toISOString(),
+        slot_end_time: end.toISOString(),
+        duration_minutes: mins,
+        job_id: row.job_id,
+        job_table_name: "production_jobs",
+        stage_instance_id: row.stage_instance_id,
+        is_completed: false,
+      });
+
+      // Update machine tail and job completion time
+      tails.set(row.production_stage_id, end);
+      jobCompletionTime = end; // This job's next stage must start after this one ends
+
+      // write back into JSI (UPDATE ONLY)
+      await updateJSI(sb, row.stage_instance_id, mins, start.toISOString(), end.toISOString());
+      jsiUpdates += 1;
     }
-
-    // Ensure we're within working windows
-    const start = await nextWorkingStart(sb, machineStart);
-    const end = addMinutes(start, mins);
-
-    // prepare slot row
-    slotsToWrite.push({
-      production_stage_id: row.production_stage_id,
-      date: asDateOnlyUTC(start),
-      slot_start_time: start.toISOString(),
-      slot_end_time: end.toISOString(),
-      duration_minutes: mins,
-      job_id: row.job_id,
-      job_table_name: "production_jobs",
-      stage_instance_id: row.stage_instance_id,
-      is_completed: false,
-    });
-
-    // Update both machine and job tails
-    tails.set(row.production_stage_id, end);
-    jobTails.set(row.job_id, end);
-
-    // write back into JSI (UPDATE ONLY)
-    await updateJSI(sb, row.stage_instance_id, mins, start.toISOString(), end.toISOString());
-    jsiUpdates += 1;
   }
 
   // write slots in one batch
