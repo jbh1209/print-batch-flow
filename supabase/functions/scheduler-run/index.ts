@@ -28,8 +28,8 @@ type StageInstance = {
 
 type ShiftWindow = { start: Date; end: Date; isWorkingDay: boolean };
 
-// ---------------- CORS helpers (dynamic reflection) ----------------
-const ALLOW_ORIGIN = "*"; // optionally set to your app origin
+// ---------------- CORS helpers ----------------
+const ALLOW_ORIGIN = "*"; // set to your app origin if you want to pin it
 
 function preflightHeaders(req: Request) {
   const requested =
@@ -266,11 +266,14 @@ async function executeScheduler(sb: SupabaseClient, req: RunRequest) {
           return {
             production_stage_id: it.production_stage_id,
             stage_instance_id: it.id,
-            job_id: it.job_id,                                   // ✅ include job
-            slot_date: s.start.toISOString().slice(0, 10),        // ✅ include date
+            job_id: it.job_id,                                   // optional, in schema
+            date: s.start.toISOString().slice(0, 10),            // ✅ correct column name
             slot_start_time: s.start.toISOString(),
             slot_end_time: s.end.toISOString(),
-            duration_minutes: dur,                                 // ✅ required column
+            duration_minutes: dur,                               // ✅ required NOT NULL
+            // job_table_name defaults to 'production_jobs'
+            // is_completed defaults to false
+            // created_at/updated_at default to now()
           };
         });
         const { error: insErr } = await sb.from("stage_time_slots").insert(rows);
