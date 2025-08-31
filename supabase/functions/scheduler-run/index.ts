@@ -142,7 +142,8 @@ async function selectJobStageRows(
       estimated_duration_minutes
     `)
     .neq("status", "completed")            // don’t reschedule done work
-    .order("stage_order", { ascending: true, nullsFirst: false });
+    .order("job_id", { ascending: true })  // First by job_id to group jobs together
+    .order("stage_order", { ascending: true, nullsFirst: false }); // Then by stage order within each job
 
   if (req.onlyJobIds && req.onlyJobIds.length > 0) {
     q = q.in("job_id", req.onlyJobIds);
@@ -242,20 +243,31 @@ async function schedule(
 
   // Keep a moving pointer (tail) per machine/stage
   const tails = new Map<string, Date>();
+  // Track job completion times to ensure precedence within jobs
+  const jobTails = new Map<string, Date>();
   const slotsToWrite: Slot[] = [];
   let jsiUpdates = 0;
 
   for (const row of rows) {
     const mins = minutesFor(row);
 
+    // Initialize machine tail if not set
     if (!tails.has(row.production_stage_id)) {
       const t = await queueTail(sb, row.production_stage_id, baseStart);
       tails.set(row.production_stage_id, t);
     }
 
-    // append at tail; keep within working windows
-    let start = new Date(tails.get(row.production_stage_id)!.getTime());
-    start = await nextWorkingStart(sb, start);          // bump to valid window
+    // Get the machine's current tail
+    let machineStart = new Date(tails.get(row.production_stage_id)!.getTime());
+    
+    // Ensure this stage starts after the previous stage of the same job completes
+    const jobTail = jobTails.get(row.job_id);
+    if (jobTail && jobTail > machineStart) {
+      machineStart = new Date(jobTail.getTime());
+    }
+
+    // Ensure we're within working windows
+    const start = await nextWorkingStart(sb, machineStart);
     const end = addMinutes(start, mins);
 
     // prepare slot row
@@ -271,8 +283,9 @@ async function schedule(
       is_completed: false,
     });
 
-    // remember tail
+    // Update both machine and job tails
     tails.set(row.production_stage_id, end);
+    jobTails.set(row.job_id, end);
 
     // write back into JSI (UPDATE ONLY)
     await updateJSI(sb, row.stage_instance_id, mins, start.toISOString(), end.toISOString());
