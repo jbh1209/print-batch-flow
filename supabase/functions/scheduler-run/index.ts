@@ -1,4 +1,4 @@
-// v6.3
+// v6.4
 // deno-lint-ignore-file no-explicit-any
 /**
  * Supabase Edge Function: scheduler-run
@@ -545,17 +545,30 @@ async function schedule(
           // advance machine tail to the end of this work
           tails.set(r.production_stage_id, segEnd);
 
-          // Update job completion time - this stage finished at segEnd
-          jobCompletionTimes.set(jobId, segEnd);
+          // Update job completion time - ONLY advance forward, never regress
+          const currentCompletionTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
+          const newCompletionTime = new Date(Math.max(currentCompletionTime.getTime(), segEnd.getTime()));
+          jobCompletionTimes.set(jobId, newCompletionTime);
+          
+          if (segEnd < currentCompletionTime) {
+            console.log(`WARNING: Prevented job ${jobId} completion time regression from ${currentCompletionTime.toISOString()} to ${segEnd.toISOString()}`);
+          }
 
           // update job-level batch latest end
           if (!latestEndInBatch || segEnd > latestEndInBatch) latestEndInBatch = segEnd;
         }
 
-        // Update job completion time for this stage order - all stages in this order are now complete
+        // Update job completion time for this stage order - ONLY advance forward, never regress
         if (latestEndInBatch) {
-          jobCompletionTimes.set(jobId, latestEndInBatch);
-          console.log(`Updated job ${jobId} completion time to: ${latestEndInBatch.toISOString()}`);
+          const currentCompletionTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
+          const newCompletionTime = new Date(Math.max(currentCompletionTime.getTime(), latestEndInBatch.getTime()));
+          jobCompletionTimes.set(jobId, newCompletionTime);
+          
+          if (latestEndInBatch < currentCompletionTime) {
+            console.log(`WARNING: Prevented batch job ${jobId} completion time regression from ${currentCompletionTime.toISOString()} to ${latestEndInBatch.toISOString()}`);
+          } else {
+            console.log(`Updated job ${jobId} completion time to: ${newCompletionTime.toISOString()}`);
+          }
         }
       }
 
