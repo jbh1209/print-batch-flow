@@ -1,4 +1,4 @@
-// v6.2
+// v6.3
 // deno-lint-ignore-file no-explicit-any
 /**
  * Supabase Edge Function: scheduler-run
@@ -294,6 +294,67 @@ async function queueTail(sb: SupabaseClient, stageId: string, base: Date): Promi
 }
 
 /**
+ * Pre-populate job completion times from existing scheduled stages.
+ * This ensures cross-chunk continuity when jobs span multiple processing chunks.
+ */
+async function initializeJobCompletionTimes(
+  sb: SupabaseClient,
+  req: ScheduleRequest,
+  baseStart: Date
+): Promise<Map<string, Date>> {
+  const jobCompletionTimes = new Map<string, Date>();
+  
+  try {
+    // Build query to get existing scheduled stages
+    let query = sb
+      .from("stage_time_slots")
+      .select(`
+        job_id,
+        slot_end_time,
+        production_stage_id
+      `)
+      .order("job_id")
+      .order("slot_end_time", { ascending: false });
+    
+    // Filter by job IDs if specified
+    if (req.onlyJobIds && req.onlyJobIds.length > 0) {
+      query = query.in("job_id", req.onlyJobIds);
+    }
+    
+    const { data: existingSlots, error } = await query;
+    if (error) throw error;
+    
+    // Group by job_id and find the latest end time for each job
+    const jobLatestEndTimes = new Map<string, Date>();
+    
+    for (const slot of existingSlots || []) {
+      const endTime = new Date(slot.slot_end_time);
+      const currentLatest = jobLatestEndTimes.get(slot.job_id);
+      
+      if (!currentLatest || endTime > currentLatest) {
+        jobLatestEndTimes.set(slot.job_id, endTime);
+      }
+    }
+    
+    // Initialize job completion times with existing scheduled end times
+    for (const [jobId, latestEnd] of jobLatestEndTimes) {
+      // Use the later of the existing end time or base start
+      const completionTime = latestEnd > baseStart ? latestEnd : baseStart;
+      jobCompletionTimes.set(jobId, completionTime);
+      console.log(`Pre-populated job ${jobId} completion time: ${completionTime.toISOString()}`);
+    }
+    
+    console.log(`Initialized job completion times for ${jobCompletionTimes.size} jobs with existing schedules`);
+    
+  } catch (e) {
+    console.error("Error initializing job completion times:", e);
+    // Continue with empty map if initialization fails
+  }
+  
+  return jobCompletionTimes;
+}
+
+/**
  * Paged read of JSI rows ordered by (job_id, stage_order).
  * Emits complete job groups to keep memory small and to support cross-part rendezvous.
  */
@@ -401,7 +462,11 @@ async function schedule(
   await wipeSlotsIfNeeded(sb, req);
 
   const tails = new Map<string, Date>(); // per-stage machine tail
-  const jobCompletionTimes = new Map<string, Date>(); // per-job completion tracking
+  
+  // Pre-populate job completion times from existing scheduled stages
+  // This ensures cross-chunk continuity when jobs span multiple processing chunks
+  const jobCompletionTimes = await initializeJobCompletionTimes(sb, req, baseStart);
+  
   let wroteSlots = 0;
   let updatedJSI = 0;
 
@@ -419,9 +484,10 @@ async function schedule(
       }
       const orders = Array.from(byOrder.keys()).sort((a, b) => a - b);
 
-      // Initialize job completion time if not exists
+      // Initialize job completion time if not exists (for jobs without existing schedules)
       if (!jobCompletionTimes.has(jobId)) {
         jobCompletionTimes.set(jobId, new Date(baseStart.getTime()));
+        console.log(`Initializing new job ${jobId} completion time: ${baseStart.toISOString()}`);
       }
 
       for (const ord of orders) {
@@ -443,6 +509,11 @@ async function schedule(
 
           // Start no earlier than machine availability, job precedence, AND any cross-job dependencies
           let candidate = new Date(Math.max(stageTail.getTime(), jobPrecedenceTime.getTime()));
+
+          console.log(`Scheduling job ${jobId} stage ${r.production_stage_id} order ${ord}: 
+            stageTail=${stageTail.toISOString()}, 
+            jobPrecedence=${jobPrecedenceTime.toISOString()}, 
+            candidate=${candidate.toISOString()}`);
 
           // Allocate within shifts (may split across days)
           const segments = await allocateSegments(sb, candidate, mins);
@@ -472,7 +543,7 @@ async function schedule(
           updatedJSI += 1;
 
           // advance machine tail to the end of this work
-          tails.set(r.production_stage_id, segEnd); // <— completion of tails.set()
+          tails.set(r.production_stage_id, segEnd);
 
           // Update job completion time - this stage finished at segEnd
           jobCompletionTimes.set(jobId, segEnd);
@@ -484,6 +555,7 @@ async function schedule(
         // Update job completion time for this stage order - all stages in this order are now complete
         if (latestEndInBatch) {
           jobCompletionTimes.set(jobId, latestEndInBatch);
+          console.log(`Updated job ${jobId} completion time to: ${latestEndInBatch.toISOString()}`);
         }
       }
 
