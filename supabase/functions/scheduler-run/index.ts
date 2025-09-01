@@ -493,61 +493,60 @@ async function schedule(
 
       // Process each stage in sequence within this job
       for (const r of sortedStages) {
-          const mins = minutesFor(r);
+        const mins = minutesFor(r);
 
-          // ensure stage tail exists
-          if (!tails.has(r.production_stage_id)) {
-            const t = await queueTail(sb, r.production_stage_id, baseStart);
-            tails.set(r.production_stage_id, t);
-          }
-          const stageTail = tails.get(r.production_stage_id)!;
-
-          // Get job precedence time - this stage can't start until all previous stages of this job finish
-          const jobPrecedenceTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
-
-          // Start no earlier than machine availability, job precedence, AND any cross-job dependencies
-          let candidate = new Date(Math.max(stageTail.getTime(), jobPrecedenceTime.getTime()));
-
-          console.log(`Scheduling job ${jobId} stage ${r.production_stage_id} order ${r.stage_order}: 
-            stageTail=${stageTail.toISOString()}, 
-            jobPrecedence=${jobPrecedenceTime.toISOString()}, 
-            candidate=${candidate.toISOString()}`);
-
-          // Allocate within shifts (may split across days)
-          const segments = await allocateSegments(sb, candidate, mins);
-
-          const segStart = segments[0].start;
-          const segEnd = segments[segments.length - 1].end;
-
-          // Create slots
-          const slots: Slot[] = segments.map(seg => ({
-            production_stage_id: r.production_stage_id,
-            date: asDateOnlyUTC(seg.start),
-            slot_start_time: seg.start.toISOString(),
-            slot_end_time: seg.end.toISOString(),
-            duration_minutes: Math.max(1, Math.round((seg.end.getTime() - seg.start.getTime()) / 60000)),
-            job_id: r.job_id,
-            job_table_name: "production_jobs",
-            stage_instance_id: r.stage_instance_id,
-            is_completed: false,
-          }));
-
-          if (commit) {
-            await writeSlots(sb, slots);
-            await updateJSI(sb, r.stage_instance_id, mins, segStart.toISOString(), segEnd.toISOString());
-          }
-
-          wroteSlots += slots.length;
-          updatedJSI += 1;
-
-          // advance machine tail to the end of this work
-          tails.set(r.production_stage_id, segEnd);
-
-          // Update job completion time - since we're processing sequentially, 
-          // this stage's end time becomes the new job completion time
-          jobCompletionTimes.set(jobId, segEnd);
-          console.log(`Updated job ${jobId} completion time to: ${segEnd.toISOString()} (stage ${r.stage_order})`);
+        // ensure stage tail exists
+        if (!tails.has(r.production_stage_id)) {
+          const t = await queueTail(sb, r.production_stage_id, baseStart);
+          tails.set(r.production_stage_id, t);
         }
+        const stageTail = tails.get(r.production_stage_id)!;
+
+        // Get job precedence time - this stage can't start until all previous stages of this job finish
+        const jobPrecedenceTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
+
+        // Start no earlier than machine availability, job precedence, AND any cross-job dependencies
+        let candidate = new Date(Math.max(stageTail.getTime(), jobPrecedenceTime.getTime()));
+
+        console.log(`Scheduling job ${jobId} stage ${r.production_stage_id} order ${r.stage_order}: 
+          stageTail=${stageTail.toISOString()}, 
+          jobPrecedence=${jobPrecedenceTime.toISOString()}, 
+          candidate=${candidate.toISOString()}`);
+
+        // Allocate within shifts (may split across days)
+        const segments = await allocateSegments(sb, candidate, mins);
+
+        const segStart = segments[0].start;
+        const segEnd = segments[segments.length - 1].end;
+
+        // Create slots
+        const slots: Slot[] = segments.map(seg => ({
+          production_stage_id: r.production_stage_id,
+          date: asDateOnlyUTC(seg.start),
+          slot_start_time: seg.start.toISOString(),
+          slot_end_time: seg.end.toISOString(),
+          duration_minutes: Math.max(1, Math.round((seg.end.getTime() - seg.start.getTime()) / 60000)),
+          job_id: r.job_id,
+          job_table_name: "production_jobs",
+          stage_instance_id: r.stage_instance_id,
+          is_completed: false,
+        }));
+
+        if (commit) {
+          await writeSlots(sb, slots);
+          await updateJSI(sb, r.stage_instance_id, mins, segStart.toISOString(), segEnd.toISOString());
+        }
+
+        wroteSlots += slots.length;
+        updatedJSI += 1;
+
+        // advance machine tail to the end of this work
+        tails.set(r.production_stage_id, segEnd);
+
+        // Update job completion time - since we're processing sequentially, 
+        // this stage's end time becomes the new job completion time
+        jobCompletionTimes.set(jobId, segEnd);
+        console.log(`Updated job ${jobId} completion time to: ${segEnd.toISOString()} (stage ${r.stage_order})`);
       }
 
       // (Optional) You could capture a job-level summary here if needed
