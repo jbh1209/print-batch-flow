@@ -68,6 +68,7 @@ const SERVICE_ROLE_KEY =
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error("Missing SUPABASE_URL or SERVICE_ROLE_KEY.");
+  throw new Error("Missing required environment variables");
 }
 
 // ---------- CORS ----------
@@ -125,28 +126,38 @@ function addMinutes(ts: Date, mins: number) {
 }
 
 // ---------- Shift Calendar ----------
-type ShiftRule = { start_time: string; end_time: string; is_working_day: boolean };
+type ShiftRule = { shift_start_time: string; shift_end_time: string; is_working_day: boolean };
 
 async function getShiftRule(sb: SupabaseClient, dow: number): Promise<ShiftRule> {
-  const { data, error } = await sb
-    .from("shift_schedules")
-    .select("shift_start_time,shift_end_time,is_working_day,day_of_week")
-    .eq("day_of_week", dow)
-    .maybeSingle();
-  if (error) throw error;
+  try {
+    const { data, error } = await sb
+      .from("shift_schedules")
+      .select("shift_start_time,shift_end_time,is_working_day,day_of_week")
+      .eq("day_of_week", dow)
+      .maybeSingle();
+    if (error) throw error;
 
-  // Fallback: 08:00-17:00 (9h), working
-  return data ?? { start_time: "08:00:00", end_time: "17:00:00", is_working_day: true };
+    // Fallback: 08:00-17:00 (9h), working
+    return data ?? { shift_start_time: "08:00:00", shift_end_time: "17:00:00", is_working_day: true };
+  } catch (e) {
+    console.error(`Error getting shift rule for day ${dow}:`, e);
+    return { shift_start_time: "08:00:00", shift_end_time: "17:00:00", is_working_day: true };
+  }
 }
 
 async function isHoliday(sb: SupabaseClient, dateUtc: string): Promise<boolean> {
-  const { data, error } = await sb
-    .from("public_holidays")
-    .select("date,is_active")
-    .eq("date", dateUtc)
-    .eq("is_active", true);
-  if (error) throw error;
-  return (data?.length ?? 0) > 0;
+  try {
+    const { data, error } = await sb
+      .from("public_holidays")
+      .select("date,is_active")
+      .eq("date", dateUtc)
+      .eq("is_active", true);
+    if (error) throw error;
+    return (data?.length ?? 0) > 0;
+  } catch (e) {
+    console.error(`Error checking holiday for ${dateUtc}:`, e);
+    return false; // assume non-holiday on error
+  }
 }
 
 async function nextWorkingStart(sb: SupabaseClient, fromTs: Date): Promise<Date> {
@@ -220,17 +231,34 @@ async function allocateSegments(
   return out;
 }
 
+// ---------- Health Check ----------
+async function healthCheck(sb: SupabaseClient): Promise<void> {
+  try {
+    // Test basic connectivity with a simple query
+    const { error } = await sb.from("shift_schedules").select("day_of_week").limit(1);
+    if (error) throw error;
+    console.log("Database connectivity check passed");
+  } catch (e) {
+    console.error("Health check failed:", e);
+    throw new Error(`Database connectivity failed: ${e.message}`);
+  }
+}
 // ---------- Data access ----------
 async function normalizeStart(sb: SupabaseClient, requested?: string): Promise<Date> {
-  let base = requested ? new Date(requested) : new Date();
-  if (requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)) {
-    base = new Date(`${requested}T08:00:00Z`);
+  try {
+    let base = requested ? new Date(requested) : new Date();
+    if (requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)) {
+      base = new Date(`${requested}T08:00:00Z`);
+    }
+    const now = new Date();
+    if (base.getTime() < now.getTime()) {
+      base = new Date(Math.ceil(now.getTime() / 60000) * 60000);
+    }
+    return await nextWorkingStart(sb, base);
+  } catch (e) {
+    console.error("Error normalizing start time:", e);
+    throw e;
   }
-  const now = new Date();
-  if (base.getTime() < now.getTime()) {
-    base = new Date(Math.ceil(now.getTime() / 60000) * 60000);
-  }
-  return await nextWorkingStart(sb, base);
 }
 
 function minutesFor(row: StageRow): number {
@@ -240,8 +268,14 @@ function minutesFor(row: StageRow): number {
 
 async function wipeSlotsIfNeeded(sb: SupabaseClient, req: ScheduleRequest) {
   if (req.nuclear || req.wipeAll) {
-    const { error } = await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    if (error) throw error;
+    try {
+      const { error } = await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (error) throw error;
+      console.log("Wiped existing stage time slots");
+    } catch (e) {
+      console.error("Error wiping slots:", e);
+      throw e;
+    }
   }
 }
 
@@ -453,39 +487,53 @@ async function schedule(
 // ---------- HTTP Handler ----------
 serve((req) =>
   withCors(req, async () => {
-    if (req.method !== "POST") {
-      if (new URL(req.url).searchParams.get("ping") === "1") {
-        return json(req, 200, { ok: true, pong: true, now: new Date().toISOString() });
+    // Add timeout for long-running operations
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Request timeout after 5 minutes")), 5 * 60 * 1000);
+    });
+
+    const schedulerPromise = (async () => {
+      if (req.method !== "POST") {
+        if (new URL(req.url).searchParams.get("ping") === "1") {
+          return json(req, 200, { ok: true, pong: true, now: new Date().toISOString() });
+        }
+        return json(req, 405, { ok: false, error: "Method Not Allowed" });
       }
-      return json(req, 405, { ok: false, error: "Method Not Allowed" });
-    }
 
-    const body = (await req.json().catch(() => ({}))) as ScheduleRequest;
+      const body = (await req.json().catch(() => ({}))) as ScheduleRequest;
 
-    const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
-      global: { headers: { "x-client-info": "scheduler-run" } },
-    });
+      const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+        auth: { persistSession: false },
+        global: { headers: { "x-client-info": "scheduler-run" } },
+      });
 
-    // Normalize boolean flags
-    const normalized: ScheduleRequest = {
-      commit: !!body.commit,
-      proposed: !!body.proposed,
-      onlyIfUnset: !!body.onlyIfUnset,
-      nuclear: !!body.nuclear,
-      wipeAll: !!body.wipeAll,
-      startFrom: body.startFrom,
-      onlyJobIds: Array.isArray(body.onlyJobIds) ? body.onlyJobIds : undefined,
-      pageSize: (typeof body.pageSize === "number" && body.pageSize > 0) ? Math.min(1000, body.pageSize) : undefined,
-    };
+      // Run health check first
+      await healthCheck(sb);
 
-    // Run
-    const result = await schedule(sb, normalized);
+      // Normalize boolean flags
+      const normalized: ScheduleRequest = {
+        commit: !!body.commit,
+        proposed: !!body.proposed,
+        onlyIfUnset: !!body.onlyIfUnset,
+        nuclear: !!body.nuclear,
+        wipeAll: !!body.wipeAll,
+        startFrom: body.startFrom,
+        onlyJobIds: Array.isArray(body.onlyJobIds) ? body.onlyJobIds : undefined,
+        pageSize: (typeof body.pageSize === "number" && body.pageSize > 0) ? Math.min(1000, body.pageSize) : undefined,
+      };
 
-    return json(req, 200, {
-      ok: true,
-      request: normalized,
-      ...result,
-    });
+      console.log("Starting scheduler with request:", normalized);
+
+      // Run scheduler
+      const result = await schedule(sb, normalized);
+
+      return json(req, 200, {
+        ok: true,
+        request: normalized,
+        ...result,
+      });
+    })();
+
+    return Promise.race([schedulerPromise, timeoutPromise]);
   })
 );
