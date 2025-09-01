@@ -1,36 +1,57 @@
-// v6.1
+// v6.2
 // deno-lint-ignore-file no-explicit-any
+/**
+ * Supabase Edge Function: scheduler-run
+ *
+ * Tables used (write paths only):
+ *   - stage_time_slots(
+ *       id uuid, production_stage_id uuid, date date, slot_start_time timestamptz,
+ *       slot_end_time timestamptz, duration_minutes int, job_id uuid,
+ *       job_table_name text='production_jobs', stage_instance_id uuid, is_completed bool
+ *     )
+ *   - job_stage_instances (UPDATE ONLY):
+ *       set scheduled_minutes, scheduled_start_at, scheduled_end_at (never INSERT or change status)
+ *
+ * Shift calendar:
+ *   - shift_schedules(day_of_week int, start_time time, end_time time, is_working_day bool)
+ *   - public_holidays(date, is_active)
+ *
+ * API payloads:
+ *   - Append (auto-approve hook): {commit:true, proposed:false, onlyIfUnset:true}
+ *   - Reschedule all: {commit:true, proposed:false, onlyIfUnset:false, nuclear:true, wipeAll:true, startFrom:"YYYY-MM-DD"}
+ */
+
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
 
+// ---------- Types ----------
 type ScheduleRequest = {
   commit?: boolean;
-  proposed?: boolean;
-  onlyIfUnset?: boolean;
-  nuclear?: boolean;
-  wipeAll?: boolean;
-  startFrom?: string;     // ISO date (YYYY-MM-DD) or ISO datetime
-  onlyJobIds?: string[];  // subset of jobs to schedule
+  proposed?: boolean;      // currently unused, reserved
+  onlyIfUnset?: boolean;   // skip JSIs that already have schedule filled
+  nuclear?: boolean;       // alias of wipeAll
+  wipeAll?: boolean;       // clear stage_time_slots before writing
+  startFrom?: string;      // "YYYY-MM-DD" or ISO datetime
+  onlyJobIds?: string[];   // schedule only these jobs
+  pageSize?: number;       // override pagination
 };
 
 type StageRow = {
   stage_instance_id: string;
   production_stage_id: string;
   job_id: string;
-  wo_no: string;
   stage_order: number | null;
-  scheduled_minutes: number | null;     // from JSI (preferred)
-  estimated_duration_minutes: number | null; // fallback
+  scheduled_minutes: number | null;
+  estimated_duration_minutes: number | null;
   scheduled_start_at: string | null;
   scheduled_end_at: string | null;
 };
 
 type Slot = {
-  id?: string;
   production_stage_id: string;
   date: string;               // YYYY-MM-DD
-  slot_start_time: string;    // ISO z
-  slot_end_time: string;      // ISO z
+  slot_start_time: string;    // ISO
+  slot_end_time: string;      // ISO
   duration_minutes: number;
   job_id: string;
   job_table_name: "production_jobs";
@@ -38,139 +59,181 @@ type Slot = {
   is_completed: boolean;
 };
 
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-if (!SERVICE_ROLE_KEY || !SUPABASE_URL) {
-  console.error("Missing SUPABASE_URL or SERVICE_ROLE_KEY envs.");
+// ---------- Env ----------
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY =
+  Deno.env.get("SERVICE_ROLE_KEY") ??
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error("Missing SUPABASE_URL or SERVICE_ROLE_KEY.");
 }
 
-function json(status: number, body: any) {
+// ---------- CORS ----------
+function corsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") ?? "*";
+  const acrh =
+    req.headers.get("Access-Control-Request-Headers") ??
+    "authorization, apikey, x-client-info, content-type";
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": acrh,
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+    "Content-Type": "application/json",
+  };
+}
+
+function json(req: Request, status: number, body: unknown) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    },
+    headers: corsHeaders(req),
   });
 }
 
+async function withCors(req: Request, fn: () => Promise<Response>) {
+  try {
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(req) });
+    }
+    const res = await fn();
+    // Ensure CORS headers are present even if handler set its own headers
+    const merged = new Headers(res.headers);
+    Object.entries(corsHeaders(req)).forEach(([k, v]) => merged.set(k, v as string));
+    return new Response(res.body, { status: res.status, headers: merged });
+  } catch (e: any) {
+    console.error("scheduler-run fatal:", e);
+    const code = e?.code ?? e?.status ?? "500";
+    const message = e?.message ?? String(e);
+    return json(req, 500, { ok: false, code, message });
+  }
+}
+
+// ---------- Utilities ----------
 function asDateOnlyUTC(d: Date): string {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-
 function addMinutes(ts: Date, mins: number) {
   const d = new Date(ts.getTime());
   d.setUTCMinutes(d.getUTCMinutes() + mins);
   return d;
 }
 
-async function normalizeStart(
-  sb: SupabaseClient,
-  requested?: string,
-): Promise<Date> {
-  // If a date comes in, use 08:00:00 that day; if datetime, keep it.
-  let base = requested ? new Date(requested) : new Date();
-  if (!requested || /^\d{4}-\d{2}-\d{2}$/.test(requested)) {
-    // bump to 08:00 UTC of that day (your shift table is UTC in DB)
-    const d = requested ? new Date(requested + "T08:00:00Z") : base;
-    base = d;
-  }
-  // If it's in the past, nudge forward to now (but round up to whole minute)
-  const now = new Date();
-  if (base.getTime() < now.getTime()) {
-    base = new Date(Math.ceil(now.getTime() / (60_000)) * 60_000);
-  }
-  // If outside working times or weekend/holiday, bump to next work start.
-  const next = await nextWorkingStart(sb, base);
-  return next;
+// ---------- Shift Calendar ----------
+type ShiftRule = { start_time: string; end_time: string; is_working_day: boolean };
+
+async function getShiftRule(sb: SupabaseClient, dow: number): Promise<ShiftRule> {
+  const { data, error } = await sb
+    .from("shift_schedules")
+    .select("start_time,end_time,is_working_day,day_of_week")
+    .eq("day_of_week", dow)
+    .maybeSingle();
+  if (error) throw error;
+
+  // Fallback: 08:00-17:00 (9h), working
+  return data ?? { start_time: "08:00:00", end_time: "17:00:00", is_working_day: true };
+}
+
+async function isHoliday(sb: SupabaseClient, dateUtc: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from("public_holidays")
+    .select("date,is_active")
+    .eq("date", dateUtc)
+    .eq("is_active", true);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 async function nextWorkingStart(sb: SupabaseClient, fromTs: Date): Promise<Date> {
-  // Pull a single day's rule and loop forward until we hit a valid slot start.
-  // Schema:
-  //   shift_schedules(day_of_week int, start_time time, end_time time, is_working_day bool)
-  //   public_holidays(date date, is_active bool)
-  let ts = new Date(fromTs.getTime());
-  for (let guard = 0; guard < 30; guard++) {
-    const dow = ts.getUTCDay(); // 0=Sun..6=Sat
-    const { data: rules, error } = await sb
-      .from("shift_schedules")
-      .select("day_of_week,shift_start_time,shift_end_time,is_working_day")
-      .eq("day_of_week", dow)
-      .maybeSingle();
-    if (error) throw error;
+  let t = new Date(fromTs.getTime());
+  for (let guard = 0; guard < 60; guard++) {
+    const dow = t.getUTCDay();
+    const rule = await getShiftRule(sb, dow);
+    const day = asDateOnlyUTC(t);
+    const holiday = await isHoliday(sb, day);
 
-    // Check holiday
-    const { data: h } = await sb
-      .from("public_holidays")
-      .select("date,is_active")
-      .eq("date", asDateOnlyUTC(ts))
-      .eq("is_active", true);
-
-    const isHoliday = (h && h.length > 0);
-
-    if (rules && rules.is_working_day && !isHoliday) {
-      // Build the shift start/end for today in UTC
-      const start = new Date(`${asDateOnlyUTC(ts)}T${rules.start_time}Z`);
-      const end = new Date(`${asDateOnlyUTC(ts)}T${rules.end_time}Z`);
-      if (ts < start) return start;
-      if (ts >= start && ts < end) return ts; // already inside shift window
+    if (rule.is_working_day && !holiday) {
+      const start = new Date(`${day}T${rule.start_time}Z`);
+      const end = new Date(`${day}T${rule.end_time}Z`);
+      if (t <= start) return start;
+      if (t > start && t < end) return t;
     }
 
-    // advance one day to 08:00
-    const nextDay = new Date(ts.getTime());
-    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    ts = new Date(`${asDateOnlyUTC(nextDay)}T08:00:00Z`);
+    // Try next day at nominal 08:00; we'll realign with actual rule on next loop
+    const next = new Date(t.getTime());
+    next.setUTCDate(next.getUTCDate() + 1);
+    t = new Date(`${asDateOnlyUTC(next)}T08:00:00Z`);
   }
-  return ts;
+  return t;
 }
 
-async function selectJobStageRows(
-  sb: SupabaseClient,
-  req: ScheduleRequest,
-): Promise<StageRow[]> {
-  let q = sb.from("job_stage_instances")
-    .select(`
-      stage_instance_id:id,
-      production_stage_id,
-      job_id,
-      wo_no:production_jobs(wo_no),
-      stage_order,
-      scheduled_minutes,
-      estimated_duration_minutes,
-      scheduled_start_at,
-      scheduled_end_at
-    `)
-    .neq("status", "completed")            // don’t reschedule done work
-    .order("job_id", { ascending: true })  // First by job_id to group jobs together
-    .order("stage_order", { ascending: true, nullsFirst: false }); // Then by stage order within each job
-
-  if (req.onlyJobIds && req.onlyJobIds.length > 0) {
-    q = q.in("job_id", req.onlyJobIds);
+async function windowFor(sb: SupabaseClient, anyTs: Date): Promise<{ start: Date; end: Date }> {
+  const dow = anyTs.getUTCDay();
+  const rule = await getShiftRule(sb, dow);
+  const day = asDateOnlyUTC(anyTs);
+  const start = new Date(`${day}T${rule.start_time}Z`);
+  const end = new Date(`${day}T${rule.end_time}Z`);
+  const holiday = await isHoliday(sb, day);
+  if (!rule.is_working_day || holiday) {
+    const ns = await nextWorkingStart(sb, anyTs);
+    return await windowFor(sb, ns);
   }
+  return { start, end };
+}
 
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data as any[]).map((r) => ({
-    stage_instance_id: r.stage_instance_id,
-    production_stage_id: r.production_stage_id,
-    job_id: r.job_id,
-    wo_no: r.wo_no?.wo_no ?? "",
-    stage_order: r.stage_order,
-    scheduled_minutes: r.scheduled_minutes,
-    estimated_duration_minutes: r.estimated_duration_minutes,
-    scheduled_start_at: r.scheduled_start_at,
-    scheduled_end_at: r.scheduled_end_at,
-  }));
+/**
+ * Allocate one job-stage of "mins" duration starting no earlier than "candidate".
+ * Keeps work inside shift windows. If mins exceed remaining window, splits into multiple slots.
+ */
+async function allocateSegments(
+  sb: SupabaseClient,
+  candidate: Date,
+  mins: number,
+): Promise<Array<{ start: Date; end: Date }>> {
+  let need = Math.max(1, mins | 0);
+  let cur = await nextWorkingStart(sb, candidate);
+  const out: Array<{ start: Date; end: Date }> = [];
+
+  while (need > 0) {
+    const { start, end } = await windowFor(sb, cur);
+    const winMins = Math.max(0, Math.floor((end.getTime() - Math.max(cur.getTime(), start.getTime())) / 60000));
+    if (winMins <= 0) {
+      cur = await nextWorkingStart(sb, addMinutes(end, 1)); // move to next window
+      continue;
+    }
+    const take = Math.min(need, winMins);
+    const segStart = cur < start ? start : cur;
+    const segEnd = addMinutes(segStart, take);
+    out.push({ start: segStart, end: segEnd });
+    need -= take;
+    cur = segEnd;
+    if (need > 0) {
+      // advance at least 1 minute into next window
+      cur = await nextWorkingStart(sb, addMinutes(segEnd, 1));
+    }
+  }
+  return out;
+}
+
+// ---------- Data access ----------
+async function normalizeStart(sb: SupabaseClient, requested?: string): Promise<Date> {
+  let base = requested ? new Date(requested) : new Date();
+  if (requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)) {
+    base = new Date(`${requested}T08:00:00Z`);
+  }
+  const now = new Date();
+  if (base.getTime() < now.getTime()) {
+    base = new Date(Math.ceil(now.getTime() / 60000) * 60000);
+  }
+  return await nextWorkingStart(sb, base);
 }
 
 function minutesFor(row: StageRow): number {
-  // Prefer the per-JSI minutes; otherwise the estimate; final fallback 1
   const m = row.scheduled_minutes ?? row.estimated_duration_minutes ?? 1;
   return Math.max(1, m | 0);
 }
@@ -182,12 +245,8 @@ async function wipeSlotsIfNeeded(sb: SupabaseClient, req: ScheduleRequest) {
   }
 }
 
-async function queueTail(
-  sb: SupabaseClient,
-  stageId: string,
-  base: Date,
-): Promise<Date> {
-  // last end at for stage, but never in the past; also respect shift windows
+/** Last booked end for a stage, or base if none. */
+async function queueTail(sb: SupabaseClient, stageId: string, base: Date): Promise<Date> {
   const { data, error } = await sb
     .from("stage_time_slots")
     .select("slot_end_time")
@@ -195,27 +254,88 @@ async function queueTail(
     .order("slot_end_time", { ascending: false })
     .limit(1);
   if (error) throw error;
-
-  const last = (data && data.length > 0) ? new Date(data[0].slot_end_time) : null;
+  const last = data?.[0]?.slot_end_time ? new Date(data[0].slot_end_time) : null;
   const seed = last && last > base ? last : base;
   return await nextWorkingStart(sb, seed);
 }
 
+/**
+ * Paged read of JSI rows ordered by (job_id, stage_order).
+ * Emits complete job groups to keep memory small and to support cross-part rendezvous.
+ */
+async function* pagedJSIs(
+  sb: SupabaseClient,
+  req: ScheduleRequest,
+  pageSize = 400,
+): AsyncGenerator<Map<string, StageRow[]>> {
+  let offset = 0;
+  let carry: StageRow[] = [];
+  for (;;) {
+    let q = sb.from("job_stage_instances")
+      .select(`
+        stage_instance_id:id,
+        production_stage_id,
+        job_id,
+        stage_order,
+        scheduled_minutes,
+        estimated_duration_minutes,
+        scheduled_start_at,
+        scheduled_end_at,
+        status
+      `)
+      .order("job_id", { ascending: true })
+      .order("stage_order", { ascending: true, nullsFirst: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (req.onlyJobIds && req.onlyJobIds.length > 0) {
+      q = q.in("job_id", req.onlyJobIds);
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    const rows: StageRow[] = (data ?? []).filter((r: any) => {
+      if (r.status && String(r.status).toLowerCase() === "completed") return false;
+      if (req.onlyIfUnset && (r.scheduled_start_at || r.scheduled_end_at)) return false;
+      return true;
+    });
+
+    if ((rows?.length ?? 0) === 0) {
+      // flush carry if any
+      if (carry.length > 0) {
+        const map = new Map<string, StageRow[]>();
+        carry.forEach(r => {
+          if (!map.has(r.job_id)) map.set(r.job_id, []);
+          map.get(r.job_id)!.push(r);
+        });
+        yield map;
+      }
+      return;
+    }
+
+    // combine with carry
+    const combined = carry.concat(rows);
+    // split into job groups, but keep the last job as new carry (it may be incomplete)
+    const groups = new Map<string, StageRow[]>();
+    let lastJobId = combined.length ? combined[combined.length - 1].job_id : "";
+    carry = [];
+    for (const r of combined) {
+      if (r.job_id === lastJobId) {
+        carry.push(r);
+        continue;
+      }
+      if (!groups.has(r.job_id)) groups.set(r.job_id, []);
+      groups.get(r.job_id)!.push(r);
+    }
+    if (groups.size > 0) yield groups;
+    offset += pageSize;
+  }
+}
+
+// ---------- Writers ----------
 async function writeSlots(sb: SupabaseClient, slots: Slot[]) {
   if (slots.length === 0) return;
-  const { error } = await sb.from("stage_time_slots").insert(
-    slots.map(s => ({
-      production_stage_id: s.production_stage_id,
-      date: s.date,
-      slot_start_time: s.slot_start_time,
-      slot_end_time: s.slot_end_time,
-      duration_minutes: s.duration_minutes,
-      job_id: s.job_id,
-      job_table_name: s.job_table_name,
-      stage_instance_id: s.stage_instance_id,
-      is_completed: false,
-    }))
-  );
+  const { error } = await sb.from("stage_time_slots").insert(slots);
   if (error) throw error;
 }
 
@@ -226,7 +346,6 @@ async function updateJSI(
   startIso: string,
   endIso: string,
 ) {
-  // *** IMPORTANT: UPDATE ONLY – never insert and never touch status ***
   const { error } = await sb
     .from("job_stage_instances")
     .update({
@@ -239,135 +358,134 @@ async function updateJSI(
   if (error) throw error;
 }
 
+// ---------- Core scheduling ----------
 async function schedule(
   sb: SupabaseClient,
   req: ScheduleRequest,
-): Promise<{ slots: number; jsis: number }> {
+): Promise<{ wroteSlots: number; updatedJSI: number; dryRun: boolean }> {
   const baseStart = await normalizeStart(sb, req.startFrom);
   await wipeSlotsIfNeeded(sb, req);
 
-  const rows = await selectJobStageRows(sb, req);
+  const tails = new Map<string, Date>(); // per-stage machine tail
+  let wroteSlots = 0;
+  let updatedJSI = 0;
 
-  // Keep a moving pointer (tail) per machine/stage
-  const tails = new Map<string, Date>();
-  const slotsToWrite: Slot[] = [];
-  let jsiUpdates = 0;
+  const commit = !!req.commit;
 
-  // Group stages by job_id (parts of the same order share a job_id)
-  const jobGroups = new Map<string, StageRow[]>();
-  for (const row of rows) {
-    if (req.onlyIfUnset && (row.scheduled_start_at || row.scheduled_end_at)) {
-      // skip rows that are already scheduled when onlyIfUnset is true
-      continue;
-    }
-    if (!jobGroups.has(row.job_id)) jobGroups.set(row.job_id, []);
-    jobGroups.get(row.job_id)!.push(row);
-  }
+  for await (const jobChunk of pagedJSIs(sb, req, req.pageSize ?? 400)) {
+    // Each chunk is a Map<job_id, StageRow[]>, complete for those jobs
+    for (const [jobId, rows] of jobChunk) {
+      // group by stage_order (null -> very large)
+      const byOrder = new Map<number, StageRow[]>();
+      for (const r of rows) {
+        const k = (r.stage_order ?? 999999) | 0;
+        if (!byOrder.has(k)) byOrder.set(k, []);
+        byOrder.get(k)!.push(r);
+      }
+      const orders = Array.from(byOrder.keys()).sort((a, b) => a - b);
 
-  // For each job, schedule in waves by stage_order so higher-order stages
-  // never start until ALL lower-order work for that job has finished.
-  for (const [jobId, jobStages] of jobGroups) {
-    // Group rows by stage_order (null -> very large to run last)
-    const byOrder = new Map<number, StageRow[]>();
-    for (const r of jobStages) {
-      const ord = (r.stage_order ?? 999999) | 0;
-      if (!byOrder.has(ord)) byOrder.set(ord, []);
-      byOrder.get(ord)!.push(r);
-    }
-    const orders = Array.from(byOrder.keys()).sort((a,b)=>a-b);
+      // job-level barrier: "next wave can't start until previous wave fully finishes"
+      let barrier = new Date(baseStart.getTime());
 
-    let barrier = new Date(baseStart.getTime());
-    for (const ord of orders) {
-      const batch = byOrder.get(ord)!;
-      let latestEndInBatch: Date | null = null;
-      for (const row of batch) {
-        const mins = minutesFor(row);
+      for (const ord of orders) {
+        const batch = byOrder.get(ord)!;
+        let latestEndInBatch: Date | null = null;
 
-        // ensure we have a tail for this machine/stage
-        if (!tails.has(row.production_stage_id)) {
-          const t = await queueTail(sb, row.production_stage_id, baseStart);
-          tails.set(row.production_stage_id, t);
+        for (const r of batch) {
+          const mins = minutesFor(r);
+
+          // ensure stage tail exists
+          if (!tails.has(r.production_stage_id)) {
+            const t = await queueTail(sb, r.production_stage_id, baseStart);
+            tails.set(r.production_stage_id, t);
+          }
+          const stageTail = tails.get(r.production_stage_id)!;
+
+          // Start no earlier than both stageTail and barrier
+          let candidate = stageTail > barrier ? stageTail : barrier;
+
+          // Allocate within shifts (may split across days)
+          const segments = await allocateSegments(sb, candidate, mins);
+
+          const segStart = segments[0].start;
+          const segEnd = segments[segments.length - 1].end;
+
+          // Create slots
+          const slots: Slot[] = segments.map(seg => ({
+            production_stage_id: r.production_stage_id,
+            date: asDateOnlyUTC(seg.start),
+            slot_start_time: seg.start.toISOString(),
+            slot_end_time: seg.end.toISOString(),
+            duration_minutes: Math.max(1, Math.round((seg.end.getTime() - seg.start.getTime()) / 60000)),
+            job_id: r.job_id,
+            job_table_name: "production_jobs",
+            stage_instance_id: r.stage_instance_id,
+            is_completed: false,
+          }));
+
+          if (commit) {
+            await writeSlots(sb, slots);
+            await updateJSI(sb, r.stage_instance_id, mins, segStart.toISOString(), segEnd.toISOString());
+          }
+
+          wroteSlots += slots.length;
+          updatedJSI += 1;
+
+          // advance machine tail to the end of this work
+          tails.set(r.production_stage_id, segEnd); // <— completion of tails.set()
+
+          // update job-level batch latest end
+          if (!latestEndInBatch || segEnd > latestEndInBatch) latestEndInBatch = segEnd;
         }
-        // candidate start is max(machine tail, current barrier)
-        const tail = tails.get(row.production_stage_id)!;
-        let candidate = tail > barrier ? new Date(tail.getTime()) : new Date(barrier.getTime());
 
-        // move into working window
-        const start = await nextWorkingStart(sb, candidate);
-        const end = addMinutes(start, mins);
-
-        // enqueue slot
-        slotsToWrite.push({
-          production_stage_id: row.production_stage_id,
-          date: asDateOnlyUTC(start),
-          slot_start_time: start.toISOString(),
-          slot_end_time: end.toISOString(),
-          duration_minutes: mins,
-          job_id: row.job_id,
-          job_table_name: "production_jobs",
-          stage_instance_id: row.stage_instance_id,
-          is_completed: false,
-        });
-
-        // advance the machine tail and the batch's latest end
-        tails.set(row.production_stage_id, end);
-        if (!latestEndInBatch || end > latestEndInBatch) latestEndInBatch = end;
-
-        // Update JSI timing (UPDATE ONLY)
-        await updateJSI(sb, row.stage_instance_id, mins, start.toISOString(), end.toISOString());
-        jsiUpdates += 1;
+        // move barrier forward so the next stage_order starts only after all of this order has finished
+        if (latestEndInBatch && latestEndInBatch > barrier) barrier = latestEndInBatch;
       }
 
-      // after scheduling this order's batch, raise the barrier
-      if (latestEndInBatch && latestEndInBatch > barrier) barrier = latestEndInBatch;
+      // (Optional) You could capture a job-level summary here if needed
+      console.debug(`Scheduled job ${jobId}`);
     }
   }
 
-  // write slots in one batch
-  await writeSlots(sb, slotsToWrite);
-
-  return { slots: slotsToWrite.length, jsis: jsiUpdates };
+  return { wroteSlots, updatedJSI, dryRun: !commit };
 }
 
-serve(async (req) => {
-  try {
-    if (req.method === "OPTIONS") {
-      return json(200, { ok: true });
-    }
-
+// ---------- HTTP Handler ----------
+serve((req) =>
+  withCors(req, async () => {
     if (req.method !== "POST") {
-      return json(405, { ok: false, error: "Method Not Allowed" });
+      if (new URL(req.url).searchParams.get("ping") === "1") {
+        return json(req, 200, { ok: true, pong: true, now: new Date().toISOString() });
+      }
+      return json(req, 405, { ok: false, error: "Method Not Allowed" });
     }
 
-    const body = await req.json().catch(() => ({})) as ScheduleRequest | undefined;
-
-    const requestInfo = {
-      commit: !!body?.commit,
-      proposed: !!body?.proposed,
-      onlyIfUnset: !!body?.onlyIfUnset,
-      nuclear: !!body?.nuclear,
-      wipeAll: !!body?.wipeAll,
-      startFrom: body?.startFrom ?? null,
-      onlyJobIds: Array.isArray(body?.onlyJobIds) ? body!.onlyJobIds.length : 0,
-    };
+    const body = (await req.json().catch(() => ({}))) as ScheduleRequest;
 
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
       global: { headers: { "x-client-info": "scheduler-run" } },
     });
 
-    // Do the work
-    const { slots, jsis } = await schedule(sb, body ?? {});
-    return json(200, {
+    // Normalize boolean flags
+    const normalized: ScheduleRequest = {
+      commit: !!body.commit,
+      proposed: !!body.proposed,
+      onlyIfUnset: !!body.onlyIfUnset,
+      nuclear: !!body.nuclear,
+      wipeAll: !!body.wipeAll,
+      startFrom: body.startFrom,
+      onlyJobIds: Array.isArray(body.onlyJobIds) ? body.onlyJobIds : undefined,
+      pageSize: (typeof body.pageSize === "number" && body.pageSize > 0) ? Math.min(1000, body.pageSize) : undefined,
+    };
+
+    // Run
+    const result = await schedule(sb, normalized);
+
+    return json(req, 200, {
       ok: true,
-      request: requestInfo,
-      wrote_slots: slots,
-      updated_jsi: jsis,
+      request: normalized,
+      ...result,
     });
-  } catch (e: any) {
-    console.error("scheduler-run fatal:", e);
-    const code = e?.code ?? e?.status ?? "500";
-    const msg = e?.message ?? String(e);
-    return json(500, { ok: false, code, message: msg });
-  }
-});
+  })
+);
