@@ -401,6 +401,7 @@ async function schedule(
   await wipeSlotsIfNeeded(sb, req);
 
   const tails = new Map<string, Date>(); // per-stage machine tail
+  const jobCompletionTimes = new Map<string, Date>(); // per-job completion tracking
   let wroteSlots = 0;
   let updatedJSI = 0;
 
@@ -418,8 +419,10 @@ async function schedule(
       }
       const orders = Array.from(byOrder.keys()).sort((a, b) => a - b);
 
-      // job-level barrier: "next wave can't start until previous wave fully finishes"
-      let barrier = new Date(baseStart.getTime());
+      // Initialize job completion time if not exists
+      if (!jobCompletionTimes.has(jobId)) {
+        jobCompletionTimes.set(jobId, new Date(baseStart.getTime()));
+      }
 
       for (const ord of orders) {
         const batch = byOrder.get(ord)!;
@@ -435,8 +438,11 @@ async function schedule(
           }
           const stageTail = tails.get(r.production_stage_id)!;
 
-          // Start no earlier than both stageTail and barrier
-          let candidate = stageTail > barrier ? stageTail : barrier;
+          // Get job precedence time - this stage can't start until all previous stages of this job finish
+          const jobPrecedenceTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
+
+          // Start no earlier than machine availability, job precedence, AND any cross-job dependencies
+          let candidate = new Date(Math.max(stageTail.getTime(), jobPrecedenceTime.getTime()));
 
           // Allocate within shifts (may split across days)
           const segments = await allocateSegments(sb, candidate, mins);
@@ -468,12 +474,17 @@ async function schedule(
           // advance machine tail to the end of this work
           tails.set(r.production_stage_id, segEnd); // <— completion of tails.set()
 
+          // Update job completion time - this stage finished at segEnd
+          jobCompletionTimes.set(jobId, segEnd);
+
           // update job-level batch latest end
           if (!latestEndInBatch || segEnd > latestEndInBatch) latestEndInBatch = segEnd;
         }
 
-        // move barrier forward so the next stage_order starts only after all of this order has finished
-        if (latestEndInBatch && latestEndInBatch > barrier) barrier = latestEndInBatch;
+        // Update job completion time for this stage order - all stages in this order are now complete
+        if (latestEndInBatch) {
+          jobCompletionTimes.set(jobId, latestEndInBatch);
+        }
       }
 
       // (Optional) You could capture a job-level summary here if needed
