@@ -1,4 +1,4 @@
-// v6.4
+// v6.5
 // deno-lint-ignore-file no-explicit-any
 /**
  * Supabase Edge Function: scheduler-run
@@ -475,14 +475,13 @@ async function schedule(
   for await (const jobChunk of pagedJSIs(sb, req, req.pageSize ?? 400)) {
     // Each chunk is a Map<job_id, StageRow[]>, complete for those jobs
     for (const [jobId, rows] of jobChunk) {
-      // group by stage_order (null -> very large)
-      const byOrder = new Map<number, StageRow[]>();
-      for (const r of rows) {
-        const k = (r.stage_order ?? 999999) | 0;
-        if (!byOrder.has(k)) byOrder.set(k, []);
-        byOrder.get(k)!.push(r);
-      }
-      const orders = Array.from(byOrder.keys()).sort((a, b) => a - b);
+      // SEQUENTIAL JOB PROCESSING: Sort stages by stage_order and process them one by one
+      // This ensures strict precedence within each job
+      const sortedStages = [...rows].sort((a, b) => {
+        const aOrder = a.stage_order ?? 999999;
+        const bOrder = b.stage_order ?? 999999;
+        return aOrder - bOrder;
+      });
 
       // Initialize job completion time if not exists (for jobs without existing schedules)
       if (!jobCompletionTimes.has(jobId)) {
@@ -490,11 +489,10 @@ async function schedule(
         console.log(`Initializing new job ${jobId} completion time: ${baseStart.toISOString()}`);
       }
 
-      for (const ord of orders) {
-        const batch = byOrder.get(ord)!;
-        let latestEndInBatch: Date | null = null;
+      console.log(`Processing job ${jobId} with ${sortedStages.length} stages sequentially`);
 
-        for (const r of batch) {
+      // Process each stage in sequence within this job
+      for (const r of sortedStages) {
           const mins = minutesFor(r);
 
           // ensure stage tail exists
@@ -510,7 +508,7 @@ async function schedule(
           // Start no earlier than machine availability, job precedence, AND any cross-job dependencies
           let candidate = new Date(Math.max(stageTail.getTime(), jobPrecedenceTime.getTime()));
 
-          console.log(`Scheduling job ${jobId} stage ${r.production_stage_id} order ${ord}: 
+          console.log(`Scheduling job ${jobId} stage ${r.production_stage_id} order ${r.stage_order}: 
             stageTail=${stageTail.toISOString()}, 
             jobPrecedence=${jobPrecedenceTime.toISOString()}, 
             candidate=${candidate.toISOString()}`);
@@ -545,30 +543,10 @@ async function schedule(
           // advance machine tail to the end of this work
           tails.set(r.production_stage_id, segEnd);
 
-          // Update job completion time - ONLY advance forward, never regress
-          const currentCompletionTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
-          const newCompletionTime = new Date(Math.max(currentCompletionTime.getTime(), segEnd.getTime()));
-          jobCompletionTimes.set(jobId, newCompletionTime);
-          
-          if (segEnd < currentCompletionTime) {
-            console.log(`WARNING: Prevented job ${jobId} completion time regression from ${currentCompletionTime.toISOString()} to ${segEnd.toISOString()}`);
-          }
-
-          // update job-level batch latest end
-          if (!latestEndInBatch || segEnd > latestEndInBatch) latestEndInBatch = segEnd;
-        }
-
-        // Update job completion time for this stage order - ONLY advance forward, never regress
-        if (latestEndInBatch) {
-          const currentCompletionTime = jobCompletionTimes.get(jobId) || new Date(baseStart.getTime());
-          const newCompletionTime = new Date(Math.max(currentCompletionTime.getTime(), latestEndInBatch.getTime()));
-          jobCompletionTimes.set(jobId, newCompletionTime);
-          
-          if (latestEndInBatch < currentCompletionTime) {
-            console.log(`WARNING: Prevented batch job ${jobId} completion time regression from ${currentCompletionTime.toISOString()} to ${latestEndInBatch.toISOString()}`);
-          } else {
-            console.log(`Updated job ${jobId} completion time to: ${newCompletionTime.toISOString()}`);
-          }
+          // Update job completion time - since we're processing sequentially, 
+          // this stage's end time becomes the new job completion time
+          jobCompletionTimes.set(jobId, segEnd);
+          console.log(`Updated job ${jobId} completion time to: ${segEnd.toISOString()} (stage ${r.stage_order})`);
         }
       }
 
