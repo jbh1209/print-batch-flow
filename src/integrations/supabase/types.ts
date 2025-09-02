@@ -3226,6 +3226,10 @@ export type Database = {
           printing_stage_id: string
         }[]
       }
+      create_stage_availability_tracker: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       expedite_job_factory_wide: {
         Args: {
           p_expedite_reason: string
@@ -3627,6 +3631,17 @@ export type Database = {
         Args: { key: number }
         Returns: boolean
       }
+      place_duration_sql: {
+        Args: {
+          p_duration_minutes: number
+          p_earliest_start: string
+          p_max_days?: number
+        }
+        Returns: {
+          placement_success: boolean
+          slots_created: Json
+        }[]
+      }
       planned_minutes_for_jsi: {
         Args: { p_jsi_id: string }
         Returns: number
@@ -3781,13 +3796,6 @@ export type Database = {
       simple_scheduler_wrapper: {
         Args: { p_mode?: string }
         Returns: Json
-      }
-      snap_into_shift: {
-        Args: { p_from: string; p_minutes: number }
-        Returns: {
-          end_ts: string
-          start_ts: string
-        }[]
       }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
