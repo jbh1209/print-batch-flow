@@ -323,9 +323,9 @@ export function useScheduleReader() {
   // You can keep this as-is; if you later want "nuclear" etc, adjust the body.
   const triggerReschedule = useCallback(async () => {
     try {
-      console.log("🔄 Triggering reschedule via scheduler-run edge function...");
-      const { data, error } = await supabase.functions.invoke("scheduler-run", {
-        body: { commit: true, proposed: false, onlyIfUnset: true },
+      console.log("🔄 Triggering reschedule via database function...");
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all', {
+        p_start_from: null // Use next working day
       });
       if (error) {
         console.error("Error triggering reschedule:", error);
@@ -333,7 +333,8 @@ export function useScheduleReader() {
         return false;
       }
       console.log("✅ Reschedule triggered successfully:", data);
-      toast.success(`Successfully rescheduled ${data?.scheduled || 0} stages`);
+      const result = data?.[0];
+      toast.success(`Successfully rescheduled ${result?.updated_jsi || 0} stages`);
 
       // Refresh after a moment
       setTimeout(() => {
