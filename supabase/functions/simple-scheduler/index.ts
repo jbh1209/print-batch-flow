@@ -82,15 +82,71 @@ function serverError(msg: string, extra?: unknown) {
   return json({ ok: false, error: msg } satisfies ErrorResult, 500);
 }
 
-// ---------- Real scheduler hook (stub for now) ----------
+// ---------- Database-centric scheduler ----------
 async function runRealScheduler(
-  _sb: SupabaseClient,
-  _payload: Required<Pick<ScheduleRequest,
+  sb: SupabaseClient,
+  payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  // TODO: replace this block with your real scheduling engine.
-  // Keep the signature; you'll receive a sanitized payload.
-  return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
+  console.log('🚀 Running database-centric scheduler with payload:', payload);
+  
+  // Only proceed if commit is true (dry run protection)
+  if (!payload.commit) {
+    console.log('⚠️ Dry run mode - no actual scheduling performed');
+    return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
+  }
+
+  try {
+    if (payload.onlyJobIds && payload.onlyJobIds.length > 0) {
+      // Append specific jobs to schedule
+      console.log(`📋 Scheduling specific jobs: ${payload.onlyJobIds.length} jobs`);
+      
+      const { data, error } = await sb.rpc('scheduler_append_jobs', {
+        p_job_ids: payload.onlyJobIds,
+        p_start_from: payload.startFrom || null,
+        p_only_if_unset: payload.onlyIfUnset
+      });
+
+      if (error) {
+        console.error('❌ Append jobs error:', error);
+        throw error;
+      }
+
+      const result = data[0];
+      console.log(`✅ Append complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
+      
+      return {
+        jobs_considered: payload.onlyJobIds.length,
+        scheduled: result.updated_jsi,
+        applied: { updated: result.updated_jsi }
+      };
+      
+    } else {
+      // Full reschedule all
+      console.log('📅 Running full reschedule...');
+      
+      const { data, error } = await sb.rpc('scheduler_reschedule_all', {
+        p_start_from: payload.startFrom || null
+      });
+
+      if (error) {
+        console.error('❌ Reschedule error:', error);
+        throw error;
+      }
+
+      const result = data[0];
+      console.log(`✅ Reschedule complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
+      
+      return {
+        jobs_considered: result.updated_jsi, // Best approximation
+        scheduled: result.updated_jsi,
+        applied: { updated: result.updated_jsi }
+      };
+    }
+  } catch (error) {
+    console.error('💥 Scheduler execution failed:', error);
+    throw error;
+  }
 }
 
 // ---------- HTTP entry ----------

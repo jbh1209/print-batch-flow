@@ -3593,6 +3593,14 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
+      is_working_day: {
+        Args: { p_date: string }
+        Returns: boolean
+      }
+      jsi_minutes: {
+        Args: { p_estimated: number; p_scheduled: number }
+        Returns: number
+      }
       list_working_days: {
         Args: { end_date: string; start_date: string }
         Returns: {
@@ -3606,6 +3614,10 @@ export type Database = {
       mirror_jsi_to_stage_time_slots: {
         Args: { p_stage_ids: string[] }
         Returns: undefined
+      }
+      next_working_start: {
+        Args: { p_from: string }
+        Returns: string
       }
       pg_advisory_unlock: {
         Args: { key: number }
@@ -3725,9 +3737,27 @@ export type Database = {
           scheduled_start: string
         }[]
       }
+      scheduler_append_jobs: {
+        Args: {
+          p_job_ids: string[]
+          p_only_if_unset?: boolean
+          p_start_from?: string
+        }
+        Returns: {
+          updated_jsi: number
+          wrote_slots: number
+        }[]
+      }
       scheduler_delete_slots_for_jobs: {
         Args: { job_ids: string[] }
         Returns: number
+      }
+      scheduler_reschedule_all: {
+        Args: { p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          wrote_slots: number
+        }[]
       }
       scheduler_truncate_slots: {
         Args: Record<PropertyKey, never>
@@ -3740,6 +3770,24 @@ export type Database = {
       set_user_role_admin: {
         Args: { _new_role: string; _target_user_id: string }
         Returns: boolean
+      }
+      shift_window: {
+        Args: { p_date: string }
+        Returns: {
+          win_end: string
+          win_start: string
+        }[]
+      }
+      simple_scheduler_wrapper: {
+        Args: { p_mode?: string }
+        Returns: Json
+      }
+      snap_into_shift: {
+        Args: { p_from: string; p_minutes: number }
+        Returns: {
+          end_ts: string
+          start_ts: string
+        }[]
       }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
