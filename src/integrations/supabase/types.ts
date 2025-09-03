@@ -3771,6 +3771,7 @@ export type Database = {
         Args: { p_start_from?: string }
         Returns: {
           updated_jsi: number
+          violations: Json
           wrote_slots: number
         }[]
       }
