@@ -125,7 +125,7 @@ async function runRealScheduler(
       // Full reschedule all
       console.log('📅 Running full reschedule...');
       
-      const { data, error } = await sb.rpc('scheduler_reschedule_all', {
+      const { data, error } = await sb.rpc('scheduler_reschedule_all_parallel_aware', {
         p_start_from: payload.startFrom || null
       });
 
