@@ -3934,6 +3934,22 @@ export type Database = {
         Args: { check_time: string }
         Returns: boolean
       }
+      validate_job_scheduling_precedence: {
+        Args: { p_job_ids?: string[] }
+        Returns: {
+          job_id: string
+          stage1_end: string
+          stage1_name: string
+          stage1_order: number
+          stage1_start: string
+          stage2_end: string
+          stage2_name: string
+          stage2_order: number
+          stage2_start: string
+          violation_details: string
+          violation_type: string
+        }[]
+      }
       validate_not_in_past: {
         Args: { check_time: string }
         Returns: boolean
