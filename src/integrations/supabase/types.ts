@@ -3117,6 +3117,18 @@ export type Database = {
         }
         Returns: Json
       }
+      audit_job_stage_ordering: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          dependency_groups: string[]
+          has_duplicates: boolean
+          has_gaps: boolean
+          job_id: string
+          part_assignments: string[]
+          stage_orders: number[]
+          wo_no: string
+        }[]
+      }
       bulk_recalculate_job_due_dates: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -3263,6 +3275,13 @@ export type Database = {
           fixed_job_id: string
           stages_updated: number
           wo_no: string
+        }[]
+      }
+      fix_job_stage_ordering: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          jobs_fixed: number
+          stages_updated: number
         }[]
       }
       get_admin_status: {
