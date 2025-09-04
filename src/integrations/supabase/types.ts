@@ -3138,6 +3138,14 @@ export type Database = {
           updated_job_id: string
         }[]
       }
+      calculate_job_completion_barrier: {
+        Args: {
+          p_current_stage_order: number
+          p_job_id: string
+          p_part_assignment?: string
+        }
+        Returns: string
+      }
       calculate_smart_due_date: {
         Args: { p_estimated_hours: number; p_priority?: number }
         Returns: string
@@ -3283,6 +3291,10 @@ export type Database = {
           jobs_fixed: number
           stages_updated: number
         }[]
+      }
+      get_actual_stage_end_time: {
+        Args: { p_stage_instance_id: string }
+        Returns: string
       }
       get_admin_status: {
         Args: { check_user_id?: string }
@@ -3787,6 +3799,14 @@ export type Database = {
         Returns: number
       }
       scheduler_reschedule_all: {
+        Args: { p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
+      scheduler_reschedule_all_barrier_fixed: {
         Args: { p_start_from?: string }
         Returns: {
           updated_jsi: number
