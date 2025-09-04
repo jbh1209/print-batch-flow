@@ -3756,6 +3756,17 @@ export type Database = {
           slots_created: Json
         }[]
       }
+      place_duration_sql_enhanced: {
+        Args: {
+          p_duration_minutes: number
+          p_earliest_start: string
+          p_max_days?: number
+        }
+        Returns: {
+          placement_success: boolean
+          slots_created: Json
+        }[]
+      }
       planned_minutes_for_jsi: {
         Args: { p_jsi_id: string }
         Returns: number
@@ -3898,6 +3909,14 @@ export type Database = {
         }[]
       }
       scheduler_reschedule_all_parallel_aware: {
+        Args: { p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
+      scheduler_reschedule_all_persistent_queues: {
         Args: { p_start_from?: string }
         Returns: {
           updated_jsi: number
