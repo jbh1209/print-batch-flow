@@ -1766,6 +1766,36 @@ export type Database = {
         }
         Relationships: []
       }
+      production_stage_queues: {
+        Row: {
+          active_jobs_count: number
+          created_at: string
+          id: string
+          last_updated: string
+          next_available_time: string
+          production_stage_id: string
+          total_scheduled_minutes: number
+        }
+        Insert: {
+          active_jobs_count?: number
+          created_at?: string
+          id?: string
+          last_updated?: string
+          next_available_time?: string
+          production_stage_id: string
+          total_scheduled_minutes?: number
+        }
+        Update: {
+          active_jobs_count?: number
+          created_at?: string
+          id?: string
+          last_updated?: string
+          next_available_time?: string
+          production_stage_id?: string
+          total_scheduled_minutes?: number
+        }
+        Relationships: []
+      }
       production_stages: {
         Row: {
           color: string | null
@@ -2319,6 +2349,51 @@ export type Database = {
           id?: string
           name?: string
           parallel_processing_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stage_queue_positions: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          estimated_end_time: string | null
+          estimated_start_time: string | null
+          id: string
+          job_id: string
+          job_table_name: string
+          production_stage_id: string
+          queue_position: number
+          stage_instance_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes: number
+          estimated_end_time?: string | null
+          estimated_start_time?: string | null
+          id?: string
+          job_id: string
+          job_table_name?: string
+          production_stage_id: string
+          queue_position: number
+          stage_instance_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          estimated_end_time?: string | null
+          estimated_start_time?: string | null
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          production_stage_id?: string
+          queue_position?: number
+          stage_instance_id?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -3436,6 +3511,10 @@ export type Database = {
           start_time: string
         }[]
       }
+      get_stage_next_available_time: {
+        Args: { p_stage_id: string }
+        Returns: string
+      }
       get_user_accessible_jobs: {
         Args: {
           p_permission_type?: string
@@ -3598,6 +3677,10 @@ export type Database = {
           p_job_table_name: string
         }
         Returns: boolean
+      }
+      initialize_queue_state: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       inject_batch_allocation_stage_for_existing_jobs: {
         Args: Record<PropertyKey, never>
@@ -3882,6 +3965,14 @@ export type Database = {
       unschedule_auto_stages: {
         Args: { from_date: string; wipe_all?: boolean }
         Returns: number
+      }
+      update_stage_availability: {
+        Args: {
+          p_additional_minutes?: number
+          p_new_available_time: string
+          p_stage_id: string
+        }
+        Returns: undefined
       }
       update_stage_queue_end_time: {
         Args: { p_date?: string; p_new_end_time: string; p_stage_id: string }
