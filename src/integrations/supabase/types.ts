@@ -2134,6 +2134,8 @@ export type Database = {
           id: string
           is_active: boolean
           is_working_day: boolean
+          lunch_break_duration_minutes: number | null
+          lunch_break_start_time: string | null
           shift_end_time: string
           shift_start_time: string
           updated_at: string
@@ -2144,6 +2146,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_working_day?: boolean
+          lunch_break_duration_minutes?: number | null
+          lunch_break_start_time?: string | null
           shift_end_time?: string
           shift_start_time?: string
           updated_at?: string
@@ -2154,6 +2158,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_working_day?: boolean
+          lunch_break_duration_minutes?: number | null
+          lunch_break_start_time?: string | null
           shift_end_time?: string
           shift_start_time?: string
           updated_at?: string
@@ -3939,6 +3945,16 @@ export type Database = {
       shift_window: {
         Args: { p_date: string }
         Returns: {
+          win_end: string
+          win_start: string
+        }[]
+      }
+      shift_window_enhanced: {
+        Args: { p_date: string }
+        Returns: {
+          has_lunch_break: boolean
+          lunch_end: string
+          lunch_start: string
           win_end: string
           win_start: string
         }[]
