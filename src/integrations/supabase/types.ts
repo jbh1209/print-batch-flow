@@ -3939,12 +3939,8 @@ export type Database = {
         }[]
       }
       scheduler_resource_fill_optimized: {
-        Args: Record<PropertyKey, never> | { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["CompositeTypes"]["scheduler_result_type"]
       }
       scheduler_truly_sequential_v2: {
         Args: { p_start_from?: string }
