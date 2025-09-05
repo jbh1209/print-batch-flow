@@ -15,20 +15,25 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all', {
-        p_start_from: null // Use next working day
+      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
+        p_mode: 'reschedule_all' // Use the persistent queue scheduler with DTP/Proof exclusions
       });
 
       if (error) {
-        console.error("scheduler_reschedule_all error:", error);
+        console.error("simple_scheduler_wrapper error:", error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("scheduler_reschedule_all response:", data);
+      console.log("simple_scheduler_wrapper response:", data);
       await fetchSchedule();
-      const result = data?.[0];
-      try { toast.success?.(`Rescheduled ${result?.updated_jsi ?? 0} stages with ${result?.wrote_slots ?? 0} time slots`); } catch {}
+      
+      // Handle the wrapper's jsonb response format
+      const result = data as any;
+      const scheduledCount = result?.scheduled_count ?? 0;
+      const wroteSlots = result?.wrote_slots ?? 0;
+      
+      try { toast.success?.(`Rescheduled ${scheduledCount} stages with ${wroteSlots} time slots`); } catch {}
     } catch (e: any) {
       console.error("Reschedule failed:", e);
       try { toast.error?.(`Reschedule failed: ${e?.message ?? e}`); } catch {}
