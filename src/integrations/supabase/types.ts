@@ -3219,14 +3219,6 @@ export type Database = {
           updated_job_id: string
         }[]
       }
-      calculate_job_completion_barrier: {
-        Args: {
-          p_current_stage_order: number
-          p_job_id: string
-          p_part_assignment?: string
-        }
-        Returns: string
-      }
       calculate_smart_due_date: {
         Args: { p_estimated_hours: number; p_priority?: number }
         Returns: string
@@ -3295,6 +3287,13 @@ export type Database = {
         Returns: {
           deleted_instances_count: number
           deleted_slots_count: number
+        }[]
+      }
+      clear_non_completed_scheduling_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cleared_instances: number
+          cleared_slots: number
         }[]
       }
       consolidate_excel_mappings: {
@@ -3898,31 +3897,7 @@ export type Database = {
         Args: { job_ids: string[] }
         Returns: number
       }
-      scheduler_reschedule_all: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_barrier_fixed: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
       scheduler_reschedule_all_parallel_aware: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_persistent_queues: {
         Args: { p_start_from?: string }
         Returns: {
           updated_jsi: number
