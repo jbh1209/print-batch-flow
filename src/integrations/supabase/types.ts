@@ -3930,6 +3930,14 @@ export type Database = {
           wrote_slots: number
         }[]
       }
+      scheduler_truly_sequential_v2: {
+        Args: { p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
       scheduler_truncate_slots: {
         Args: Record<PropertyKey, never>
         Returns: undefined
