@@ -3730,6 +3730,15 @@ export type Database = {
           work_date: string
         }[]
       }
+      log_scheduler_action: {
+        Args: {
+          p_details?: Json
+          p_job_id?: string
+          p_message: string
+          p_stage_name?: string
+        }
+        Returns: undefined
+      }
       mark_job_ready_for_batching: {
         Args: { p_job_id: string; p_job_table_name: string; p_user_id?: string }
         Returns: boolean
