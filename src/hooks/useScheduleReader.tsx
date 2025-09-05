@@ -320,12 +320,12 @@ export function useScheduleReader() {
     }
   }, []);
 
-  // You can keep this as-is; if you later want "nuclear" etc, adjust the body.
+  // CRITICAL FIX: Use the correct scheduler wrapper function
   const triggerReschedule = useCallback(async () => {
     try {
-      console.log("🔄 Triggering reschedule via database function...");
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all', {
-        p_start_from: null // Use next working day
+      console.log("🔄 Triggering reschedule via simple_scheduler_wrapper...");
+      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
+        p_mode: 'reschedule_all' // Use the wrapper with reschedule_all mode
       });
       if (error) {
         console.error("Error triggering reschedule:", error);
@@ -333,8 +333,10 @@ export function useScheduleReader() {
         return false;
       }
       console.log("✅ Reschedule triggered successfully:", data);
-      const result = data?.[0];
-      toast.success(`Successfully rescheduled ${result?.updated_jsi || 0} stages`);
+      const result = data as any;
+      const scheduledCount = result?.scheduled_count ?? 0;
+      const wroteSlots = result?.wrote_slots ?? 0;
+      toast.success(`Successfully rescheduled ${scheduledCount} stages (${wroteSlots} time slots)`);
 
       // Refresh after a moment
       setTimeout(() => {
