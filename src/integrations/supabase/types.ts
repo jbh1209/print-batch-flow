@@ -3939,7 +3939,7 @@ export type Database = {
         }[]
       }
       scheduler_resource_fill_optimized: {
-        Args: { p_start_from?: string }
+        Args: Record<PropertyKey, never> | { p_start_from?: string }
         Returns: {
           updated_jsi: number
           violations: Json
@@ -4189,7 +4189,11 @@ export type Database = {
       size_enum: "A6" | "A5" | "A4" | "DL" | "A3"
     }
     CompositeTypes: {
-      [_ in never]: never
+      scheduler_result_type: {
+        wrote_slots: number | null
+        updated_jsi: number | null
+        violations: Json | null
+      }
     }
   }
 }
