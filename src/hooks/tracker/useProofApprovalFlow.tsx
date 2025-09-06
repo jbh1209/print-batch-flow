@@ -9,35 +9,34 @@ import { toast } from "sonner";
 export const useProofApprovalFlow = () => {
   
   /**
-   * Trigger queue-based due date calculation after proof approval
+   * Trigger queue-based scheduling after proof approval
    */
   const triggerQueueBasedCalculation = useCallback(async (jobId: string) => {
     try {
-      console.log(`🎯 Triggering queue-based due date calculation for job ${jobId}`);
+      console.log(`🎯 Triggering scheduling for job ${jobId} after proof approval`);
       
-      // Call the edge function to perform complex queue calculations
-      const { data, error } = await supabase.functions.invoke('calculate-due-dates', {
+      // Call scheduler-run to append the approved job to existing schedule
+      const { data, error } = await supabase.functions.invoke('scheduler-run', {
         body: {
-          jobIds: [jobId],
-          tableName: 'production_jobs',
-          priority: 'high',
-          triggerReason: 'proof_approval'
+          commit: true,
+          onlyIfUnset: true,
+          onlyJobIds: [jobId]
         }
       });
 
       if (error) {
-        console.error('Error triggering queue-based calculation:', error);
-        toast.error('Failed to update due date after proof approval');
+        console.error('Error triggering scheduler:', error);
+        toast.error('Failed to schedule job after proof approval');
         return false;
       }
 
-      console.log(`✅ Queue-based calculation triggered:`, data);
-      toast.success('Due date updated based on current production queue');
+      console.log(`✅ Job scheduled successfully:`, data);
+      toast.success('Job added to production schedule');
       return true;
 
     } catch (error) {
       console.error('Error in triggerQueueBasedCalculation:', error);
-      toast.error('Failed to update due date');
+      toast.error('Failed to schedule job');
       return false;
     }
   }, []);
