@@ -37,10 +37,10 @@ serve(async (req: Request) => {
 
     console.log(`Reordering ${cleanStageIds.length} stages for ${date} starting at ${shiftStartTime}`);
 
-    // 1. Get existing stage durations from database
+    // 1. Get existing stage data from database
     const { data: stageSlots, error: slotsError } = await supabase
       .from('stage_time_slots')
-      .select('stage_instance_id, duration_minutes')
+      .select('stage_instance_id, duration_minutes, production_stage_id, job_id')
       .in('stage_instance_id', cleanStageIds)
       .eq('date', date);
 
@@ -74,47 +74,67 @@ serve(async (req: Request) => {
       currentTime = new Date(newEndTime);
     }
 
-    // 3. Update database with new times
-    const updatePromises = updatedSlots.map(async (slot) => {
-      // Update stage_time_slots
-      const { error: slotError } = await supabase
-        .from('stage_time_slots')
-        .update({
-          slot_start_time: slot.slot_start_time,
-          slot_end_time: slot.slot_end_time,
-          updated_at: new Date().toISOString()
-        })
-        .eq('stage_instance_id', slot.stage_instance_id)
-        .eq('date', date);
+    // 3. Delete existing time slots and recreate to avoid unique constraint violations
+    console.log(`Deleting existing slots for ${cleanStageIds.length} stages`);
+    
+    const { error: deleteError } = await supabase
+      .from('stage_time_slots')
+      .delete()
+      .in('stage_instance_id', cleanStageIds)
+      .eq('date', date);
 
-      if (slotError) {
-        console.error(`Failed to update slot for ${slot.stage_instance_id}:`, slotError);
-        return { success: false, error: slotError };
+    if (deleteError) {
+      throw new Error(`Failed to delete existing slots: ${deleteError.message}`);
+    }
+
+    // 4. Insert new time slots with updated times
+    const slotsToInsert = updatedSlots.map(slot => {
+      const existingSlot = stageSlots.find(s => s.stage_instance_id === slot.stage_instance_id);
+      if (!existingSlot) {
+        throw new Error(`Missing slot data for stage ${slot.stage_instance_id}`);
       }
+      return {
+        production_stage_id: existingSlot.production_stage_id,
+        date: date,
+        slot_start_time: slot.slot_start_time,
+        slot_end_time: slot.slot_end_time,
+        duration_minutes: existingSlot.duration_minutes,
+        job_id: existingSlot.job_id,
+        job_table_name: 'production_jobs',
+        stage_instance_id: slot.stage_instance_id,
+        is_completed: false
+      };
+    });
 
-      // Update job_stage_instances
+    const { error: insertError } = await supabase
+      .from('stage_time_slots')
+      .insert(slotsToInsert);
+
+    if (insertError) {
+      throw new Error(`Failed to insert new slots: ${insertError.message}`);
+    }
+
+    // 5. Update job_stage_instances with new times
+    const instanceUpdates = updatedSlots.map(slot => ({
+      id: slot.stage_instance_id,
+      scheduled_start_at: slot.slot_start_time,
+      scheduled_end_at: slot.slot_end_time,
+      updated_at: new Date().toISOString()
+    }));
+
+    for (const update of instanceUpdates) {
       const { error: instanceError } = await supabase
         .from('job_stage_instances')
         .update({
-          scheduled_start_at: slot.slot_start_time,
-          scheduled_end_at: slot.slot_end_time,
-          updated_at: new Date().toISOString()
+          scheduled_start_at: update.scheduled_start_at,
+          scheduled_end_at: update.scheduled_end_at,
+          updated_at: update.updated_at
         })
-        .eq('id', slot.stage_instance_id);
+        .eq('id', update.id);
 
       if (instanceError) {
-        console.error(`Failed to update instance for ${slot.stage_instance_id}:`, instanceError);
-        return { success: false, error: instanceError };
+        throw new Error(`Failed to update instance ${update.id}: ${instanceError.message}`);
       }
-
-      return { success: true };
-    });
-
-    const results = await Promise.all(updatePromises);
-    const failures = results.filter(r => !r.success);
-
-    if (failures.length > 0) {
-      throw new Error(`Failed to update ${failures.length} stages`);
     }
 
     console.log(`Successfully reordered ${updatedSlots.length} stages`);
