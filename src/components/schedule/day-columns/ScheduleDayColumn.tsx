@@ -54,49 +54,43 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     );
   }, [filteredTimeSlots]);
 
-  // Reorder handler
-  const handleReorderStages = async (date: string, timeSlot: string, newStageOrder: ScheduledStageData[]) => {
+  // Handler for reordering stages across the entire day
+  const handleReorderStages = async (
+    date: string,
+    newStageOrder: ScheduledStageData[]
+  ) => {
     try {
       const stageIds = newStageOrder.map(stage => stage.id);
-      
-      // Map single time slot to shift range
-      const getShiftRange = (time: string) => {
-        const hour = parseInt(time.split(':')[0]);
-        if (hour >= 8 && hour < 12) {
-          return { start: '08:00', end: '12:00' };
-        } else if (hour >= 13 && hour < 17) {
-          return { start: '13:00', end: '17:00' };
-        } else {
-          // Default to 4-hour shift starting from the given time
-          const endHour = hour + 4;
-          return { 
-            start: time, 
-            end: `${endHour.toString().padStart(2, '0')}:00` 
-          };
-        }
-      };
-      
-      const shiftRange = getShiftRange(timeSlot);
       
       const { error } = await supabase.functions.invoke('schedule-reorder-shift', {
         body: {
           date,
-          timeSlot,
           stageIds,
-          shiftStartTime: shiftRange.start,
-          shiftEndTime: shiftRange.end
+          dayWideReorder: true,
+          shiftStartTime: '08:00',
+          shiftEndTime: '17:00'
         }
       });
       
-      if (error) throw error;
-      
-      // Trigger schedule refresh
-      onScheduleUpdate?.();
+      if (error) {
+        console.error('Error reordering stages:', error);
+        throw error;
+      }
+
+      // Refresh the schedule data
+      if (onScheduleUpdate) {
+        onScheduleUpdate();
+      }
     } catch (error) {
-      console.error('Failed to reorder shift:', error);
+      console.error('Failed to reorder stages:', error);
       throw error;
     }
   };
+
+  // Flatten all stages from all time slots for day-wide dragging
+  const allDayStages = React.useMemo(() => {
+    return filteredTimeSlots.flatMap(slot => slot.scheduled_stages || []);
+  }, [filteredTimeSlots]);
 
   const { sensors, onDragEnd, isReordering } = useScheduleDnDContext({
     onReorderStages: handleReorderStages,
@@ -131,46 +125,48 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
               )}
             </div>
           ) : (
-            filteredTimeSlots.map((slot, slotIndex) => (
-              <div key={slotIndex} className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {slot.time_slot}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => onDragEnd(event, allDayStages, day.date)}
+            >
+              <SortableContext 
+                items={allDayStages.map(stage => stage.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className={`space-y-3 ${isReordering ? 'opacity-60' : ''}`}>
+                  {filteredTimeSlots.map((slot, slotIndex) => (
+                    <div key={slotIndex} className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {slot.time_slot}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {(slot.scheduled_stages || []).map((stage) => (
+                          <SortableScheduleStageCard
+                            key={stage.id}
+                            stage={stage}
+                            onJobClick={onJobClick}
+                            isAdminUser={isAdminUser}
+                            disabled={isReordering || stage.is_split_job}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={(event) => onDragEnd(event, slot.scheduled_stages || [], day.date, slot.time_slot)}
-                >
-                  <SortableContext 
-                    items={(slot.scheduled_stages || []).map(stage => stage.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className={`space-y-2 ${isReordering ? 'opacity-60' : ''}`}>
-                      {(slot.scheduled_stages || []).map((stage) => (
-                        <SortableScheduleStageCard
-                          key={stage.id}
-                          stage={stage}
-                          onJobClick={onJobClick}
-                          isAdminUser={isAdminUser}
-                          disabled={isReordering}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-                
-                {isReordering && (
-                  <div className="flex items-center justify-center py-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <RotateCcw className="h-3 w-3 animate-spin" />
-                      Recalculating schedule...
-                    </div>
+              </SortableContext>
+              
+              {isReordering && (
+                <div className="flex items-center justify-center py-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <RotateCcw className="h-3 w-3 animate-spin" />
+                    Recalculating schedule...
                   </div>
-                )}
-              </div>
-            ))
+                </div>
+              )}
+            </DndContext>
           )}
         </CardContent>
       </Card>

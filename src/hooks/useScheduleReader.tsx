@@ -21,6 +21,9 @@ export interface ScheduledStageData {
   paper_type?: string;
   paper_weight?: string;
   paper_display?: string;     // combined display format like "230gsm FBB"
+  is_split_job?: boolean;     // true if this stage is part of a cross-day split job
+  split_job_part?: number;    // which part of the split (1, 2, etc.)
+  split_job_total_parts?: number; // total parts in the split
   // helper flag to style carry-overs if you want (optional)
   // is_carry?: boolean;
 }
@@ -137,6 +140,9 @@ export function useScheduleReader() {
           job_table_name,
           notes,
           stage_specification_id,
+          is_split_job,
+          split_job_part,
+          split_job_total_parts,
           stage_specifications(
             id,
             description
@@ -327,6 +333,9 @@ export function useScheduleReader() {
             paper_type: paperSpecs?.paper_type,
             paper_weight: paperSpecs?.paper_weight,
             paper_display: displaySpec,
+            is_split_job: row.is_split_job || false,
+            split_job_part: row.split_job_part || undefined,
+            split_job_total_parts: row.split_job_total_parts || undefined,
             // is_carry: isCarry,
           });
         };

@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, GripVertical } from "lucide-react";
+import { Clock, GripVertical, Lock } from "lucide-react";
 import type { ScheduledStageData } from "@/hooks/useScheduleReader";
 
 interface SortableScheduleStageCardProps {
@@ -28,7 +28,7 @@ export const SortableScheduleStageCard: React.FC<SortableScheduleStageCardProps>
     isDragging,
   } = useSortable({ 
     id: stage.id,
-    disabled: !isAdminUser || disabled
+    disabled: !isAdminUser || disabled || stage.is_split_job
   });
 
   const style: React.CSSProperties = {
@@ -55,13 +55,18 @@ export const SortableScheduleStageCard: React.FC<SortableScheduleStageCardProps>
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {isAdminUser && (
+            {isAdminUser && !stage.is_split_job && (
               <div 
                 className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
                 {...attributes}
                 {...listeners}
               >
                 <GripVertical className="h-3 w-3" />
+              </div>
+            )}
+            {stage.is_split_job && (
+              <div className="text-amber-500">
+                <Lock className="h-3 w-3" />
               </div>
             )}
             <div 
@@ -71,6 +76,11 @@ export const SortableScheduleStageCard: React.FC<SortableScheduleStageCardProps>
             <span className="font-medium text-sm">
               {stage.job_wo_no}
             </span>
+            {stage.is_split_job && (
+              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                Split
+              </Badge>
+            )}
           </div>
           <Badge variant="outline" className="text-xs">
             {stage.estimated_duration_minutes}m

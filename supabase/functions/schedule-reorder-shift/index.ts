@@ -8,10 +8,11 @@ const corsHeaders = {
 
 interface ReorderRequest {
   date: string;
-  timeSlot: string;
+  timeSlot?: string;  // Optional for backward compatibility
   stageIds: string[];
   shiftStartTime: string;
   shiftEndTime: string;
+  dayWideReorder?: boolean; // New flag for day-wide reordering
 }
 
 serve(async (req: Request) => {
@@ -28,9 +29,9 @@ serve(async (req: Request) => {
       auth: { persistSession: false }
     });
 
-    const { date, timeSlot, stageIds, shiftStartTime, shiftEndTime }: ReorderRequest = await req.json();
+    const { date, timeSlot, stageIds, shiftStartTime, shiftEndTime, dayWideReorder }: ReorderRequest = await req.json();
 
-    console.log(`Reordering shift for ${date} ${timeSlot} with ${stageIds.length} stages`);
+    console.log(`Reordering ${stageIds.length} stages for ${date}${dayWideReorder ? ' (day-wide)' : ` at ${timeSlot}`}`);
 
     // 1. Fetch stage time slots separately
     const { data: stageSlots, error: slotsError } = await supabase
@@ -162,12 +163,12 @@ serve(async (req: Request) => {
       throw new Error(`Failed to update ${failures.length} stages`);
     }
 
-    console.log(`Successfully reordered ${updatedSlots.length} stages in shift ${timeSlot}`);
+    console.log(`Successfully reordered ${updatedSlots.length} stages${dayWideReorder ? ' day-wide' : ` in shift ${timeSlot}`}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Reordered ${updatedSlots.length} stages in shift`,
+        message: `Reordered ${updatedSlots.length} stages${dayWideReorder ? ' day-wide' : ' in shift'}`,
         updatedStages: updatedSlots.length
       }),
       {
