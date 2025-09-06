@@ -304,13 +304,14 @@ export function useScheduleReader() {
         
         let displaySpec = undefined;
         
-        // Priority 1: stage_specifications.description (for all stages)
-        if (row.stage_specifications?.description) {
-          displaySpec = row.stage_specifications.description;
+        // Priority 1: For printing stages, show job-level paper specs FIRST
+        if (stageType === 'printing' && paperSpecs) {
+          // Format paper specs the same way as SubSpecificationBadge
+          displaySpec = [paperSpecs.paper_weight, paperSpecs.paper_type].filter(Boolean).join(' ');
         }
-        // Priority 2: For printing stages, show job-level paper specs if no stage specs
-        else if (stageType === 'printing' && paperSpecs) {
-          displaySpec = paperSpecs.paper_display;
+        // Priority 2: stage_specifications.description (for non-printing stages or printing without paper specs)
+        else if (row.stage_specifications?.description) {
+          displaySpec = row.stage_specifications.description;
         }
         // Priority 3: Custom notes (if notes exist)
         else if (row.notes) {
