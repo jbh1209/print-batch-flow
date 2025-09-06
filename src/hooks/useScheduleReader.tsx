@@ -178,8 +178,8 @@ export function useScheduleReader() {
         console.error("Error fetching production jobs:", jobsError);
       }
 
-      // 5) Fetch stage-specific specifications based on stage type
-      const stageSpecifications = new Map();
+      // 5) Fetch job specifications once per job (following useJobSpecificationDisplay pattern)
+      const jobSpecifications = new Map();
       
       // Helper function to determine stage type
       const getStageType = (stageName: string) => {
@@ -199,7 +199,30 @@ export function useScheduleReader() {
         return 'other';
       };
       
-      // Group stage instances by job to extract appropriate specs
+      // Fetch specifications for each unique job (once per job)
+      for (const jobId of jobIds) {
+        try {
+          const { data: specs, error: specsError } = await supabase
+            .rpc('get_job_specifications', {
+              p_job_id: jobId,
+              p_job_table_name: 'production_jobs'
+            });
+          
+          if (!specsError && specs) {
+            // Store specifications by category for this job
+            const jobSpecs: Record<string, string> = {};
+            (specs || []).forEach((spec: any) => {
+              jobSpecs[spec.category] = spec.display_name;
+            });
+            jobSpecifications.set(jobId, jobSpecs);
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch specifications for job ${jobId}:`, err);
+        }
+      }
+      
+      // Also extract paper specs from notes for each job
+      const jobPaperSpecs = new Map();
       const stagesByJob = new Map<string, any[]>();
       for (const instance of stageInstances) {
         if (!stagesByJob.has(instance.job_id)) {
@@ -208,49 +231,22 @@ export function useScheduleReader() {
         stagesByJob.get(instance.job_id)!.push(instance);
       }
       
-      // Process each stage instance for specifications
-      for (const instance of stageInstances) {
-        // Find the stage name from productionStages
-        const stage = productionStages?.find(s => s.id === instance.production_stage_id);
-        if (!stage) continue;
-        
-        const stageType = getStageType(stage.name);
-        
-        if (stageType === 'printing') {
-          // Extract paper specs from notes for printing stages
+      // Extract paper specs from notes for each job
+      for (const [jobId, instances] of stagesByJob) {
+        for (const instance of instances) {
           if (instance.notes) {
             const parsedSpecs = parsePaperSpecsFromNotes(instance.notes);
             if (parsedSpecs.paperType || parsedSpecs.paperWeight) {
               const paperDisplay = formatPaperDisplay(parsedSpecs);
               if (paperDisplay) {
-                stageSpecifications.set(instance.id, {
-                  type: 'paper',
-                  display: paperDisplay
+                jobPaperSpecs.set(jobId, {
+                  paper_type: parsedSpecs.paperType,
+                  paper_weight: parsedSpecs.paperWeight,
+                  paper_display: paperDisplay
                 });
+                break; // Found paper specs for this job, no need to check other instances
               }
             }
-          }
-        } else if (stageType === 'laminating' || stageType === 'uv_varnish') {
-          // Fetch lamination or UV varnish specs via RPC
-          try {
-            const { data: specs, error: specsError } = await supabase
-              .rpc('get_job_specifications', {
-                p_job_id: instance.job_id,
-                p_job_table_name: 'production_jobs'
-              });
-            
-            if (!specsError && specs) {
-              const categoryName = stageType === 'laminating' ? 'lamination_type' : 'uv_varnish';
-              const spec = specs.find((s: any) => s.category === categoryName);
-              if (spec?.display_name) {
-                stageSpecifications.set(instance.id, {
-                  type: categoryName,
-                  display: spec.display_name
-                });
-              }
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch ${stageType} specifications for stage ${instance.id}:`, err);
           }
         }
       }
@@ -282,7 +278,20 @@ export function useScheduleReader() {
 
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
-        const stageSpecs = stageSpecifications.get(row.id);
+        
+        // Get appropriate specifications based on stage type
+        const jobSpecs = jobSpecifications.get(row.job_id) || {};
+        const paperSpecs = jobPaperSpecs.get(row.job_id);
+        const stageType = stage ? getStageType(stage.name) : 'other';
+        
+        let displaySpec = undefined;
+        if (stageType === 'printing' && paperSpecs) {
+          displaySpec = paperSpecs.paper_display;
+        } else if (stageType === 'laminating' && jobSpecs.lamination_type) {
+          displaySpec = jobSpecs.lamination_type;
+        } else if (stageType === 'uv_varnish' && jobSpecs.uv_varnish) {
+          displaySpec = jobSpecs.uv_varnish;
+        }
 
         // total planned minutes
         const planned = pickPlannedMinutes(row);
@@ -312,9 +321,9 @@ export function useScheduleReader() {
             end_hhmm: dispEndISO,
             status: row.status,
             stage_color: stage?.color || "#6B7280",
-            paper_type: stageSpecs?.type === 'paper' ? stageSpecs.display.split(' ')[1] : undefined,
-            paper_weight: stageSpecs?.type === 'paper' ? stageSpecs.display.split(' ')[0] : undefined,
-            paper_display: stageSpecs?.display,
+            paper_type: stageType === 'printing' && paperSpecs ? paperSpecs.paper_type : undefined,
+            paper_weight: stageType === 'printing' && paperSpecs ? paperSpecs.paper_weight : undefined,
+            paper_display: displaySpec,
             // is_carry: isCarry,
           });
         };
