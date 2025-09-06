@@ -178,10 +178,28 @@ export function useScheduleReader() {
         console.error("Error fetching production jobs:", jobsError);
       }
 
-      // 5) Extract paper specifications from notes (like SubSpecificationBadge)
-      const jobSpecifications = new Map();
+      // 5) Fetch stage-specific specifications based on stage type
+      const stageSpecifications = new Map();
       
-      // Group stage instances by job to find paper specs from notes
+      // Helper function to determine stage type
+      const getStageType = (stageName: string) => {
+        const name = stageName.toLowerCase();
+        if (name.includes('printing') || name.includes('print') || name.includes('hp') || 
+            name.includes('xerox') || name.includes('t250') || name.includes('7900') || 
+            name.includes('12000') || name.includes('envelope printing') || 
+            name.includes('large format')) {
+          return 'printing';
+        }
+        if (name.includes('laminating')) {
+          return 'laminating';
+        }
+        if (name.includes('uv varnish') || name.includes('uv varnishing')) {
+          return 'uv_varnish';
+        }
+        return 'other';
+      };
+      
+      // Group stage instances by job to extract appropriate specs
       const stagesByJob = new Map<string, any[]>();
       for (const instance of stageInstances) {
         if (!stagesByJob.has(instance.job_id)) {
@@ -190,22 +208,49 @@ export function useScheduleReader() {
         stagesByJob.get(instance.job_id)!.push(instance);
       }
       
-      // Extract paper specs from notes for each job
-      for (const [jobId, instances] of stagesByJob) {
-        for (const instance of instances) {
+      // Process each stage instance for specifications
+      for (const instance of stageInstances) {
+        // Find the stage name from productionStages
+        const stage = productionStages?.find(s => s.id === instance.production_stage_id);
+        if (!stage) continue;
+        
+        const stageType = getStageType(stage.name);
+        
+        if (stageType === 'printing') {
+          // Extract paper specs from notes for printing stages
           if (instance.notes) {
             const parsedSpecs = parsePaperSpecsFromNotes(instance.notes);
             if (parsedSpecs.paperType || parsedSpecs.paperWeight) {
               const paperDisplay = formatPaperDisplay(parsedSpecs);
               if (paperDisplay) {
-                jobSpecifications.set(jobId, {
-                  paper_type: parsedSpecs.paperType,
-                  paper_weight: parsedSpecs.paperWeight,
-                  paper_display: paperDisplay
+                stageSpecifications.set(instance.id, {
+                  type: 'paper',
+                  display: paperDisplay
                 });
-                break; // Found paper specs for this job, no need to check other instances
               }
             }
+          }
+        } else if (stageType === 'laminating' || stageType === 'uv_varnish') {
+          // Fetch lamination or UV varnish specs via RPC
+          try {
+            const { data: specs, error: specsError } = await supabase
+              .rpc('get_job_specifications', {
+                p_job_id: instance.job_id,
+                p_job_table_name: 'production_jobs'
+              });
+            
+            if (!specsError && specs) {
+              const categoryName = stageType === 'laminating' ? 'lamination_type' : 'uv_varnish';
+              const spec = specs.find((s: any) => s.category === categoryName);
+              if (spec?.display_name) {
+                stageSpecifications.set(instance.id, {
+                  type: categoryName,
+                  display: spec.display_name
+                });
+              }
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch ${stageType} specifications for stage ${instance.id}:`, err);
           }
         }
       }
@@ -237,7 +282,7 @@ export function useScheduleReader() {
 
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
-        const paperSpecs = jobSpecifications.get(row.job_id);
+        const stageSpecs = stageSpecifications.get(row.id);
 
         // total planned minutes
         const planned = pickPlannedMinutes(row);
@@ -267,9 +312,9 @@ export function useScheduleReader() {
             end_hhmm: dispEndISO,
             status: row.status,
             stage_color: stage?.color || "#6B7280",
-            paper_type: paperSpecs?.paper_type,
-            paper_weight: paperSpecs?.paper_weight,
-            paper_display: paperSpecs?.paper_display,
+            paper_type: stageSpecs?.type === 'paper' ? stageSpecs.display.split(' ')[1] : undefined,
+            paper_weight: stageSpecs?.type === 'paper' ? stageSpecs.display.split(' ')[0] : undefined,
+            paper_display: stageSpecs?.display,
             // is_carry: isCarry,
           });
         };
