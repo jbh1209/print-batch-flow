@@ -17,6 +17,9 @@ export interface ScheduledStageData {
   end_hhmm: string;           // formatted for display (factory-local)
   status: string;
   stage_color?: string;
+  paper_type?: string;
+  paper_weight?: string;
+  paper_display?: string;     // combined display format like "230gsm FBB"
   // helper flag to style carry-overs if you want (optional)
   // is_carry?: boolean;
 }
@@ -173,11 +176,38 @@ export function useScheduleReader() {
         console.error("Error fetching production jobs:", jobsError);
       }
 
-      // 5) maps
+      // 5) Fetch paper specifications for all jobs
+      const jobSpecifications = new Map();
+      for (const jobId of jobIds) {
+        try {
+          const { data: specs, error: specsError } = await supabase
+            .rpc('get_job_specifications', {
+              p_job_id: jobId,
+              p_job_table_name: 'production_jobs'
+            });
+          
+          if (!specsError && specs) {
+            const paperType = specs.find((s: any) => s.category === 'paper_type')?.display_name;
+            const paperWeight = specs.find((s: any) => s.category === 'paper_weight')?.display_name;
+            
+            if (paperType || paperWeight) {
+              jobSpecifications.set(jobId, {
+                paper_type: paperType,
+                paper_weight: paperWeight,
+                paper_display: paperWeight && paperType ? `${paperWeight} ${paperType}` : paperWeight || paperType
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch specifications for job ${jobId}:`, err);
+        }
+      }
+
+      // 6) maps
       const stageMap = new Map((productionStages || []).map((s) => [s.id, s]));
       const jobMap = new Map((productionJobs || []).map((j) => [j.id, j]));
 
-      // 6) Group by factory-local date + hour slots
+      // 7) Group by factory-local date + hour slots
       const scheduleMap = new Map<string, Map<string, ScheduledStageData[]>>();
       const timeSlots = [
         "08:00",
@@ -200,6 +230,7 @@ export function useScheduleReader() {
 
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
+        const paperSpecs = jobSpecifications.get(row.job_id);
 
         // total planned minutes
         const planned = pickPlannedMinutes(row);
@@ -229,6 +260,9 @@ export function useScheduleReader() {
             end_hhmm: dispEndISO,
             status: row.status,
             stage_color: stage?.color || "#6B7280",
+            paper_type: paperSpecs?.paper_type,
+            paper_weight: paperSpecs?.paper_weight,
+            paper_display: paperSpecs?.paper_display,
             // is_carry: isCarry,
           });
         };
