@@ -236,35 +236,39 @@ export function useScheduleReader() {
         return undefined;
       };
       
-      // Also extract paper specs from notes for each job
-      const jobPaperSpecs = new Map();
-      const stagesByJob = new Map<string, any[]>();
-      for (const instance of stageInstances) {
-        if (!stagesByJob.has(instance.job_id)) {
-          stagesByJob.set(instance.job_id, []);
-        }
-        stagesByJob.get(instance.job_id)!.push(instance);
-      }
+      // Fetch job-level paper specifications using the same RPC as master modal
+      const jobSpecsPromises = jobIds.map(jobId => 
+        supabase.rpc('get_job_specifications', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs'
+        })
+      );
       
-      // Extract paper specs from notes for each job
-      for (const [jobId, instances] of stagesByJob) {
-        for (const instance of instances) {
-          if (instance.notes) {
-            const parsedSpecs = parsePaperSpecsFromNotes(instance.notes);
-            if (parsedSpecs.paperType || parsedSpecs.paperWeight) {
-              const paperDisplay = formatPaperDisplay(parsedSpecs);
-              if (paperDisplay) {
-                jobPaperSpecs.set(jobId, {
-                  paper_type: parsedSpecs.paperType,
-                  paper_weight: parsedSpecs.paperWeight,
-                  paper_display: paperDisplay
-                });
-                break; // Found paper specs for this job, no need to check other instances
-              }
+      const jobSpecsResults = await Promise.all(jobSpecsPromises);
+      const jobPaperSpecs = new Map();
+      
+      jobIds.forEach((jobId, index) => {
+        const { data: specs } = jobSpecsResults[index];
+        if (specs && specs.length > 0) {
+          // Extract paper specs from job specifications
+          const paperType = specs.find((s: any) => s.category === 'paper_type')?.display_name;
+          const paperWeight = specs.find((s: any) => s.category === 'paper_weight')?.display_name;
+          
+          if (paperType || paperWeight) {
+            const paperDisplay = formatPaperDisplay({
+              paperType: paperType || '',
+              paperWeight: paperWeight || ''
+            });
+            if (paperDisplay) {
+              jobPaperSpecs.set(jobId, {
+                paper_type: paperType,
+                paper_weight: paperWeight,
+                paper_display: paperDisplay
+              });
             }
           }
         }
-      }
+      });
 
       // 6) maps
       const stageMap = new Map((productionStages || []).map((s) => [s.id, s]));
@@ -294,29 +298,25 @@ export function useScheduleReader() {
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
         
-        // Extract specifications using the same logic as SubSpecificationBadge/useEnhancedStageSpecifications
+        // Extract specifications using the same logic as master modal
         const paperSpecs = jobPaperSpecs.get(row.job_id);
         const stageType = stage ? getStageType(stage.name) : 'other';
         
         let displaySpec = undefined;
         
-        // Special priority for printing stages - paper specs first
-        if (stageType === 'printing' && paperSpecs) {
+        // Priority 1: stage_specifications.description (for all stages)
+        if (row.stage_specifications?.description) {
+          displaySpec = row.stage_specifications.description;
+        }
+        // Priority 2: For printing stages, show job-level paper specs if no stage specs
+        else if (stageType === 'printing' && paperSpecs) {
           displaySpec = paperSpecs.paper_display;
         }
-        // For printing stages, fallback to print specifications from stage_specifications
-        else if (stageType === 'printing' && row.stage_specifications?.description) {
-          displaySpec = row.stage_specifications.description;
-        }
-        // For all other stages: Priority 1: stage_specifications.description
-        else if (row.stage_specifications?.description) {
-          displaySpec = row.stage_specifications.description;
-        }
-        // Priority 2: Custom notes (if notes exist)
+        // Priority 3: Custom notes (if notes exist)
         else if (row.notes) {
           displaySpec = `Custom: ${row.notes}`;
         }
-        // Priority 3: Extract from JSONB fields (for UV varnish stages without stage specs)
+        // Priority 4: Extract from JSONB fields (for UV varnish stages without stage specs)
         else if (stageType === 'uv_varnish' && job?.finishing_specifications) {
           displaySpec = extractUVVarnishSpec(job.finishing_specifications);
         }
