@@ -133,7 +133,7 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     }
   };
 
-  const handleConfirmAutoReorder = async () => {
+  const handleConfirmAutoReorder = async (customGroupOrder?: string[]) => {
     if (!pendingGroupingType) return;
 
     try {
@@ -141,18 +141,38 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
       
       let grouped: ScheduledStageData[];
 
-      if (pendingGroupingType === 'paper') {
-        grouped = groupStagesByPaper(allDayStages).grouped;
+      if (customGroupOrder) {
+        // Use custom group order from dialog
+        const { applyCustomGroupOrder } = await import('@/utils/schedule/groupReorderUtils');
+        
+        if (pendingGroupingType === 'lamination') {
+          // Need job specs for lamination grouping
+          const jobIds = [...new Set(allDayStages.map(s => s.job_id))];
+          const { data: jobSpecs } = await supabase
+            .from('production_jobs')
+            .select('id, finishing_specifications')
+            .in('id', jobIds);
+          
+          const specsMap = new Map(jobSpecs?.map(j => [j.id, j.finishing_specifications]) || []);
+          grouped = applyCustomGroupOrder(allDayStages, groupPreviews, customGroupOrder, pendingGroupingType, specsMap);
+        } else {
+          grouped = applyCustomGroupOrder(allDayStages, groupPreviews, customGroupOrder, pendingGroupingType);
+        }
       } else {
-        // For lamination, fetch specs again
-        const jobIds = [...new Set(allDayStages.map(s => s.job_id))];
-        const { data: jobSpecs } = await supabase
-          .from('production_jobs')
-          .select('id, finishing_specifications')
-          .in('id', jobIds);
+        // Use default grouping order
+        if (pendingGroupingType === 'paper') {
+          grouped = groupStagesByPaper(allDayStages).grouped;
+        } else {
+          // For lamination, fetch specs again
+          const jobIds = [...new Set(allDayStages.map(s => s.job_id))];
+          const { data: jobSpecs } = await supabase
+            .from('production_jobs')
+            .select('id, finishing_specifications')
+            .in('id', jobIds);
 
-        const specsMap = new Map(jobSpecs?.map(j => [j.id, j.finishing_specifications]) || []);
-        grouped = groupStagesByLamination(allDayStages, specsMap).grouped;
+          const specsMap = new Map(jobSpecs?.map(j => [j.id, j.finishing_specifications]) || []);
+          grouped = groupStagesByLamination(allDayStages, specsMap).grouped;
+        }
       }
 
       await handleReorderStages(day.date, grouped, pendingGroupingType);

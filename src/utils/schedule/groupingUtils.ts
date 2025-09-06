@@ -1,9 +1,11 @@
 import type { ScheduledStageData } from "@/hooks/useScheduleReader";
 
 export interface GroupPreview {
+  id: string;
   groupName: string;
   count: number;
   jobs: string[]; // job wo_no array
+  originalIndex: number;
 }
 
 // Extract lamination specification from finishing_specifications JSONB
@@ -46,15 +48,17 @@ export const groupStagesByPaper = (stages: ScheduledStageData[]): { grouped: Sch
   const grouped: ScheduledStageData[] = [];
   const previews: GroupPreview[] = [];
   
-  sortedGroups.forEach(([paperSpec, groupStages]) => {
+  sortedGroups.forEach(([paperSpec, groupStages], index) => {
     // Sort stages within group by WO number
     groupStages.sort((a, b) => a.job_wo_no.localeCompare(b.job_wo_no));
     grouped.push(...groupStages);
     
     previews.push({
+      id: `paper-${index}`,
       groupName: paperSpec,
       count: groupStages.length,
-      jobs: groupStages.map(s => s.job_wo_no)
+      jobs: groupStages.map(s => s.job_wo_no),
+      originalIndex: index
     });
   });
   
@@ -83,15 +87,17 @@ export const groupStagesByLamination = (stages: ScheduledStageData[], jobSpecs: 
   const grouped: ScheduledStageData[] = [];
   const previews: GroupPreview[] = [];
   
-  sortedGroups.forEach(([laminationSpec, groupStages]) => {
+  sortedGroups.forEach(([laminationSpec, groupStages], index) => {
     // Sort stages within group by WO number
     groupStages.sort((a, b) => a.job_wo_no.localeCompare(b.job_wo_no));
     grouped.push(...groupStages);
     
     previews.push({
+      id: `lamination-${index}`,
       groupName: laminationSpec,
       count: groupStages.length,
-      jobs: groupStages.map(s => s.job_wo_no)
+      jobs: groupStages.map(s => s.job_wo_no),
+      originalIndex: index
     });
   });
   
