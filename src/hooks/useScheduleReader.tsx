@@ -135,7 +135,12 @@ export function useScheduleReader() {
           scheduled_end_at,
           status,
           job_table_name,
-          notes
+          notes,
+          stage_specification_id,
+          stage_specifications!inner(
+            id,
+            description
+          )
         `
         )
         .not("scheduled_start_at", "is", null)
@@ -171,17 +176,14 @@ export function useScheduleReader() {
       // 4) job lookup
       const { data: productionJobs, error: jobsError } = await supabase
         .from("production_jobs")
-        .select("id, wo_no")
+        .select("id, wo_no, finishing_specifications")
         .in("id", jobIds);
 
       if (jobsError) {
         console.error("Error fetching production jobs:", jobsError);
       }
 
-      // 5) Fetch job specifications once per job (following useJobSpecificationDisplay pattern)
-      const jobSpecifications = new Map();
-      
-      // Helper function to determine stage type
+      // 5) Helper function to determine stage type
       const getStageType = (stageName: string) => {
         const name = stageName.toLowerCase();
         if (name.includes('printing') || name.includes('print') || name.includes('hp') || 
@@ -199,27 +201,31 @@ export function useScheduleReader() {
         return 'other';
       };
       
-      // Fetch specifications for each unique job (once per job)
-      for (const jobId of jobIds) {
-        try {
-          const { data: specs, error: specsError } = await supabase
-            .rpc('get_job_specifications', {
-              p_job_id: jobId,
-              p_job_table_name: 'production_jobs'
-            });
-          
-          if (!specsError && specs) {
-            // Store specifications by category for this job
-            const jobSpecs: Record<string, string> = {};
-            (specs || []).forEach((spec: any) => {
-              jobSpecs[spec.category] = spec.display_name;
-            });
-            jobSpecifications.set(jobId, jobSpecs);
+      // Helper function to extract UV varnish specs from finishing_specifications JSONB
+      const extractUVVarnishSpec = (finishingSpecs: any): string | undefined => {
+        if (!finishingSpecs || typeof finishingSpecs !== 'object') return undefined;
+        
+        // Look for keys containing "uv varnish" (case insensitive)
+        for (const [key, value] of Object.entries(finishingSpecs)) {
+          if (key.toLowerCase().includes('uv varnish') && typeof value === 'string') {
+            return value;
           }
-        } catch (err) {
-          console.warn(`Failed to fetch specifications for job ${jobId}:`, err);
         }
-      }
+        return undefined;
+      };
+      
+      // Helper function to extract lamination specs from finishing_specifications JSONB
+      const extractLaminationSpec = (finishingSpecs: any): string | undefined => {
+        if (!finishingSpecs || typeof finishingSpecs !== 'object') return undefined;
+        
+        // Look for keys containing "lamination" (case insensitive)
+        for (const [key, value] of Object.entries(finishingSpecs)) {
+          if (key.toLowerCase().includes('lamination') && typeof value === 'string') {
+            return value;
+          }
+        }
+        return undefined;
+      };
       
       // Also extract paper specs from notes for each job
       const jobPaperSpecs = new Map();
@@ -280,17 +286,21 @@ export function useScheduleReader() {
         const job = jobMap.get(row.job_id);
         
         // Get appropriate specifications based on stage type
-        const jobSpecs = jobSpecifications.get(row.job_id) || {};
         const paperSpecs = jobPaperSpecs.get(row.job_id);
         const stageType = stage ? getStageType(stage.name) : 'other';
         
         let displaySpec = undefined;
         if (stageType === 'printing' && paperSpecs) {
           displaySpec = paperSpecs.paper_display;
-        } else if (stageType === 'laminating' && jobSpecs.lamination_type) {
-          displaySpec = jobSpecs.lamination_type;
-        } else if (stageType === 'uv_varnish' && jobSpecs.uv_varnish) {
-          displaySpec = jobSpecs.uv_varnish;
+        } else if (stageType === 'laminating') {
+          // Try stage_specifications first, then fallback to finishing_specifications
+          if (row.stage_specifications?.description) {
+            displaySpec = row.stage_specifications.description;
+          } else if (job?.finishing_specifications) {
+            displaySpec = extractLaminationSpec(job.finishing_specifications);
+          }
+        } else if (stageType === 'uv_varnish' && job?.finishing_specifications) {
+          displaySpec = extractUVVarnishSpec(job.finishing_specifications);
         }
 
         // total planned minutes
