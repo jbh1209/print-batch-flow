@@ -236,39 +236,7 @@ export function useScheduleReader() {
         return undefined;
       };
       
-      // Fetch job-level paper specifications using the same RPC as master modal
-      const jobSpecsPromises = jobIds.map(jobId => 
-        supabase.rpc('get_job_specifications', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs'
-        })
-      );
-      
-      const jobSpecsResults = await Promise.all(jobSpecsPromises);
-      const jobPaperSpecs = new Map();
-      
-      jobIds.forEach((jobId, index) => {
-        const { data: specs } = jobSpecsResults[index];
-        if (specs && specs.length > 0) {
-          // Extract paper specs from job specifications
-          const paperType = specs.find((s: any) => s.category === 'paper_type')?.display_name;
-          const paperWeight = specs.find((s: any) => s.category === 'paper_weight')?.display_name;
-          
-          if (paperType || paperWeight) {
-            const paperDisplay = formatPaperDisplay({
-              paperType: paperType || '',
-              paperWeight: paperWeight || ''
-            });
-            if (paperDisplay) {
-              jobPaperSpecs.set(jobId, {
-                paper_type: paperType,
-                paper_weight: paperWeight,
-                paper_display: paperDisplay
-              });
-            }
-          }
-        }
-      });
+      // No job-level paper spec fetching needed - extract from individual stage notes
 
       // 6) maps
       const stageMap = new Map((productionStages || []).map((s) => [s.id, s]));
@@ -298,27 +266,33 @@ export function useScheduleReader() {
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
         
-        // Extract specifications using the same logic as master modal
-        const paperSpecs = jobPaperSpecs.get(row.job_id);
+        // Extract specifications using the same logic as SubSpecificationBadge
         const stageType = stage ? getStageType(stage.name) : 'other';
         
         let displaySpec = undefined;
+        let paperSpecs = null;
         
-        // Priority 1: For printing stages, show job-level paper specs FIRST
-        if (stageType === 'printing' && paperSpecs) {
-          // Format paper specs the same way as SubSpecificationBadge
-          displaySpec = [paperSpecs.paper_weight, paperSpecs.paper_type].filter(Boolean).join(' ');
+        // Priority 1: For printing stages, extract paper specs from THIS stage's notes
+        if (stageType === 'printing' && row.notes?.toLowerCase().includes('paper:')) {
+          const parsedPaper = parsePaperSpecsFromNotes(row.notes);
+          if (parsedPaper.fullPaperSpec) {
+            displaySpec = formatPaperDisplay(parsedPaper);
+            paperSpecs = {
+              paper_type: parsedPaper.paperType,
+              paper_weight: parsedPaper.paperWeight
+            };
+          }
         }
         // Priority 2: stage_specifications.description (for non-printing stages or printing without paper specs)
-        else if (row.stage_specifications?.description) {
+        if (!displaySpec && row.stage_specifications?.description) {
           displaySpec = row.stage_specifications.description;
         }
         // Priority 3: Custom notes (if notes exist)
-        else if (row.notes) {
+        else if (!displaySpec && row.notes) {
           displaySpec = `Custom: ${row.notes}`;
         }
         // Priority 4: Extract from JSONB fields (for UV varnish stages without stage specs)
-        else if (stageType === 'uv_varnish' && job?.finishing_specifications) {
+        else if (!displaySpec && stageType === 'uv_varnish' && job?.finishing_specifications) {
           displaySpec = extractUVVarnishSpec(job.finishing_specifications);
         }
 
@@ -350,8 +324,8 @@ export function useScheduleReader() {
             end_hhmm: dispEndISO,
             status: row.status,
             stage_color: stage?.color || "#6B7280",
-            paper_type: stageType === 'printing' && paperSpecs ? paperSpecs.paper_type : undefined,
-            paper_weight: stageType === 'printing' && paperSpecs ? paperSpecs.paper_weight : undefined,
+            paper_type: paperSpecs?.paper_type,
+            paper_weight: paperSpecs?.paper_weight,
             paper_display: displaySpec,
             // is_carry: isCarry,
           });
