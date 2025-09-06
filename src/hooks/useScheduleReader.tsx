@@ -137,7 +137,7 @@ export function useScheduleReader() {
           job_table_name,
           notes,
           stage_specification_id,
-          stage_specifications!inner(
+          stage_specifications(
             id,
             description
           )
