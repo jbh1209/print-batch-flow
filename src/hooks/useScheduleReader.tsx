@@ -37,8 +37,8 @@ export interface ScheduleDayData {
 /* ---------------------- tz + helpers --------------------- */
 
 const FACTORY_TZ =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_FACTORY_TZ) ||
-  "Africa/Johannesburg";
+  import.meta.env.NEXT_PUBLIC_FACTORY_TZ ||
+  "UTC";
 
 // First shift for carry-overs (08:00)
 const FIRST_SHIFT_HH = 8;
