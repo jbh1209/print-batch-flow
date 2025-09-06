@@ -2,22 +2,31 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Calendar } from "lucide-react";
+import { Clock, Calendar, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableScheduleStageCard } from "./SortableScheduleStageCard";
+import { useScheduleDnDContext } from "./useScheduleDnDContext";
 import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleReader";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScheduleDayColumnProps {
   day: ScheduleDayData;
   selectedStageId?: string | null;
   selectedStageName?: string | null;
   onJobClick?: (stage: ScheduledStageData) => void;
+  isAdminUser?: boolean;
+  onScheduleUpdate?: () => void;
 }
 
 export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
   day,
   selectedStageId,
   selectedStageName,
-  onJobClick
+  onJobClick,
+  isAdminUser = false,
+  onScheduleUpdate
 }) => {
   // Filter stages based on selected stage
   const filteredTimeSlots = React.useMemo(() => {
@@ -44,6 +53,36 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
       ) || 0), 0
     );
   }, [filteredTimeSlots]);
+
+  // Reorder handler
+  const handleReorderStages = async (date: string, timeSlot: string, newStageOrder: ScheduledStageData[]) => {
+    try {
+      const stageIds = newStageOrder.map(stage => stage.id);
+      
+      const { error } = await supabase.functions.invoke('schedule-reorder-shift', {
+        body: {
+          date,
+          timeSlot,
+          stageIds,
+          shiftStartTime: timeSlot.split(' - ')[0],
+          shiftEndTime: timeSlot.split(' - ')[1]
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Trigger schedule refresh
+      onScheduleUpdate?.();
+    } catch (error) {
+      console.error('Failed to reorder shift:', error);
+      throw error;
+    }
+  };
+
+  const { sensors, onDragEnd, isReordering } = useScheduleDnDContext({
+    onReorderStages: handleReorderStages,
+    isAdminUser
+  });
 
   return (
     <div className="flex-1 min-w-[300px] max-w-[400px]">
@@ -80,67 +119,37 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
                   {slot.time_slot}
                 </div>
                 
-                {(slot.scheduled_stages || []).map((stage, stageIndex) => (
-                  <Card 
-                    key={stageIndex} 
-                    className="p-3 cursor-pointer hover:shadow-md transition-shadow border-l-4"
-                    style={{ borderLeftColor: stage.stage_color || '#6B7280' }}
-                    onClick={() => onJobClick?.(stage)}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => onDragEnd(event, slot.scheduled_stages || [], day.date, slot.time_slot)}
+                >
+                  <SortableContext 
+                    items={(slot.scheduled_stages || []).map(stage => stage.id)}
+                    strategy={verticalListSortingStrategy}
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: stage.stage_color || '#6B7280' }}
-                          />
-                          <span className="font-medium text-sm">
-                            {stage.job_wo_no}
-                          </span>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {stage.estimated_duration_minutes}m
-                        </Badge>
-                      </div>
-                      
-                       <div className="text-xs font-medium text-muted-foreground">
-                         {stage.stage_name}
-                       </div>
-                       
-                       {stage.paper_display && (
-                         <div className="mt-1">
-                           <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
-                             {stage.paper_display}
-                           </Badge>
-                         </div>
-                       )}
-                      
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        {stage.start_hhmm && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {stage.start_hhmm}
-                            {stage.end_hhmm && (
-                              <span> - {stage.end_hhmm}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex justify-between items-center pt-1">
-                        <Badge 
-                          variant={stage.status === 'completed' ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {stage.status}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Order: {stage.stage_order}
-                        </span>
-                      </div>
+                    <div className={`space-y-2 ${isReordering ? 'opacity-60' : ''}`}>
+                      {(slot.scheduled_stages || []).map((stage) => (
+                        <SortableScheduleStageCard
+                          key={stage.id}
+                          stage={stage}
+                          onJobClick={onJobClick}
+                          isAdminUser={isAdminUser}
+                          disabled={isReordering}
+                        />
+                      ))}
                     </div>
-                  </Card>
-                ))}
+                  </SortableContext>
+                </DndContext>
+                
+                {isReordering && (
+                  <div className="flex items-center justify-center py-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <RotateCcw className="h-3 w-3 animate-spin" />
+                      Recalculating schedule...
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}

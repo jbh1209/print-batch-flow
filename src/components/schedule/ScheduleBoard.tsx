@@ -10,19 +10,22 @@ import { ScheduleDayColumn } from "./day-columns/ScheduleDayColumn";
 import { WeekNavigation } from "./navigation/WeekNavigation";
 import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleReader";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScheduleBoardProps {
   scheduleDays: ScheduleDayData[];
   isLoading: boolean;
   onRefresh: () => void;
   onReschedule: () => void;
+  isAdminUser?: boolean;
 }
 
 export function ScheduleBoard({ 
   scheduleDays, 
   isLoading, 
   onRefresh, 
-  onReschedule 
+  onReschedule,
+  isAdminUser = false
 }: ScheduleBoardProps) {
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
@@ -92,6 +95,8 @@ export function ScheduleBoard({
               selectedStageId={selectedStageId}
               selectedStageName={selectedStageName}
               onJobClick={handleJobClick}
+              isAdminUser={isAdminUser}
+              onScheduleUpdate={onRefresh}
             />
               ))}
               

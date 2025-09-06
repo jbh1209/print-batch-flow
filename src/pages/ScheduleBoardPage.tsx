@@ -2,10 +2,12 @@ import React from "react";
 import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { supabase } from "@/integrations/supabase/client";
 import { useScheduleReader } from "@/hooks/useScheduleReader";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { toast } from "sonner";
 
 export default function ScheduleBoardPage() {
   const { scheduleDays, isLoading, fetchSchedule } = useScheduleReader();
+  const { isAdmin } = useUserRole();
 
   const handleRefresh = async () => {
     await fetchSchedule();
@@ -46,6 +48,7 @@ export default function ScheduleBoardPage() {
       isLoading={isLoading}
       onRefresh={handleRefresh}
       onReschedule={handleReschedule}
+      isAdminUser={isAdmin}
     />
   );
 }
