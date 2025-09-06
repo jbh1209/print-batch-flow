@@ -294,22 +294,27 @@ export function useScheduleReader() {
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
         
-        // Get appropriate specifications based on stage type
+        // Extract specifications using the same logic as SubSpecificationBadge/useEnhancedStageSpecifications
         const paperSpecs = jobPaperSpecs.get(row.job_id);
         const stageType = stage ? getStageType(stage.name) : 'other';
         
         let displaySpec = undefined;
-        if (stageType === 'printing' && paperSpecs) {
-          displaySpec = paperSpecs.paper_display;
-        } else if (stageType === 'laminating') {
-          // Try stage_specifications first, then fallback to finishing_specifications
-          if (row.stage_specifications?.description) {
-            displaySpec = row.stage_specifications.description;
-          } else if (job?.finishing_specifications) {
-            displaySpec = extractLaminationSpec(job.finishing_specifications);
-          }
-        } else if (stageType === 'uv_varnish' && job?.finishing_specifications) {
+        
+        // Priority 1: stage_specifications.description
+        if (row.stage_specifications?.description) {
+          displaySpec = row.stage_specifications.description;
+        }
+        // Priority 2: Custom notes (if notes exist)
+        else if (row.notes) {
+          displaySpec = `Custom: ${row.notes}`;
+        }
+        // Priority 3: Extract from JSONB fields (for UV varnish stages without stage specs)
+        else if (stageType === 'uv_varnish' && job?.finishing_specifications) {
           displaySpec = extractUVVarnishSpec(job.finishing_specifications);
+        }
+        // Priority 4: For printing stages, show paper specs
+        else if (stageType === 'printing' && paperSpecs) {
+          displaySpec = paperSpecs.paper_display;
         }
 
         // total planned minutes
