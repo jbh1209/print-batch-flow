@@ -207,8 +207,13 @@ export function useScheduleReader() {
         
         // Look for keys containing "uv varnish" (case insensitive)
         for (const [key, value] of Object.entries(finishingSpecs)) {
-          if (key.toLowerCase().includes('uv varnish') && typeof value === 'string') {
-            return value;
+          if (key.toLowerCase().includes('uv varnish')) {
+            // Return the key name itself (e.g., "Overall gloss UV varnish 1 side")
+            // or the description from the value object if it exists
+            if (typeof value === 'object' && value && (value as any).description) {
+              return (value as any).description;
+            }
+            return key;
           }
         }
         return undefined;
@@ -220,8 +225,12 @@ export function useScheduleReader() {
         
         // Look for keys containing "lamination" (case insensitive)
         for (const [key, value] of Object.entries(finishingSpecs)) {
-          if (key.toLowerCase().includes('lamination') && typeof value === 'string') {
-            return value;
+          if (key.toLowerCase().includes('lamination')) {
+            // Return the key name itself or the description from the value object if it exists
+            if (typeof value === 'object' && value && (value as any).description) {
+              return (value as any).description;
+            }
+            return key;
           }
         }
         return undefined;
