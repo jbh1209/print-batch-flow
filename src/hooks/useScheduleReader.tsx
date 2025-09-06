@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
 
 /* ------------------------- types ------------------------- */
 
@@ -133,7 +134,8 @@ export function useScheduleReader() {
           scheduled_start_at,
           scheduled_end_at,
           status,
-          job_table_name
+          job_table_name,
+          notes
         `
         )
         .not("scheduled_start_at", "is", null)
@@ -176,30 +178,35 @@ export function useScheduleReader() {
         console.error("Error fetching production jobs:", jobsError);
       }
 
-      // 5) Fetch paper specifications for all jobs
+      // 5) Extract paper specifications from notes (like SubSpecificationBadge)
       const jobSpecifications = new Map();
-      for (const jobId of jobIds) {
-        try {
-          const { data: specs, error: specsError } = await supabase
-            .rpc('get_job_specifications', {
-              p_job_id: jobId,
-              p_job_table_name: 'production_jobs'
-            });
-          
-          if (!specsError && specs) {
-            const paperType = specs.find((s: any) => s.category === 'paper_type')?.display_name;
-            const paperWeight = specs.find((s: any) => s.category === 'paper_weight')?.display_name;
-            
-            if (paperType || paperWeight) {
-              jobSpecifications.set(jobId, {
-                paper_type: paperType,
-                paper_weight: paperWeight,
-                paper_display: [paperWeight, paperType].filter(Boolean).join(' ')
-              });
+      
+      // Group stage instances by job to find paper specs from notes
+      const stagesByJob = new Map<string, any[]>();
+      for (const instance of stageInstances) {
+        if (!stagesByJob.has(instance.job_id)) {
+          stagesByJob.set(instance.job_id, []);
+        }
+        stagesByJob.get(instance.job_id)!.push(instance);
+      }
+      
+      // Extract paper specs from notes for each job
+      for (const [jobId, instances] of stagesByJob) {
+        for (const instance of instances) {
+          if (instance.notes) {
+            const parsedSpecs = parsePaperSpecsFromNotes(instance.notes);
+            if (parsedSpecs.paperType || parsedSpecs.paperWeight) {
+              const paperDisplay = formatPaperDisplay(parsedSpecs);
+              if (paperDisplay) {
+                jobSpecifications.set(jobId, {
+                  paper_type: parsedSpecs.paperType,
+                  paper_weight: parsedSpecs.paperWeight,
+                  paper_display: paperDisplay
+                });
+                break; // Found paper specs for this job, no need to check other instances
+              }
             }
           }
-        } catch (err) {
-          console.warn(`Failed to fetch specifications for job ${jobId}:`, err);
         }
       }
 
