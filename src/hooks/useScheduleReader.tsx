@@ -194,7 +194,7 @@ export function useScheduleReader() {
               jobSpecifications.set(jobId, {
                 paper_type: paperType,
                 paper_weight: paperWeight,
-                paper_display: paperWeight && paperType ? `${paperWeight} ${paperType}` : paperWeight || paperType
+                paper_display: [paperWeight, paperType].filter(Boolean).join(' ')
               });
             }
           }
