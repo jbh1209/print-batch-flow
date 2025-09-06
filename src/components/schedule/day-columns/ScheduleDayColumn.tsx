@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Calendar, RotateCcw } from "lucide-react";
+import { Clock, Calendar, RotateCcw, Package, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -10,6 +10,9 @@ import { SortableScheduleStageCard } from "./SortableScheduleStageCard";
 import { useScheduleDnDContext } from "./useScheduleDnDContext";
 import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleReader";
 import { supabase } from "@/integrations/supabase/client";
+import { AutoReorderConfirmDialog } from "../dialogs/AutoReorderConfirmDialog";
+import { groupStagesByPaper, groupStagesByLamination, isPrintingStage, isLaminatingStage, type GroupPreview } from "@/utils/schedule/groupingUtils";
+import { toast } from "sonner";
 
 interface ScheduleDayColumnProps {
   day: ScheduleDayData;
@@ -28,6 +31,11 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
   isAdminUser = false,
   onScheduleUpdate
 }) => {
+  const [showAutoReorderDialog, setShowAutoReorderDialog] = useState(false);
+  const [isProcessingReorder, setIsProcessingReorder] = useState(false);
+  const [pendingGroupingType, setPendingGroupingType] = useState<'paper' | 'lamination' | null>(null);
+  const [groupPreviews, setGroupPreviews] = useState<GroupPreview[]>([]);
+  
   // Filter stages based on selected stage
   const filteredTimeSlots = React.useMemo(() => {
     if (!selectedStageId) return day.time_slots || [];
@@ -57,7 +65,8 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
   // Handler for reordering stages across the entire day
   const handleReorderStages = async (
     date: string,
-    newStageOrder: ScheduledStageData[]
+    newStageOrder: ScheduledStageData[],
+    groupingType?: 'paper' | 'lamination'
   ) => {
     try {
       const stageIds = newStageOrder.map(stage => stage.id);
@@ -68,7 +77,8 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
           stageIds,
           dayWideReorder: true,
           shiftStartTime: '08:00',
-          shiftEndTime: '17:00'
+          shiftEndTime: '17:00',
+          groupingType: groupingType || null
         }
       });
       
@@ -87,6 +97,80 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     }
   };
 
+  // Handler for auto-reorder buttons
+  const handleAutoReorder = async (type: 'paper' | 'lamination') => {
+    if (!isAdminUser || allDayStages.length === 0) return;
+
+    try {
+      let grouped: ScheduledStageData[];
+      let previews: GroupPreview[];
+
+      if (type === 'paper') {
+        const result = groupStagesByPaper(allDayStages);
+        grouped = result.grouped;
+        previews = result.previews;
+      } else {
+        // For lamination, we need to fetch job finishing specifications
+        const jobIds = [...new Set(allDayStages.map(s => s.job_id))];
+        const { data: jobSpecs } = await supabase
+          .from('production_jobs')
+          .select('id, finishing_specifications')
+          .in('id', jobIds);
+
+        const specsMap = new Map(jobSpecs?.map(j => [j.id, j.finishing_specifications]) || []);
+        const result = groupStagesByLamination(allDayStages, specsMap);
+        grouped = result.grouped;
+        previews = result.previews;
+      }
+
+      // Show confirmation dialog
+      setPendingGroupingType(type);
+      setGroupPreviews(previews);
+      setShowAutoReorderDialog(true);
+    } catch (error) {
+      console.error('Error preparing auto-reorder:', error);
+      toast.error('Failed to prepare job grouping');
+    }
+  };
+
+  const handleConfirmAutoReorder = async () => {
+    if (!pendingGroupingType) return;
+
+    try {
+      setIsProcessingReorder(true);
+      
+      let grouped: ScheduledStageData[];
+
+      if (pendingGroupingType === 'paper') {
+        grouped = groupStagesByPaper(allDayStages).grouped;
+      } else {
+        // For lamination, fetch specs again
+        const jobIds = [...new Set(allDayStages.map(s => s.job_id))];
+        const { data: jobSpecs } = await supabase
+          .from('production_jobs')
+          .select('id, finishing_specifications')
+          .in('id', jobIds);
+
+        const specsMap = new Map(jobSpecs?.map(j => [j.id, j.finishing_specifications]) || []);
+        grouped = groupStagesByLamination(allDayStages, specsMap).grouped;
+      }
+
+      await handleReorderStages(day.date, grouped, pendingGroupingType);
+      
+      const groupType = pendingGroupingType === 'paper' ? 'paper specifications' : 'lamination type';
+      toast.success(`Successfully grouped ${grouped.length} jobs by ${groupType}`);
+      
+      setShowAutoReorderDialog(false);
+      setPendingGroupingType(null);
+      setGroupPreviews([]);
+    } catch (error) {
+      console.error('Error executing auto-reorder:', error);
+      toast.error('Failed to reorder jobs');
+    } finally {
+      setIsProcessingReorder(false);
+    }
+  };
+
   // Flatten all stages from all time slots for day-wide dragging
   const allDayStages = React.useMemo(() => {
     return filteredTimeSlots.flatMap(slot => slot.scheduled_stages || []);
@@ -96,6 +180,10 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     onReorderStages: handleReorderStages,
     isAdminUser
   });
+
+  // Check if current filter allows auto-reorder buttons
+  const canShowPaperGrouping = isAdminUser && selectedStageName && isPrintingStage(selectedStageName) && dayTotalJobs > 1;
+  const canShowLaminationGrouping = isAdminUser && selectedStageName && isLaminatingStage(selectedStageName) && dayTotalJobs > 1;
 
   return (
     <div className="flex-1 min-w-[300px] max-w-[400px]">
@@ -115,6 +203,36 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
               </Badge>
             </div>
           </CardTitle>
+          
+          {/* Auto-reorder buttons */}
+          {(canShowPaperGrouping || canShowLaminationGrouping) && (
+            <div className="flex gap-2 mt-2">
+              {canShowPaperGrouping && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAutoReorder('paper')}
+                  disabled={isReordering || isProcessingReorder}
+                  className="text-xs h-7"
+                >
+                  <Package className="h-3 w-3 mr-1" />
+                  Group by Paper
+                </Button>
+              )}
+              {canShowLaminationGrouping && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAutoReorder('lamination')}
+                  disabled={isReordering || isProcessingReorder}
+                  className="text-xs h-7"
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Group by Lamination
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-3">
           {filteredTimeSlots.length === 0 ? (
@@ -170,6 +288,20 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
           )}
         </CardContent>
       </Card>
+      
+      <AutoReorderConfirmDialog
+        isOpen={showAutoReorderDialog}
+        onClose={() => {
+          setShowAutoReorderDialog(false);
+          setPendingGroupingType(null);
+          setGroupPreviews([]);
+        }}
+        onConfirm={handleConfirmAutoReorder}
+        isProcessing={isProcessingReorder}
+        groupingType={pendingGroupingType || 'paper'}
+        groupPreviews={groupPreviews}
+        totalJobs={allDayStages.length}
+      />
     </div>
   );
 };

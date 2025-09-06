@@ -13,6 +13,7 @@ interface ReorderRequest {
   shiftStartTime: string;
   shiftEndTime: string;
   dayWideReorder?: boolean; // New flag for day-wide reordering
+  groupingType?: 'paper' | 'lamination' | null; // New parameter for auto-grouping
 }
 
 serve(async (req: Request) => {
@@ -29,9 +30,11 @@ serve(async (req: Request) => {
       auth: { persistSession: false }
     });
 
-    const { date, timeSlot, stageIds, shiftStartTime, shiftEndTime, dayWideReorder }: ReorderRequest = await req.json();
+    const { date, timeSlot, stageIds, shiftStartTime, shiftEndTime, dayWideReorder, groupingType }: ReorderRequest = await req.json();
 
-    console.log(`Reordering ${stageIds.length} stages for ${date}${dayWideReorder ? ' (day-wide)' : ` at ${timeSlot}`}`);
+    const logContext = dayWideReorder ? '(day-wide)' : ` at ${timeSlot}`;
+    const groupingContext = groupingType ? ` with ${groupingType} grouping` : '';
+    console.log(`Reordering ${stageIds.length} stages for ${date}${logContext}${groupingContext}`);
 
     // 1. Fetch stage time slots separately
     const { data: stageSlots, error: slotsError } = await supabase
