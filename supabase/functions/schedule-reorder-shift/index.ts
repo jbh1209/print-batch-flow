@@ -37,115 +37,56 @@ serve(async (req: Request) => {
 
     console.log(`Reordering ${cleanStageIds.length} stages for ${date} starting at ${shiftStartTime}`);
 
-    // Get all existing time slots for the stage instances
-    const { data: allTimeSlots, error: slotsError } = await supabase
-      .from('stage_time_slots')
-      .select('id, stage_instance_id, duration_minutes, slot_start_time, slot_end_time')
-      .in('stage_instance_id', cleanStageIds)
-      .eq('date', date)
-      .order('slot_start_time', { ascending: true });
-
-    if (slotsError) {
-      throw new Error(`Failed to fetch stage slots: ${slotsError.message}`);
-    }
-
-    if (!allTimeSlots || allTimeSlots.length === 0) {
-      throw new Error('No time slots found for the specified date');
-    }
-
-    // Group slots by stage instance and calculate total duration
-    const stageMap = new Map();
-    allTimeSlots.forEach(slot => {
-      if (!stageMap.has(slot.stage_instance_id)) {
-        stageMap.set(slot.stage_instance_id, {
-          slots: [],
-          totalDuration: 0
-        });
-      }
-      const stageData = stageMap.get(slot.stage_instance_id);
-      stageData.slots.push(slot);
-      stageData.totalDuration += slot.duration_minutes;
-    });
-
-    // Calculate new sequential times based on user's provided order
-    const shiftDate = new Date(`${date}T${shiftStartTime}:00Z`);
-    let currentTime = new Date(shiftDate);
-    const updatedSlots = [];
-    const instanceUpdates = [];
-
-    // Process stages in the order provided by user (they've already arranged them)
-    for (let i = 0; i < cleanStageIds.length; i++) {
-      const stageId = cleanStageIds[i];
-      const stageData = stageMap.get(stageId);
-      
-      if (!stageData) {
-        console.warn(`No slots found for stage instance ${stageId}`);
-        continue;
-      }
-
-      // Add small microsecond offset to avoid any constraint conflicts
-      const stageStartTime = new Date(currentTime.getTime() + i);
-      const stageEndTime = new Date(stageStartTime.getTime() + stageData.totalDuration * 60 * 1000);
-      
-      console.log(`Stage ${stageId}: ${stageData.totalDuration} mins from ${stageStartTime.toISOString()}`);
-      
-      // Update all slots for this stage sequentially
-      let slotStartTime = new Date(stageStartTime);
-      for (const slot of stageData.slots) {
-        const slotEndTime = new Date(slotStartTime.getTime() + slot.duration_minutes * 60 * 1000);
-        
-        updatedSlots.push({
-          id: slot.id,
-          slot_start_time: slotStartTime.toISOString(),
-          slot_end_time: slotEndTime.toISOString()
-        });
-
-        slotStartTime = new Date(slotEndTime);
-      }
-
-      // Track instance updates
-      instanceUpdates.push({
-        id: stageId,
-        scheduled_start_at: stageStartTime.toISOString(),
-        scheduled_end_at: stageEndTime.toISOString()
-      });
-
-      // Next stage starts after this one ends
-      currentTime = new Date(stageEndTime);
-    }
-
-    // Update existing time slots with new times
-    console.log(`Updating ${updatedSlots.length} time slots`);
+    // Get durations for each stage from existing slots
+    const stageDurations = new Map();
     
-    for (const slot of updatedSlots) {
-      const { error: updateError } = await supabase
+    for (const stageId of cleanStageIds) {
+      const { data: slots } = await supabase
+        .from('stage_time_slots')
+        .select('duration_minutes')
+        .eq('stage_instance_id', stageId)
+        .eq('date', date);
+      
+      if (slots && slots.length > 0) {
+        const totalDuration = slots.reduce((sum, slot) => sum + slot.duration_minutes, 0);
+        stageDurations.set(stageId, totalDuration);
+      }
+    }
+
+    // Calculate new sequential times
+    const shiftStart = new Date(`${date}T${shiftStartTime}:00Z`);
+    let currentTime = new Date(shiftStart);
+
+    // Update each stage sequentially
+    for (const stageId of cleanStageIds) {
+      const duration = stageDurations.get(stageId) || 0;
+      if (duration === 0) continue;
+
+      const stageEndTime = new Date(currentTime.getTime() + duration * 60 * 1000);
+
+      // Update all slots for this stage
+      await supabase
         .from('stage_time_slots')
         .update({
-          slot_start_time: slot.slot_start_time,
-          slot_end_time: slot.slot_end_time,
+          slot_start_time: currentTime.toISOString(),
+          slot_end_time: stageEndTime.toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', slot.id);
+        .eq('stage_instance_id', stageId)
+        .eq('date', date);
 
-      if (updateError) {
-        throw new Error(`Failed to update slot ${slot.id}: ${updateError.message}`);
-      }
-    }
-
-    // Update job_stage_instances with new times
-    for (const update of instanceUpdates) {
-      const { error: instanceError } = await supabase
+      // Update stage instance
+      await supabase
         .from('job_stage_instances')
         .update({
-          scheduled_start_at: update.scheduled_start_at,
-          scheduled_end_at: update.scheduled_end_at,
+          scheduled_start_at: currentTime.toISOString(),
+          scheduled_end_at: stageEndTime.toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', update.id);
+        .eq('id', stageId);
 
-      if (instanceError) {
-        throw new Error(`Failed to update instance ${update.id}: ${instanceError.message}`);
-      }
+      // Move to next stage start time
+      currentTime = new Date(stageEndTime);
     }
 
     console.log(`Successfully reordered ${cleanStageIds.length} stages`);
