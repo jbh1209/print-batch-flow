@@ -32,13 +32,37 @@ export const extractLaminationSpec = (finishingSpecs: any): string => {
 export const groupStagesByPaper = (stages: ScheduledStageData[]): { grouped: ScheduledStageData[]; previews: GroupPreview[] } => {
   const groups = new Map<string, ScheduledStageData[]>();
   
-  // Group stages by paper_display
+  // First, group stages by job_id to handle cover/text relationships
+  const jobStagesMap = new Map<string, ScheduledStageData[]>();
   stages.forEach(stage => {
-    const paperSpec = stage.paper_display || 'Unknown Paper';
-    if (!groups.has(paperSpec)) {
-      groups.set(paperSpec, []);
+    if (!jobStagesMap.has(stage.job_id)) {
+      jobStagesMap.set(stage.job_id, []);
     }
-    groups.get(paperSpec)!.push(stage);
+    jobStagesMap.get(stage.job_id)!.push(stage);
+  });
+  
+  // Process each job's stages together to maintain cover/text relationships
+  jobStagesMap.forEach((jobStages, jobId) => {
+    // Sort stages within job by stage_order to maintain proper sequence
+    jobStages.sort((a, b) => (a.stage_order || 0) - (b.stage_order || 0));
+    
+    // Group by paper type, but keep cover/text stages together
+    const jobPaperGroups = new Map<string, ScheduledStageData[]>();
+    jobStages.forEach(stage => {
+      const paperSpec = stage.paper_display || 'Unknown Paper';
+      if (!jobPaperGroups.has(paperSpec)) {
+        jobPaperGroups.set(paperSpec, []);
+      }
+      jobPaperGroups.get(paperSpec)!.push(stage);
+    });
+    
+    // Add job's paper groups to main groups, maintaining stage order
+    jobPaperGroups.forEach((stages, paperSpec) => {
+      if (!groups.has(paperSpec)) {
+        groups.set(paperSpec, []);
+      }
+      groups.get(paperSpec)!.push(...stages);
+    });
   });
   
   // Sort groups by paper specification name
@@ -49,15 +73,22 @@ export const groupStagesByPaper = (stages: ScheduledStageData[]): { grouped: Sch
   const previews: GroupPreview[] = [];
   
   sortedGroups.forEach(([paperSpec, groupStages], index) => {
-    // Sort stages within group by WO number
-    groupStages.sort((a, b) => a.job_wo_no.localeCompare(b.job_wo_no));
+    // Sort stages within group by WO number, then by stage_order
+    groupStages.sort((a, b) => {
+      const woComparison = a.job_wo_no.localeCompare(b.job_wo_no);
+      if (woComparison !== 0) return woComparison;
+      return (a.stage_order || 0) - (b.stage_order || 0);
+    });
     grouped.push(...groupStages);
+    
+    // Get unique job WO numbers for preview
+    const uniqueJobs = [...new Set(groupStages.map(s => s.job_wo_no))];
     
     previews.push({
       id: `paper-${index}`,
       groupName: paperSpec,
       count: groupStages.length,
-      jobs: groupStages.map(s => s.job_wo_no),
+      jobs: uniqueJobs,
       originalIndex: index
     });
   });
@@ -69,15 +100,27 @@ export const groupStagesByPaper = (stages: ScheduledStageData[]): { grouped: Sch
 export const groupStagesByLamination = (stages: ScheduledStageData[], jobSpecs: Map<string, any>): { grouped: ScheduledStageData[]; previews: GroupPreview[] } => {
   const groups = new Map<string, ScheduledStageData[]>();
   
-  // Group stages by lamination specification
+  // First, group stages by job_id to handle cover/text relationships
+  const jobStagesMap = new Map<string, ScheduledStageData[]>();
   stages.forEach(stage => {
-    const jobFinishingSpecs = jobSpecs.get(stage.job_id);
+    if (!jobStagesMap.has(stage.job_id)) {
+      jobStagesMap.set(stage.job_id, []);
+    }
+    jobStagesMap.get(stage.job_id)!.push(stage);
+  });
+  
+  // Process each job's stages together to maintain cover/text relationships
+  jobStagesMap.forEach((jobStages, jobId) => {
+    // Sort stages within job by stage_order to maintain proper sequence
+    jobStages.sort((a, b) => (a.stage_order || 0) - (b.stage_order || 0));
+    
+    const jobFinishingSpecs = jobSpecs.get(jobId);
     const laminationSpec = extractLaminationSpec(jobFinishingSpecs);
     
     if (!groups.has(laminationSpec)) {
       groups.set(laminationSpec, []);
     }
-    groups.get(laminationSpec)!.push(stage);
+    groups.get(laminationSpec)!.push(...jobStages);
   });
   
   // Sort groups by lamination specification name
@@ -88,15 +131,22 @@ export const groupStagesByLamination = (stages: ScheduledStageData[], jobSpecs: 
   const previews: GroupPreview[] = [];
   
   sortedGroups.forEach(([laminationSpec, groupStages], index) => {
-    // Sort stages within group by WO number
-    groupStages.sort((a, b) => a.job_wo_no.localeCompare(b.job_wo_no));
+    // Sort stages within group by WO number, then by stage_order
+    groupStages.sort((a, b) => {
+      const woComparison = a.job_wo_no.localeCompare(b.job_wo_no);
+      if (woComparison !== 0) return woComparison;
+      return (a.stage_order || 0) - (b.stage_order || 0);
+    });
     grouped.push(...groupStages);
+    
+    // Get unique job WO numbers for preview
+    const uniqueJobs = [...new Set(groupStages.map(s => s.job_wo_no))];
     
     previews.push({
       id: `lamination-${index}`,
       groupName: laminationSpec,
       count: groupStages.length,
-      jobs: groupStages.map(s => s.job_wo_no),
+      jobs: uniqueJobs,
       originalIndex: index
     });
   });

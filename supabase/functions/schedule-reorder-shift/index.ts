@@ -103,27 +103,67 @@ serve(async (req: Request) => {
       };
     });
 
-    // 2. Preserve split jobs at the end of reordered list
+    // 4. Handle cover/text job relationships and maintain proper ordering
+    const jobStagesMap = new Map<string, typeof existingStages>();
+    existingStages.forEach(stage => {
+      const jobId = stage.job_id;
+      if (!jobStagesMap.has(jobId)) {
+        jobStagesMap.set(jobId, []);
+      }
+      jobStagesMap.get(jobId)!.push(stage);
+    });
+
+    // Sort stages within each job by stage_order to maintain cover/text relationships
+    jobStagesMap.forEach((stages, jobId) => {
+      stages.sort((a, b) => {
+        const orderA = a.job_stage_instances?.stage_order || 0;
+        const orderB = b.job_stage_instances?.stage_order || 0;
+        return orderA - orderB;
+      });
+    });
+
+    // Rebuild final stage order respecting the provided order and cover/text relationships
+    const finalStageOrder: string[] = [];
+    const processedStages = new Set<string>();
+    
+    cleanStageIds.forEach(stageId => {
+      if (processedStages.has(stageId)) return;
+      
+      const stage = existingStages.find(s => s.stage_instance_id === stageId);
+      if (!stage) return;
+      
+      const jobStages = jobStagesMap.get(stage.job_id) || [];
+      
+      // Add all stages from this job that are in our list, in proper order
+      jobStages.forEach(jobStage => {
+        if (cleanStageIds.includes(jobStage.stage_instance_id) && !processedStages.has(jobStage.stage_instance_id)) {
+          finalStageOrder.push(jobStage.stage_instance_id);
+          processedStages.add(jobStage.stage_instance_id);
+        }
+      });
+    });
+
+    // Preserve split jobs at the end of reordered list
     const splitStages = existingStages.filter(stage => 
-      stage.job_stage_instances.is_split_job
-    );
-    const nonSplitStageIds = cleanStageIds.filter(id => 
-      !splitStages.some(split => split.stage_instance_id === id)
+      stage.job_stage_instances?.is_split_job
     );
     const splitStageIds = splitStages.map(stage => stage.stage_instance_id);
-    const finalStageOrder = [...nonSplitStageIds, ...splitStageIds];
+    const nonSplitStageIds = finalStageOrder.filter(id => 
+      !splitStageIds.includes(id)
+    );
+    const finalOrderWithSplits = [...nonSplitStageIds, ...splitStageIds];
 
-    console.log(`Reordered: ${nonSplitStageIds.length} regular + ${splitStageIds.length} split stages`);
+    console.log(`Reordered: ${nonSplitStageIds.length} regular + ${splitStageIds.length} split stages for ${jobStagesMap.size} jobs`);
 
-    // 3. Calculate new start times for the reordered stages
+    // 5. Calculate new start times for the reordered stages
     // We use a simple sequential approach within the shift
     const shiftDate = new Date(`${date}T${shiftStartTime}:00Z`);
     let currentTime = new Date(shiftDate);
 
     const updatedSlots = [];
     
-    for (let i = 0; i < finalStageOrder.length; i++) {
-      const stageId = finalStageOrder[i];
+    for (let i = 0; i < finalOrderWithSplits.length; i++) {
+      const stageId = finalOrderWithSplits[i];
       const stage = existingStages.find(s => s.stage_instance_id === stageId);
       
       if (!stage) continue;

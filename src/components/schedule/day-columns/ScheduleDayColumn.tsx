@@ -69,12 +69,22 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     groupingType?: 'paper' | 'lamination'
   ) => {
     try {
-      const stageIds = newStageOrder.map(stage => stage.id.replace('-carry', ''));
+      // Clean and deduplicate stage IDs to handle cover/text jobs properly
+      const rawStageIds = newStageOrder.map(stage => stage.id.replace('-carry', ''));
+      const uniqueStageIds = [...new Set(rawStageIds)];
+      
+      console.log(`Auto-reorder: ${newStageOrder.length} stages -> ${rawStageIds.length} cleaned -> ${uniqueStageIds.length} unique`);
+      
+      // Validate that we have reasonable stage counts
+      if (uniqueStageIds.length === 0) {
+        toast.error("No stages to reorder");
+        return;
+      }
       
       const { error } = await supabase.functions.invoke('schedule-reorder-shift', {
         body: {
           date,
-          stageIds,
+          stageIds: uniqueStageIds,
           dayWideReorder: true,
           shiftStartTime: '08:00',
           shiftEndTime: '17:00',
