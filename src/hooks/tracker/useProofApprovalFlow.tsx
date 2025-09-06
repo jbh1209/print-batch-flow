@@ -15,8 +15,8 @@ export const useProofApprovalFlow = () => {
     try {
       console.log(`🎯 Triggering scheduling for job ${jobId} after proof approval`);
       
-      // Call scheduler-run to append the approved job to existing schedule
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
+      // Call simple-scheduler to append the approved job to existing schedule
+      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
         body: {
           commit: true,
           onlyIfUnset: true,
