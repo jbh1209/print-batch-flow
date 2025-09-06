@@ -69,7 +69,7 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     groupingType?: 'paper' | 'lamination'
   ) => {
     try {
-      const stageIds = newStageOrder.map(stage => stage.id);
+      const stageIds = newStageOrder.map(stage => stage.id.replace('-carry', ''));
       
       const { error } = await supabase.functions.invoke('schedule-reorder-shift', {
         body: {

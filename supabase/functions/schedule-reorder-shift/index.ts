@@ -32,9 +32,18 @@ serve(async (req: Request) => {
 
     const { date, timeSlot, stageIds, shiftStartTime, shiftEndTime, dayWideReorder, groupingType }: ReorderRequest = await req.json();
 
+    // Validate stage IDs and log warnings for carry suffixes
+    const cleanStageIds = stageIds.map(id => {
+      if (id.includes('-carry')) {
+        console.warn(`Stage ID contains -carry suffix: ${id}, this should be stripped on frontend`);
+        return id.replace('-carry', '');
+      }
+      return id;
+    });
+
     const logContext = dayWideReorder ? '(day-wide)' : ` at ${timeSlot}`;
     const groupingContext = groupingType ? ` with ${groupingType} grouping` : '';
-    console.log(`Reordering ${stageIds.length} stages for ${date}${logContext}${groupingContext}`);
+    console.log(`Reordering ${cleanStageIds.length} stages for ${date}${logContext}${groupingContext}`);
 
     // 1. Fetch stage time slots separately
     const { data: stageSlots, error: slotsError } = await supabase
@@ -48,15 +57,19 @@ serve(async (req: Request) => {
         job_id,
         production_stage_id
       `)
-      .in('stage_instance_id', stageIds)
+      .in('stage_instance_id', cleanStageIds)
       .eq('date', date);
 
     if (slotsError) {
       throw new Error(`Failed to fetch stage slots: ${slotsError.message}`);
     }
 
-    if (!stageSlots || stageSlots.length !== stageIds.length) {
-      throw new Error('Some stages not found or do not belong to the specified date');
+    if (!stageSlots || stageSlots.length !== cleanStageIds.length) {
+      const foundIds = stageSlots?.map(s => s.stage_instance_id) || [];
+      const missingIds = cleanStageIds.filter(id => !foundIds.includes(id));
+      console.error(`Missing stage slots for IDs: ${missingIds.join(', ')}`);
+      console.error(`Found ${foundIds.length} slots, expected ${cleanStageIds.length}`);
+      throw new Error(`Some stages not found or do not belong to the specified date: ${missingIds.join(', ')}`);
     }
 
     // 2. Fetch job stage instances separately
@@ -67,14 +80,18 @@ serve(async (req: Request) => {
         stage_order,
         is_split_job
       `)
-      .in('id', stageIds);
+      .in('id', cleanStageIds);
 
     if (instancesError) {
       throw new Error(`Failed to fetch stage instances: ${instancesError.message}`);
     }
 
-    if (!stageInstances || stageInstances.length !== stageIds.length) {
-      throw new Error('Some stage instances not found');
+    if (!stageInstances || stageInstances.length !== cleanStageIds.length) {
+      const foundInstanceIds = stageInstances?.map(s => s.id) || [];
+      const missingInstanceIds = cleanStageIds.filter(id => !foundInstanceIds.includes(id));
+      console.error(`Missing stage instances for IDs: ${missingInstanceIds.join(', ')}`);
+      console.error(`Found ${foundInstanceIds.length} instances, expected ${cleanStageIds.length}`);
+      throw new Error(`Some stage instances not found: ${missingInstanceIds.join(', ')}`);
     }
 
     // 3. Merge the data for processing
@@ -90,7 +107,7 @@ serve(async (req: Request) => {
     const splitStages = existingStages.filter(stage => 
       stage.job_stage_instances.is_split_job
     );
-    const nonSplitStageIds = stageIds.filter(id => 
+    const nonSplitStageIds = cleanStageIds.filter(id => 
       !splitStages.some(split => split.stage_instance_id === id)
     );
     const splitStageIds = splitStages.map(stage => stage.stage_instance_id);
