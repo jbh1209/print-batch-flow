@@ -300,8 +300,16 @@ export function useScheduleReader() {
         
         let displaySpec = undefined;
         
-        // Priority 1: stage_specifications.description
-        if (row.stage_specifications?.description) {
+        // Special priority for printing stages - paper specs first
+        if (stageType === 'printing' && paperSpecs) {
+          displaySpec = paperSpecs.paper_display;
+        }
+        // For printing stages, fallback to print specifications from stage_specifications
+        else if (stageType === 'printing' && row.stage_specifications?.description) {
+          displaySpec = row.stage_specifications.description;
+        }
+        // For all other stages: Priority 1: stage_specifications.description
+        else if (row.stage_specifications?.description) {
           displaySpec = row.stage_specifications.description;
         }
         // Priority 2: Custom notes (if notes exist)
@@ -311,10 +319,6 @@ export function useScheduleReader() {
         // Priority 3: Extract from JSONB fields (for UV varnish stages without stage specs)
         else if (stageType === 'uv_varnish' && job?.finishing_specifications) {
           displaySpec = extractUVVarnishSpec(job.finishing_specifications);
-        }
-        // Priority 4: For printing stages, show paper specs
-        else if (stageType === 'printing' && paperSpecs) {
-          displaySpec = paperSpecs.paper_display;
         }
 
         // total planned minutes
