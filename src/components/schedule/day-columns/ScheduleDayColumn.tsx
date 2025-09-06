@@ -59,13 +59,32 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
     try {
       const stageIds = newStageOrder.map(stage => stage.id);
       
+      // Map single time slot to shift range
+      const getShiftRange = (time: string) => {
+        const hour = parseInt(time.split(':')[0]);
+        if (hour >= 8 && hour < 12) {
+          return { start: '08:00', end: '12:00' };
+        } else if (hour >= 13 && hour < 17) {
+          return { start: '13:00', end: '17:00' };
+        } else {
+          // Default to 4-hour shift starting from the given time
+          const endHour = hour + 4;
+          return { 
+            start: time, 
+            end: `${endHour.toString().padStart(2, '0')}:00` 
+          };
+        }
+      };
+      
+      const shiftRange = getShiftRange(timeSlot);
+      
       const { error } = await supabase.functions.invoke('schedule-reorder-shift', {
         body: {
           date,
           timeSlot,
           stageIds,
-          shiftStartTime: timeSlot.split(' - ')[0],
-          shiftEndTime: timeSlot.split(' - ')[1]
+          shiftStartTime: shiftRange.start,
+          shiftEndTime: shiftRange.end
         }
       });
       
