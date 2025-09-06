@@ -32,9 +32,8 @@ serve(async (req: Request) => {
 
     console.log(`Reordering shift for ${date} ${timeSlot} with ${stageIds.length} stages`);
 
-    // 1. Validate that all stages belong to the same date/shift
-    // Note: stageIds here are actually job_stage_instances.id values from the frontend
-    const { data: existingStages, error: fetchError } = await supabase
+    // 1. Fetch stage time slots separately
+    const { data: stageSlots, error: slotsError } = await supabase
       .from('stage_time_slots')
       .select(`
         id,
@@ -43,23 +42,45 @@ serve(async (req: Request) => {
         slot_end_time,
         duration_minutes,
         job_id,
-        production_stage_id,
-        job_stage_instances!inner(
-          id,
-          stage_order,
-          is_split_job
-        )
+        production_stage_id
       `)
       .in('stage_instance_id', stageIds)
       .eq('date', date);
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch existing stages: ${fetchError.message}`);
+    if (slotsError) {
+      throw new Error(`Failed to fetch stage slots: ${slotsError.message}`);
     }
 
-    if (!existingStages || existingStages.length !== stageIds.length) {
+    if (!stageSlots || stageSlots.length !== stageIds.length) {
       throw new Error('Some stages not found or do not belong to the specified date');
     }
+
+    // 2. Fetch job stage instances separately
+    const { data: stageInstances, error: instancesError } = await supabase
+      .from('job_stage_instances')
+      .select(`
+        id,
+        stage_order,
+        is_split_job
+      `)
+      .in('id', stageIds);
+
+    if (instancesError) {
+      throw new Error(`Failed to fetch stage instances: ${instancesError.message}`);
+    }
+
+    if (!stageInstances || stageInstances.length !== stageIds.length) {
+      throw new Error('Some stage instances not found');
+    }
+
+    // 3. Merge the data for processing
+    const existingStages = stageSlots.map(slot => {
+      const instance = stageInstances.find(inst => inst.id === slot.stage_instance_id);
+      return {
+        ...slot,
+        job_stage_instances: instance
+      };
+    });
 
     // 2. Preserve split jobs at the end of reordered list
     const splitStages = existingStages.filter(stage => 
