@@ -1,5 +1,6 @@
 import type { ScheduledStageData } from "@/hooks/useScheduleReader";
 import type { GroupPreview } from "./groupingUtils";
+import { extractLaminationSpec } from "./groupingUtils";
 
 // Apply custom group ordering to stages
 export const applyCustomGroupOrder = (
@@ -21,7 +22,6 @@ export const applyCustomGroupOrder = (
       groupStagesMap.get(paperSpec)!.push(stage);
     });
   } else if (groupingType === 'lamination' && jobSpecs) {
-    const { extractLaminationSpec } = require('./groupingUtils');
     stages.forEach(stage => {
       const jobFinishingSpecs = jobSpecs.get(stage.job_id);
       const laminationSpec = extractLaminationSpec(jobFinishingSpecs);
