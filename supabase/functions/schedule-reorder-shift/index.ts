@@ -64,11 +64,13 @@ serve(async (req: Request) => {
       throw new Error(`Failed to fetch stage slots: ${slotsError.message}`);
     }
 
-    if (!stageSlots || stageSlots.length !== cleanStageIds.length) {
-      const foundIds = stageSlots?.map(s => s.stage_instance_id) || [];
-      const missingIds = cleanStageIds.filter(id => !foundIds.includes(id));
+    // Validate based on unique stage instance IDs, not slot count (stages can have multiple slots)
+    const foundStageInstanceIds = [...new Set(stageSlots?.map(s => s.stage_instance_id) || [])];
+    
+    if (!stageSlots || foundStageInstanceIds.length !== cleanStageIds.length) {
+      const missingIds = cleanStageIds.filter(id => !foundStageInstanceIds.includes(id));
       console.error(`Missing stage slots for IDs: ${missingIds.join(', ')}`);
-      console.error(`Found ${foundIds.length} slots, expected ${cleanStageIds.length}`);
+      console.error(`Found ${foundStageInstanceIds.length} unique stage instances, expected ${cleanStageIds.length}`);
       throw new Error(`Some stages not found or do not belong to the specified date: ${missingIds.join(', ')}`);
     }
 
