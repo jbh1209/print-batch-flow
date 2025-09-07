@@ -146,18 +146,31 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
   const handleProofApproved = async () => {
     try {
+      const currentTime = new Date().toISOString();
+      
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
-          proof_approved_manually_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          proof_approved_manually_at: currentTime,
+          updated_at: currentTime
         })
         .eq('id', stageInstance?.id);
 
       if (updateError) throw updateError;
 
+      // Also update production_jobs.proof_approved_at to ensure all trigger paths activate
+      const { error: jobUpdateError } = await supabase
+        .from('production_jobs')
+        .update({
+          proof_approved_at: currentTime,
+          updated_at: currentTime
+        })
+        .eq('id', job.job_id);
+
+      if (jobUpdateError) throw jobUpdateError;
+
       onProofApprovalFlowChange('choosing_allocation');
-      toast.success('Proof approved! Choose next step.');
+      toast.success('Proof approved! Scheduling triggered. Choose next step.');
       onRefresh?.();
       onModalDataRefresh?.();
     } catch (error) {

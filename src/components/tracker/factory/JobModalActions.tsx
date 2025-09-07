@@ -81,12 +81,14 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
     try {
       console.log(`🎯 Starting proof approval for job ${jobId}`);
       
-      // Mark proof as approved in stage instance
+      // Mark proof as approved in stage instance AND sync to production_jobs
+      const currentTime = new Date().toISOString();
+      
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
-          proof_approved_manually_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          proof_approved_manually_at: currentTime,
+          updated_at: currentTime
         })
         .eq('id', currentStage.id);
 
@@ -96,25 +98,23 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         return;
       }
 
-      console.log('✅ Proof marked as approved, now advancing to batch allocation...');
+      // Also update production_jobs.proof_approved_at to ensure all trigger paths activate
+      const { error: jobUpdateError } = await supabase
+        .from('production_jobs')
+        .update({
+          proof_approved_at: currentTime,
+          updated_at: currentTime
+        })
+        .eq('id', jobId);
 
-      // Use the new function to properly advance to batch allocation
-      const { data: advanceResult, error: advanceError } = await supabase
-        .rpc('advance_job_to_batch_allocation', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs'
-        });
-
-      if (advanceError) {
-        console.error('❌ Failed to advance job to batch allocation:', advanceError);
-        toast.error(`Failed to advance to batch allocation: ${advanceError.message}`);
-        // Fall back to normal completion if batch allocation fails
-        onCompleteJob();
+      if (jobUpdateError) {
+        console.error('❌ Failed to update job proof_approved_at:', jobUpdateError);
+        toast.error('Failed to update job status');
         return;
       }
 
-      console.log('✅ Job successfully advanced to batch allocation:', advanceResult);
-      toast.success('Proof approved - job moved to batch allocation stage');
+      console.log('✅ Proof marked as approved - triggers will handle scheduling');
+      toast.success('Proof approved - job will be scheduled automatically');
       
       // Refresh to show updated stage
       window.location.reload();
