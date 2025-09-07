@@ -3016,7 +3016,6 @@ export type Database = {
           created_at: string | null
           dependency_group: string | null
           estimated_duration_minutes: number | null
-          estimated_minutes: number | null
           id: string | null
           is_rework: boolean | null
           is_split_job: boolean | null
@@ -3044,7 +3043,6 @@ export type Database = {
           scheduled_minutes: number | null
           scheduled_start_at: string | null
           scheduling_method: string | null
-          setup_minutes: number | null
           setup_time_minutes: number | null
           split_job_part: number | null
           split_job_total_parts: number | null
