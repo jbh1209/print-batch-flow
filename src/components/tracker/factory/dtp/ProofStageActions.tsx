@@ -146,29 +146,31 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
   const handleProofApproved = async () => {
     try {
-      const currentTime = new Date().toISOString();
+      console.log(`🎯 Starting proof approval for job ${job.job_id}`);
       
-      const { error: updateError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          proof_approved_manually_at: currentTime,
-          updated_at: currentTime
-        })
-        .eq('id', stageInstance?.id);
+      // Use proof approval flow hook to handle the complete workflow
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        toast.error('User not authenticated');
+        return;
+      }
 
-      if (updateError) throw updateError;
+      // Call the proof approval edge function to handle the complete flow
+      const { data, error } = await supabase.functions.invoke('proof-approval-flow', {
+        body: {
+          jobId: job.job_id,
+          stageInstanceId: stageInstance?.id,
+          userId: userData.user.id
+        }
+      });
 
-      // Also update production_jobs.proof_approved_at to ensure all trigger paths activate
-      const { error: jobUpdateError } = await supabase
-        .from('production_jobs')
-        .update({
-          proof_approved_at: currentTime,
-          updated_at: currentTime
-        })
-        .eq('id', job.job_id);
+      if (error) {
+        console.error('❌ Proof approval flow failed:', error);
+        toast.error('Failed to approve proof');
+        return;
+      }
 
-      if (jobUpdateError) throw jobUpdateError;
-
+      console.log('✅ Proof approved and scheduling triggered:', data);
       onProofApprovalFlowChange('choosing_allocation');
       toast.success('Proof approved! Scheduling triggered. Choose next step.');
       onRefresh?.();

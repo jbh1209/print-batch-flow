@@ -81,46 +81,36 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
     try {
       console.log(`🎯 Starting proof approval for job ${jobId}`);
       
-      // Mark proof as approved in stage instance AND sync to production_jobs
-      const currentTime = new Date().toISOString();
-      
-      const { error: updateError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          proof_approved_manually_at: currentTime,
-          updated_at: currentTime
-        })
-        .eq('id', currentStage.id);
-
-      if (updateError) {
-        console.error('❌ Failed to mark proof as approved:', updateError);
-        toast.error('Failed to mark proof as approved');
+      // Use proof approval flow hook to handle the complete workflow
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        toast.error('User not authenticated');
         return;
       }
 
-      // Also update production_jobs.proof_approved_at to ensure all trigger paths activate
-      const { error: jobUpdateError } = await supabase
-        .from('production_jobs')
-        .update({
-          proof_approved_at: currentTime,
-          updated_at: currentTime
-        })
-        .eq('id', jobId);
+      // Call the proof approval edge function to handle the complete flow
+      const { data, error } = await supabase.functions.invoke('proof-approval-flow', {
+        body: {
+          jobId: jobId,
+          stageInstanceId: currentStage.id,
+          userId: userData.user.id
+        }
+      });
 
-      if (jobUpdateError) {
-        console.error('❌ Failed to update job proof_approved_at:', jobUpdateError);
-        toast.error('Failed to update job status');
+      if (error) {
+        console.error('❌ Proof approval flow failed:', error);
+        toast.error('Failed to approve proof');
         return;
       }
 
-      console.log('✅ Proof marked as approved - triggers will handle scheduling');
-      toast.success('Proof approved - job will be scheduled automatically');
+      console.log('✅ Proof approved and scheduling triggered:', data);
+      toast.success('Proof approved - job scheduled automatically');
       
       // Refresh to show updated stage
       window.location.reload();
     } catch (error) {
-      console.error('❌ Error marking proof as approved:', error);
-      toast.error('Failed to mark proof as approved');
+      console.error('❌ Error in proof approval flow:', error);
+      toast.error('Failed to approve proof');
     } finally {
       setIsMarkingProofApproved(false);
     }
