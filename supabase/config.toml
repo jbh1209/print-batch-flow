@@ -1,5 +1,8 @@
 project_id = "kgizusgqexmlfcqfjopk"
 
+[functions.proof-approval-flow]
+verify_jwt = true
+
 [functions.simple-scheduler]
 verify_jwt = false
 
