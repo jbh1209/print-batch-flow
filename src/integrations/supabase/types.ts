@@ -3757,6 +3757,18 @@ export type Database = {
         Args: { key: number }
         Returns: boolean
       }
+      place_duration_business_hours: {
+        Args: {
+          p_duration_minutes: number
+          p_production_stage_id?: string
+          p_start_time: string
+        }
+        Returns: {
+          duration_minutes: number
+          slot_end_time: string
+          slot_start_time: string
+        }[]
+      }
       place_duration_sql: {
         Args: {
           p_duration_minutes: number
