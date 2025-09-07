@@ -127,10 +127,11 @@ function placeDuration(input: SchedulerInput, earliest: Date, minutes: number, h
 }
 
 export function planSchedule(input: SchedulerInput): ScheduleResult {
+  // FIXED: Strict FIFO ordering - sort ONLY by proof_approved_at timestamp
   const jobs = input.jobs
     .filter(j => j.proof_approved_at)
     .map(j => ({...j, approvedAt: new Date(j.proof_approved_at as string)}))
-    .sort((a,b)=> (a.approvedAt.getTime()-b.approvedAt.getTime()) || ((a.due_date?Date.parse(a.due_date):0) - (b.due_date?Date.parse(b.due_date):0)));
+    .sort((a,b)=> a.approvedAt.getTime() - b.approvedAt.getTime()); // REMOVED secondary due_date sort
 
   const avail = new Map<UUID, Date>(); // resource -> next free time
   const updates: PlacementUpdate[] = [];
@@ -149,12 +150,17 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
       for (const st of layer) {
         const resource = st.production_stage_id;
         let earliest = job.approvedAt;
+        
+        // Ensure dependencies from previous stages are met
         for (const prev of stages) {
           if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
             const ended = endTimes.get(prev.id);
             if (ended && ended > earliest) earliest = ended;
           }
         }
+        
+        // FIXED: Enforce FIFO - resource must wait until this job's turn
+        // Only use resource availability if it's AFTER this job's earliest possible start
         const resAvail = avail.get(resource);
         if (resAvail && resAvail > earliest) earliest = resAvail;
 
