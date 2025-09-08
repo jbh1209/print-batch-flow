@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useScheduledJobs } from "@/hooks/tracker/useScheduledJobs";
 import { useAuth } from "@/hooks/useAuth";
-import { ScheduledOperatorJobCard } from "./ScheduledOperatorJobCard";
+import { EnhancedScheduledOperatorJobCard } from "./EnhancedScheduledOperatorJobCard";
 import { toast } from "sonner";
 
 interface SchedulerAwareOperatorDashboardProps {
@@ -247,12 +247,10 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           <TabsContent value="ready" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {jobsByReadiness.ready_now.map(job => (
-                <ScheduledOperatorJobCard
+                <EnhancedScheduledOperatorJobCard
                   key={job.id}
                   job={job}
-                  onStart={startScheduledJob}
-                  onComplete={completeScheduledJob}
-                  onClick={handleJobClick}
+                  onRefresh={refreshJobs}
                 />
               ))}
               {jobsByReadiness.ready_now.length === 0 && (
@@ -268,10 +266,10 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           <TabsContent value="scheduled" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {jobsByReadiness.scheduled_later.map(job => (
-                <ScheduledOperatorJobCard
+                <EnhancedScheduledOperatorJobCard
                   key={job.id}
                   job={job}
-                  onClick={handleJobClick}
+                  onRefresh={refreshJobs}
                   showActions={false}
                 />
               ))}
@@ -288,10 +286,10 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           <TabsContent value="waiting" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {jobsByReadiness.waiting_dependencies.map(job => (
-                <ScheduledOperatorJobCard
+                <EnhancedScheduledOperatorJobCard
                   key={job.id}
                   job={job}
-                  onClick={handleJobClick}
+                  onRefresh={refreshJobs}
                   showActions={false}
                 />
               ))}
@@ -308,12 +306,10 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           <TabsContent value="all" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {scheduledJobs.map(job => (
-                <ScheduledOperatorJobCard
+                <EnhancedScheduledOperatorJobCard
                   key={job.id}
                   job={job}
-                  onStart={startScheduledJob}
-                  onComplete={completeScheduledJob}
-                  onClick={handleJobClick}
+                  onRefresh={refreshJobs}
                 />
               ))}
               {scheduledJobs.length === 0 && (

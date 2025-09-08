@@ -32,6 +32,10 @@ export interface ScheduledJobStage {
   // Dependencies
   dependency_group?: string;
   part_assignment?: string;
+  // Batch properties
+  is_batch_master?: boolean;
+  batch_name?: string;
+  constituent_job_ids?: string[];
 }
 
 export type JobReadinessStatus = 'ready_now' | 'scheduled_later' | 'waiting_dependencies' | 'blocked';
