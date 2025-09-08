@@ -1,5 +1,6 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Monitor } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { InteractiveOverviewStats } from "@/components/tracker/dashboard/InteractiveOverviewStats";
 import { FilteredJobsList } from "@/components/tracker/dashboard/FilteredJobsList";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
@@ -9,6 +10,7 @@ import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import { RealTimeProductionFlow } from "@/components/tracker/dashboard/RealTimeProductionFlow";
 import { CapacityAlerts } from "@/components/tracker/dashboard/CapacityAlerts";
 import { DueDateWarningDashboard } from "@/components/tracker/DueDateWarningDashboard";
+import { FactoryFloorDashboard } from "@/components/tracker/dashboard/factory/FactoryFloorDashboard";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 
@@ -27,6 +29,9 @@ const TrackerDashboard = () => {
 
   // Dashboard filter state
   const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
+  
+  // Factory display mode state
+  const [isFactoryMode, setIsFactoryMode] = React.useState(false);
 
   // Local refresh UI state
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -258,6 +263,16 @@ const TrackerDashboard = () => {
     return () => clearInterval(interval);
   }, [refreshJobs]);
 
+  // Factory display mode
+  if (isFactoryMode) {
+    return (
+      <FactoryFloorDashboard 
+        stats={stats} 
+        onBack={() => setIsFactoryMode(false)}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 min-h-screen bg-gray-50">
@@ -299,12 +314,22 @@ const TrackerDashboard = () => {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Production Dashboard</h1>
           <p className="text-gray-600">Real-time production monitoring - Click stats to filter jobs</p>
         </div>
-        <RefreshIndicator
-          lastUpdated={new Date(lastFetchTime)}
-          isRefreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          getTimeSinceLastUpdate={getTimeSinceLastUpdate}
-        />
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => setIsFactoryMode(true)}
+            className="flex items-center gap-2"
+          >
+            <Monitor className="h-4 w-4" />
+            Factory Display Mode
+          </Button>
+          <RefreshIndicator
+            lastUpdated={new Date(lastFetchTime)}
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+          />
+        </div>
       </div>
 
       <div className="px-6 space-y-4">
