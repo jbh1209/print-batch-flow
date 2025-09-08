@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const currentTime = new Date().toISOString();
 
-    // Update job_stage_instances with service role (bypasses RLS)
+    // Update ONLY job_stage_instances - database trigger will sync production_jobs.proof_approved_at
     const { error: stageUpdateError } = await supabase
       .from('job_stage_instances')
       .update({
@@ -43,22 +43,7 @@ serve(async (req) => {
     }
 
     console.log('✅ Stage instance updated successfully');
-
-    // Update production_jobs with service role (bypasses RLS)
-    const { error: jobUpdateError } = await supabase
-      .from('production_jobs')
-      .update({
-        proof_approved_at: currentTime,
-        updated_at: currentTime
-      })
-      .eq('id', jobId);
-
-    if (jobUpdateError) {
-      console.error('❌ Failed to update production job:', jobUpdateError);
-      throw jobUpdateError;
-    }
-
-    console.log('✅ Production job updated successfully');
+    console.log('✅ Database trigger will automatically sync production_jobs.proof_approved_at');
 
     // Trigger the scheduler directly
     try {

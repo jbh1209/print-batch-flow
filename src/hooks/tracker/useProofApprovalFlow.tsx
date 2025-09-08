@@ -48,7 +48,7 @@ export const useProofApprovalFlow = () => {
     try {
       console.log(`📋 Completing proof stage for job ${jobId}`);
       
-      // First complete the proof stage
+      // Complete the proof stage - database trigger will sync production_jobs.proof_approved_at
       const { error: completeError } = await supabase
         .from('job_stage_instances')
         .update({
