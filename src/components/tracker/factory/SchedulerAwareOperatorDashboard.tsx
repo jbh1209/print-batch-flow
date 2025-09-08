@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +11,18 @@ import {
   CheckCircle,
   Timer,
   Users,
-  Settings
+  Settings,
+  UserCheck,
+  Layers
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useScheduledJobs } from "@/hooks/tracker/useScheduledJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { EnhancedScheduledOperatorJobCard } from "./EnhancedScheduledOperatorJobCard";
+import { ConcurrentJobSelector } from "./ConcurrentJobSelector";
+import { SupervisorOverrideModal } from "./SupervisorOverrideModal";
+import { BatchStartModal } from "./BatchStartModal";
+import { useConcurrentJobManagement } from "@/hooks/tracker/useConcurrentJobManagement";
 import { toast } from "sonner";
 
 interface SchedulerAwareOperatorDashboardProps {
@@ -29,6 +36,9 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
 }) => {
   const { user, signOut } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [concurrentMode, setConcurrentMode] = useState(false);
+  const [supervisorOverrideJob, setSupervisorOverrideJob] = useState<any>(null);
+  const [showBatchStartModal, setShowBatchStartModal] = useState(false);
   
   const { 
     scheduledJobs, 
@@ -43,6 +53,22 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     production_stage_id,
     department_filter 
   });
+
+  const {
+    selectedJobs,
+    isProcessing: concurrentProcessing,
+    batchCompatibility,
+    toggleJobSelection,
+    clearSelection,
+    startJobsBatch,
+    startJobOutOfOrder,
+    loadDepartmentRules
+  } = useConcurrentJobManagement();
+
+  // Load department rules on mount
+  useEffect(() => {
+    loadDepartmentRules();
+  }, [loadDepartmentRules]);
 
   const handleLogout = async () => {
     try {
@@ -68,8 +94,33 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
   };
 
   const handleJobClick = (job: any) => {
-    console.log('Job clicked:', job);
-    // TODO: Open job details modal
+    if (concurrentMode) {
+      toggleJobSelection(job);
+    } else {
+      console.log('Job clicked:', job);
+    }
+  };
+
+  const handleSupervisorOverride = (job: any) => {
+    setSupervisorOverrideJob(job);
+  };
+
+  const handleApplySupervisorOverride = async (override: any) => {
+    if (supervisorOverrideJob) {
+      const success = await startJobOutOfOrder(supervisorOverrideJob, override);
+      if (success) {
+        setSupervisorOverrideJob(null);
+        refreshJobs();
+      }
+    }
+  };
+
+  const handleStartBatch = async (options: any) => {
+    const success = await startJobsBatch(options.supervisorOverride);
+    if (success) {
+      setShowBatchStartModal(false);
+      refreshJobs();
+    }
   };
 
   const stats = React.useMemo(() => {
@@ -78,9 +129,11 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
       readyNow: jobsByReadiness.ready_now.length,
       scheduledLater: jobsByReadiness.scheduled_later.length,
       waitingDependencies: jobsByReadiness.waiting_dependencies.length,
-      active: scheduledJobs.filter(j => j.status === 'active').length
+      active: scheduledJobs.filter(j => j.status === 'active').length,
+      selected: selectedJobs.length,
+      compatible: selectedJobs.filter(j => j.isCompatible).length
     };
-  }, [scheduledJobs, jobsByReadiness]);
+  }, [scheduledJobs, jobsByReadiness, selectedJobs]);
 
   if (isLoading) {
     return (
@@ -136,6 +189,32 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
             </div>
             
             <div className="flex items-center gap-2">
+              <Button
+                variant={concurrentMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setConcurrentMode(!concurrentMode);
+                  if (concurrentMode) clearSelection();
+                }}
+                className="flex items-center gap-2"
+              >
+                <Layers className="h-4 w-4" />
+                {concurrentMode ? 'Exit Multi-Select' : 'Multi-Select'}
+              </Button>
+              
+              {selectedJobs.length > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setShowBatchStartModal(true)}
+                  disabled={concurrentProcessing}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Start {selectedJobs.length} Jobs
+                </Button>
+              )}
+              
               <Button
                 variant="outline"
                 size="sm"
@@ -221,11 +300,40 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
               </div>
             </CardContent>
           </Card>
+
+          {/* Selected Jobs Stats (shown in concurrent mode) */}
+          {concurrentMode && (
+            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-indigo-700">Selected</p>
+                    <p className="text-2xl font-bold text-indigo-900">{stats.selected}</p>
+                    {stats.selected > 0 && (
+                      <p className="text-xs text-indigo-600">
+                        {stats.compatible} compatible
+                      </p>
+                    )}
+                  </div>
+                  <Layers className="h-8 w-8 text-indigo-600" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Job Queue Tabs */}
-        <Tabs defaultValue="ready" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue={concurrentMode ? "concurrent" : "ready"} className="w-full">
+          <TabsList className={cn(
+            "grid w-full",
+            concurrentMode ? "grid-cols-5" : "grid-cols-4"
+          )}>
+            {concurrentMode && (
+              <TabsTrigger value="concurrent" className="flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Multi-Select ({stats.selected})
+              </TabsTrigger>
+            )}
             <TabsTrigger value="ready" className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
               Ready Now ({stats.readyNow})
@@ -244,12 +352,29 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
             </TabsTrigger>
           </TabsList>
 
+          {/* Concurrent Job Selection Tab */}
+          {concurrentMode && (
+            <TabsContent value="concurrent" className="mt-6">
+              <ConcurrentJobSelector
+                availableJobs={jobsByReadiness.ready_now}
+                selectedJobs={selectedJobs}
+                onToggleSelection={toggleJobSelection}
+                onClearSelection={clearSelection}
+                onStartBatch={() => setShowBatchStartModal(true)}
+                onRequestSupervisorOverride={handleSupervisorOverride}
+                isProcessing={concurrentProcessing}
+                batchCompatibility={batchCompatibility}
+              />
+            </TabsContent>
+          )}
+
           <TabsContent value="ready" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {jobsByReadiness.ready_now.map(job => (
                 <EnhancedScheduledOperatorJobCard
                   key={job.id}
                   job={job}
+                  onClick={concurrentMode ? handleJobClick : undefined}
                   onRefresh={refreshJobs}
                 />
               ))}
@@ -327,6 +452,24 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modals */}
+      <SupervisorOverrideModal
+        isOpen={!!supervisorOverrideJob}
+        onClose={() => setSupervisorOverrideJob(null)}
+        job={supervisorOverrideJob}
+        onApprove={handleApplySupervisorOverride}
+        isProcessing={concurrentProcessing}
+      />
+
+      <BatchStartModal
+        isOpen={showBatchStartModal}
+        onClose={() => setShowBatchStartModal(false)}
+        selectedJobs={selectedJobs}
+        onStartBatch={handleStartBatch}
+        isProcessing={concurrentProcessing}
+        batchCompatibility={batchCompatibility}
+      />
     </div>
   );
 };
