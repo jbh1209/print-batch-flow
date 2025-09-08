@@ -15,6 +15,7 @@ import BusinessCardJobEdit from "@/pages/BusinessCardJobEdit";
 import BusinessCardJobDetail from "@/pages/BusinessCardJobDetail";
 import Users from "@/pages/Users";
 import Dashboard from "@/pages/Dashboard";
+import TrackerDashboard from "@/pages/tracker/TrackerDashboard";
 import TrackerJobs from "@/pages/tracker/TrackerJobs";
 import TrackerProduction from "@/pages/tracker/TrackerProduction";
 import TrackerKanban from "@/pages/tracker/TrackerKanban";
@@ -197,7 +198,7 @@ function App() {
                   </ProtectedRoute>
                 }>
                   <Route index element={<Dashboard />} />
-                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="dashboard" element={<TrackerDashboard />} />
                   <Route path="jobs" element={<TrackerJobs />} />
                   <Route path="production" element={<TrackerProduction />} />
                   <Route path="kanban" element={<TrackerKanban />} />
