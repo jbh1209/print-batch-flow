@@ -3119,6 +3119,10 @@ export type Database = {
         Args: { admin_user_id: string }
         Returns: boolean
       }
+      add_working_days_to_timestamp: {
+        Args: { p_days_to_add: number; p_start_timestamp: string }
+        Returns: string
+      }
       advance_job_stage: {
         Args:
           | {
@@ -3325,6 +3329,10 @@ export type Database = {
         }[]
       }
       create_stage_availability_tracker: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cron_nightly_reschedule: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -4030,6 +4038,10 @@ export type Database = {
       unschedule_auto_stages: {
         Args: { from_date: string; wipe_all?: boolean }
         Returns: number
+      }
+      update_job_due_dates_after_scheduling: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       update_stage_availability: {
         Args: {
