@@ -24,6 +24,7 @@ import { DtpDashboardStats } from "./DtpDashboardStats";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 import { ProductionCalendar } from "@/components/production/ProductionCalendar";
 import { ProductionAdminDashboard } from "@/components/production/ProductionAdminDashboard";
+import { SchedulerAwareOperatorDashboard } from "./SchedulerAwareOperatorDashboard";
 import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
@@ -142,6 +143,11 @@ export const EnhancedOperatorDashboard = () => {
         </div>
       </div>
     );
+  }
+
+  // For production operators, use the new scheduler-aware dashboard
+  if (isOperator && !isDtpOperator) {
+    return <SchedulerAwareOperatorDashboard />;
   }
 
   return (
