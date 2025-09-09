@@ -1,9 +1,9 @@
 
 import React from "react";
-import { DynamicFactoryFloorView } from "@/components/tracker/factory/DynamicFactoryFloorView";
+import { SchedulerAwareOperatorDashboard } from "@/components/tracker/factory/SchedulerAwareOperatorDashboard";
 
 const FactoryFloor = () => {
-  return <DynamicFactoryFloorView />;
+  return <SchedulerAwareOperatorDashboard />;
 };
 
 export default FactoryFloor;
