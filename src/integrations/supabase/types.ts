@@ -3933,7 +3933,7 @@ export type Database = {
         Returns: number
       }
       scheduler_reschedule_all_parallel_aware: {
-        Args: Record<PropertyKey, never> | { p_start_from?: string }
+        Args: Record<PropertyKey, never>
         Returns: {
           updated_jsi: number
           violations: string[]
