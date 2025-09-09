@@ -39,26 +39,22 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
           status,
           scheduled_start_at,
           estimated_duration_minutes,
-          priority_score,
           production_jobs!inner(
             wo_no,
             customer,
             due_date,
-            reference,
-            category_name,
-            category_color,
-            is_rush
+            reference
           ),
           production_stages!inner(
+            name
+          ),
+          categories(
             name,
-            department_id,
-            production_departments!inner(
-              name
-            )
+            color
           )
         `)
         .eq('status', 'pending')
-        .eq('assigned_user_id', effectiveOperatorId)
+        .eq('started_by', effectiveOperatorId)
         .not('scheduled_start_at', 'is', null)
         .order('scheduled_start_at', { ascending: true })
         .limit(3);
@@ -75,13 +71,13 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
         scheduled_start_at: item.scheduled_start_at,
         estimated_duration_minutes: item.estimated_duration_minutes,
         due_date: item.production_jobs.due_date,
-        priority_score: item.priority_score || 0,
+        priority_score: 0, // Default priority since column doesn't exist
         queue_position: index + 1,
         workflow_progress: 0, // Will be calculated separately if needed
         reference: item.production_jobs.reference,
-        category_name: item.production_jobs.category_name,
-        category_color: item.production_jobs.category_color,
-        is_rush: item.production_jobs.is_rush || false,
+        category_name: item.categories?.name || 'No Category',
+        category_color: item.categories?.color || '#6B7280',
+        is_rush: false, // Default since column doesn't exist on production_jobs
       }));
     },
     enabled: !!effectiveOperatorId,
@@ -105,17 +101,18 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
             wo_no,
             customer,
             due_date,
-            reference,
-            category_name,
-            category_color,
-            is_rush
+            reference
           ),
           production_stages!inner(
             name
+          ),
+          categories(
+            name,
+            color
           )
         `)
         .eq('status', 'active')
-        .eq('assigned_user_id', effectiveOperatorId)
+        .eq('started_by', effectiveOperatorId)
         .order('started_at', { ascending: true });
 
       if (error) throw error;
@@ -134,9 +131,9 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
         queue_position: 0, // Active jobs are position 0
         workflow_progress: 50, // Assume halfway through active stage
         reference: item.production_jobs.reference,
-        category_name: item.production_jobs.category_name,
-        category_color: item.production_jobs.category_color,
-        is_rush: item.production_jobs.is_rush || false,
+        category_name: item.categories?.name || 'No Category',
+        category_color: item.categories?.color || '#6B7280',
+        is_rush: false, // Default since column doesn't exist
       }));
     },
     enabled: !!effectiveOperatorId,
@@ -148,20 +145,20 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
     if (!effectiveOperatorId) return;
 
     const channel = supabase
-      .channel('personal-queue-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'job_stage_instances',
-          filter: `assigned_user_id=eq.${effectiveOperatorId}`,
-        },
-        () => {
-          refetchNext();
-          refetchActive();
-        }
-      )
+        .channel('personal-queue-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'job_stage_instances',
+            filter: `started_by=eq.${effectiveOperatorId}`,
+          },
+          () => {
+            refetchNext();
+            refetchActive();
+          }
+        )
       .subscribe();
 
     return () => {

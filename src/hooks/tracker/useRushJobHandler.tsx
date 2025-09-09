@@ -30,11 +30,8 @@ export const useRushJobHandler = () => {
       const { error: jobUpdateError } = await supabase
         .from('production_jobs')
         .update({ 
-          is_rush: true,
-          rush_reason: request.reason,
-          rush_urgency: request.urgencyLevel,
-          rush_requested_by: request.requestedBy,
-          rush_requested_at: new Date().toISOString()
+          expedited_at: new Date().toISOString(),
+          expedited_by: request.requestedBy
         })
         .eq('id', request.jobId);
 
@@ -81,19 +78,21 @@ export const useRushJobHandler = () => {
       const { error: updateError } = await supabase
         .from('production_jobs')
         .update({
-          rush_approved: true,
-          rush_approved_by: approvedBy,
-          rush_approved_at: new Date().toISOString()
+          expedited_at: new Date().toISOString(),
+          expedited_by: approvedBy
         })
         .eq('id', jobId);
 
       if (updateError) throw updateError;
 
-      // Boost priority score for immediate scheduling
+      // Boost scheduled time for immediate scheduling (since priority_score doesn't exist)
+      const newScheduledTime = new Date();
+      newScheduledTime.setMinutes(newScheduledTime.getMinutes() + 5); // Schedule 5 minutes from now
+      
       const { error: priorityError } = await supabase
         .from('job_stage_instances')
         .update({
-          priority_score: 9999 // Maximum priority
+          scheduled_start_at: newScheduledTime.toISOString()
         })
         .eq('job_id', jobId)
         .eq('status', 'pending');
@@ -152,8 +151,7 @@ export const useRushJobHandler = () => {
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
-          scheduled_start_at: newStartTime.toISOString(),
-          priority_score: 9000 + (100 - newPosition) // High priority based on position
+          scheduled_start_at: newStartTime.toISOString()
         })
         .eq('id', stageInstanceId);
 

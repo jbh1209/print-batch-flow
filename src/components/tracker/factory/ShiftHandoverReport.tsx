@@ -69,7 +69,7 @@ export const ShiftHandoverReport: React.FC = () => {
           started_at,
           completed_at,
           estimated_duration_minutes,
-          assigned_operator_id,
+          started_by,
           production_jobs!inner(
             wo_no,
             customer
@@ -78,7 +78,7 @@ export const ShiftHandoverReport: React.FC = () => {
             name
           )
         `)
-        .eq('assigned_operator_id', user.id)
+        .eq('started_by', user.id)
         .gte('started_at', shiftStart.toISOString())
         .order('started_at', { ascending: false });
 
@@ -123,7 +123,7 @@ export const ShiftHandoverReport: React.FC = () => {
           id,
           job_id,
           status,
-          actual_start_at,
+          started_at,
           estimated_duration_minutes,
           notes,
           production_jobs!inner(
@@ -134,7 +134,7 @@ export const ShiftHandoverReport: React.FC = () => {
             name
           )
         `)
-        .eq('assigned_operator_id', user.id)
+        .eq('started_by', user.id)
         .eq('status', 'active')
         .order('started_at', { ascending: true });
 
