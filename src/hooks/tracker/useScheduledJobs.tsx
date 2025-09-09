@@ -53,6 +53,9 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
+  // Destructure options to avoid dependency issues
+  const { production_stage_id, department_filter, include_all_stages } = options;
+
   const fetchScheduledJobs = useCallback(async () => {
     if (!user?.id) return;
 
@@ -60,7 +63,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔄 Fetching scheduled jobs with options:', options);
+      console.log('🔄 Fetching scheduled jobs with options:', { production_stage_id, department_filter });
 
       // Query job_stage_instances with scheduling data and job details
       let query = supabase
@@ -89,8 +92,8 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         .in('status', ['pending', 'active']);
 
       // Filter by production stage if specified
-      if (options.production_stage_id) {
-        query = query.eq('production_stage_id', options.production_stage_id);
+      if (production_stage_id) {
+        query = query.eq('production_stage_id', production_stage_id);
       }
 
       // Add ordering: scheduled jobs first (by start time), then by queue position, then by stage order
@@ -202,18 +205,28 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, options]);
+  }, [user?.id, production_stage_id, department_filter]);
 
   // Initial fetch
   useEffect(() => {
     fetchScheduledJobs();
   }, [fetchScheduledJobs]);
 
-  // Real-time subscription for schedule updates
+  // Real-time subscription for schedule updates with debounced fetching
   useEffect(() => {
     if (!user?.id) return;
 
     console.log('📡 Setting up real-time subscription for scheduled jobs');
+    
+    let debounceTimeout: NodeJS.Timeout;
+    
+    const debouncedFetch = () => {
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        console.log('🔄 Debounced fetch triggered by real-time update');
+        fetchScheduledJobs();
+      }, 500);
+    };
 
     const channel = supabase
       .channel('scheduled-jobs-updates')
@@ -226,17 +239,18 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           filter: `job_table_name=eq.production_jobs`
         },
         (payload) => {
-          console.log('🔄 Real-time update received for job stages:', payload);
-          fetchScheduledJobs();
+          console.log('🔄 Real-time update received for job stages:', payload.eventType);
+          debouncedFetch();
         }
       )
       .subscribe();
 
     return () => {
       console.log('🔌 Unsubscribing from scheduled jobs updates');
+      clearTimeout(debounceTimeout);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchScheduledJobs]);
+  }, [user?.id]); // Removed fetchScheduledJobs to break dependency loop
 
   // Group jobs by readiness status
   const jobsByReadiness = useMemo(() => {

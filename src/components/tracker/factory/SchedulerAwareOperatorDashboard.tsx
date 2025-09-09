@@ -40,6 +40,12 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
   const [supervisorOverrideJob, setSupervisorOverrideJob] = useState<any>(null);
   const [showBatchStartModal, setShowBatchStartModal] = useState(false);
   
+  // Memoize options to prevent infinite loop
+  const scheduledJobsOptions = React.useMemo(() => ({
+    production_stage_id,
+    department_filter
+  }), [production_stage_id, department_filter]);
+
   const { 
     scheduledJobs, 
     jobsByReadiness, 
@@ -49,10 +55,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     completeScheduledJob, 
     refreshJobs,
     lastUpdate
-  } = useScheduledJobs({ 
-    production_stage_id,
-    department_filter 
-  });
+  } = useScheduledJobs(scheduledJobsOptions);
 
   const {
     selectedJobs,
