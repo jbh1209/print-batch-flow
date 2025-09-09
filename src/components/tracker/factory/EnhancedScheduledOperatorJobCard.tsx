@@ -157,10 +157,11 @@ export const EnhancedScheduledOperatorJobCard: React.FC<EnhancedScheduledOperato
     <>
       <Card 
         className={cn(
-          "border-l-4 transition-all duration-200 hover:shadow-md cursor-pointer",
+          "border-l-4 transition-all duration-200 hover:shadow-lg cursor-pointer transform hover:scale-[1.02]",
           getStatusColor(),
           compact ? "p-2" : "p-4",
-          job.is_waiting_for_dependencies && "opacity-70"
+          job.is_waiting_for_dependencies && "opacity-70",
+          onClick && "hover:bg-white"
         )}
         onClick={() => onClick?.(job)}
       >

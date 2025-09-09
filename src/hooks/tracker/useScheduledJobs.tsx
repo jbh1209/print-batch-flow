@@ -105,12 +105,12 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
 
       if (error) throw error;
 
-      // Get job details separately to avoid complex join issues
+      // Get job details with better customer and quantity fetching
       const jobIds = data?.map(stage => stage.job_id) || [];
       let jobDetailsMap = new Map();
       
       if (jobIds.length > 0) {
-        const { data: jobsData } = await supabase
+        const { data: jobsData, error: jobsError } = await supabase
           .from('production_jobs')
           .select(`
             id,
@@ -120,6 +120,8 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
             qty,
             status,
             category_id,
+            is_batch_master,
+            batch_category,
             categories (
               name,
               color
@@ -127,9 +129,13 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           `)
           .in('id', jobIds);
 
-        jobsData?.forEach(job => {
-          jobDetailsMap.set(job.id, job);
-        });
+        if (jobsError) {
+          console.warn('Warning: Could not fetch job details:', jobsError);
+        } else {
+          jobsData?.forEach(job => {
+            jobDetailsMap.set(job.id, job);
+          });
+        }
       }
 
       // Process and enhance job data with readiness indicators
@@ -180,13 +186,16 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           schedule_status: stage.schedule_status,
           dependency_group: stage.dependency_group,
           part_assignment: stage.part_assignment,
-          // Job details
-          wo_no: jobData?.wo_no || 'Unknown',
-          customer: jobData?.customer || 'Unknown Customer',
+          // Job details - ensure proper fallbacks for missing data
+          wo_no: jobData?.wo_no || `JOB-${stage.job_id.substring(0, 8)}`,
+          customer: jobData?.customer || 'Customer Not Set',
           due_date: jobData?.due_date,
-          qty: jobData?.qty || 0,
-          category_name: categoryData?.name || 'No Category',
+          qty: jobData?.qty ?? 1, // Use nullish coalescing to handle 0 as valid
+          category_name: categoryData?.name || 'Uncategorized',
           category_color: categoryData?.color || '#6B7280',
+          // Batch properties
+          is_batch_master: jobData?.is_batch_master || false,
+          batch_name: jobData?.batch_category,
           // Readiness indicators
           is_ready_now,
           is_scheduled_later,

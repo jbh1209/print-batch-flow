@@ -1,0 +1,298 @@
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  User,
+  Calendar,
+  Clock,
+  Package,
+  MapPin,
+  Hash,
+  AlertTriangle,
+  CheckCircle,
+  Timer,
+  QrCode,
+  FileText,
+  Printer
+} from "lucide-react";
+import { format } from "date-fns";
+import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
+
+interface JobDetailsModalProps {
+  job: ScheduledJobStage | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onStartJob?: (jobId: string) => void;
+  onCompleteJob?: (jobId: string) => void;
+}
+
+export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
+  job,
+  isOpen,
+  onClose,
+  onStartJob,
+  onCompleteJob
+}) => {
+  if (!job) return null;
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not set';
+    try {
+      return format(new Date(dateString), 'PPP p');
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  const getStatusColor = () => {
+    if (job.status === 'active') return 'bg-green-100 text-green-800 border-green-300';
+    if (job.is_ready_now) return 'bg-blue-100 text-blue-800 border-blue-300';
+    if (job.is_scheduled_later) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    if (job.is_waiting_for_dependencies) return 'bg-gray-100 text-gray-800 border-gray-300';
+    return 'bg-red-100 text-red-800 border-red-300';
+  };
+
+  const canStart = job.status === 'pending' && job.is_ready_now;
+  const canComplete = job.status === 'active';
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Hash className="h-5 w-5" />
+            Job Details: {job.wo_no}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Job Header */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {job.wo_no}
+                  </h3>
+                  <p className="text-gray-600">{job.customer}</p>
+                </div>
+                <div className="text-right space-y-1">
+                  <Badge 
+                    className={`${getStatusColor()} border px-3 py-1`}
+                  >
+                    {job.status === 'active' ? 'Active' : 
+                     job.is_ready_now ? 'Ready Now' :
+                     job.is_scheduled_later ? 'Scheduled' :
+                     job.is_waiting_for_dependencies ? 'Waiting' : 'Blocked'}
+                  </Badge>
+                  {job.queue_position && (
+                    <div className="text-sm text-gray-600">
+                      Queue #{job.queue_position}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-gray-500" />
+                  <span className="font-medium">Quantity:</span>
+                  <span>{job.qty}</span>
+                </div>
+                {job.due_date && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span className="font-medium">Due Date:</span>
+                    <span>{format(new Date(job.due_date), 'MMM dd, yyyy')}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Category & Stage */}
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Category</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Badge 
+                  variant="outline"
+                  style={{ 
+                    borderColor: job.category_color,
+                    color: job.category_color 
+                  }}
+                >
+                  {job.category_name}
+                </Badge>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Current Stage</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" style={{ color: job.stage_color }} />
+                  <span className="font-medium" style={{ color: job.stage_color }}>
+                    {job.stage_name}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Stage Order: {job.stage_order}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Scheduling Information */}
+          {(job.scheduled_start_at || job.estimated_duration_minutes) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Scheduling
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                {job.scheduled_start_at && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Scheduled Start:</span>
+                    <span className="text-sm font-medium">
+                      {formatDate(job.scheduled_start_at)}
+                    </span>
+                  </div>
+                )}
+                {job.scheduled_end_at && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Scheduled End:</span>
+                    <span className="text-sm font-medium">
+                      {formatDate(job.scheduled_end_at)}
+                    </span>
+                  </div>
+                )}
+                {job.estimated_duration_minutes && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Est. Duration:</span>
+                    <span className="text-sm font-medium">
+                      {Math.round(job.estimated_duration_minutes)} minutes
+                    </span>
+                  </div>
+                )}
+                {job.schedule_status && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Schedule Status:</span>
+                    <Badge variant="outline" className="text-xs">
+                      {job.schedule_status}
+                    </Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Batch Information */}
+          {job.is_batch_master && (
+            <Card className="border-purple-200 bg-purple-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-purple-800 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Batch Master Job
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {job.batch_name && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-purple-700">Batch Name:</span>
+                    <span className="text-sm font-medium text-purple-900">
+                      {job.batch_name}
+                    </span>
+                  </div>
+                )}
+                {job.constituent_job_ids && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-purple-700">Constituent Jobs:</span>
+                    <span className="text-sm font-medium text-purple-900">
+                      {job.constituent_job_ids.length} jobs
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Part Assignment */}
+          {job.part_assignment && job.part_assignment !== 'both' && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Part Assignment</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Badge variant="outline">
+                  {job.part_assignment}
+                </Badge>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dependencies */}
+          {job.dependency_group && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Dependencies</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-sm text-gray-600">
+                  Dependency Group: <code className="text-xs bg-gray-100 px-1 rounded">{job.dependency_group}</code>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Job Actions */}
+          <div className="flex gap-3 pt-4 border-t">
+            {canStart && (
+              <Button
+                onClick={() => {
+                  onStartJob?.(job.id);
+                  onClose();
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                <QrCode className="w-4 h-4 mr-2" />
+                Scan & Start Job
+              </Button>
+            )}
+            
+            {canComplete && (
+              <Button
+                onClick={() => {
+                  onCompleteJob?.(job.id);
+                  onClose();
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Scan & Complete Job
+              </Button>
+            )}
+
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};

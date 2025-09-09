@@ -13,15 +13,18 @@ import {
   Users,
   Settings,
   UserCheck,
-  Layers
+  Layers,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useScheduledJobs } from "@/hooks/tracker/useScheduledJobs";
+import { useScheduledJobs, ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { EnhancedScheduledOperatorJobCard } from "./EnhancedScheduledOperatorJobCard";
 import { ConcurrentJobSelector } from "./ConcurrentJobSelector";
 import { SupervisorOverrideModal } from "./SupervisorOverrideModal";
 import { BatchStartModal } from "./BatchStartModal";
+import { PrinterQueueSelector } from "./PrinterQueueSelector";
+import { JobDetailsModal } from "./JobDetailsModal";
 import { useConcurrentJobManagement } from "@/hooks/tracker/useConcurrentJobManagement";
 import { toast } from "sonner";
 
@@ -40,11 +43,35 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
   const [supervisorOverrideJob, setSupervisorOverrideJob] = useState<any>(null);
   const [showBatchStartModal, setShowBatchStartModal] = useState(false);
   
+  // Printer queue selection state
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string | undefined>(production_stage_id);
+  const [selectedPrinterInfo, setSelectedPrinterInfo] = useState<any>(null);
+  
+  // Job details modal state
+  const [selectedJobForDetails, setSelectedJobForDetails] = useState<ScheduledJobStage | null>(null);
+  const [showJobDetailsModal, setShowJobDetailsModal] = useState(false);
+
+  // Load saved printer selection on mount
+  useEffect(() => {
+    if (!production_stage_id) {
+      const saved = localStorage.getItem('selected_printer_queue');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setSelectedPrinterId(parsed.id);
+          setSelectedPrinterInfo(parsed);
+        } catch (e) {
+          localStorage.removeItem('selected_printer_queue');
+        }
+      }
+    }
+  }, [production_stage_id]);
+  
   // Memoize options to prevent infinite loop
   const scheduledJobsOptions = React.useMemo(() => ({
-    production_stage_id,
+    production_stage_id: selectedPrinterId || production_stage_id,
     department_filter
-  }), [production_stage_id, department_filter]);
+  }), [selectedPrinterId, production_stage_id, department_filter]);
 
   const { 
     scheduledJobs, 
@@ -96,11 +123,33 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     }
   };
 
-  const handleJobClick = (job: any) => {
+  const handleJobClick = (job: ScheduledJobStage) => {
     if (concurrentMode) {
       toggleJobSelection(job);
     } else {
-      console.log('Job clicked:', job);
+      setSelectedJobForDetails(job);
+      setShowJobDetailsModal(true);
+    }
+  };
+
+  const handlePrinterChange = (printerId: string | undefined, printerInfo: any) => {
+    setSelectedPrinterId(printerId);
+    setSelectedPrinterInfo(printerInfo);
+  };
+
+  const handleStartJobFromModal = async (jobId: string) => {
+    const success = await startScheduledJob(jobId);
+    if (success) {
+      setShowJobDetailsModal(false);
+      refreshJobs();
+    }
+  };
+
+  const handleCompleteJobFromModal = async (jobId: string) => {
+    const success = await completeScheduledJob(jobId);
+    if (success) {
+      setShowJobDetailsModal(false);
+      refreshJobs();
     }
   };
 
@@ -176,10 +225,10 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Production Queue
-                {production_stage_id && (
+                Factory Floor
+                {selectedPrinterInfo && (
                   <Badge variant="secondary" className="ml-2 text-sm">
-                    Stage Specific
+                    {selectedPrinterInfo.name}
                   </Badge>
                 )}
               </h1>
@@ -241,8 +290,20 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
         </div>
       </div>
 
-      {/* Stats Dashboard */}
+      {/* Printer Queue Selector */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        <PrinterQueueSelector
+          selectedPrinterId={selectedPrinterId}
+          onPrinterChange={handlePrinterChange}
+          jobStats={{
+            ready: stats.readyNow,
+            scheduled: stats.scheduledLater,
+            waiting: stats.waitingDependencies,
+            active: stats.active
+          }}
+        />
+
+        {/* Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
             <CardContent className="p-4">
@@ -377,7 +438,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
                 <EnhancedScheduledOperatorJobCard
                   key={job.id}
                   job={job}
-                  onClick={concurrentMode ? handleJobClick : undefined}
+                  onClick={handleJobClick}
                   onRefresh={refreshJobs}
                 />
               ))}
@@ -472,6 +533,17 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
         onStartBatch={handleStartBatch}
         isProcessing={concurrentProcessing}
         batchCompatibility={batchCompatibility}
+      />
+
+      <JobDetailsModal
+        job={selectedJobForDetails}
+        isOpen={showJobDetailsModal}
+        onClose={() => {
+          setShowJobDetailsModal(false);
+          setSelectedJobForDetails(null);
+        }}
+        onStartJob={handleStartJobFromModal}
+        onCompleteJob={handleCompleteJobFromModal}
       />
     </div>
   );
