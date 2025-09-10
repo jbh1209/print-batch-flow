@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +5,7 @@ import { ClipboardList, Package, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { ProofApprovalFixer } from "@/components/utils/ProofApprovalFixer";
 
 const AppSelector = () => {
   const { user, loading } = useAuth();
@@ -36,7 +36,7 @@ const AppSelector = () => {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-8">
       <div className="max-w-4xl w-full px-6">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to Your Workspace</h1>
@@ -127,6 +127,11 @@ const AppSelector = () => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+        
+        {/* Temporary fix utility - remove after fixing proof approvals */}
+        <div className="mt-8 flex justify-center">
+          <ProofApprovalFixer />
         </div>
       </div>
     </div>
