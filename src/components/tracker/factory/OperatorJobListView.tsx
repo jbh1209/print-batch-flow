@@ -303,10 +303,11 @@ export const OperatorJobListView: React.FC<OperatorJobListViewProps> = ({
                     </div>
                   )}
                   
-                  <div className={cn("font-medium text-gray-900", multiSelectMode ? "col-span-2" : "col-span-2")}>
-                    {job.wo_no}
-                    {isOverdue && <AlertTriangle className="inline h-4 w-4 text-red-500 ml-1" />}
-                  </div>
+                   <div className={cn("font-medium text-gray-900", multiSelectMode ? "col-span-2" : "col-span-2")}>
+                     <span className="text-base font-bold">{job.wo_no}</span>
+                     {isOverdue && <AlertTriangle className="inline h-4 w-4 text-red-500 ml-1" />}
+                     {isUrgent && !isOverdue && <Clock className="inline h-4 w-4 text-orange-500 ml-1" />}
+                   </div>
                   
                   <div className="col-span-2 text-gray-700 truncate" title={job.customer}>
                     {job.customer}

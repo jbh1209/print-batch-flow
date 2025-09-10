@@ -25,7 +25,7 @@ import { ConcurrentJobSelector } from "./ConcurrentJobSelector";
 import { SupervisorOverrideModal } from "./SupervisorOverrideModal";
 import { BatchStartModal } from "./BatchStartModal";
 import { PrinterQueueSelector } from "./PrinterQueueSelector";
-import { JobDetailsModal } from "./JobDetailsModal";
+import { EnhancedJobDetailsModal } from "./EnhancedJobDetailsModal";
 import { useConcurrentJobManagement } from "@/hooks/tracker/useConcurrentJobManagement";
 import { toast } from "sonner";
 
@@ -138,20 +138,22 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     setSelectedPrinterInfo(printerInfo);
   };
 
-  const handleStartJobFromModal = async (jobId: string) => {
+  const handleStartJobFromModal = async (jobId: string): Promise<boolean> => {
     const success = await startScheduledJob(jobId);
     if (success) {
       setShowJobDetailsModal(false);
       refreshJobs();
     }
+    return success;
   };
 
-  const handleCompleteJobFromModal = async (jobId: string) => {
+  const handleCompleteJobFromModal = async (jobId: string): Promise<boolean> => {
     const success = await completeScheduledJob(jobId);
     if (success) {
       setShowJobDetailsModal(false);
       refreshJobs();
     }
+    return success;
   };
 
   const handleSupervisorOverride = (job: any) => {
@@ -495,7 +497,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
         batchCompatibility={batchCompatibility}
       />
 
-      <JobDetailsModal
+      <EnhancedJobDetailsModal
         job={selectedJobForDetails}
         isOpen={showJobDetailsModal}
         onClose={() => {

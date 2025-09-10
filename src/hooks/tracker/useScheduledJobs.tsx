@@ -105,11 +105,11 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
 
       if (error) throw error;
 
-      // Get job details with better customer and quantity fetching
+      // Get job details with enhanced error handling and debugging
       const jobIds = data?.map(stage => stage.job_id) || [];
       let jobDetailsMap = new Map();
       
-      console.log('🔍 Fetching job details for', jobIds.length, 'jobs');
+      console.log('🔍 Fetching job details for job IDs:', jobIds);
       
       if (jobIds.length > 0) {
         const { data: jobsData, error: jobsError } = await supabase
@@ -133,12 +133,19 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
 
         if (jobsError) {
           console.error('❌ Error fetching job details:', jobsError);
-          throw jobsError; // Make this a hard error since data is critical
-        } else {
-          console.log('✅ Fetched job details:', jobsData?.length, 'jobs');
-          jobsData?.forEach(job => {
-            console.log(`📋 Job ${job.wo_no}: customer=${job.customer}, qty=${job.qty}`);
+          // Don't throw - allow partial data display with fallbacks
+        } else if (jobsData) {
+          console.log('✅ Fetched job details:', jobsData.length, 'jobs');
+          jobsData.forEach(job => {
+            console.log(`📋 Job mapping: ID=${job.id} -> WO=${job.wo_no}, Customer=${job.customer}, Qty=${job.qty}`);
             jobDetailsMap.set(job.id, job);
+          });
+          
+          // Debug: Check for missing mappings
+          jobIds.forEach(jobId => {
+            if (!jobDetailsMap.has(jobId)) {
+              console.warn(`⚠️ Missing job data for ID: ${jobId}`);
+            }
           });
         }
       }
@@ -191,11 +198,32 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           schedule_status: stage.schedule_status,
           dependency_group: stage.dependency_group,
           part_assignment: stage.part_assignment,
-          // Job details - ensure proper fallbacks for missing data
-          wo_no: jobData?.wo_no || `MISSING-${stage.job_id.substring(0, 8)}`,
-          customer: jobData?.customer || 'NO CUSTOMER DATA',
+          // Job details - better fallbacks and debugging
+          wo_no: (() => {
+            const woNo = jobData?.wo_no;
+            if (!woNo) {
+              console.error(`❌ Missing wo_no for job ID: ${stage.job_id}, jobData:`, jobData);
+              return `MISSING-${stage.job_id.substring(0, 8)}`;
+            }
+            return woNo;
+          })(),
+          customer: (() => {
+            const customer = jobData?.customer;
+            if (!customer) {
+              console.error(`❌ Missing customer for job ID: ${stage.job_id}, jobData:`, jobData);
+              return 'NO CUSTOMER DATA';
+            }
+            return customer;
+          })(),
           due_date: jobData?.due_date,
-          qty: jobData?.qty ?? 0, // Use nullish coalescing to handle 0 as valid
+          qty: (() => {
+            const qty = jobData?.qty;
+            if (qty === null || qty === undefined) {
+              console.error(`❌ Missing qty for job ID: ${stage.job_id}, jobData:`, jobData);
+              return 0;
+            }
+            return qty;
+          })(),
           category_name: categoryData?.name || 'Uncategorized',
           category_color: categoryData?.color || '#6B7280',
           // Batch properties
