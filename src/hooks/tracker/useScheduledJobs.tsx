@@ -109,6 +109,8 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
       const jobIds = data?.map(stage => stage.job_id) || [];
       let jobDetailsMap = new Map();
       
+      console.log('🔍 Fetching job details for', jobIds.length, 'jobs');
+      
       if (jobIds.length > 0) {
         const { data: jobsData, error: jobsError } = await supabase
           .from('production_jobs')
@@ -130,9 +132,12 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           .in('id', jobIds);
 
         if (jobsError) {
-          console.warn('Warning: Could not fetch job details:', jobsError);
+          console.error('❌ Error fetching job details:', jobsError);
+          throw jobsError; // Make this a hard error since data is critical
         } else {
+          console.log('✅ Fetched job details:', jobsData?.length, 'jobs');
           jobsData?.forEach(job => {
+            console.log(`📋 Job ${job.wo_no}: customer=${job.customer}, qty=${job.qty}`);
             jobDetailsMap.set(job.id, job);
           });
         }
@@ -187,10 +192,10 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           dependency_group: stage.dependency_group,
           part_assignment: stage.part_assignment,
           // Job details - ensure proper fallbacks for missing data
-          wo_no: jobData?.wo_no || `JOB-${stage.job_id.substring(0, 8)}`,
-          customer: jobData?.customer || 'Customer Not Set',
+          wo_no: jobData?.wo_no || `MISSING-${stage.job_id.substring(0, 8)}`,
+          customer: jobData?.customer || 'NO CUSTOMER DATA',
           due_date: jobData?.due_date,
-          qty: jobData?.qty ?? 1, // Use nullish coalescing to handle 0 as valid
+          qty: jobData?.qty ?? 0, // Use nullish coalescing to handle 0 as valid
           category_name: categoryData?.name || 'Uncategorized',
           category_color: categoryData?.color || '#6B7280',
           // Batch properties

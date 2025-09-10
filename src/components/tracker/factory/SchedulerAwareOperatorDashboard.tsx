@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useScheduledJobs, ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { EnhancedScheduledOperatorJobCard } from "./EnhancedScheduledOperatorJobCard";
+import { OperatorJobListView } from "./OperatorJobListView";
 import { ConcurrentJobSelector } from "./ConcurrentJobSelector";
 import { SupervisorOverrideModal } from "./SupervisorOverrideModal";
 import { BatchStartModal } from "./BatchStartModal";
@@ -433,86 +434,45 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           )}
 
           <TabsContent value="ready" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {jobsByReadiness.ready_now.map(job => (
-                <EnhancedScheduledOperatorJobCard
-                  key={job.id}
-                  job={job}
-                  onClick={handleJobClick}
-                  onRefresh={refreshJobs}
-                />
-              ))}
-              {jobsByReadiness.ready_now.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Jobs Ready</h3>
-                  <p className="text-gray-600">All jobs are scheduled for later or waiting for dependencies.</p>
-                </div>
-              )}
-            </div>
+            <OperatorJobListView
+              jobs={jobsByReadiness.ready_now}
+              onJobClick={handleJobClick}
+              onStartJob={startScheduledJob}
+              onCompleteJob={completeScheduledJob}
+              multiSelectMode={concurrentMode}
+              selectedJobs={selectedJobs}
+              onToggleSelection={toggleJobSelection}
+            />
           </TabsContent>
 
           <TabsContent value="scheduled" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {jobsByReadiness.scheduled_later.map(job => (
-                <EnhancedScheduledOperatorJobCard
-                  key={job.id}
-                  job={job}
-                  onRefresh={refreshJobs}
-                  showActions={false}
-                />
-              ))}
-              {jobsByReadiness.scheduled_later.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Scheduled Jobs</h3>
-                  <p className="text-gray-600">No jobs are scheduled for later today.</p>
-                </div>
-              )}
-            </div>
+            <OperatorJobListView
+              jobs={jobsByReadiness.scheduled_later}
+              onJobClick={handleJobClick}
+              onStartJob={startScheduledJob}
+              onCompleteJob={completeScheduledJob}
+            />
           </TabsContent>
 
           <TabsContent value="waiting" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {jobsByReadiness.waiting_dependencies.map(job => (
-                <EnhancedScheduledOperatorJobCard
-                  key={job.id}
-                  job={job}
-                  onRefresh={refreshJobs}
-                  showActions={false}
-                />
-              ))}
-              {jobsByReadiness.waiting_dependencies.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Waiting Jobs</h3>
-                  <p className="text-gray-600">All jobs are ready or scheduled.</p>
-                </div>
-              )}
-            </div>
+            <OperatorJobListView
+              jobs={jobsByReadiness.waiting_dependencies}
+              onJobClick={handleJobClick}
+              onStartJob={startScheduledJob}
+              onCompleteJob={completeScheduledJob}
+            />
           </TabsContent>
 
           <TabsContent value="all" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {scheduledJobs.map(job => (
-                <EnhancedScheduledOperatorJobCard
-                  key={job.id}
-                  job={job}
-                  onRefresh={refreshJobs}
-                />
-              ))}
-              {scheduledJobs.length === 0 && (
-                <div className="col-span-full text-center py-12">
-                  <Timer className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Jobs in Queue</h3>
-                  <p className="text-gray-600">There are currently no jobs in the production queue.</p>
-                  <Button onClick={handleRefresh} variant="outline" className="mt-4">
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh Queue
-                  </Button>
-                </div>
-              )}
-            </div>
+            <OperatorJobListView
+              jobs={scheduledJobs}
+              onJobClick={handleJobClick}
+              onStartJob={startScheduledJob}
+              onCompleteJob={completeScheduledJob}
+              multiSelectMode={concurrentMode}
+              selectedJobs={selectedJobs}
+              onToggleSelection={toggleJobSelection}
+            />
           </TabsContent>
         </Tabs>
       </div>
