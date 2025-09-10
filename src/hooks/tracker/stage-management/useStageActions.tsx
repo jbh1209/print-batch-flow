@@ -58,15 +58,19 @@ export const useStageActions = () => {
 
       const isProofStage = stageInfo?.production_stage?.name?.toLowerCase().includes('proof');
       
+      // Build update object - include proof_approved_manually_at if this is a proof stage
+      const updateData = {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        completed_by: user?.id,
+        notes: notes || null,
+        updated_at: new Date().toISOString(),
+        ...(isProofStage && { proof_approved_manually_at: new Date().toISOString() })
+      };
+
       const { error } = await supabase
         .from('job_stage_instances')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: user?.id,
-          notes: notes || null,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', stageId)
         .eq('status', 'active');
 
@@ -148,16 +152,19 @@ export const useStageActions = () => {
 
       const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof');
 
-      // Complete the current stage
+      // Complete the current stage - include proof_approved_manually_at if this is a proof stage
+      const updateData = {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        completed_by: user?.id,
+        notes: notes || null,
+        updated_at: new Date().toISOString(),
+        ...(isProofStage && { proof_approved_manually_at: new Date().toISOString() })
+      };
+
       const { error: completeError } = await supabase
         .from('job_stage_instances')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: user?.id,
-          notes: notes || null,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', currentStageInstanceId);
 
       if (completeError) {
