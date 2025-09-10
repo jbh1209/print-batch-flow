@@ -75,6 +75,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           production_stage_id,
           stage_order,
           status,
+          quantity,
           queue_position,
           scheduled_start_at,
           scheduled_end_at,
@@ -217,12 +218,21 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           })(),
           due_date: jobData?.due_date,
           qty: (() => {
-            const qty = jobData?.qty;
-            if (qty === null || qty === undefined) {
-              console.error(`❌ Missing qty for job ID: ${stage.job_id}, jobData:`, jobData);
-              return 0;
+            // Use stage-specific quantity if available, fallback to job quantity
+            const stageQty = stage.quantity;
+            const jobQty = jobData?.qty;
+            
+            if (stageQty !== null && stageQty !== undefined) {
+              return stageQty;
             }
-            return qty;
+            
+            if (jobQty !== null && jobQty !== undefined) {
+              console.warn(`⚠️ Using job qty fallback for stage ID: ${stage.id}, job: ${stage.job_id}`);
+              return jobQty;
+            }
+            
+            console.error(`❌ Missing qty for stage ID: ${stage.id}, job ID: ${stage.job_id}, jobData:`, jobData);
+            return 0;
           })(),
           category_name: categoryData?.name || 'Uncategorized',
           category_color: categoryData?.color || '#6B7280',

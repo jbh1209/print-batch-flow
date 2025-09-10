@@ -34,6 +34,7 @@ import {
 import { format } from "date-fns";
 import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
@@ -53,7 +54,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   const [operatorNotes, setOperatorNotes] = useState("");
   const [reworkReason, setReworkReason] = useState("");
   const [qualityIssue, setQualityIssue] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("scanning");
+  const [scanRequired, setScanRequired] = useState(true);
+  const [scanCompleted, setScanCompleted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!job) return null;
@@ -117,6 +120,12 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
   const handleStartJob = async () => {
     if (!onStartJob) return;
+    
+    if (!scanCompleted) {
+      toast.error('Please scan the job QR code before starting');
+      setActiveTab('scanning');
+      return;
+    }
     
     setIsProcessing(true);
     try {
@@ -184,13 +193,84 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="scanning">Overview & Scanning</TabsTrigger>
             <TabsTrigger value="workflow">Workflow</TabsTrigger>
             <TabsTrigger value="notes">Notes & Issues</TabsTrigger>
-            <TabsTrigger value="barcode">Scanning</TabsTrigger>
+            <TabsTrigger value="details">Job Details</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="scanning" className="space-y-6">
+            {/* Mandatory Scanning Section */}
+            <Card className={cn("border-2", scanCompleted ? "border-green-500 bg-green-50" : "border-orange-500 bg-orange-50")}>
+              <CardHeader>
+                <CardTitle className={cn("text-lg flex items-center gap-2", scanCompleted ? "text-green-700" : "text-orange-700")}>
+                  <Scan className="w-5 h-5" />
+                  {scanCompleted ? "✓ Job Scanned Successfully" : "⚠ Scan Required Before Starting"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-white p-8 rounded-lg border text-center">
+                  <QrCode className="w-32 h-32 text-gray-400 mx-auto mb-4" />
+                  <div className="text-lg font-bold mb-2">{job.wo_no}</div>
+                  <div className="text-sm text-gray-600 mb-4">{job.stage_name}</div>
+                  <div className="text-xs font-mono bg-gray-100 p-2 rounded">
+                    {generateQRCode()}
+                  </div>
+                </div>
+                
+                {!scanCompleted ? (
+                  <Button 
+                    onClick={() => setScanCompleted(true)}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Scan className="w-5 h-5 mr-2" />
+                    Confirm Job Scan
+                  </Button>
+                ) : (
+                  <div className="text-center text-green-700 font-medium">
+                    ✓ Ready to start production
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Job Overview */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">{job.wo_no}</h2>
+                    <p className="text-xl text-gray-600 mt-1">{job.customer}</p>
+                    <div className="flex items-center gap-4 mt-4 text-lg text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-5 h-5" />
+                        <span className="font-medium">Qty:</span>
+                        <span className="font-mono text-2xl font-bold">{job.qty.toLocaleString()}</span>
+                      </div>
+                      {job.due_date && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-5 h-5" />
+                          <span className="font-medium">Due:</span>
+                          <span className="font-semibold">{format(new Date(job.due_date), 'MMM dd, yyyy')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right space-y-3">
+                    <Badge className={`${statusInfo.color} border px-4 py-2 text-lg`}>
+                      <statusInfo.icon className="w-5 h-5 mr-2" />
+                      {statusInfo.text}
+                    </Badge>
+                    <div className="text-lg font-medium text-gray-700">
+                      {job.stage_name}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="details" className="space-y-6">
             {/* Job Header with Enhanced Status */}
             <Card>
               <CardContent className="p-6">
@@ -302,11 +382,16 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                   {statusInfo.canStart && (
                     <Button
                       onClick={handleStartJob}
-                      disabled={isProcessing}
-                      className="h-12 bg-blue-600 hover:bg-blue-700"
+                      disabled={isProcessing || !scanCompleted}
+                      className={cn(
+                        "h-12",
+                        scanCompleted 
+                          ? "bg-blue-600 hover:bg-blue-700" 
+                          : "bg-gray-400 cursor-not-allowed"
+                      )}
                     >
                       <Play className="w-5 h-5 mr-2" />
-                      Start Production
+                      {scanCompleted ? "Start Production" : "Scan Required First"}
                     </Button>
                   )}
                   
