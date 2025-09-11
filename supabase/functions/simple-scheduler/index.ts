@@ -88,7 +88,7 @@ async function runRealScheduler(
   payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running database-centric scheduler with payload:', payload);
+  console.log('🚀 Running STANDARDIZED database scheduler with payload:', payload);
   
   // Only proceed if commit is true (dry run protection)
   if (!payload.commit) {
@@ -98,7 +98,7 @@ async function runRealScheduler(
 
   try {
     if (payload.onlyJobIds && payload.onlyJobIds.length > 0) {
-      // Append specific jobs to schedule
+      // Append specific jobs to schedule using STANDARDIZED function
       console.log(`📋 Scheduling specific jobs: ${payload.onlyJobIds.length} jobs`);
       
       const { data, error } = await sb.rpc('scheduler_append_jobs', {
@@ -122,12 +122,10 @@ async function runRealScheduler(
       };
       
     } else {
-      // Full reschedule all
-      console.log('📅 Running full reschedule...');
+      // Full reschedule all using STANDARDIZED scheduler_resource_fill_optimized
+      console.log('📅 Running full reschedule using scheduler_resource_fill_optimized...');
       
-      const { data, error } = await sb.rpc('scheduler_reschedule_all_parallel_aware', {
-        p_start_from: payload.startFrom || null
-      });
+      const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
 
       if (error) {
         console.error('❌ Reschedule error:', error);
