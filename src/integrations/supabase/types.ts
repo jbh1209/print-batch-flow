@@ -3260,6 +3260,13 @@ export type Database = {
         Args: { p_department_id: string; p_user_id: string }
         Returns: boolean
       }
+      carry_forward_overdue_active_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          carried_forward_count: number
+          job_details: string[]
+        }[]
+      }
       check_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -3333,6 +3340,10 @@ export type Database = {
         Returns: undefined
       }
       cron_nightly_reschedule: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cron_nightly_reschedule_with_carryforward: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
