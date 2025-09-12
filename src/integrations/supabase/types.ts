@@ -3764,6 +3764,10 @@ export type Database = {
         Args: { p_stage_ids: string[] }
         Returns: undefined
       }
+      next_shift_start_from_now: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       next_working_start: {
         Args: { p_from: string }
         Returns: string
@@ -3968,8 +3972,8 @@ export type Database = {
         }[]
       }
       scheduler_resource_fill_optimized: {
-        Args: Record<PropertyKey, never> | { p_start_from: string }
-        Returns: Json
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["CompositeTypes"]["scheduler_result_type"]
       }
       scheduler_truly_sequential_v2: {
         Args: { p_start_from?: string }
