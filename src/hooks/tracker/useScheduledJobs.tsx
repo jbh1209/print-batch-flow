@@ -157,10 +157,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         const stageData = stage.production_stages;
         const categoryData = jobData?.categories;
 
-        // Determine readiness status
-        const now = new Date();
-        const scheduledStart = stage.scheduled_start_at ? new Date(stage.scheduled_start_at) : null;
-        
+        // Simplified readiness logic - operators can start any pending job
         let is_ready_now = false;
         let is_scheduled_later = false;
         let is_waiting_for_dependencies = false;
@@ -168,16 +165,11 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         if (stage.status === 'active') {
           is_ready_now = true;
         } else if (stage.status === 'pending') {
-          if (scheduledStart) {
-            // Job is scheduled
-            if (scheduledStart <= now) {
-              is_ready_now = true; // Scheduled time has passed
-            } else {
-              is_scheduled_later = true; // Scheduled for future
-            }
+          if (stage.scheduled_start_at) {
+            // All scheduled jobs are considered ready (operators can start anytime)
+            is_ready_now = true;
           } else {
-            // Not yet scheduled - check dependencies
-            // This is a simplified check - in reality we'd need to check previous stages
+            // Truly unscheduled jobs (waiting for proof/dependencies)
             is_waiting_for_dependencies = true;
           }
         }
@@ -317,7 +309,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
     };
   }, [scheduledJobs]);
 
-  // Job actions with scheduling awareness
+  // Job actions - allow starting any pending job
   const startScheduledJob = useCallback(async (stageId: string): Promise<boolean> => {
     try {
       const job = scheduledJobs.find(j => j.id === stageId);
@@ -326,8 +318,8 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         return false;
       }
 
-      if (!job.is_ready_now) {
-        toast.error('Job is not ready to start yet');
+      if (job.status !== 'pending') {
+        toast.error('Job must be pending to start');
         return false;
       }
 

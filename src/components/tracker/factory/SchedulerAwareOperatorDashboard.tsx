@@ -306,8 +306,8 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           }}
         />
 
-        {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {/* Simplified Stats Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -320,23 +320,11 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-700">Ready Now</p>
-                  <p className="text-2xl font-bold text-green-900">{stats.readyNow}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
           <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-700">Active</p>
+                  <p className="text-sm font-medium text-purple-700">Active Jobs</p>
                   <p className="text-2xl font-bold text-purple-900">{stats.active}</p>
                 </div>
                 <RefreshCw className="h-8 w-8 text-purple-600" />
@@ -344,14 +332,14 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-yellow-700">Scheduled</p>
-                  <p className="text-2xl font-bold text-yellow-900">{stats.scheduledLater}</p>
+                  <p className="text-sm font-medium text-green-700">Ready to Work</p>
+                  <p className="text-2xl font-bold text-green-900">{stats.readyNow}</p>
                 </div>
-                <Clock className="h-8 w-8 text-yellow-600" />
+                <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
@@ -360,7 +348,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Waiting</p>
+                  <p className="text-sm font-medium text-gray-700">Waiting Approval</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.waitingDependencies}</p>
                 </div>
                 <Calendar className="h-8 w-8 text-gray-600" />
@@ -389,94 +377,58 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
           )}
         </div>
 
-        {/* Job Queue Tabs */}
-        <Tabs defaultValue={concurrentMode ? "concurrent" : "ready"} className="w-full">
-          <TabsList className={cn(
-            "grid w-full",
-            concurrentMode ? "grid-cols-5" : "grid-cols-4"
-          )}>
-            {concurrentMode && (
-              <TabsTrigger value="concurrent" className="flex items-center gap-2">
-                <Layers className="w-4 h-4" />
-                Multi-Select ({stats.selected})
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="ready" className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Ready Now ({stats.readyNow})
-            </TabsTrigger>
-            <TabsTrigger value="scheduled" className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Scheduled ({stats.scheduledLater})
-            </TabsTrigger>
-            <TabsTrigger value="waiting" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Waiting ({stats.waitingDependencies})
-            </TabsTrigger>
-            <TabsTrigger value="all" className="flex items-center gap-2">
-              <Timer className="w-4 h-4" />
-              All Jobs ({stats.total})
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Concurrent Job Selection Tab */}
+        {/* Single Work Queue */}
+        <div className="space-y-4">
+          {/* Multi-Select Mode */}
           {concurrentMode && (
-            <TabsContent value="concurrent" className="mt-6">
-              <ConcurrentJobSelector
-                availableJobs={jobsByReadiness.ready_now}
-                selectedJobs={selectedJobs}
-                onToggleSelection={toggleJobSelection}
-                onClearSelection={clearSelection}
-                onStartBatch={() => setShowBatchStartModal(true)}
-                onRequestSupervisorOverride={handleSupervisorOverride}
-                isProcessing={concurrentProcessing}
-                batchCompatibility={batchCompatibility}
-              />
-            </TabsContent>
+            <Card className="border-indigo-200 bg-indigo-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-indigo-900">
+                  <Layers className="h-5 w-5" />
+                  Multi-Select Mode ({stats.selected} selected)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ConcurrentJobSelector
+                  availableJobs={jobsByReadiness.ready_now}
+                  selectedJobs={selectedJobs}
+                  onToggleSelection={toggleJobSelection}
+                  onClearSelection={clearSelection}
+                  onStartBatch={() => setShowBatchStartModal(true)}
+                  onRequestSupervisorOverride={handleSupervisorOverride}
+                  isProcessing={concurrentProcessing}
+                  batchCompatibility={batchCompatibility}
+                />
+              </CardContent>
+            </Card>
           )}
 
-          <TabsContent value="ready" className="mt-6">
-            <OperatorJobListView
-              jobs={jobsByReadiness.ready_now}
-              onJobClick={handleJobClick}
-              onStartJob={startScheduledJob}
-              onCompleteJob={completeScheduledJob}
-              multiSelectMode={concurrentMode}
-              selectedJobs={selectedJobs}
-              onToggleSelection={toggleJobSelection}
-            />
-          </TabsContent>
-
-          <TabsContent value="scheduled" className="mt-6">
-            <OperatorJobListView
-              jobs={jobsByReadiness.scheduled_later}
-              onJobClick={handleJobClick}
-              onStartJob={startScheduledJob}
-              onCompleteJob={completeScheduledJob}
-            />
-          </TabsContent>
-
-          <TabsContent value="waiting" className="mt-6">
-            <OperatorJobListView
-              jobs={jobsByReadiness.waiting_dependencies}
-              onJobClick={handleJobClick}
-              onStartJob={startScheduledJob}
-              onCompleteJob={completeScheduledJob}
-            />
-          </TabsContent>
-
-          <TabsContent value="all" className="mt-6">
-            <OperatorJobListView
-              jobs={scheduledJobs}
-              onJobClick={handleJobClick}
-              onStartJob={startScheduledJob}
-              onCompleteJob={completeScheduledJob}
-              multiSelectMode={concurrentMode}
-              selectedJobs={selectedJobs}
-              onToggleSelection={toggleJobSelection}
-            />
-          </TabsContent>
-        </Tabs>
+          {/* Work Queue - Show all jobs in priority order */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Timer className="h-5 w-5" />
+                Work Queue ({stats.total} jobs)
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                {stats.active > 0 && `${stats.active} active, `}
+                {stats.readyNow > 0 && `${stats.readyNow} ready, `}
+                {stats.waitingDependencies > 0 && `${stats.waitingDependencies} waiting for approval`}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <OperatorJobListView
+                jobs={scheduledJobs}
+                onJobClick={handleJobClick}
+                onStartJob={startScheduledJob}
+                onCompleteJob={completeScheduledJob}
+                multiSelectMode={concurrentMode}
+                selectedJobs={selectedJobs}
+                onToggleSelection={toggleJobSelection}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Modals */}
