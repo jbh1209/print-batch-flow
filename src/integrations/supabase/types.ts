@@ -3968,8 +3968,8 @@ export type Database = {
         }[]
       }
       scheduler_resource_fill_optimized: {
-        Args: Record<PropertyKey, never>
-        Returns: Database["public"]["CompositeTypes"]["scheduler_result_type"]
+        Args: Record<PropertyKey, never> | { p_start_from?: string }
+        Returns: Json
       }
       scheduler_truly_sequential_v2: {
         Args: { p_start_from?: string }
