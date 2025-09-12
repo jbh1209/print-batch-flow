@@ -3968,7 +3968,7 @@ export type Database = {
         }[]
       }
       scheduler_resource_fill_optimized: {
-        Args: Record<PropertyKey, never> | { p_start_from?: string }
+        Args: Record<PropertyKey, never> | { p_start_from: string }
         Returns: Json
       }
       scheduler_truly_sequential_v2: {
