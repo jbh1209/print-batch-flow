@@ -64,6 +64,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
       setError(null);
 
       console.log('🔄 Fetching scheduled jobs with options:', { production_stage_id, department_filter });
+      console.log('📊 Initial filter state - production_stage_id:', production_stage_id);
 
       // Query job_stage_instances with scheduling data and job details
       let query = supabase
@@ -94,6 +95,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
 
       // Filter by production stage if specified
       if (production_stage_id) {
+        console.log('🎯 Applying production_stage_id filter:', production_stage_id);
         query = query.eq('production_stage_id', production_stage_id);
       }
 
@@ -105,6 +107,8 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
       const { data, error } = await query;
 
       if (error) throw error;
+
+      console.log('📊 Raw job stage instances fetched:', data?.length || 0);
 
       // Get job details with enhanced error handling and debugging
       const jobIds = data?.map(stage => stage.job_id) || [];
