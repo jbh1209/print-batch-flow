@@ -57,15 +57,13 @@ export const useBarcodeControlledActions = () => {
 
   // Verify barcode matches expected job
   const verifyBarcode = useCallback((scannedData: string, expectedData: string): boolean => {
-    const scannedParsed = parseBarcodeData(scannedData);
-    const expectedParsed = parseBarcodeData(expectedData);
+    // For plain text work order numbers, do direct comparison
+    // Handle case where scanned data might have extra characters or formatting
+    const cleanScanned = scannedData.trim().toUpperCase();
+    const cleanExpected = expectedData.trim().toUpperCase();
     
-    if (!scannedParsed || !expectedParsed) {
-      return false;
-    }
-    
-    // Match work order numbers only (simpler, more reliable scanning)
-    return scannedParsed.wo_no === expectedParsed.wo_no;
+    // Check if scanned data matches expected work order number exactly
+    return cleanScanned === cleanExpected;
   }, []);
 
   // Process barcode scan during job actions

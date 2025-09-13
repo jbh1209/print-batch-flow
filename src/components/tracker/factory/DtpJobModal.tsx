@@ -22,7 +22,7 @@ import { BatchSplitDetector } from "../batch/BatchSplitDetector";
 import { BatchSplitDialog } from "../batch/BatchSplitDialog";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { useBarcodeControlledActions } from "@/hooks/tracker/useBarcodeControlledActions";
-import { generateQRCodeData } from "@/utils/qrCodeGenerator";
+// Removed QR code generator import - now using plain work order numbers
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -110,10 +110,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const handleStartWithBarcode = async () => {
     if (!job.current_stage_id) return;
     
-    const expectedBarcodeData = generateQRCodeData({
-      wo_no: job.wo_no,
-      job_id: job.job_id
-    });
+    // Expect just the work order number (plain text barcode)
+    const expectedBarcodeData = job.wo_no;
     await startJobWithBarcode({
       jobId: job.job_id,
       jobTableName: 'production_jobs',
@@ -125,10 +123,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const handleCompleteWithBarcode = async () => {
     if (!job.current_stage_id) return;
     
-    const expectedBarcodeData = generateQRCodeData({
-      wo_no: job.wo_no,
-      job_id: job.job_id
-    });
+    // Expect just the work order number (plain text barcode)
+    const expectedBarcodeData = job.wo_no;
     await completeJobWithBarcode({
       jobId: job.job_id,
       jobTableName: 'production_jobs',

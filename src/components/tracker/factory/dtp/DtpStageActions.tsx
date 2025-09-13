@@ -167,35 +167,33 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
 
   if (stageStatus === 'pending') {
     return (
-      <div className="space-y-2">
-        {/* Barcode scan button for starting */}
+      <div className="space-y-3">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800 font-medium mb-1">
+            Barcode Required - Work Order: {job.wo_no}
+          </p>
+          <p className="text-xs text-blue-600">
+            Scan the barcode sticker on your work order to start this job
+          </p>
+        </div>
+        
+        {/* Mandatory barcode scan button for starting */}
         <Button 
-          onClick={onStartWithBarcode || handleStartDTP}
-          disabled={isLoading || isBarcodeProcessing}
+          onClick={onStartWithBarcode}
+          disabled={isLoading || isBarcodeProcessing || !onStartWithBarcode}
           className="w-full bg-green-600 hover:bg-green-700"
         >
           {isScanning ? (
             <>
               <Scan className="h-4 w-4 mr-2 animate-pulse" />
-              Scan Barcode to Start
+              Scanning Barcode...
             </>
           ) : (
             <>
               <Scan className="h-4 w-4 mr-2" />
-              Scan & Start DTP Work
+              Scan Barcode to Start
             </>
           )}
-        </Button>
-        
-        {/* Fallback traditional button */}
-        <Button 
-          onClick={handleStartDTP}
-          disabled={isLoading || isBarcodeProcessing}
-          variant="outline"
-          className="w-full"
-        >
-          <Play className="h-4 w-4 mr-2" />
-          Start Without Scan
         </Button>
       </div>
     );
@@ -203,35 +201,33 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
 
   if (stageStatus === 'active') {
     return (
-      <div className="space-y-2">
-        {/* Barcode scan button for completion */}
+      <div className="space-y-3">
+        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <p className="text-sm text-orange-800 font-medium mb-1">
+            Barcode Required - Work Order: {job.wo_no}
+          </p>
+          <p className="text-xs text-orange-600">
+            Scan the barcode sticker on your work order to complete this job
+          </p>
+        </div>
+        
+        {/* Mandatory barcode scan button for completion */}
         <Button 
-          onClick={onCompleteWithBarcode || handleCompleteDTP}
-          disabled={isLoading || isBarcodeProcessing}
+          onClick={onCompleteWithBarcode}
+          disabled={isLoading || isBarcodeProcessing || !onCompleteWithBarcode}
           className="w-full bg-blue-600 hover:bg-blue-700"
         >
           {isScanning && barcodeActionState === 'scanning' ? (
             <>
               <Scan className="h-4 w-4 mr-2 animate-pulse" />
-              Scan Barcode to Complete
+              Scanning Barcode...
             </>
           ) : (
             <>
               <Scan className="h-4 w-4 mr-2" />
-              Scan & Complete DTP
+              Scan Barcode to Complete
             </>
           )}
-        </Button>
-        
-        {/* Traditional completion button */}
-        <Button 
-          onClick={handleCompleteDTP}
-          disabled={isLoading || isBarcodeProcessing}
-          variant="outline"
-          className="w-full"
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          Complete Without Scan
         </Button>
         
         <Button 
