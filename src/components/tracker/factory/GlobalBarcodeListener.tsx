@@ -9,7 +9,7 @@ interface GlobalBarcodeListenerProps {
 
 export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
   onBarcodeDetected,
-  minLength = 8,
+  minLength = 5,
   timeout = 500
 }) => {
   const barcodeRef = useRef<string>("");

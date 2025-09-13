@@ -21,6 +21,7 @@ import { ConditionalStageRenderer } from "./ConditionalStageRenderer";
 import { BatchSplitDetector } from "../batch/BatchSplitDetector";
 import { BatchSplitDialog } from "../batch/BatchSplitDialog";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
+import { toast } from "sonner";
 import { useBarcodeControlledActions } from "@/hooks/tracker/useBarcodeControlledActions";
 // Removed QR code generator import - now using plain work order numbers
 
@@ -58,24 +59,28 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setSelectedBatchCategory
   } = useDtpJobModal(job, isOpen);
 
-  // Barcode scanning integration
+  // Barcode scanning integration - removed unused parts
   const {
     actionState,
     currentAction,
-    scanResult,
-    startJobWithBarcode,
-    completeJobWithBarcode,
-    processBarcodeForAction,
-    cancelAction
+    scanResult
   } = useBarcodeControlledActions();
 
-  // Reset local state when modal opens
+  // Reset local state when modal opens and auto-start scanning
   useEffect(() => {
     if (isOpen) {
       setLocalJobStatus(job.status);
       setLocalStageStatus(job.current_stage_status);
       setNotes("");
       loadModalData();
+      
+      // Auto-start scanning based on stage status
+      const currentStageStatus = job.current_stage_status;
+      if (currentStageStatus === 'pending') {
+        handleStartWithBarcode();
+      } else if (currentStageStatus === 'active') {
+        handleCompleteWithBarcode();
+      }
     }
   }, [isOpen, job.status, job.current_stage_status, loadModalData]);
 
@@ -98,48 +103,63 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     onRefresh?.(); // Also refresh the parent component to get updated job data
   };
 
-  // Handle barcode scan
+  // Handle barcode scan with auto-proceed
   const handleBarcodeDetected = async (barcodeData: string) => {
-    // Only process barcodes if we have an active action waiting for scan
-    if (currentAction && actionState === 'scanning') {
-      await processBarcodeForAction(barcodeData);
+    console.log('🔍 Barcode detected:', barcodeData, 'Expected:', job.wo_no);
+    
+    // Simple verification - compare scanned data to work order number
+    const cleanScanned = barcodeData.trim().toUpperCase();
+    const cleanExpected = job.wo_no.trim().toUpperCase();
+    const isValid = cleanScanned === cleanExpected;
+    
+    if (isValid) {
+      // Auto-proceed after successful scan
+      const currentStageStatus = job.current_stage_status;
+      if (currentStageStatus === 'pending') {
+        // Use the direct job action functions if available
+        if (onStart && job.current_stage_id) {
+          const success = await onStart(job.job_id, job.current_stage_id);
+          if (success) {
+            handleJobStatusUpdate('In Progress', 'active');
+            handleModalDataRefresh();
+          }
+        }
+      } else if (currentStageStatus === 'active') {
+        if (onComplete && job.current_stage_id) {
+          const success = await onComplete(job.job_id, job.current_stage_id);
+          if (success) {
+            handleJobStatusUpdate('Ready for Proof', 'completed');
+            handleModalDataRefresh();
+            onClose();
+          }
+        }
+      }
+    } else {
+      toast.error(`Wrong barcode scanned. Expected: ${job.wo_no}, Got: ${barcodeData}`);
     }
   };
 
-  // Create barcode-enabled action handlers
+  // Create barcode-enabled action handlers - simplified for auto-scanning
   const handleStartWithBarcode = async () => {
-    if (!job.current_stage_id) return;
-    
-    // Expect just the work order number (plain text barcode)
-    const expectedBarcodeData = job.wo_no;
-    await startJobWithBarcode({
-      jobId: job.job_id,
-      jobTableName: 'production_jobs',
-      stageId: job.current_stage_id,
-      expectedBarcodeData
-    });
+    // Auto-scanning is handled by the barcode listener
+    console.log('Start with barcode initiated - waiting for scan...');
   };
 
   const handleCompleteWithBarcode = async () => {
-    if (!job.current_stage_id) return;
-    
-    // Expect just the work order number (plain text barcode)
-    const expectedBarcodeData = job.wo_no;
-    await completeJobWithBarcode({
-      jobId: job.job_id,
-      jobTableName: 'production_jobs',
-      stageId: job.current_stage_id,
-      expectedBarcodeData
-    });
+    // Auto-scanning is handled by the barcode listener
+    console.log('Complete with barcode initiated - waiting for scan...');
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {/* Global Barcode Listener - only active when modal is open */}
       {isOpen && (
-        <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} />
+        <GlobalBarcodeListener 
+          onBarcodeDetected={handleBarcodeDetected}
+          minLength={5}
+        />
       )}
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full sm:max-w-4xl h-[90vh] overflow-y-auto p-3 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Job Details: {job.wo_no}</span>

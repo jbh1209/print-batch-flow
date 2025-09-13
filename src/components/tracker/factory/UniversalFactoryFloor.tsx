@@ -26,7 +26,17 @@ export const UniversalFactoryFloor = () => {
 
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeQueueFilters, setActiveQueueFilters] = useState<string[]>([]);
+  const [activeQueueFilters, setActiveQueueFilters] = useState<string[]>(() => {
+    // Initialize from saved printer queue selection
+    const savedPrinter = localStorage.getItem('selected_printer_queue');
+    if (savedPrinter) {
+      const normalizedPrinter = savedPrinter.toLowerCase();
+      if (normalizedPrinter.includes('12000')) return ['HP 12000'];
+      if (normalizedPrinter.includes('7900')) return ['HP 7900'];
+      if (normalizedPrinter.includes('t250')) return ['HP T250'];
+    }
+    return [];
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
     try {
@@ -104,8 +114,8 @@ export const UniversalFactoryFloor = () => {
           });
         }
 
-        // Non-printing jobs are always shown
-        return true;
+        // Non-printing jobs are hidden when print queue filters are active
+        return false;
       });
       console.log('🎯 After queue filter:', filtered.length);
     }
