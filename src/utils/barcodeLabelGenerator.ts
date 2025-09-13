@@ -57,22 +57,24 @@ export const generateBarcodeLabelPDF = async (jobs: BarcodeLabelData[]): Promise
         borderWidth: 1,
       });
 
-      // Order number at the top (ensure D prefix)
+      // Calculate barcode dimensions and position first
+      const barcodeWidth = mmToPoints(70); // 70mm barcode width
+      const barcodeHeight = mmToPoints(20); // 20mm barcode height
+      const barcodeX = (labelWidth - barcodeWidth) / 2;
+      const barcodeY = (labelHeight - barcodeHeight) / 2;
+
+      // Order number just above the barcode (ensure D prefix)
       const orderNumber = job.wo_no.startsWith('D') ? job.wo_no : `D${job.wo_no}`;
+      const orderNumberY = barcodeY + barcodeHeight + 8; // 8pt gap above barcode
       currentPage.drawText(orderNumber, {
         x: labelWidth / 2 - boldFont.widthOfTextAtSize(orderNumber, 14) / 2,
-        y: labelHeight - 15,
+        y: orderNumberY,
         size: 14,
         font: boldFont,
         color: rgb(0, 0, 0),
       });
-
-      // Barcode - centered
-      const barcodeWidth = mmToPoints(70); // 70mm barcode width
-      const barcodeHeight = mmToPoints(20); // 20mm barcode height
-      const barcodeX = (labelWidth - barcodeWidth) / 2;
-      const barcodeY = (labelHeight - barcodeHeight) / 2 - 2;
       
+      // Draw the barcode - centered
       currentPage.drawImage(barcodeImage, {
         x: barcodeX,
         y: barcodeY,
@@ -80,8 +82,8 @@ export const generateBarcodeLabelPDF = async (jobs: BarcodeLabelData[]): Promise
         height: barcodeHeight,
       });
 
-      // Additional info at bottom if available
-      let bottomY = 8;
+      // Additional info just below barcode
+      let bottomY = barcodeY - 8; // Start 8pt below barcode
       
       if (job.customer) {
         const customerText = job.customer.length > 30 ? 
