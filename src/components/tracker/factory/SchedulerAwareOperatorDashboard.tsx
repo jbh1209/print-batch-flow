@@ -85,16 +85,30 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
   const handleBarcodeDetected = (barcodeData: string) => {
     if (!selectedJobForDetails) return;
     
-    const cleaned = (barcodeData || "").replace(/\s/g, "");
-    const expected = String(selectedJobForDetails.wo_no || "").replace(/\s/g, "");
+    console.log('🔍 Barcode detected:', barcodeData, 'Expected:', selectedJobForDetails.wo_no);
     
-    if (!cleaned) return;
+    // Robust verification - normalize and allow flexible matching
+    const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const stripLetters = (s: string) => s.replace(/^[A-Z]+/, "");
+
+    const cleanScanned = normalize(barcodeData);
+    const cleanExpected = normalize(selectedJobForDetails.wo_no);
+    const numericScanned = stripLetters(cleanScanned);
+    const numericExpected = stripLetters(cleanExpected);
+
+    const isValid =
+      cleanScanned === cleanExpected ||
+      numericScanned === numericExpected ||
+      cleanScanned.includes(cleanExpected) ||
+      cleanExpected.includes(cleanScanned) ||
+      numericScanned.includes(numericExpected) ||
+      numericExpected.includes(numericScanned);
     
-    if (cleaned.includes(expected) || cleaned === expected) {
+    if (isValid) {
       setScanCompleted(true);
       toast.success("Job barcode matched");
     } else {
-      toast.error("Scanned code does not match this job");
+      toast.error(`Scanned code does not match this job. Expected like: ${selectedJobForDetails.wo_no} (prefix optional). Got: ${barcodeData}`);
     }
   };
   
