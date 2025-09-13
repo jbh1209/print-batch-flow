@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
@@ -181,15 +182,34 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
     return `JOB:${job.wo_no}:STAGE:${job.stage_name}:ID:${job.id}`;
   };
 
+  const handleBarcodeDetected = (barcodeData: string) => {
+    const cleaned = (barcodeData || "").replace(/\s/g, "");
+    const expected = String(job.wo_no || "").replace(/\s/g, "");
+    if (!cleaned) return;
+    if (cleaned.includes(expected) || cleaned === expected) {
+      setScanCompleted(true);
+      toast.success("Job barcode matched");
+    } else {
+      toast.error("Scanned code does not match this job");
+    }
+  };
+
+  useEffect(() => {
+    // Reset scanning state when opening or when job changes
+    setScanCompleted(false);
+    setActiveTab("scanning");
+  }, [job?.id, isOpen]);
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[98vw] sm:max-w-4xl h-[90vh] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Hash className="h-5 w-5" />
             {job.wo_no} - {job.stage_name}
           </DialogTitle>
         </DialogHeader>
+
+        <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} minLength={5} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-4 w-full">
@@ -219,13 +239,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                 </div>
                 
                 {!scanCompleted ? (
-                  <Button 
-                    onClick={() => setScanCompleted(true)}
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Scan className="w-5 h-5 mr-2" />
-                    Confirm Job Scan
-                  </Button>
+                  <div className="text-center text-orange-700 font-medium">
+                    Listening for barcode scan… Present the job QR code to the scanner.
+                  </div>
                 ) : (
                   <div className="text-center text-green-700 font-medium">
                     ✓ Ready to start production

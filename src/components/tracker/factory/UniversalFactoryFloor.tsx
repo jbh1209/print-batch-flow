@@ -30,10 +30,15 @@ export const UniversalFactoryFloor = () => {
     // Initialize from saved printer queue selection
     const savedPrinter = localStorage.getItem('selected_printer_queue');
     if (savedPrinter) {
-      const normalizedPrinter = savedPrinter.toLowerCase();
-      if (normalizedPrinter.includes('12000')) return ['HP 12000'];
-      if (normalizedPrinter.includes('7900')) return ['HP 7900'];
-      if (normalizedPrinter.includes('t250')) return ['HP T250'];
+      try {
+        const parsed = JSON.parse(savedPrinter);
+        const name = String(parsed?.name || '').toLowerCase();
+        if (name.includes('12000')) return ['HP 12000'];
+        if (name.includes('7900')) return ['HP 7900'];
+        if (name.includes('t250')) return ['HP T250'];
+      } catch {
+        // ignore
+      }
     }
     return [];
   });
