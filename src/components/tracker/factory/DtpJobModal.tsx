@@ -107,10 +107,22 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const handleBarcodeDetected = async (barcodeData: string) => {
     console.log('🔍 Barcode detected:', barcodeData, 'Expected:', job.wo_no);
     
-    // Simple verification - compare scanned data to work order number
-    const cleanScanned = barcodeData.trim().toUpperCase();
-    const cleanExpected = job.wo_no.trim().toUpperCase();
-    const isValid = cleanScanned === cleanExpected;
+    // Verification - allow simple variations (prefix letters, extra whitespace)
+    const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const stripLetters = (s: string) => s.replace(/^[A-Z]+/, "");
+
+    const cleanScanned = normalize(barcodeData);
+    const cleanExpected = normalize(job.wo_no);
+    const numericScanned = stripLetters(cleanScanned);
+    const numericExpected = stripLetters(cleanExpected);
+
+    const isValid =
+      cleanScanned === cleanExpected ||
+      numericScanned === numericExpected ||
+      cleanScanned.includes(cleanExpected) ||
+      cleanExpected.includes(cleanScanned) ||
+      numericScanned.includes(numericExpected) ||
+      numericExpected.includes(numericScanned);
     
     if (isValid) {
       // Auto-proceed after successful scan
@@ -135,7 +147,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         }
       }
     } else {
-      toast.error(`Wrong barcode scanned. Expected: ${job.wo_no}, Got: ${barcodeData}`);
+      toast.error(`Wrong barcode scanned. Expected like: ${job.wo_no} (prefix optional). Got: ${barcodeData}`);
     }
   };
 
