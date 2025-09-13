@@ -4,6 +4,7 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "../../common/JobActionButtons";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
+import { JobActionState, BarcodeJobAction } from "@/hooks/tracker/useBarcodeControlledActions";
 
 interface StageInstance {
   id: string;
@@ -33,6 +34,10 @@ interface DtpJobActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   onModalDataRefresh?: () => void;
+  onStartWithBarcode?: () => Promise<void>;
+  onCompleteWithBarcode?: () => Promise<void>;
+  barcodeActionState?: JobActionState;
+  currentBarcodeAction?: BarcodeJobAction | null;
 }
 
 export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
@@ -51,7 +56,11 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onModalDataRefresh
+  onModalDataRefresh,
+  onStartWithBarcode,
+  onCompleteWithBarcode,
+  barcodeActionState,
+  currentBarcodeAction
 }) => {
   if (currentStage === 'dtp') {
     return (
@@ -65,6 +74,10 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onRefresh={onRefresh}
         onClose={onClose}
         onJobStatusUpdate={onJobStatusUpdate}
+        onStartWithBarcode={onStartWithBarcode}
+        onCompleteWithBarcode={onCompleteWithBarcode}
+        barcodeActionState={barcodeActionState}
+        currentBarcodeAction={currentBarcodeAction}
       />
     );
   }

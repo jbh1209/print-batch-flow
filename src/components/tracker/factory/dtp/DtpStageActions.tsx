@@ -1,11 +1,12 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Play, CheckCircle, Package } from "lucide-react";
+import { Play, CheckCircle, Package, Scan } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { JobActionState, BarcodeJobAction } from "@/hooks/tracker/useBarcodeControlledActions";
 
 interface DtpStageActionsProps {
   job: AccessibleJob;
@@ -17,6 +18,10 @@ interface DtpStageActionsProps {
   onRefresh?: () => void;
   onClose: () => void;
   onJobStatusUpdate: (status: string, stageStatus: string) => void;
+  onStartWithBarcode?: () => Promise<void>;
+  onCompleteWithBarcode?: () => Promise<void>;
+  barcodeActionState?: JobActionState;
+  currentBarcodeAction?: BarcodeJobAction | null;
 }
 
 export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
@@ -28,7 +33,11 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
   onComplete,
   onRefresh,
   onClose,
-  onJobStatusUpdate
+  onJobStatusUpdate,
+  onStartWithBarcode,
+  onCompleteWithBarcode,
+  barcodeActionState,
+  currentBarcodeAction
 }) => {
   const { user } = useAuth();
 
@@ -152,34 +161,82 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
     }
   };
 
+  // Show scanning state if barcode action is in progress
+  const isScanning = barcodeActionState === 'scanning';
+  const isBarcodeProcessing = barcodeActionState === 'working' || barcodeActionState === 'completing';
+
   if (stageStatus === 'pending') {
     return (
-      <Button 
-        onClick={handleStartDTP}
-        disabled={isLoading}
-        className="w-full bg-green-600 hover:bg-green-700"
-      >
-        <Play className="h-4 w-4 mr-2" />
-        Start DTP Work
-      </Button>
+      <div className="space-y-2">
+        {/* Barcode scan button for starting */}
+        <Button 
+          onClick={onStartWithBarcode || handleStartDTP}
+          disabled={isLoading || isBarcodeProcessing}
+          className="w-full bg-green-600 hover:bg-green-700"
+        >
+          {isScanning ? (
+            <>
+              <Scan className="h-4 w-4 mr-2 animate-pulse" />
+              Scan Barcode to Start
+            </>
+          ) : (
+            <>
+              <Scan className="h-4 w-4 mr-2" />
+              Scan & Start DTP Work
+            </>
+          )}
+        </Button>
+        
+        {/* Fallback traditional button */}
+        <Button 
+          onClick={handleStartDTP}
+          disabled={isLoading || isBarcodeProcessing}
+          variant="outline"
+          className="w-full"
+        >
+          <Play className="h-4 w-4 mr-2" />
+          Start Without Scan
+        </Button>
+      </div>
     );
   }
 
   if (stageStatus === 'active') {
     return (
       <div className="space-y-2">
+        {/* Barcode scan button for completion */}
         <Button 
-          onClick={handleCompleteDTP}
-          disabled={isLoading}
+          onClick={onCompleteWithBarcode || handleCompleteDTP}
+          disabled={isLoading || isBarcodeProcessing}
           className="w-full bg-blue-600 hover:bg-blue-700"
         >
+          {isScanning && barcodeActionState === 'scanning' ? (
+            <>
+              <Scan className="h-4 w-4 mr-2 animate-pulse" />
+              Scan Barcode to Complete
+            </>
+          ) : (
+            <>
+              <Scan className="h-4 w-4 mr-2" />
+              Scan & Complete DTP
+            </>
+          )}
+        </Button>
+        
+        {/* Traditional completion button */}
+        <Button 
+          onClick={handleCompleteDTP}
+          disabled={isLoading || isBarcodeProcessing}
+          variant="outline"
+          className="w-full"
+        >
           <CheckCircle className="h-4 w-4 mr-2" />
-          Complete DTP (to Proof)
+          Complete Without Scan
         </Button>
         
         <Button 
           onClick={handleSendToBatching}
-          disabled={isLoading}
+          disabled={isLoading || isBarcodeProcessing}
           variant="outline"
           className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
         >

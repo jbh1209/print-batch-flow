@@ -20,6 +20,9 @@ import { useDtpJobModal } from "./dtp/useDtpJobModal";
 import { ConditionalStageRenderer } from "./ConditionalStageRenderer";
 import { BatchSplitDetector } from "../batch/BatchSplitDetector";
 import { BatchSplitDialog } from "../batch/BatchSplitDialog";
+import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
+import { useBarcodeControlledActions } from "@/hooks/tracker/useBarcodeControlledActions";
+import { generateQRCodeData } from "@/utils/qrCodeGenerator";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -55,6 +58,17 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setSelectedBatchCategory
   } = useDtpJobModal(job, isOpen);
 
+  // Barcode scanning integration
+  const {
+    actionState,
+    currentAction,
+    scanResult,
+    startJobWithBarcode,
+    completeJobWithBarcode,
+    processBarcodeForAction,
+    cancelAction
+  } = useBarcodeControlledActions();
+
   // Reset local state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -84,8 +98,51 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     onRefresh?.(); // Also refresh the parent component to get updated job data
   };
 
+  // Handle barcode scan
+  const handleBarcodeDetected = async (barcodeData: string) => {
+    // Only process barcodes if we have an active action waiting for scan
+    if (currentAction && actionState === 'scanning') {
+      await processBarcodeForAction(barcodeData);
+    }
+  };
+
+  // Create barcode-enabled action handlers
+  const handleStartWithBarcode = async () => {
+    if (!job.current_stage_id) return;
+    
+    const expectedBarcodeData = generateQRCodeData({
+      wo_no: job.wo_no,
+      job_id: job.job_id
+    });
+    await startJobWithBarcode({
+      jobId: job.job_id,
+      jobTableName: 'production_jobs',
+      stageId: job.current_stage_id,
+      expectedBarcodeData
+    });
+  };
+
+  const handleCompleteWithBarcode = async () => {
+    if (!job.current_stage_id) return;
+    
+    const expectedBarcodeData = generateQRCodeData({
+      wo_no: job.wo_no,
+      job_id: job.job_id
+    });
+    await completeJobWithBarcode({
+      jobId: job.job_id,
+      jobTableName: 'production_jobs',
+      stageId: job.current_stage_id,
+      expectedBarcodeData
+    });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
+      {/* Global Barcode Listener - only active when modal is open */}
+      {isOpen && (
+        <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} />
+      )}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
@@ -162,6 +219,10 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             onProofApprovalFlowChange={setProofApprovalFlow}
             onBatchCategoryChange={setSelectedBatchCategory}
             onModalDataRefresh={handleModalDataRefresh}
+            onStartWithBarcode={handleStartWithBarcode}
+            onCompleteWithBarcode={handleCompleteWithBarcode}
+            barcodeActionState={actionState}
+            currentBarcodeAction={currentAction}
           />
         </div>
 
