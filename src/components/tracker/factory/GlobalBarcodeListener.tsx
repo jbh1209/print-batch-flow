@@ -59,12 +59,14 @@ export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
       }
     };
 
-    // Add event listener
+    // Add event listeners for both keypress and keydown
     window.addEventListener('keypress', handleKeyPress);
+    window.addEventListener('keydown', handleKeyPress);
 
     // Cleanup
     return () => {
       window.removeEventListener('keypress', handleKeyPress);
+      window.removeEventListener('keydown', handleKeyPress);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }

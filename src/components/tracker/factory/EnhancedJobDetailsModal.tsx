@@ -43,6 +43,7 @@ interface EnhancedJobDetailsModalProps {
   onClose: () => void;
   onStartJob?: (jobId: string) => Promise<boolean>;
   onCompleteJob?: (jobId: string) => Promise<boolean>;
+  scanCompleted?: boolean;
 }
 
 export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = ({
@@ -50,15 +51,25 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   isOpen,
   onClose,
   onStartJob,
-  onCompleteJob
+  onCompleteJob,
+  scanCompleted: externalScanCompleted = false
 }) => {
   const [operatorNotes, setOperatorNotes] = useState("");
   const [reworkReason, setReworkReason] = useState("");
   const [qualityIssue, setQualityIssue] = useState("");
   const [activeTab, setActiveTab] = useState("scanning");
   const [scanRequired, setScanRequired] = useState(true);
-  const [scanCompleted, setScanCompleted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Use external scan state (managed by parent)
+  const scanCompleted = externalScanCompleted;
+
+  // Reset tab when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab("scanning");
+    }
+  }, [isOpen]);
 
   if (!job) return null;
 
@@ -118,6 +129,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   };
 
   const statusInfo = getStatusInfo();
+  const StatusIcon = statusInfo.icon;
 
   const handleStartJob = async () => {
     if (!onStartJob) return;
@@ -182,23 +194,6 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
     return `JOB:${job.wo_no}:STAGE:${job.stage_name}:ID:${job.id}`;
   };
 
-  const handleBarcodeDetected = (barcodeData: string) => {
-    const cleaned = (barcodeData || "").replace(/\s/g, "");
-    const expected = String(job.wo_no || "").replace(/\s/g, "");
-    if (!cleaned) return;
-    if (cleaned.includes(expected) || cleaned === expected) {
-      setScanCompleted(true);
-      toast.success("Job barcode matched");
-    } else {
-      toast.error("Scanned code does not match this job");
-    }
-  };
-
-  useEffect(() => {
-    // Reset scanning state when opening or when job changes
-    setScanCompleted(false);
-    setActiveTab("scanning");
-  }, [job?.id, isOpen]);
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[98vw] sm:max-w-4xl h-[90vh] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
@@ -208,8 +203,6 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
             {job.wo_no} - {job.stage_name}
           </DialogTitle>
         </DialogHeader>
-
-        <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} minLength={5} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-4 w-full">
@@ -274,7 +267,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                   </div>
                   <div className="text-right space-y-3">
                     <Badge className={`${statusInfo.color} border px-4 py-2 text-lg`}>
-                      <statusInfo.icon className="w-5 h-5 mr-2" />
+                      <StatusIcon className="w-5 h-5 mr-2" />
                       {statusInfo.text}
                     </Badge>
                     <div className="text-lg font-medium text-gray-700">
@@ -311,7 +304,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                   </div>
                   <div className="text-right space-y-2">
                     <Badge className={`${statusInfo.color} border px-4 py-2 text-sm`}>
-                      <statusInfo.icon className="w-4 h-4 mr-2" />
+                      <StatusIcon className="w-4 h-4 mr-2" />
                       {statusInfo.text}
                     </Badge>
                     {job.queue_position && (

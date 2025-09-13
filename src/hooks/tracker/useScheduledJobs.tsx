@@ -393,14 +393,18 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         error = result.error;
       }
 
-      if (error) throw error;
+      if (error) {
+        const errorMessage = error.message || 'Unknown database error';
+        throw new Error(`Failed to complete job: ${errorMessage}`);
+      }
 
       toast.success(`Completed job ${job.wo_no} - ${job.stage_name}`);
       await fetchScheduledJobs();
       return true;
     } catch (error) {
       console.error('❌ Error completing scheduled job:', error);
-      toast.error('Failed to complete job');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to complete job';
+      toast.error(errorMessage);
       return false;
     }
   }, [scheduledJobs, user?.id, fetchScheduledJobs]);

@@ -26,6 +26,7 @@ import { SupervisorOverrideModal } from "./SupervisorOverrideModal";
 import { BatchStartModal } from "./BatchStartModal";
 import { PrinterQueueSelector } from "./PrinterQueueSelector";
 import { EnhancedJobDetailsModal } from "./EnhancedJobDetailsModal";
+import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { useConcurrentJobManagement } from "@/hooks/tracker/useConcurrentJobManagement";
 import { toast } from "sonner";
 
@@ -44,29 +45,58 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
   const [supervisorOverrideJob, setSupervisorOverrideJob] = useState<any>(null);
   const [showBatchStartModal, setShowBatchStartModal] = useState(false);
   
-  // Printer queue selection state
-  const [selectedPrinterId, setSelectedPrinterId] = useState<string | undefined>(production_stage_id);
-  const [selectedPrinterInfo, setSelectedPrinterInfo] = useState<any>(null);
+  // Printer queue selection state - initialize from localStorage synchronously
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string | undefined>(() => {
+    if (production_stage_id) return production_stage_id;
+    
+    const saved = localStorage.getItem('selected_printer_queue');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.id;
+      } catch (e) {
+        localStorage.removeItem('selected_printer_queue');
+      }
+    }
+    return undefined;
+  });
+  const [selectedPrinterInfo, setSelectedPrinterInfo] = useState<any>(() => {
+    if (production_stage_id) return null;
+    
+    const saved = localStorage.getItem('selected_printer_queue');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        localStorage.removeItem('selected_printer_queue');
+      }
+    }
+    return null;
+  });
+  
+  // Barcode scanning state
+  const [scanCompleted, setScanCompleted] = useState(false);
   
   // Job details modal state
   const [selectedJobForDetails, setSelectedJobForDetails] = useState<ScheduledJobStage | null>(null);
   const [showJobDetailsModal, setShowJobDetailsModal] = useState(false);
 
-  // Load saved printer selection on mount
-  useEffect(() => {
-    if (!production_stage_id) {
-      const saved = localStorage.getItem('selected_printer_queue');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setSelectedPrinterId(parsed.id);
-          setSelectedPrinterInfo(parsed);
-        } catch (e) {
-          localStorage.removeItem('selected_printer_queue');
-        }
-      }
+  // Global barcode handler
+  const handleBarcodeDetected = (barcodeData: string) => {
+    if (!selectedJobForDetails) return;
+    
+    const cleaned = (barcodeData || "").replace(/\s/g, "");
+    const expected = String(selectedJobForDetails.wo_no || "").replace(/\s/g, "");
+    
+    if (!cleaned) return;
+    
+    if (cleaned.includes(expected) || cleaned === expected) {
+      setScanCompleted(true);
+      toast.success("Job barcode matched");
+    } else {
+      toast.error("Scanned code does not match this job");
     }
-  }, [production_stage_id]);
+  };
   
   // Memoize options to prevent infinite loop
   const scheduledJobsOptions = React.useMemo(() => ({
@@ -130,6 +160,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     } else {
       setSelectedJobForDetails(job);
       setShowJobDetailsModal(true);
+      setScanCompleted(false); // Reset scan state for new job
     }
   };
 
@@ -142,6 +173,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     const success = await startScheduledJob(jobId);
     if (success) {
       setShowJobDetailsModal(false);
+      setScanCompleted(false);
       refreshJobs();
     }
     return success;
@@ -151,6 +183,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     const success = await completeScheduledJob(jobId);
     if (success) {
       setShowJobDetailsModal(false);
+      setScanCompleted(false);
       refreshJobs();
     }
     return success;
@@ -222,6 +255,11 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Global Barcode Listener - Only active when modal is open */}
+      {showJobDetailsModal && selectedJobForDetails && (
+        <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} minLength={5} />
+      )}
+      
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -458,6 +496,7 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
         }}
         onStartJob={handleStartJobFromModal}
         onCompleteJob={handleCompleteJobFromModal}
+        scanCompleted={scanCompleted}
       />
     </div>
   );
