@@ -3124,20 +3124,13 @@ export type Database = {
         Returns: string
       }
       advance_job_stage: {
-        Args:
-          | {
-              p_completed_by?: string
-              p_current_stage_id: string
-              p_job_id: string
-              p_job_table_name: string
-              p_notes?: string
-            }
-          | {
-              p_current_stage_id: string
-              p_job_id: string
-              p_job_table_name: string
-              p_notes?: string
-            }
+        Args: {
+          p_completed_by?: string
+          p_current_stage_id: string
+          p_job_id: string
+          p_job_table_name: string
+          p_notes?: string
+        }
         Returns: boolean
       }
       advance_job_stage_with_groups: {
