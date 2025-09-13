@@ -64,9 +64,8 @@ export const useBarcodeControlledActions = () => {
       return false;
     }
     
-    // Match both WO number and job ID partial
-    return scannedParsed.wo_no === expectedParsed.wo_no && 
-           scannedParsed.job_id_partial === expectedParsed.job_id_partial;
+    // Match work order numbers only (simpler, more reliable scanning)
+    return scannedParsed.wo_no === expectedParsed.wo_no;
   }, []);
 
   // Process barcode scan during job actions
