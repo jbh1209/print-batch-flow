@@ -52,38 +52,29 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
       return;
     }
 
-    // Fallback to direct database call
+    // Fallback using safe helper (no duplicate toasts)
     try {
-      const { error: startError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          status: 'active',
-          started_at: new Date().toISOString(),
-          started_by: user?.id
-        })
-        .eq('job_id', job.job_id)
-        .eq('production_stage_id', job.current_stage_id)
-        .eq('job_table_name', 'production_jobs')
-        .eq('status', 'pending');
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      const { startJobStage } = await import('@/hooks/tracker/useAccessibleJobs/utils/jobCompletionUtils');
+      const success = await startJobStage(job.job_id, job.current_stage_id, user.id, 'production_jobs');
+      
+      if (success) {
+        const { error: jobError } = await supabase
+          .from('production_jobs')
+          .update({
+            status: 'In Progress',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.job_id);
 
-      if (startError) throw startError;
+        if (jobError) throw jobError;
 
-      const { error: jobError } = await supabase
-        .from('production_jobs')
-        .update({
-          status: 'In Progress',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.job_id);
-
-      if (jobError) throw jobError;
-
-      onJobStatusUpdate('In Progress', 'active');
-      toast.success("DTP work started");
-      onRefresh?.();
+        onJobStatusUpdate('In Progress', 'active');
+        onRefresh?.();
+      }
     } catch (error) {
       console.error('Error starting DTP:', error);
-      toast.error("Failed to start DTP work");
     }
   };
 
@@ -98,33 +89,30 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
       return;
     }
 
-    // Fallback to direct database call
+    // Fallback to safe helper (no duplicate toasts)
     try {
+      const { completeJobStage } = await import('@/hooks/tracker/useAccessibleJobs/utils/jobCompletionUtils');
       const success = job.current_stage_id
-        ? await completeJobStage(job.job_id, job.current_stage_id)
+        ? await completeJobStage(job.job_id, job.current_stage_id, 'production_jobs', 'DTP work completed')
         : false;
 
-      if (!success) {
-        throw new Error('Stage completion failed');
+      if (success) {
+        const { error: jobError } = await supabase
+          .from('production_jobs')
+          .update({
+            status: 'Ready for Proof',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.job_id);
+
+        if (jobError) throw jobError;
+
+        onJobStatusUpdate('Ready for Proof', 'completed');
+        onRefresh?.();
+        onClose();
       }
-
-      const { error: jobError } = await supabase
-        .from('production_jobs')
-        .update({
-          status: 'Ready for Proof',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.job_id);
-
-      if (jobError) throw jobError;
-
-      toast.success("DTP completed - moved to Proof");
-      onJobStatusUpdate('Ready for Proof', 'completed');
-      onRefresh?.();
-      onClose();
     } catch (error: any) {
       console.error('Error completing DTP:', error);
-      toast.error(`Failed to complete DTP work: ${error.message || 'Unknown error'}`);
     }
   };
 

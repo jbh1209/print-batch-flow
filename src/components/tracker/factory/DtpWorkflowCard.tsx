@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
 import { DtpWorkflowActions } from "./dtp/DtpWorkflowActions";
+import { startJobStage, completeJobStage } from "@/hooks/tracker/useAccessibleJobs/utils/jobCompletionUtils";
 
 interface DtpWorkflowCardProps {
   job: AccessibleJob;
@@ -71,36 +72,26 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   };
 
   const handleStartDTP = async () => {
+    if (!user?.id) return;
+    
     setIsLoading(true);
     try {
-      const { error: startError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          status: 'active',
-          started_at: new Date().toISOString(),
-          started_by: user?.id
-        })
-        .eq('job_id', job.job_id)
-        .eq('production_stage_id', job.current_stage_id)
-        .eq('status', 'pending');
-
-      if (startError) throw startError;
-
-      const { error: jobError } = await supabase
-        .from('production_jobs')
-        .update({
-          status: 'In Progress',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.job_id);
-
-      if (jobError) throw jobError;
-
-      toast.success("DTP work started - job marked as In Progress");
-      onRefresh();
+      const success = await startJobStage(job.job_id, job.current_stage_id, user.id, 'production_jobs');
+      
+      if (success) {
+        // Update job status after successful stage start
+        await supabase
+          .from('production_jobs')
+          .update({
+            status: 'In Progress',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.job_id);
+          
+        onRefresh();
+      }
     } catch (error) {
       console.error('Error starting DTP:', error);
-      toast.error("Failed to start DTP work");
     } finally {
       setIsLoading(false);
     }
@@ -109,30 +100,22 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   const handleCompleteDTP = async () => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.rpc('advance_job_stage', {
-        p_job_id: job.job_id,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: job.current_stage_id,
-        p_notes: 'DTP work completed'
-      });
-
-      if (error) throw error;
-
-      const { error: jobError } = await supabase
-        .from('production_jobs')
-        .update({
-          status: 'Ready for Proof',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.job_id);
-
-      if (jobError) throw jobError;
-
-      toast.success("DTP completed - job moved to Proof stage");
-      onRefresh();
+      const success = await completeJobStage(job.job_id, job.current_stage_id, 'production_jobs', 'DTP work completed');
+      
+      if (success) {
+        // Update job status after successful completion
+        await supabase
+          .from('production_jobs')
+          .update({
+            status: 'Ready for Proof',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.job_id);
+          
+        onRefresh();
+      }
     } catch (error) {
       console.error('Error completing DTP:', error);
-      toast.error("Failed to complete DTP work");
     } finally {
       setIsLoading(false);
     }
