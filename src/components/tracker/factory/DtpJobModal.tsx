@@ -11,9 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { JobOverviewCard } from "./JobOverviewCard";
-import { CurrentStageCard } from "./CurrentStageCard";
-import { JobNotesCard } from "./JobNotesCard";
+import { CompactJobDetailsCard } from "./CompactJobDetailsCard";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { DtpJobActions } from "./dtp/DtpJobActions";
 import { useDtpJobModal } from "./dtp/useDtpJobModal";
@@ -184,10 +182,13 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <JobOverviewCard job={job} />
-          <CurrentStageCard job={{...job, status: localJobStatus, current_stage_status: localStageStatus}} statusInfo={statusBadgeInfo} />
-          <JobNotesCard notes={notes} onNotesChange={setNotes} />
+        <div className="space-y-4">
+          <CompactJobDetailsCard 
+            job={{...job, status: localJobStatus, current_stage_status: localStageStatus}} 
+            statusInfo={statusBadgeInfo}
+            notes={notes}
+            onNotesChange={setNotes}
+          />
         </div>
 
         {/* Conditional Stage Renderer - shows for batch allocation and other conditional stages */}
