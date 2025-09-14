@@ -217,8 +217,23 @@ export const useUserRole = (): UserRoleResponse => {
           stageNames: effectiveWorkableStages.map(s => s.stage_name)
         });
 
+        // Enhanced DTP operator detection
+        const isDtpGroup = groupNames.some(name => name.toLowerCase() === 'dtp');
+        const hasDtpStages = dtpRelatedStages.length > 0;
+        const hasOnlyDtpStages = hasDtpStages && printingRelatedStages.length === 0;
+        
+        console.log('🎯 DTP detection analysis:', {
+          isDtpGroup,
+          hasDtpStages,
+          hasOnlyDtpStages,
+          dtpStagesCount: dtpRelatedStages.length,
+          printingStagesCount: printingRelatedStages.length,
+          dtpStageNames: dtpRelatedStages.map(s => s.stage_name),
+          printingStageNames: printingRelatedStages.map(s => s.stage_name)
+        });
+
         // Role determination with enhanced logic and fallbacks
-        if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
+        if (isDtpGroup || hasOnlyDtpStages || (hasDtpStages && dtpRelatedStages.length >= printingRelatedStages.length)) {
           console.log('🔑 User determined as dtp_operator');
           setUserRole('dtp_operator');
         } else if (effectiveWorkableStages.length > 0 || isInOperatorGroup) {
