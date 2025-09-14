@@ -3,8 +3,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle, Edit3, Trash2, RotateCcw, Plus } from "lucide-react";
+import { AlertTriangle, CheckCircle, Edit3, Trash2, RotateCcw, Plus, Lightbulb, X, Check } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { RowMappingResult } from "@/utils/excel/types";
+import type { IntelligentSuggestion } from "@/utils/excel/learningEngine";
 
 interface StageSpecification {
   id: string;
@@ -17,10 +19,13 @@ interface RowMappingTableProps {
   availableStages: { id: string; name: string; category: string }[];
   stageSpecifications: { [stageId: string]: StageSpecification[] };
   workOrderNumber: string;
+  suggestions?: IntelligentSuggestion[];
   onUpdateMapping: (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => void;
   onToggleManualOverride: (woNo: string, rowIndex: number) => void;
   onIgnoreRow?: (woNo: string, rowIndex: number) => void;
   onRestoreRow?: (woNo: string, rowIndex: number) => void;
+  onAcceptSuggestion?: (suggestionId: string, suggestion: IntelligentSuggestion) => void;
+  onRejectSuggestion?: (suggestionId: string) => void;
 }
 
 export const RowMappingTable: React.FC<RowMappingTableProps> = ({
@@ -28,10 +33,13 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
   availableStages,
   stageSpecifications,
   workOrderNumber,
+  suggestions = [],
   onUpdateMapping,
   onToggleManualOverride,
   onIgnoreRow,
-  onRestoreRow
+  onRestoreRow,
+  onAcceptSuggestion,
+  onRejectSuggestion
 }) => {
   const getConfidenceColor = (confidence: number, isUnmapped: boolean) => {
     if (isUnmapped) return "bg-red-100 text-red-700";
@@ -59,6 +67,28 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
   // Create unique identifier for each row mapping to handle multi-rows correctly
   const getUniqueRowId = (mapping: RowMappingResult) => {
     return mapping.customRowId || `${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}-${mapping.instanceId || ''}`;
+  };
+
+  // Get suggestions for a specific row
+  const getSuggestionsForRow = (rowIndex: number) => {
+    return suggestions.filter(suggestion => {
+      const mapping = suggestion.suggested_mapping as any;
+      return mapping?.wo_no === workOrderNumber && mapping?.row_index === rowIndex;
+    });
+  };
+
+  // Get suggestion badge color
+  const getSuggestionColor = (suggestionType: string) => {
+    switch (suggestionType) {
+      case 'highlighted_suggestion':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'auto_correction':
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'warning':
+        return 'bg-green-100 text-green-700 border-green-200';
+      default:
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
   };
 
   const unmappedCount = rowMappings.filter(m => m.isUnmapped && !m.ignored).length;
@@ -98,18 +128,20 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
               <TableHead className="min-w-[250px]">Mapped Stage + Sub-Spec</TableHead>
               <TableHead className="min-w-[120px]">Paper/Spec</TableHead>
               <TableHead className="min-w-[100px] w-24">Confidence</TableHead>
-              <TableHead className="min-w-[140px]">Actions</TableHead>
+              <TableHead className="min-w-[180px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
         <TableBody>
           {rowMappings.map((mapping, index) => {
             const isIgnored = mapping.ignored;
             const isCustom = mapping.isCustomRow;
+            const rowSuggestions = getSuggestionsForRow(mapping.excelRowIndex);
+            const hasSuggestions = rowSuggestions.length > 0;
             
             return (
               <TableRow 
                 key={getUniqueRowId(mapping)} 
-                className={`${mapping.isUnmapped ? "bg-red-50" : ""} ${isIgnored ? "opacity-50" : ""}`}
+                className={`${mapping.isUnmapped ? "bg-red-50" : ""} ${isIgnored ? "opacity-50" : ""} ${hasSuggestions ? "border-l-4 border-l-amber-400" : ""}`}
               >
                 <TableCell className="font-mono text-sm">
                   <div className="flex items-center gap-1">
@@ -250,47 +282,102 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                 )}
               </TableCell>
               <TableCell>
-                <div className="flex items-center gap-1">
-                  {!isIgnored ? (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
-                        className="h-8 w-8 p-0"
-                        title={`Edit row ${isCustom ? 'custom' : mapping.excelRowIndex + 1}: ${mapping.groupName}`}
-                      >
-                        {mapping.manualOverride ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <Edit3 className="h-4 w-4" />
-                        )}
-                      </Button>
-                      {onIgnoreRow && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {/* Smart Suggestions */}
+                  {hasSuggestions && (
+                    <TooltipProvider>
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {rowSuggestions.map((suggestion) => (
+                          <Tooltip key={suggestion.id}>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs cursor-pointer ${getSuggestionColor(suggestion.suggestion_type)}`}
+                                >
+                                  <Lightbulb className="h-3 w-3 mr-1" />
+                                  {suggestion.suggestion_type === 'highlighted_suggestion' ? 'Alert' : 
+                                   suggestion.suggestion_type === 'auto_correction' ? 'Fix' : 'Warning'}
+                                </Badge>
+                                {onAcceptSuggestion && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onAcceptSuggestion(suggestion.id, suggestion)}
+                                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="Apply this suggestion"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {onRejectSuggestion && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onRejectSuggestion(suggestion.id)}
+                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    title="Reject this suggestion"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="space-y-1">
+                                <p className="font-medium">{suggestion.reasoning}</p>
+                                <p className="text-xs opacity-80">Confidence: {suggestion.confidence_level}</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </TooltipProvider>
+                  )}
+
+                  {/* Standard Actions */}
+                  <div className="flex items-center gap-1">
+                    {!isIgnored ? (
+                      <>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onIgnoreRow(workOrderNumber, mapping.excelRowIndex)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Ignore this row"
+                          onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
+                          className="h-8 w-8 p-0"
+                          title={`Edit row ${isCustom ? 'custom' : mapping.excelRowIndex + 1}: ${mapping.groupName}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {mapping.manualOverride ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Edit3 className="h-4 w-4" />
+                          )}
                         </Button>
-                      )}
-                    </>
-                  ) : (
-                    onRestoreRow && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onRestoreRow(workOrderNumber, mapping.excelRowIndex)}
-                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        title="Restore this row"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    )
-                  )}
+                        {onIgnoreRow && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onIgnoreRow(workOrderNumber, mapping.excelRowIndex)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Ignore this row"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      onRestoreRow && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onRestoreRow(workOrderNumber, mapping.excelRowIndex)}
+                          className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="Restore this row"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </div>
               </TableCell>
             </TableRow>
