@@ -15,6 +15,7 @@ interface JobActionButtonsProps {
   job: AccessibleJob;
   onStart: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
+  onJobClick?: (job: AccessibleJob) => void;
   onHold?: (jobId: string, reason: string) => Promise<boolean>;
   onJobUpdated?: () => void;
   size?: "sm" | "default" | "lg";
@@ -30,6 +31,7 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
   job,
   onStart,
   onComplete,
+  onJobClick,
   onHold,
   onJobUpdated = () => {},
   size = "sm",
@@ -133,7 +135,7 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
       {showCompleteButton && (
         <Button 
           size={size}
-          onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id!))}
+          onClick={() => onJobClick ? onJobClick(job) : handleAction(() => onComplete(job.job_id, job.current_stage_id!))}
           className={`flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white ${buttonClass}`}
           disabled={isActionInProgress}
         >

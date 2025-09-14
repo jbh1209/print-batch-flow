@@ -180,6 +180,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     console.log('Complete with barcode initiated - waiting for scan...');
   };
 
+  // Ensure window focus when modal opens to capture barcode input
+  React.useEffect(() => {
+    if (isOpen) {
+      // Focus the window to ensure barcode capture works
+      window.focus();
+      // Show listening state
+      console.log('🎧 Modal opened - listening for barcode input...');
+    }
+  }, [isOpen]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {/* Global Barcode Listener - only active when modal is open */}
@@ -199,8 +209,23 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             >
               {statusBadgeInfo.text}
             </Badge>
+            {/* Barcode listening indicator */}
+            <div className="ml-auto">
+              <Badge variant="outline" className="text-xs bg-green-50 border-green-300 text-green-700">
+                🎧 Listening for barcode...
+              </Badge>
+            </div>
           </DialogTitle>
         </DialogHeader>
+
+        {/* Enhanced barcode feedback */}
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-700">
+            <strong>Barcode Ready:</strong> Scan or type work order number{" "}
+            <code className="bg-blue-100 px-1 rounded">{job.wo_no}</code>{" "}
+            to {localStageStatus === 'pending' ? 'start' : 'complete'} this job.
+          </p>
+        </div>
 
         <div className="space-y-4">
           <CompactJobDetailsCard 
