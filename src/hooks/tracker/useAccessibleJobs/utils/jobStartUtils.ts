@@ -24,6 +24,7 @@ export const startJobStage = async (
         started_by: (await supabase.auth.getUser()).data.user?.id
       })
       .eq('job_id', jobId)
+      .eq('job_table_name', 'production_jobs')
       .eq('production_stage_id', stageId)
       .eq('status', 'pending');
 
