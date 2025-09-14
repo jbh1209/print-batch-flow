@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { 
   LayoutDashboard, 
   Package, 
@@ -15,12 +16,17 @@ import {
 
 const TrackerSidebar = () => {
   const location = useLocation();
+  const { userRole } = useUserRole();
   
   const navigation = [
     { name: "Dashboard", href: "/tracker", icon: LayoutDashboard },
     { name: "Production", href: "/tracker/production", icon: Package },
     { name: "Kanban", href: "/tracker/kanban", icon: Layers },
-    { name: "Factory Floor", href: "/tracker/factory-floor", icon: Factory },
+    { 
+      name: userRole === 'dtp_operator' ? "DTP Workflow" : "Factory Floor", 
+      href: userRole === 'dtp_operator' ? "/tracker/dtp-workflow" : "/tracker/factory-floor", 
+      icon: Factory 
+    },
     { name: "Analytics", href: "/tracker/analytics", icon: BarChart3 },
     { name: "Worksheets", href: "/tracker/worksheets", icon: FileSpreadsheet },
     { name: "Users", href: "/tracker/users", icon: Users },

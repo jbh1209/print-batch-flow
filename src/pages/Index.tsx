@@ -19,8 +19,13 @@ const Index = () => {
 
     // If user is authenticated and role is loaded, check for operator redirect
     if (!authLoading && !roleLoading && user) {
-      // Redirect operators directly to factory floor
-      if (userRole === 'operator' || userRole === 'dtp_operator') {
+      // Redirect DTP operators to their specialized workflow
+      if (userRole === 'dtp_operator') {
+        navigate('/tracker/dtp-workflow');
+        return;
+      }
+      // Redirect regular operators to factory floor
+      if (userRole === 'operator') {
         navigate('/tracker/factory-floor');
         return;
       }
