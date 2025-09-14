@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { JobActionState, BarcodeJobAction } from "@/hooks/tracker/useBarcodeControlledActions";
+import { completeJobStage } from "@/hooks/tracker/useAccessibleJobs/utils/jobCompletionUtils";
 
 interface DtpStageActionsProps {
   job: AccessibleJob;
@@ -62,6 +63,7 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
         })
         .eq('job_id', job.job_id)
         .eq('production_stage_id', job.current_stage_id)
+        .eq('job_table_name', 'production_jobs')
         .eq('status', 'pending');
 
       if (startError) throw startError;
@@ -98,14 +100,13 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
 
     // Fallback to direct database call
     try {
-      const { error } = await supabase.rpc('advance_job_stage', {
-        p_job_id: job.job_id,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: job.current_stage_id,
-        p_notes: notes || 'DTP work completed'
-      });
+      const success = job.current_stage_id
+        ? await completeJobStage(job.job_id, job.current_stage_id)
+        : false;
 
-      if (error) throw error;
+      if (!success) {
+        throw new Error('Stage completion failed');
+      }
 
       const { error: jobError } = await supabase
         .from('production_jobs')
@@ -121,9 +122,9 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
       onJobStatusUpdate('Ready for Proof', 'completed');
       onRefresh?.();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing DTP:', error);
-      toast.error("Failed to complete DTP work");
+      toast.error(`Failed to complete DTP work: ${error.message || 'Unknown error'}`);
     }
   };
 
