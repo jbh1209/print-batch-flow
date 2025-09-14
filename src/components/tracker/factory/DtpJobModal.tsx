@@ -75,7 +75,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       loadModalData();
       
       // Auto-start scanning based on stage status
-      const currentStageStatus = job.current_stage_status;
+      const currentStageStatus = localStageStatus;
       if (currentStageStatus === 'pending') {
         handleStartWithBarcode();
       } else if (currentStageStatus === 'active') {
@@ -125,8 +125,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       numericExpected.includes(numericScanned);
     
     if (isValid) {
-      // Auto-proceed after successful scan
-      const currentStageStatus = job.current_stage_status;
+    // Auto-proceed after successful scan
+      const currentStageStatus = localStageStatus;
       if (currentStageStatus === 'pending') {
         // Use the direct job action functions if available
         if (onStart && job.current_stage_id) {
@@ -233,7 +233,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           <DtpJobActions
             job={job}
             currentStage={currentStage}
-            stageStatus={stageStatus}
+            stageStatus={localStageStatus}
             stageInstance={stageInstance}
             proofApprovalFlow={proofApprovalFlow}
             selectedBatchCategory={selectedBatchCategory}
