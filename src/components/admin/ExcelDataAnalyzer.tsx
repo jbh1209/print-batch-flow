@@ -7,9 +7,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Scissors, Loader2, CheckSquare, Square, Package2 } from "lucide-react";
+import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Scissors, Loader2, CheckSquare, Square, Package2, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { IntelligentSuggestionsPanel } from "@/components/admin/excel/IntelligentSuggestionsPanel";
+import type { ExcelLearningEngine, IntelligentSuggestion } from "@/utils/excel/learningEngine";
 
 interface ExcelDataAnalyzerProps {
   data: {
@@ -27,8 +29,11 @@ interface ExcelDataAnalyzerProps {
     enhancedDeliveryMappings?: any[];
     unmappedPaperSpecs?: string[];
     unmappedDeliverySpecs?: string[];
+    learningSessionId?: string;
+    intelligentSuggestions?: any[];
   };
   onMappingCreated: () => void;
+  learningEngine?: ExcelLearningEngine;
 }
 
 interface TextPattern {
@@ -66,7 +71,11 @@ interface MappingOptions {
   packagingTypes: MappingOption[];
 }
 
-export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMappingCreated }) => {
+export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ 
+  data, 
+  onMappingCreated,
+  learningEngine 
+}) => {
   // Consolidated state management
   const [mappingState, setMappingState] = useState<MappingState>({
     patterns: [],
@@ -79,6 +88,12 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     selectedPatterns: new Set(),
     isMultiSelectMode: false,
   });
+
+  const [intelligentSuggestions, setIntelligentSuggestions] = useState<IntelligentSuggestion[]>(
+    data.intelligentSuggestions || []
+  );
+
+  const { toast } = useToast();
 
   const [mappingOptions, setMappingOptions] = useState<MappingOptions>({
     productionStages: [],
@@ -103,7 +118,57 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [activeMappingPattern, setActiveMappingPattern] = useState<string>("");
   const [isCreatingMapping, setIsCreatingMapping] = useState(false);
 
-  const { toast } = useToast();
+  // Handle intelligent suggestion actions
+  const handleAcceptSuggestion = async (suggestionId: string, suggestion: IntelligentSuggestion) => {
+    try {
+      if (learningEngine) {
+        await learningEngine.handleSuggestionFeedback(suggestionId, 'accepted', 'User accepted the suggestion');
+        
+        // Apply the suggestion (this would depend on the suggestion type)
+        // For now, we'll just remove it from the UI
+        setIntelligentSuggestions(prev => prev.filter(s => s.id !== suggestionId));
+        
+        toast({
+          title: "Suggestion Applied",
+          description: "The intelligent suggestion has been applied successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error accepting suggestion:', error);
+      toast({
+        title: "Error",
+        description: "Failed to apply suggestion",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectSuggestion = async (suggestionId: string, feedback?: string) => {
+    try {
+      if (learningEngine) {
+        await learningEngine.handleSuggestionFeedback(suggestionId, 'rejected', feedback);
+        setIntelligentSuggestions(prev => prev.filter(s => s.id !== suggestionId));
+        
+        toast({
+          title: "Suggestion Rejected",
+          description: "Thank you for the feedback. This will help improve future suggestions.",
+        });
+      }
+    } catch (error) {
+      console.error('Error rejecting suggestion:', error);
+    }
+  };
+
+  const handleIgnoreSuggestion = async (suggestionId: string) => {
+    try {
+      if (learningEngine) {
+        await learningEngine.handleSuggestionFeedback(suggestionId, 'ignored');
+        setIntelligentSuggestions(prev => prev.filter(s => s.id !== suggestionId));
+      }
+    } catch (error) {
+      console.error('Error ignoring suggestion:', error);
+    }
+  };
 
   // Single data loading function
   const loadAllData = useCallback(async () => {
@@ -663,6 +728,16 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
   return (
     <div className="space-y-6">
+      {/* Intelligent Suggestions */}
+      {intelligentSuggestions.length > 0 && (
+        <IntelligentSuggestionsPanel
+          suggestions={intelligentSuggestions}
+          onAcceptSuggestion={handleAcceptSuggestion}
+          onRejectSuggestion={handleRejectSuggestion}
+          onIgnoreSuggestion={handleIgnoreSuggestion}
+        />
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -749,10 +824,38 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           </div>
 
           {/* Mapping Configuration Tabs */}
-          <Tabs defaultValue="production_stage" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="suggestions" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="suggestions" className="flex items-center gap-2">
+                <Lightbulb className="h-4 w-4" />
+                Smart Suggestions
+              </TabsTrigger>
               <TabsTrigger value="production_stage" className="flex items-center gap-2">
                 <Database className="h-4 w-4" />
+                Production Stages
+              </TabsTrigger>
+              <TabsTrigger value="paper_specification" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Paper Specs
+              </TabsTrigger>
+              <TabsTrigger value="delivery_specification" className="flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Delivery
+              </TabsTrigger>
+              <TabsTrigger value="packaging_specification" className="flex items-center gap-2">
+                <Package2 className="h-4 w-4" />
+                Packaging
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="suggestions">
+              <IntelligentSuggestionsPanel
+                suggestions={intelligentSuggestions}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                onRejectSuggestion={handleRejectSuggestion}
+                onIgnoreSuggestion={handleIgnoreSuggestion}
+              />
+            </TabsContent>
                 Production Stage
               </TabsTrigger>
               <TabsTrigger value="paper_specification" className="flex items-center gap-2">

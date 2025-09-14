@@ -5,6 +5,7 @@ import { ExcelDataAnalyzer } from "@/components/admin/ExcelDataAnalyzer";
 import { useToast } from "@/hooks/use-toast";
 import { parseMatrixExcelFile, parseMatrixDataToJobs } from "@/utils/excel/matrixParser";
 import { ExcelImportDebugger } from "@/utils/excel/debugger";
+import { ExcelLearningEngine } from "@/utils/excel/learningEngine";
 
 interface ParsedExcelData {
   fileName: string;
@@ -16,12 +17,15 @@ interface ParsedExcelData {
   debugLog: string[];
   isMatrixMode?: boolean;
   matrixData?: any;
+  learningSessionId?: string;
+  intelligentSuggestions?: any[];
 }
 
 export const MappingExcelUpload: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [parsedData, setParsedData] = useState<ParsedExcelData | null>(null);
+  const [learningEngine] = useState(() => new ExcelLearningEngine());
   const { toast } = useToast();
 
   const handleFileUpload = async (files: FileList | null) => {
@@ -64,6 +68,21 @@ export const MappingExcelUpload: React.FC = () => {
 
       setUploadProgress(100);
 
+      // Create learning session and generate intelligent suggestions
+      setUploadProgress(85);
+      logger.addDebugInfo("Creating learning session and generating intelligent suggestions...");
+      
+      const learningSessionId = await learningEngine.createLearningSession(
+        file.name,
+        { matrixData, fileSize: file.size, uploadTime: new Date().toISOString() },
+        { jobs, stats: { totalJobs: jobs.length } }
+      );
+      
+      const intelligentSuggestions = await learningEngine.generateSuggestions(jobs);
+      logger.addDebugInfo(`Generated ${intelligentSuggestions.length} intelligent suggestions`);
+
+      setUploadProgress(95);
+
       // Create parsed data structure for ExcelDataAnalyzer
       const parsedExcelData: ParsedExcelData = {
         fileName: file.name,
@@ -85,14 +104,16 @@ export const MappingExcelUpload: React.FC = () => {
         mapping: {},
         debugLog: logger.getDebugInfo(),
         isMatrixMode: true,
-        matrixData
+        matrixData,
+        learningSessionId,
+        intelligentSuggestions
       };
 
       setParsedData(parsedExcelData);
 
       toast({
         title: "File processed successfully",
-        description: `Extracted ${jobs.length} rows with ${matrixData.headers.length} columns for pattern analysis`,
+        description: `Extracted ${jobs.length} rows with ${matrixData.headers.length} columns. Generated ${intelligentSuggestions.length} smart suggestions.`,
       });
 
     } catch (error: any) {
@@ -141,6 +162,7 @@ export const MappingExcelUpload: React.FC = () => {
         <ExcelDataAnalyzer 
           data={parsedData} 
           onMappingCreated={handleMappingCreated}
+          learningEngine={learningEngine}
         />
       </div>
     );
