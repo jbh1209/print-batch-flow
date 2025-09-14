@@ -11,6 +11,7 @@ import { GripVertical, Plus, X, Calendar } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TimingCalculationService } from "@/services/timingCalculationService";
 
 interface CustomWorkflowModalProps {
   isOpen: boolean;
@@ -313,12 +314,14 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       // Create new stage instances - ALL START AS PENDING
       console.log('🔄 Creating new stage instances (ALL PENDING)...');
       
+      const createdStageIds: string[] = [];
+      
       for (let i = 0; i < selectedStages.length; i++) {
         const stage = selectedStages[i];
         
         console.log(`Creating stage ${i + 1} as PENDING:`, stage);
         
-        const { error: insertError } = await supabase
+        const { data: insertedStage, error: insertError } = await supabase
           .from('job_stage_instances')
           .insert({
             job_id: job.id,
@@ -328,11 +331,68 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
             status: 'pending', // CRITICAL FIX: All stages start as pending
             started_at: null,   // CRITICAL FIX: No auto-start
             started_by: null    // CRITICAL FIX: No auto-assignment
-          });
+          })
+          .select('id')
+          .single();
 
         if (insertError) {
           console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
           throw insertError;
+        }
+        
+        if (insertedStage) {
+          createdStageIds.push(insertedStage.id);
+        }
+      }
+
+      // Now update quantities and calculate timing for all created stages
+      console.log('🔄 Calculating timing and setting quantities...');
+      
+      for (let i = 0; i < createdStageIds.length; i++) {
+        const stageInstanceId = createdStageIds[i];
+        const stage = selectedStages[i];
+        
+        try {
+          // Calculate timing using the service
+          const timing = await TimingCalculationService.calculateStageTimingWithInheritance({
+            quantity: job.qty || 1,
+            stageId: stage.id,
+            specificationId: null,
+            stageData: null,
+            specificationData: null
+          });
+
+          // Update the stage instance with quantity and timing
+          const { error: updateError } = await supabase
+            .from('job_stage_instances')
+            .update({
+              quantity: job.qty || 1,
+              estimated_duration_minutes: timing.estimatedDurationMinutes,
+              setup_time_minutes: timing.makeReadyMinutes || 0
+            })
+            .eq('id', stageInstanceId);
+
+          if (updateError) {
+            console.error(`❌ Error updating stage timing for ${stage.name}:`, updateError);
+            // Don't throw here - continue with other stages
+          } else {
+            console.log(`✅ Updated timing for ${stage.name}: ${timing.estimatedDurationMinutes}min`);
+          }
+        } catch (timingError) {
+          console.error(`⚠️ Failed to calculate timing for ${stage.name}:`, timingError);
+          // Fallback: just set quantity without timing
+          const { error: fallbackError } = await supabase
+            .from('job_stage_instances')
+            .update({
+              quantity: job.qty || 1,
+              estimated_duration_minutes: 60, // Default 1 hour
+              setup_time_minutes: 10 // Default 10 minutes
+            })
+            .eq('id', stageInstanceId);
+
+          if (fallbackError) {
+            console.error(`❌ Fallback update failed for ${stage.name}:`, fallbackError);
+          }
         }
       }
 
