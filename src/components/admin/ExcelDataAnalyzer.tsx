@@ -856,21 +856,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({
                 onIgnoreSuggestion={handleIgnoreSuggestion}
               />
             </TabsContent>
-                Production Stage
-              </TabsTrigger>
-              <TabsTrigger value="paper_specification" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Paper Specification
-              </TabsTrigger>
-              <TabsTrigger value="delivery_specification" className="flex items-center gap-2">
-                <Truck className="h-4 w-4" />
-                Delivery Specification
-              </TabsTrigger>
-              <TabsTrigger value="packaging_specification" className="flex items-center gap-2">
-                <Package2 className="h-4 w-4" />
-                Packaging Specification
-              </TabsTrigger>
-            </TabsList>
 
             <TabsContent value="production_stage" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1065,8 +1050,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({
               </div>
             </TabsContent>
 
-          </Tabs>
-
           {/* Multi-select Controls */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -1257,6 +1240,8 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({
               </div>
             </div>
           )}
+
+          </Tabs>
         </CardContent>
       </Card>
     </div>
