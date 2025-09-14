@@ -3601,6 +3601,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      find_precedence_violations: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          job_id: string
+          predecessor_end_time: string
+          predecessor_stage_instance_id: string
+          predecessor_stage_order: number
+          slot_start_time: string
+          stage_instance_id: string
+          stage_order: number
+        }[]
+      }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
         Returns: Json
@@ -4107,6 +4119,13 @@ export type Database = {
           batch_id: string
           batch_name: string
           references_created: number
+        }[]
+      }
+      repair_precedence_violations: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          deleted_slots: number
+          reset_instances: number
         }[]
       }
       reset_custom_workflow_stages_to_pending: {

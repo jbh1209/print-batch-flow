@@ -1,5 +1,6 @@
 // tracker/schedule-board/ScheduleBoard.tsx
 import React, { useEffect, useState } from 'react';
+import { ScheduleRepairPanel } from "@/components/tracker/schedule-board/ScheduleRepairPanel";
 
 type Update = { id: string; start_at: string; end_at: string; minutes: number };
 type ApiResponse = { ok: boolean; scheduled: number; applied?: any; updates: Update[] };
@@ -29,6 +30,9 @@ export default function ScheduleBoard() {
 
   return (
     <div className="p-6 space-y-4">
+      {/* Emergency Repair Panel */}
+      <ScheduleRepairPanel />
+      
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Production Schedule</h1>
         <div className="flex items-center gap-3">
