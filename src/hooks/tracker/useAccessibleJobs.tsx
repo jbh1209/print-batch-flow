@@ -234,6 +234,7 @@ export const useAccessibleJobs = ({
         })
         .eq('job_id', jobId)
         .eq('production_stage_id', stageId)
+        .eq('job_table_name', 'production_jobs')
         .eq('status', 'pending');
 
       if (error) throw error;

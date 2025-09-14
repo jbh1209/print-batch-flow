@@ -102,6 +102,48 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     onRefresh?.(); // Also refresh the parent component to get updated job data
   };
 
+  // Helper: log barcode scans
+  const logScan = async (barcode_data: string, action_taken: string, scan_result: string) => {
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      await supabase.from('barcode_scan_log').insert({
+        user_id: auth?.user?.id || null,
+        job_id: job.job_id,
+        stage_id: job.current_stage_id,
+        job_table_name: 'production_jobs',
+        barcode_data,
+        action_taken,
+        scan_result
+      });
+    } catch (e) {
+      console.warn('⚠️ Failed to log barcode scan', e);
+    }
+  };
+
+  // Helper: poll for active status after starting (prevents race conditions)
+  const waitForActive = async (attempts = 8, delayMs = 250): Promise<boolean> => {
+    const stageId = job.current_stage_id;
+    if (!stageId) return false;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const { data, error } = await supabase
+          .from('job_stage_instances')
+          .select('status, updated_at')
+          .eq('job_id', job.job_id)
+          .eq('production_stage_id', stageId)
+          .eq('job_table_name', 'production_jobs')
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        if (!error) {
+          const s = Array.isArray(data) ? (data[0] as any)?.status : (data as any)?.status;
+          if (s === 'active') return true;
+        }
+      } catch {}
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+    return false;
+  };
+
   // Handle barcode scan with auto-proceed
   const handleBarcodeDetected = async (barcodeData: string) => {
     console.log('🔍 Barcode detected:', barcodeData, 'Expected:', job.wo_no);
@@ -126,12 +168,14 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       numericExpected.includes(numericScanned);
     
     if (isValid) {
+      await logScan(barcodeData, 'validation', 'valid');
       console.log('✅ Barcode validation passed');
 
       const stageId = job.current_stage_id;
       if (!stageId) {
         console.log('❌ No current stage ID on job');
         toast.error('No current stage available for this job');
+        await logScan(barcodeData, 'start_or_complete', 'failure');
         return;
       }
 
@@ -143,6 +187,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             .select('status, updated_at, created_at')
             .eq('job_id', job.job_id)
             .eq('production_stage_id', stageId)
+            .eq('job_table_name', 'production_jobs')
             .order('updated_at', { ascending: false })
             .order('created_at', { ascending: false })
             .limit(1);
@@ -165,21 +210,30 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (effectiveStatus === 'pending') {
         if (!onStart || !onComplete) {
           toast.error('Actions unavailable to start/complete this stage');
+          await logScan(barcodeData, 'start', 'failure');
           return;
         }
         toast.message('Starting stage from scan…');
         const started = await onStart(job.job_id, stageId);
         console.log('🎬 Start result:', started);
+        await logScan(barcodeData, 'start', started ? 'success' : 'failure');
         if (!started) {
           toast.error('Failed to start stage. Please try again.');
           return;
         }
+        // Wait until stage is active to avoid race condition
+        const active = await waitForActive();
+        if (!active) {
+          toast.error('Stage did not become active, please retry.');
+          await logScan(barcodeData, 'wait_active', 'timeout');
+          return;
+        }
         handleJobStatusUpdate('In Progress', 'active');
         await handleModalDataRefresh();
-        await new Promise((r) => setTimeout(r, 150));
         toast.message('Completing just-started stage…');
         const completed = await onComplete(job.job_id, stageId);
         console.log('🏁 Complete-after-start result:', completed);
+        await logScan(barcodeData, 'complete', completed ? 'success' : 'failure');
         if (completed) {
           handleJobStatusUpdate('Completed', 'completed');
           await handleModalDataRefresh();
@@ -191,11 +245,13 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       } else if (effectiveStatus === 'active') {
         if (!onComplete) {
           toast.error('Complete action unavailable');
+          await logScan(barcodeData, 'complete', 'failure');
           return;
         }
         console.log('🏁 Attempting to complete job…');
         const completed = await onComplete(job.job_id, stageId);
         console.log('🏁 Complete result:', completed);
+        await logScan(barcodeData, 'complete', completed ? 'success' : 'failure');
         if (completed) {
           handleJobStatusUpdate('Completed', 'completed');
           await handleModalDataRefresh();
@@ -207,10 +263,12 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       } else {
         console.log('⚠️ Stage status not actionable:', effectiveStatus);
         toast.info(`Stage is ${effectiveStatus}. No action taken.`);
+        await logScan(barcodeData, 'no_action', effectiveStatus);
       }
     } else {
       console.log('❌ Barcode validation failed');
       toast.error(`Wrong barcode scanned. Expected like: ${job.wo_no} (prefix optional). Got: ${barcodeData}`);
+      await logScan(barcodeData, 'validation', 'invalid');
     }
   };
 
