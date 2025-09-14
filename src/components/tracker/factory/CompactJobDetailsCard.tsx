@@ -60,8 +60,8 @@ export const CompactJobDetailsCard: React.FC<CompactJobDetailsCardProps> = ({
       <CardContent>
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="notes" className="flex items-center gap-2">
+            <TabsTrigger value="details" className="focus:ring-0 focus:ring-offset-0">Details</TabsTrigger>
+            <TabsTrigger value="notes" className="flex items-center gap-2 focus:ring-0 focus:ring-offset-0">
               <FileText className="h-4 w-4" />
               Notes
             </TabsTrigger>

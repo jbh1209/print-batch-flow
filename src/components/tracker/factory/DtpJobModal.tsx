@@ -104,6 +104,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   // Handle barcode scan with auto-proceed
   const handleBarcodeDetected = async (barcodeData: string) => {
     console.log('🔍 Barcode detected:', barcodeData, 'Expected:', job.wo_no);
+    console.log('🔍 Current stage status:', localStageStatus, 'Stage status:', stageStatus);
+    console.log('🔍 onStart available:', !!onStart, 'onComplete available:', !!onComplete);
     
     // Verification - allow simple variations (prefix letters, extra whitespace)
     const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -123,28 +125,46 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       numericExpected.includes(numericScanned);
     
     if (isValid) {
-    // Auto-proceed after successful scan
-      const currentStageStatus = localStageStatus;
+      console.log('✅ Barcode validation passed');
+      // Use the most up-to-date stage status
+      const currentStageStatus = stageStatus || localStageStatus;
+      console.log('🎯 Using stage status:', currentStageStatus);
+      
       if (currentStageStatus === 'pending') {
-        // Use the direct job action functions if available
+        console.log('🎬 Attempting to start job...');
         if (onStart && job.current_stage_id) {
           const success = await onStart(job.job_id, job.current_stage_id);
+          console.log('🎬 Start result:', success);
           if (success) {
             handleJobStatusUpdate('In Progress', 'active');
             handleModalDataRefresh();
+            toast.success('Job started successfully via barcode!');
           }
+        } else {
+          console.log('❌ Cannot start: onStart missing or no stage ID');
+          toast.error('Unable to start job');
         }
       } else if (currentStageStatus === 'active') {
+        console.log('🏁 Attempting to complete job...');
         if (onComplete && job.current_stage_id) {
           const success = await onComplete(job.job_id, job.current_stage_id);
+          console.log('🏁 Complete result:', success);
           if (success) {
-            handleJobStatusUpdate('Ready for Proof', 'completed');
+            handleJobStatusUpdate('Completed', 'completed');
             handleModalDataRefresh();
+            toast.success('Job completed successfully via barcode!');
             onClose();
           }
+        } else {
+          console.log('❌ Cannot complete: onComplete missing or no stage ID');
+          toast.error('Unable to complete job');
         }
+      } else {
+        console.log('⚠️ Stage status not actionable:', currentStageStatus);
+        toast.info(`Job is ${currentStageStatus} - no action available`);
       }
     } else {
+      console.log('❌ Barcode validation failed');
       toast.error(`Wrong barcode scanned. Expected like: ${job.wo_no} (prefix optional). Got: ${barcodeData}`);
     }
   };
