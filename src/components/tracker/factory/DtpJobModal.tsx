@@ -20,6 +20,7 @@ import { BatchSplitDetector } from "../batch/BatchSplitDetector";
 import { BatchSplitDialog } from "../batch/BatchSplitDialog";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useBarcodeControlledActions } from "@/hooks/tracker/useBarcodeControlledActions";
 // Removed QR code generator import - now using plain work order numbers
 
@@ -104,8 +105,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   // Handle barcode scan with auto-proceed
   const handleBarcodeDetected = async (barcodeData: string) => {
     console.log('🔍 Barcode detected:', barcodeData, 'Expected:', job.wo_no);
-    console.log('🔍 Current stage status:', localStageStatus, 'Stage status:', stageStatus);
-    console.log('🔍 onStart available:', !!onStart, 'onComplete available:', !!onComplete);
+    console.log('🔍 Current stage status (local):', localStageStatus, 'Hook stage status:', stageStatus);
+    console.log('🔍 Callbacks -> onStart:', !!onStart, 'onComplete:', !!onComplete);
     
     // Verification - allow simple variations (prefix letters, extra whitespace)
     const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -126,42 +127,86 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     
     if (isValid) {
       console.log('✅ Barcode validation passed');
-      // Use the most up-to-date stage status
-      const currentStageStatus = stageStatus || localStageStatus;
-      console.log('🎯 Using stage status:', currentStageStatus);
-      
-      if (currentStageStatus === 'pending') {
-        console.log('🎬 Attempting to start job...');
-        if (onStart && job.current_stage_id) {
-          const success = await onStart(job.job_id, job.current_stage_id);
-          console.log('🎬 Start result:', success);
-          if (success) {
-            handleJobStatusUpdate('In Progress', 'active');
-            handleModalDataRefresh();
-            toast.success('Job started successfully via barcode!');
+
+      const stageId = job.current_stage_id;
+      if (!stageId) {
+        console.log('❌ No current stage ID on job');
+        toast.error('No current stage available for this job');
+        return;
+      }
+
+      // Live status check from database for robustness
+      const fetchLiveStatus = async (): Promise<string | null> => {
+        try {
+          const { data, error } = await supabase
+            .from('job_stage_instances')
+            .select('status, updated_at, created_at')
+            .eq('job_id', job.job_id)
+            .eq('production_stage_id', stageId)
+            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (error) {
+            console.error('❌ Live status fetch error:', error);
+            return null;
           }
-        } else {
-          console.log('❌ Cannot start: onStart missing or no stage ID');
-          toast.error('Unable to start job');
+          const s = Array.isArray(data) ? (data[0] as any)?.status : (data as any)?.status;
+          return s ?? null;
+        } catch (e) {
+          console.error('❌ Live status exception:', e);
+          return null;
         }
-      } else if (currentStageStatus === 'active') {
-        console.log('🏁 Attempting to complete job...');
-        if (onComplete && job.current_stage_id) {
-          const success = await onComplete(job.job_id, job.current_stage_id);
-          console.log('🏁 Complete result:', success);
-          if (success) {
-            handleJobStatusUpdate('Completed', 'completed');
-            handleModalDataRefresh();
-            toast.success('Job completed successfully via barcode!');
-            onClose();
-          }
+      };
+
+      const liveStatus = await fetchLiveStatus();
+      const effectiveStatus = liveStatus || stageStatus || localStageStatus;
+      console.log('🎯 Effective stage status:', effectiveStatus, '(live:', liveStatus, ')');
+      
+      if (effectiveStatus === 'pending') {
+        if (!onStart || !onComplete) {
+          toast.error('Actions unavailable to start/complete this stage');
+          return;
+        }
+        toast.message('Starting stage from scan…');
+        const started = await onStart(job.job_id, stageId);
+        console.log('🎬 Start result:', started);
+        if (!started) {
+          toast.error('Failed to start stage. Please try again.');
+          return;
+        }
+        handleJobStatusUpdate('In Progress', 'active');
+        await handleModalDataRefresh();
+        await new Promise((r) => setTimeout(r, 150));
+        toast.message('Completing just-started stage…');
+        const completed = await onComplete(job.job_id, stageId);
+        console.log('🏁 Complete-after-start result:', completed);
+        if (completed) {
+          handleJobStatusUpdate('Completed', 'completed');
+          await handleModalDataRefresh();
+          toast.success('Stage completed via barcode');
+          onClose();
         } else {
-          console.log('❌ Cannot complete: onComplete missing or no stage ID');
-          toast.error('Unable to complete job');
+          toast.error('Failed to complete after starting. Please try again.');
+        }
+      } else if (effectiveStatus === 'active') {
+        if (!onComplete) {
+          toast.error('Complete action unavailable');
+          return;
+        }
+        console.log('🏁 Attempting to complete job…');
+        const completed = await onComplete(job.job_id, stageId);
+        console.log('🏁 Complete result:', completed);
+        if (completed) {
+          handleJobStatusUpdate('Completed', 'completed');
+          await handleModalDataRefresh();
+          toast.success('Stage completed via barcode');
+          onClose();
+        } else {
+          toast.error('Completion failed. Ensure the stage is active.');
         }
       } else {
-        console.log('⚠️ Stage status not actionable:', currentStageStatus);
-        toast.info(`Job is ${currentStageStatus} - no action available`);
+        console.log('⚠️ Stage status not actionable:', effectiveStatus);
+        toast.info(`Stage is ${effectiveStatus}. No action taken.`);
       }
     } else {
       console.log('❌ Barcode validation failed');
@@ -199,7 +244,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           minLength={5}
         />
       )}
-      <DialogContent className="max-w-full sm:max-w-4xl h-[90vh] overflow-y-auto p-3 sm:p-6">
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="max-w-full sm:max-w-4xl h-[90vh] overflow-y-auto p-3 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Job Details: {job.wo_no}</span>
