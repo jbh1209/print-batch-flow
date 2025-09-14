@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getJobWorkflowStages } from "@/utils/productionWorkflowUtils";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
+import { toast } from "sonner";
 
 export const useAccessibleJobs = ({ 
   permissionType = 'work', 
@@ -269,18 +270,34 @@ export const useAccessibleJobs = ({
       const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
       
       let error;
+      let result;
+      
+      // Try parallel advancement first for jobs with parallel components
       if (hasParallelComponents) {
-        // Use parallel-aware advancement for cover/text jobs
-        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
+        console.log('🔄 Attempting parallel job stage advancement...');
+        result = await supabase.rpc('advance_parallel_job_stage' as any, {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs',
           p_current_stage_id: stageId,
           p_completed_by: user?.id
         });
         error = result.error;
+        
+        // If parallel advancement fails, fall back to standard advancement
+        if (error) {
+          console.log('⚠️ Parallel advancement failed, falling back to standard advancement:', error.message);
+          result = await supabase.rpc('advance_job_stage', {
+            p_job_id: jobId,
+            p_job_table_name: 'production_jobs',
+            p_current_stage_id: stageId,
+            p_completed_by: user?.id
+          });
+          error = result.error;
+        }
       } else {
         // Use standard advancement for regular jobs
-        const result = await supabase.rpc('advance_job_stage', {
+        console.log('🔄 Using standard job stage advancement...');
+        result = await supabase.rpc('advance_job_stage', {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs',
           p_current_stage_id: stageId,
@@ -289,12 +306,17 @@ export const useAccessibleJobs = ({
         error = result.error;
       }
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Stage advancement failed:', error);
+        throw error;
+      }
 
+      console.log('✅ Job stage completed successfully');
       await refreshJobs();
       return true;
     } catch (error) {
       console.error('❌ Error completing job:', error);
+      toast.error(`Failed to complete job: ${error.message || 'Unknown error'}`);
       return false;
     }
   }, [jobs, user?.id]);
