@@ -65,21 +65,14 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     scanResult
   } = useBarcodeControlledActions();
 
-  // Reset local state when modal opens and auto-start scanning
+  // Reset local state when modal opens and prepare for scanning (no auto actions)
   useEffect(() => {
     if (isOpen) {
       setLocalJobStatus(job.status);
       setLocalStageStatus(job.current_stage_status);
       setNotes("");
       loadModalData();
-      
-      // Auto-start scanning based on stage status
-      const currentStageStatus = localStageStatus;
-      if (currentStageStatus === 'pending') {
-        handleStartWithBarcode();
-      } else if (currentStageStatus === 'active') {
-        handleCompleteWithBarcode();
-      }
+      console.log('🎧 Modal opened - ready for barcode scan.');
     }
   }, [isOpen, job.status, job.current_stage_status, loadModalData]);
 
@@ -208,39 +201,20 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       console.log('🎯 Effective stage status:', effectiveStatus, '(live:', liveStatus, ')');
       
       if (effectiveStatus === 'pending') {
-        if (!onStart || !onComplete) {
-          toast.error('Actions unavailable to start/complete this stage');
+        if (!onStart) {
+          toast.error('Start action unavailable');
           await logScan(barcodeData, 'start', 'failure');
           return;
         }
-        toast.message('Starting stage from scan…');
+        toast.message('Starting stage…');
         const started = await onStart(job.job_id, stageId);
-        console.log('🎬 Start result:', started);
         await logScan(barcodeData, 'start', started ? 'success' : 'failure');
-        if (!started) {
-          toast.error('Failed to start stage. Please try again.');
-          return;
-        }
-        // Wait until stage is active to avoid race condition
-        const active = await waitForActive();
-        if (!active) {
-          toast.error('Stage did not become active, please retry.');
-          await logScan(barcodeData, 'wait_active', 'timeout');
-          return;
-        }
-        handleJobStatusUpdate('In Progress', 'active');
-        await handleModalDataRefresh();
-        toast.message('Completing just-started stage…');
-        const completed = await onComplete(job.job_id, stageId);
-        console.log('🏁 Complete-after-start result:', completed);
-        await logScan(barcodeData, 'complete', completed ? 'success' : 'failure');
-        if (completed) {
-          handleJobStatusUpdate('Completed', 'completed');
+        if (started) {
+          handleJobStatusUpdate('In Progress', 'active');
           await handleModalDataRefresh();
-          toast.success('Stage completed via barcode');
-          onClose();
+          toast.success('Stage started. Scan again to complete.');
         } else {
-          toast.error('Failed to complete after starting. Please try again.');
+          toast.error('Failed to start stage. Please try again.');
         }
       } else if (effectiveStatus === 'active') {
         if (!onComplete) {
@@ -248,12 +222,10 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           await logScan(barcodeData, 'complete', 'failure');
           return;
         }
-        console.log('🏁 Attempting to complete job…');
+        toast.message('Completing stage…');
         const completed = await onComplete(job.job_id, stageId);
-        console.log('🏁 Complete result:', completed);
         await logScan(barcodeData, 'complete', completed ? 'success' : 'failure');
         if (completed) {
-          handleJobStatusUpdate('Completed', 'completed');
           await handleModalDataRefresh();
           toast.success('Stage completed via barcode');
           onClose();
