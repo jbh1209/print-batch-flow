@@ -120,20 +120,21 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware', {
-        p_start_from: startTime
-      });
+      // Use optimized full rescheduler
+      const { data, error } = await supabase.rpc('scheduler_resource_fill_optimized');
 
       if (error) {
-        console.error('Error calling scheduler_reschedule_all_parallel_aware:', error);
+        console.error('Error calling scheduler_resource_fill_optimized:', error);
         throw error;
       }
 
+      const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+
       return {
-        wroteSlots: data?.wrote_slots || 0,
-        updatedJSI: data?.updated_jsi || 0,
+        wroteSlots: result?.wrote_slots ?? result?.wroteSlots ?? 0,
+        updatedJSI: result?.updated_jsi ?? result?.updatedJSI ?? 0,
         dryRun: !req.commit,
-        violations: data?.violations || []
+        violations: result?.violations || []
       };
     }
     
