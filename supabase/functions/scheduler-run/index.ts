@@ -115,27 +115,62 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       };
       
     } else {
-      // Reschedule all jobs
-      console.log("Rescheduling all pending jobs");
+      // Full reschedule using bulletproof time-aware scheduler
+      console.log("Rescheduling all pending jobs with bulletproof scheduler");
       
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
-      // Use optimized full rescheduler
-      const { data, error } = await supabase.rpc('scheduler_resource_fill_optimized');
+      try {
+        // Use the bulletproof time-aware scheduler
+        const { data, error } = await supabase.rpc('scheduler_reschedule_all_time_aware', {
+          p_start_from: startTime,
+          p_commit: !!req.commit
+        });
 
-      if (error) {
-        console.error('Error calling scheduler_resource_fill_optimized:', error);
-        throw error;
+        if (error) {
+          console.error('Error calling scheduler_reschedule_all_time_aware:', error);
+          
+          // Check for precedence violation (P0001 error)
+          if (error.code === 'P0001' && error.message?.includes('Precedence violation')) {
+            console.error('Precedence violation detected:', error.message);
+            throw {
+              code: 'PRECEDENCE_VIOLATION',
+              message: error.message,
+              details: error.details
+            };
+          }
+          
+          throw error;
+        }
+
+        const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+        
+        console.log('Bulletproof scheduler completed:', {
+          wroteSlots: result?.wrote_slots || 0,
+          updatedJSI: result?.updated_jsi || 0,
+          violations: result?.violations || []
+        });
+
+        return {
+          wroteSlots: result?.wrote_slots || 0,
+          updatedJSI: result?.updated_jsi || 0,
+          dryRun: !req.commit,
+          violations: result?.violations || []
+        };
+        
+      } catch (scheduleError) {
+        console.error('Bulletproof scheduler failed:', scheduleError);
+        
+        // If bulletproof scheduler fails with precedence violation, provide detailed error
+        if (scheduleError?.code === 'PRECEDENCE_VIOLATION') {
+          throw {
+            ...scheduleError,
+            userMessage: 'Schedule conflict detected. Some jobs have overlapping dependencies that need manual resolution.'
+          };
+        }
+        
+        throw scheduleError;
       }
-
-      const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
-
-      return {
-        wroteSlots: result?.wrote_slots ?? result?.wroteSlots ?? 0,
-        updatedJSI: result?.updated_jsi ?? result?.updatedJSI ?? 0,
-        dryRun: !req.commit,
-        violations: result?.violations || []
-      };
     }
     
   } catch (error) {

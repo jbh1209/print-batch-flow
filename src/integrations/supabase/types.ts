@@ -4222,6 +4222,14 @@ export type Database = {
           wrote_slots: number
         }[]
       }
+      scheduler_reschedule_all_time_aware: {
+        Args: { p_commit?: boolean; p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          violations: string[]
+          wrote_slots: number
+        }[]
+      }
       scheduler_resource_fill_optimized: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["CompositeTypes"]["scheduler_result_type"]
