@@ -17,21 +17,26 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+      // Use the scheduler-run edge function to avoid browser timeout limits
+      const { data, error } = await supabase.functions.invoke('scheduler-run', {
+        body: { 
+          commit: true, 
+          onlyIfUnset: false  // Full reschedule
+        }
+      });
 
       if (error) {
-        console.error("scheduler_reschedule_all_parallel_aware error:", error);
+        console.error("scheduler-run error:", error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("scheduler_reschedule_all_parallel_aware response:", data);
+      console.log("scheduler-run response:", data);
       await fetchSchedule();
       
-      // Handle the parallel-aware scheduler's response format
-      const result = Array.isArray(data) ? data[0] : data; // The function returns a table, so take first row
-      const scheduledCount = result?.updated_jsi ?? 0;
-      const wroteSlots = result?.wrote_slots ?? 0;
+      // Handle the scheduler-run response format
+      const scheduledCount = data?.updatedJSI ?? 0;
+      const wroteSlots = data?.wroteSlots ?? 0;
       
       try { toast.success?.(`Rescheduled ${scheduledCount} stages with ${wroteSlots} time slots`); } catch {}
     } catch (e: any) {
