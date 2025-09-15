@@ -4194,7 +4194,7 @@ export type Database = {
         }
         Returns: {
           updated_jsi: number
-          violations: Json
+          violations: string[]
           wrote_slots: number
         }[]
       }
@@ -4222,7 +4222,7 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: {
           updated_jsi: number
-          violations: Json
+          violations: string[]
           wrote_slots: number
         }[]
       }

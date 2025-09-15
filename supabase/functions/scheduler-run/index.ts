@@ -94,14 +94,14 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
-      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
+      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
         p_job_ids: req.onlyJobIds,
         p_start_from: startTime,
         p_only_if_unset: !!req.onlyIfUnset
       });
 
       if (error) {
-        console.error('Error calling scheduler_append_jobs:', error);
+        console.error('Error calling scheduler_append_jobs_edge:', error);
         throw error;
       }
 
@@ -122,10 +122,10 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       
       try {
         // Use the working parallel-aware scheduler
-        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
 
         if (error) {
-          console.error('Error calling scheduler_reschedule_all_parallel_aware:', error);
+          console.error('Error calling scheduler_reschedule_all_parallel_aware_edge:', error);
           
           // Check for precedence violation (P0001 error)
           if (error.code === 'P0001' && error.message?.includes('Precedence violation')) {
