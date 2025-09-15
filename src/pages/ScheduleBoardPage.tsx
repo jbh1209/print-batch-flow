@@ -17,22 +17,20 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-        p_mode: 'reschedule_all' // Use the persistent queue scheduler with DTP/Proof exclusions
-      });
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed');
 
       if (error) {
-        console.error("simple_scheduler_wrapper error:", error);
+        console.error("scheduler_reschedule_all_sequential_fixed error:", error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("simple_scheduler_wrapper response:", data);
+      console.log("scheduler_reschedule_all_sequential_fixed response:", data);
       await fetchSchedule();
       
-      // Handle the wrapper's jsonb response format
-      const result = data as any;
-      const scheduledCount = result?.scheduled_count ?? 0;
+      // Handle the sequential scheduler's response format
+      const result = Array.isArray(data) ? data[0] : data; // The function returns a table, so take first row
+      const scheduledCount = result?.updated_jsi ?? 0;
       const wroteSlots = result?.wrote_slots ?? 0;
       
       try { toast.success?.(`Rescheduled ${scheduledCount} stages with ${wroteSlots} time slots`); } catch {}
