@@ -92,8 +92,11 @@ export function useScheduleRepair() {
 
       // Step 2: Run full reschedule
       console.log('📅 Step 2: Running full reschedule...');
-      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-        p_mode: 'reschedule_all'
+      const { data, error } = await supabase.functions.invoke('scheduler-run', {
+        body: { 
+          commit: true, 
+          onlyIfUnset: false  // Full reschedule
+        }
       });
       
       if (error) {
@@ -102,13 +105,14 @@ export function useScheduleRepair() {
         return false;
       }
       
-      const result = data as { scheduled_count: number; wrote_slots: number; success: boolean; mode: string } | null;
+      const scheduledCount = data?.updatedJSI ?? 0;
+      const wroteSlots = data?.wroteSlots ?? 0;
       
       // Step 3: Check for new violations
       await findViolations();
       
       toast.success(
-        `✅ Emergency repair complete! Rescheduled ${result?.scheduled_count || 0} stages (${result?.wrote_slots || 0} slots)`,
+        `✅ Emergency repair complete! Rescheduled ${scheduledCount} stages (${wroteSlots} slots)`,
         {
           description: 'Please verify stage precedence is now correct'
         }
