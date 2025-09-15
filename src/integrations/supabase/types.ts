@@ -4186,6 +4186,18 @@ export type Database = {
           wrote_slots: number
         }[]
       }
+      scheduler_append_jobs_edge: {
+        Args: {
+          p_job_ids: string[]
+          p_only_if_unset?: boolean
+          p_start_from?: string
+        }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
       scheduler_completely_sequential: {
         Args: { p_start_from?: string }
         Returns: {
@@ -4203,6 +4215,14 @@ export type Database = {
         Returns: {
           updated_jsi: number
           violations: string[]
+          wrote_slots: number
+        }[]
+      }
+      scheduler_reschedule_all_parallel_aware_edge: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          updated_jsi: number
+          violations: Json
           wrote_slots: number
         }[]
       }
