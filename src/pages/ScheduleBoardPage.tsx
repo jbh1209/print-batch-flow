@@ -17,18 +17,18 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed');
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
 
       if (error) {
-        console.error("scheduler_reschedule_all_sequential_fixed error:", error);
+        console.error("scheduler_reschedule_all_parallel_aware error:", error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("scheduler_reschedule_all_sequential_fixed response:", data);
+      console.log("scheduler_reschedule_all_parallel_aware response:", data);
       await fetchSchedule();
       
-      // Handle the sequential scheduler's response format
+      // Handle the parallel-aware scheduler's response format
       const result = Array.isArray(data) ? data[0] : data; // The function returns a table, so take first row
       const scheduledCount = result?.updated_jsi ?? 0;
       const wroteSlots = result?.wrote_slots ?? 0;
