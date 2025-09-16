@@ -94,7 +94,7 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
-      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
+      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
         p_job_ids: req.onlyJobIds,
         p_start_from: startTime,
         p_only_if_unset: !!req.onlyIfUnset
@@ -121,8 +121,16 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
       try {
-        // Use the working parallel-aware scheduler
-        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+        // For full rebuild, clear existing non-completed schedule to minimize contention and timeouts
+        if (!req.onlyIfUnset) {
+          const { error: clearError } = await supabase.rpc('clear_non_completed_scheduling_data');
+          if (clearError) {
+            console.error('Error clearing non-completed scheduling data:', clearError);
+            throw clearError;
+          }
+        }
+        // Use the working parallel-aware scheduler with timeouts disabled
+        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
 
         if (error) {
           console.error('Error calling scheduler_reschedule_all_parallel_aware_edge:', error);
