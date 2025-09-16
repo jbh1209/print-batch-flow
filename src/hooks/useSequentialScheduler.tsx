@@ -12,22 +12,18 @@ export function useSequentialScheduler() {
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Use the working scheduler-run edge function
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
-        body: { 
-          commit: true, 
-          onlyIfUnset: false  // Full reschedule
-        }
-      });
+      // Direct RPC to avoid Edge Function timeout
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
       
       if (error) {
-        console.error('Error calling scheduler-run:', error);
+        console.error('Error calling reschedule RPC:', error);
         toast.error('Failed to generate schedule');
         return;
       }
       
-      const scheduledCount = data?.updatedJSI ?? 0;
-      const wroteSlots = data?.wroteSlots ?? 0;
+      const row = Array.isArray(data) ? data[0] : data;
+      const scheduledCount = row?.updated_jsi ?? 0;
+      const wroteSlots = row?.wrote_slots ?? 0;
       toast.success(`Successfully rescheduled ${scheduledCount} stages (${wroteSlots} time slots created)`);
     } catch (error) {
       console.error('Error generating schedule:', error);
@@ -40,23 +36,22 @@ export function useSequentialScheduler() {
   const appendJobs = useCallback(async (jobIds: string[]) => {
     setIsLoading(true);
     try {
-      // Use the working scheduler-run edge function for appending
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
-        body: { 
-          commit: true, 
-          onlyIfUnset: true,
-          onlyJobIds: jobIds
-        }
+      // Append specific jobs via RPC (timeout-safe)
+      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
+        p_job_ids: jobIds,
+        p_start_from: null,
+        p_only_if_unset: true,
       });
       
       if (error) {
-        console.error('Error appending jobs:', error);
+        console.error('Error appending jobs via RPC:', error);
         toast.error('Failed to schedule jobs');
         return;
       }
       
-      const scheduledCount = data?.updatedJSI ?? 0;
-      const wroteSlots = data?.wroteSlots ?? 0;
+      const row = Array.isArray(data) ? data[0] : data;
+      const scheduledCount = row?.updated_jsi ?? 0;
+      const wroteSlots = row?.wrote_slots ?? 0;
       toast.success(`Successfully scheduled ${scheduledCount} stages for ${jobIds.length} jobs`);
     } catch (error) {
       console.error('Error appending jobs:', error);

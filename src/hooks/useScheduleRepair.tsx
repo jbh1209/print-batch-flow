@@ -92,21 +92,17 @@ export function useScheduleRepair() {
 
       // Step 2: Run full reschedule
       console.log('📅 Step 2: Running full reschedule...');
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
-        body: { 
-          commit: true, 
-          onlyIfUnset: false  // Full reschedule
-        }
-      });
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
       
       if (error) {
-        console.error('Error during reschedule:', error);
+        console.error('Error during reschedule RPC:', error);
         toast.error('Repair succeeded but reschedule failed');
         return false;
       }
       
-      const scheduledCount = data?.updatedJSI ?? 0;
-      const wroteSlots = data?.wroteSlots ?? 0;
+      const row = Array.isArray(data) ? data[0] : data;
+      const scheduledCount = row?.updated_jsi ?? 0;
+      const wroteSlots = row?.wrote_slots ?? 0;
       
       // Step 3: Check for new violations
       await findViolations();

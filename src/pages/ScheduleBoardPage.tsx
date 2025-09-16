@@ -17,26 +17,20 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      // Use the scheduler-run edge function to avoid browser timeout limits
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
-        body: { 
-          commit: true, 
-          onlyIfUnset: false  // Full reschedule
-        }
-      });
+      // Directly call RPC to bypass Edge Function time limits
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
 
       if (error) {
-        console.error("scheduler-run error:", error);
+        console.error('Reschedule RPC error:', error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("scheduler-run response:", data);
+      const row = Array.isArray(data) ? data[0] : data;
       await fetchSchedule();
       
-      // Handle the scheduler-run response format
-      const scheduledCount = data?.updatedJSI ?? 0;
-      const wroteSlots = data?.wroteSlots ?? 0;
+      const scheduledCount = row?.updated_jsi ?? 0;
+      const wroteSlots = row?.wrote_slots ?? 0;
       
       try { toast.success?.(`Rescheduled ${scheduledCount} stages with ${wroteSlots} time slots`); } catch {}
     } catch (e: any) {
