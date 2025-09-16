@@ -6,21 +6,48 @@ export const completeJobStage = async (jobId: string, stageId: string): Promise<
   console.log('🔄 [jobCompletionUtils] Completing job stage:', { jobId, stageId });
   
   try {
+    // Add detailed logging for troubleshooting
+    console.log('🔍 User authentication check...');
+    const { data: user, error: userError } = await supabase.auth.getUser();
+    if (userError || !user?.user?.id) {
+      console.error('❌ Authentication error:', userError);
+      toast.error('Authentication error - please refresh and try again');
+      return false;
+    }
+    console.log('✅ User authenticated:', user.user.id);
     // Get stage info to check if it's a proof stage  
     const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../../utils/proofStageUtils');
     const stageInfo = await getStageInfoForProofCheck(stageId);
     
     // Use the advance_job_stage RPC function to properly complete and advance the job
+    console.log('🚀 Calling advance_job_stage RPC with params:', {
+      p_job_id: jobId,
+      p_job_table_name: 'production_jobs',
+      p_current_stage_id: stageId,
+      p_completed_by: user.user.id
+    });
+    
     const { data, error } = await supabase.rpc('advance_job_stage', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
       p_current_stage_id: stageId,
-      p_completed_by: (await supabase.auth.getUser()).data.user?.id
+      p_completed_by: user.user.id
     });
+    
+    console.log('📊 RPC response:', { data, error });
 
     if (error) {
       console.error('❌ Failed to complete job stage:', error);
-      toast.error('Failed to complete job stage');
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      
+      // Provide more specific error messages
+      if (error.message?.includes('function advance_job_stage') && error.message?.includes('does not exist')) {
+        toast.error('Database function missing - please contact support');
+      } else if (error.message?.includes('permission denied')) {
+        toast.error('Permission denied - you may not have access to complete this job');
+      } else {
+        toast.error(`Failed to complete job stage: ${error.message || 'Unknown error'}`);
+      }
       return false;
     }
 

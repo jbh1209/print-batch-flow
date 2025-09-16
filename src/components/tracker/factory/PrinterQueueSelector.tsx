@@ -9,8 +9,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Printer, MapPin, Users, Clock } from "lucide-react";
+import { Printer, MapPin, Users, Clock, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PrinterStage {
   id: string;
@@ -37,29 +39,73 @@ export const PrinterQueueSelector: React.FC<PrinterQueueSelectorProps> = ({
 }) => {
   const [printerStages, setPrinterStages] = useState<PrinterStage[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { accessibleStages, isLoading: permissionsLoading, isAdmin } = useUserStagePermissions(user?.id);
 
   useEffect(() => {
     loadPrinterStages();
-  }, []);
+  }, [accessibleStages, isAdmin]);
 
   const loadPrinterStages = async () => {
     try {
+      // Wait for permissions to load
+      if (permissionsLoading || !accessibleStages) {
+        return;
+      }
+
+      // Get ALL production stages first, then filter by permissions
       const { data, error } = await supabase
         .from('production_stages')
         .select('id, name, description')
-        .or('name.ilike.%print%,name.ilike.%HP%,name.ilike.%T250%')
         .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
 
+      // Filter stages based on user permissions
+      let allowedStages = data || [];
+      
+      if (!isAdmin) {
+        // For non-admin users, only show stages they can work on or manage
+        const accessibleStageIds = accessibleStages
+          .filter(stage => stage.can_work || stage.can_manage)
+          .map(stage => stage.stage_id);
+        
+        allowedStages = data.filter(stage => accessibleStageIds.includes(stage.id));
+        
+        console.log('🔧 Permission filtering applied:', {
+          totalStages: data.length,
+          accessibleStageIds,
+          filteredStages: allowedStages.length,
+          stageNames: allowedStages.map(s => s.name)
+        });
+      }
+
       // Add location info based on stage name patterns
-      const stagesWithLocation = (data || []).map(stage => ({
+      const stagesWithLocation = allowedStages.map(stage => ({
         ...stage,
         location: getLocationFromStageName(stage.name)
       }));
 
       setPrinterStages(stagesWithLocation);
+
+      // Auto-select if user has only one accessible stage
+      if (stagesWithLocation.length === 1 && !selectedPrinterId) {
+        const singleStage = stagesWithLocation[0];
+        console.log('🎯 Auto-selecting single accessible stage:', singleStage.name);
+        handlePrinterSelect(singleStage.id);
+      }
+
+      // Clear localStorage if saved stage is no longer accessible
+      const savedQueue = localStorage.getItem('selected_printer_queue');
+      if (savedQueue && selectedPrinterId) {
+        const isStillAccessible = stagesWithLocation.some(stage => stage.id === selectedPrinterId);
+        if (!isStillAccessible) {
+          console.log('🧹 Clearing inaccessible saved stage from localStorage');
+          handleClearSelection();
+        }
+      }
+      
     } catch (error) {
       console.error('Error loading printer stages:', error);
     } finally {
@@ -103,14 +149,31 @@ export const PrinterQueueSelector: React.FC<PrinterQueueSelectorProps> = ({
     }));
   };
 
-  if (loading) {
+  if (loading || permissionsLoading) {
     return (
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex items-center gap-2">
             <Printer className="h-5 w-5 text-gray-400" />
-            <span className="text-gray-600">Loading printer queues...</span>
+            <span className="text-gray-600">Loading accessible stages...</span>
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show message if user has no accessible stages
+  if (!isAdmin && printerStages.length === 0) {
+    return (
+      <Card className="mb-6 border-l-4 border-l-orange-500">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-orange-600" />
+            <span className="text-orange-700 font-medium">No accessible stages found</span>
+          </div>
+          <p className="text-sm text-gray-600 mt-2 ml-7">
+            You don't have permission to access any production stages. Please contact your administrator.
+          </p>
         </CardContent>
       </Card>
     );
@@ -123,12 +186,12 @@ export const PrinterQueueSelector: React.FC<PrinterQueueSelectorProps> = ({
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Printer className="h-5 w-5 text-blue-600" />
-              <span className="font-medium text-gray-900">Print Queue</span>
+              <span className="font-medium text-gray-900">Production Stage</span>
             </div>
             
             <Select value={selectedPrinterId || ""} onValueChange={handlePrinterSelect}>
               <SelectTrigger className="w-64">
-                <SelectValue placeholder="Select printer queue..." />
+                <SelectValue placeholder="Select production stage..." />
               </SelectTrigger>
               <SelectContent>
                 {printerStages.map(stage => (
@@ -151,7 +214,7 @@ export const PrinterQueueSelector: React.FC<PrinterQueueSelectorProps> = ({
                 onClick={handleClearSelection}
                 className="text-gray-600"
               >
-                Show All Queues
+                Show All Stages
               </Button>
             )}
           </div>
