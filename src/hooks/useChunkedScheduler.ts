@@ -66,7 +66,7 @@ export function useChunkedScheduler() {
     retryCount = 0
   ): Promise<SchedulerChunkResult> => {
     try {
-      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
+      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
         p_job_ids: jobIds,
         p_start_from: null,
         p_only_if_unset: true
@@ -92,86 +92,29 @@ export function useChunkedScheduler() {
     }
   }, []);
 
-  const rescheduleAllChunked = useCallback(async (
-    opts: ChunkedSchedulerOptions = {}
-  ) => {
-    const { chunkSize = 25 } = opts;
-    
+  const rescheduleAllChunked = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Step 1: Fetch all pending job IDs
-      const jobIds = await fetchPendingJobIds();
-      
-      if (jobIds.length === 0) {
-        toast.info('No pending jobs to schedule');
-        return {
-          totals: { updated_jsi: 0, wrote_slots: 0, violations: [] },
-          progress: { totalJobs: 0, processed: 0, succeeded: 0, failed: 0, failures: [] }
-        };
+      // Call the original working SQL function directly (no Edge Function wrapper)
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+
+      if (error) {
+        throw new Error(`Reschedule failed: ${error.message}`);
       }
 
-      // Adjust chunk size for large datasets
-      const effectiveChunkSize = jobIds.length > 1000 ? 10 : chunkSize;
-
-      // Step 2: Clear previous schedule
-      await clearPreviousSchedule();
-      toast.message('Cleared previous schedule, processing jobs...');
-
-      // Step 3: Process in chunks
-      const chunks = [];
-      for (let i = 0; i < jobIds.length; i += effectiveChunkSize) {
-        chunks.push(jobIds.slice(i, i + effectiveChunkSize));
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!isSchedulerChunkResult(result)) {
+        throw new Error('Invalid response format from scheduler');
       }
 
-      const progress: ChunkProgress = {
-        totalJobs: jobIds.length,
-        processed: 0,
-        succeeded: 0,
-        failed: 0,
-        failures: []
+      return {
+        totals: result,
+        progress: { totalJobs: result.updated_jsi, processed: result.updated_jsi, succeeded: result.updated_jsi, failed: 0, failures: [] }
       };
-
-      const totals: SchedulerChunkResult = {
-        updated_jsi: 0,
-        wrote_slots: 0,
-        violations: []
-      };
-
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        try {
-          const result = await processChunk(chunk);
-          
-          // Aggregate results
-          totals.updated_jsi += result.updated_jsi;
-          totals.wrote_slots += result.wrote_slots;
-          if (result.violations) {
-            totals.violations = [...(totals.violations || []), ...result.violations];
-          }
-
-          progress.succeeded += chunk.length;
-          progress.processed += chunk.length;
-
-          // Show progress toast every 10 chunks or on last chunk
-          if (i % 10 === 0 || i === chunks.length - 1) {
-            toast.message(`Processed ${progress.processed}/${progress.totalJobs} jobs...`);
-          }
-        } catch (error) {
-          progress.failed += chunk.length;
-          progress.processed += chunk.length;
-          progress.failures.push({
-            index: i,
-            jobIds: chunk,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      }
-
-      return { totals, progress };
     } finally {
       setIsLoading(false);
     }
-  }, [fetchPendingJobIds, clearPreviousSchedule, processChunk]);
+  }, []);
 
   const appendJobsChunked = useCallback(async (
     jobIds: string[],
