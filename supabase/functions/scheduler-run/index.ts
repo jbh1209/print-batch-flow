@@ -82,7 +82,7 @@ async function schedule(supabase: any, req: ScheduleRequest) {
   try {
     if (req.onlyJobIds && req.onlyJobIds.length > 0) {
       // Append specific jobs
-      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
+      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
         p_job_ids: req.onlyJobIds,
         p_start_from: req.startFrom ? new Date(req.startFrom).toISOString() : null,
         p_only_if_unset: !!req.onlyIfUnset,
@@ -101,7 +101,7 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       if (clearError) throw clearError;
     }
 
-    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
     if (error) throw error;
     const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
     return {
