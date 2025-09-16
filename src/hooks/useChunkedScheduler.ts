@@ -66,7 +66,7 @@ export function useChunkedScheduler() {
     retryCount = 0
   ): Promise<SchedulerChunkResult> => {
     try {
-      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
+      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
         p_job_ids: jobIds,
         p_start_from: null,
         p_only_if_unset: true
@@ -96,7 +96,7 @@ export function useChunkedScheduler() {
     setIsLoading(true);
     try {
       // Call the original working SQL function directly (no Edge Function wrapper)
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
 
       if (error) {
         throw new Error(`Reschedule failed: ${error.message}`);
