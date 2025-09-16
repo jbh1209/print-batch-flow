@@ -71,150 +71,44 @@ async function withCors(req: Request, fn: () => Promise<Response>) {
   }
 }
 
-// Health check
-async function healthCheck(supabase: any): Promise<void> {
-  try {
-    const { error } = await supabase.from("shift_schedules").select("day_of_week").limit(1);
-    if (error) throw error;
-    console.log("Database connectivity check passed");
-  } catch (e) {
-    console.error("Health check failed:", e);
-    throw new Error(`Database connectivity failed: ${e.message}`);
-  }
+// Health check removed in rollback for simplicity (was only connectivity ping)
+async function healthCheck(_supabase: any): Promise<void> {
+  return; // no-op
 }
-// Core scheduling function that routes to database scheduler
+// Core scheduling function (rollback to last week's simple flow)
 async function schedule(supabase: any, req: ScheduleRequest) {
-  console.log("Starting scheduler with request:", req);
-
+  const t0 = Date.now();
   try {
-    // Determine which scheduler function to call based on request type
     if (req.onlyJobIds && req.onlyJobIds.length > 0) {
-      // Append specific jobs to schedule
-      console.log(`Appending ${req.onlyJobIds.length} specific jobs to schedule`);
-      
-      const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
-      
-      try {
-        const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
-          p_job_ids: req.onlyJobIds,
-          p_start_from: startTime,
-          p_only_if_unset: !!req.onlyIfUnset
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
-        
-        return {
-          wroteSlots: result?.wrote_slots || 0,
-          updatedJSI: result?.updated_jsi || 0,
-          dryRun: !req.commit,
-          violations: result?.violations || []
-        };
-      } catch (appendErr: any) {
-        console.error('scheduler_append_jobs_edge failed:', appendErr);
-        const code = appendErr?.code;
-        const msg: string = appendErr?.message ?? '';
-
-        // Fallback for ambiguous column errors from underlying query
-        if (code === '42702' || /ambiguous/i.test(msg)) {
-          console.warn('Ambiguous column error during append; falling back to full reschedule');
-          const { data: fullData, error: fullError } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
-          if (fullError) {
-            console.error('Fallback reschedule also failed:', fullError);
-            throw fullError;
-          }
-          const fullResult = Array.isArray(fullData) && fullData.length > 0 ? fullData[0] : fullData;
-          return {
-            wroteSlots: fullResult?.wrote_slots || 0,
-            updatedJSI: fullResult?.updated_jsi || 0,
-            dryRun: !req.commit,
-            violations: fullResult?.violations || [],
-            userMessage: 'Append failed due to ambiguous job reference; performed a full reschedule instead.'
-          } as any;
-        }
-
-        // Precedence violation mapping
-        if (code === 'P0001' && msg.includes('Precedence violation')) {
-          throw {
-            code: 'PRECEDENCE_VIOLATION',
-            message: msg,
-            details: appendErr?.details,
-            userMessage: 'Schedule conflict detected. Resolve predecessor stages first.'
-          };
-        }
-
-        throw appendErr;
-      }
-      
-    } else {
-      // Full reschedule using parallel-aware scheduler
-      console.log("Rescheduling all pending jobs with parallel-aware scheduler");
-      
-      const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
-      
-      try {
-        // For full rebuild, clear existing non-completed schedule to minimize contention and timeouts
-        if (!req.onlyIfUnset) {
-          const { error: clearError } = await supabase.rpc('clear_non_completed_scheduling_data');
-          if (clearError) {
-            console.error('Error clearing non-completed scheduling data:', clearError);
-            throw clearError;
-          }
-        }
-
-        // Use the working parallel-aware scheduler with timeouts disabled
-        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
-
-        if (error) {
-          console.error('Error calling scheduler_reschedule_all_parallel_aware_edge:', error);
-          // Check for precedence violation (P0001 error)
-          if (error.code === 'P0001' && error.message?.includes('Precedence violation')) {
-            throw {
-              code: 'PRECEDENCE_VIOLATION',
-              message: error.message,
-              details: error.details,
-              userMessage: 'Schedule conflict detected. Some jobs have overlapping dependencies that need manual resolution.'
-            };
-          }
-          throw error;
-        }
-
-        const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
-        
-        console.log('Parallel-aware scheduler completed:', {
-          wroteSlots: result?.wrote_slots || 0,
-          updatedJSI: result?.updated_jsi || 0,
-          violations: result?.violations || []
-        });
-
-        return {
-          wroteSlots: result?.wrote_slots || 0,
-          updatedJSI: result?.updated_jsi || 0,
-          dryRun: !req.commit,
-          violations: result?.violations || []
-        };
-        
-      } catch (scheduleError) {
-        console.error('Parallel-aware scheduler failed:', scheduleError);
-        
-        // If bulletproof scheduler fails with precedence violation, provide detailed error
-        if (scheduleError?.code === 'PRECEDENCE_VIOLATION') {
-          throw {
-            ...scheduleError,
-            userMessage: 'Schedule conflict detected. Some jobs have overlapping dependencies that need manual resolution.'
-          };
-        }
-        
-        throw scheduleError;
-      }
+      // Append specific jobs
+      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
+        p_job_ids: req.onlyJobIds,
+        p_start_from: req.startFrom ? new Date(req.startFrom).toISOString() : null,
+        p_only_if_unset: !!req.onlyIfUnset,
+      });
+      if (error) throw error;
+      const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+      return {
+        wroteSlots: result?.wrote_slots ?? 0,
+        updatedJSI: result?.updated_jsi ?? 0,
+      };
     }
-    
-  } catch (error) {
-    console.error('Scheduler error:', error);
-    throw error;
+
+    // Full rebuild path
+    if (!req.onlyIfUnset) {
+      const { error: clearError } = await supabase.rpc('clear_non_completed_scheduling_data');
+      if (clearError) throw clearError;
+    }
+
+    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+    if (error) throw error;
+    const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+    return {
+      wroteSlots: result?.wrote_slots ?? 0,
+      updatedJSI: result?.updated_jsi ?? 0,
+    };
+  } finally {
+    console.log('scheduler-run elapsed_ms', Date.now() - t0);
   }
 }
 
@@ -258,8 +152,8 @@ serve((req) =>
 
       return json(req, 200, {
         ok: true,
-        request: normalized,
-        ...result,
+        updatedJSI: result?.updatedJSI ?? 0,
+        wroteSlots: result?.wroteSlots ?? 0,
       });
     })();
 
