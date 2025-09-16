@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, AlertTriangle, ChevronLeft, ChevronRight, SkipForward, Factory, Workflow, Database, Settings, Brain } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, ChevronLeft, ChevronRight, SkipForward, Factory, Workflow, Database, Settings } from "lucide-react";
 import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapper";
 import type { RowMappingResult } from "@/utils/excel/types";
@@ -15,7 +15,6 @@ import { RowMappingTable } from "./RowMappingTable";
 import { supabase } from "@/integrations/supabase/client";
 import { AddRowDialog } from "./AddRowDialog";
 import { toast } from "sonner";
-import { useLearningEngine } from "@/hooks/admin/useLearningEngine";
 
 interface PaginatedJobCreationDialogProps {
   open: boolean;
@@ -61,17 +60,6 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   const [showAddRowDialog, setShowAddRowDialog] = useState(false);
   const [selectedWoForAdd, setSelectedWoForAdd] = useState<string>("");
   const [isProcessingSingle, setIsProcessingSingle] = useState(false);
-  
-  // Learning engine integration
-  const {
-    suggestions,
-    isAnalyzing,
-    analyzeMappings,
-    acceptSuggestion,
-    rejectSuggestion,
-    logManualCorrection,
-    getSuggestionsForRow
-  } = useLearningEngine();
 
   // Get order list from result
   const orderList = result ? Object.keys(result.categoryAssignments) : [];
@@ -101,11 +89,8 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
         initialStatuses[woNo] = { status: 'pending' };
       });
       setOrderStatuses(initialStatuses);
-
-      // Run learning engine analysis on the mappings
-      analyzeMappings(initialMappings, 'Matrix Parser Upload');
     }
-  }, [result, analyzeMappings]);
+  }, [result]);
 
   const loadAvailableStages = async () => {
     try {
@@ -198,10 +183,6 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
         if (mappingIndex >= 0) {
           if (!updated[woNo]) updated[woNo] = [...mappings];
           const mappingsCopy = [...updated[woNo]];
-          
-          // Store original mapping for learning
-          const originalMapping = { ...mappingsCopy[mappingIndex] };
-          
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             mappedStageId: stageId,
@@ -212,10 +193,6 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
             confidence: 100,
             isUnmapped: false
           };
-          
-          // Log manual correction for learning
-          logManualCorrection(woNo, rowIndex, originalMapping, mappingsCopy[mappingIndex], 'Manual stage mapping update');
-          
           updated[woNo] = mappingsCopy;
         }
       }
@@ -305,30 +282,6 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
       return [];
     }
     return updatedRowMappings[currentOrder];
-  };
-
-  const handleAcceptSuggestion = async (suggestionId: string, suggestion: any) => {
-    await acceptSuggestion(suggestionId, suggestion, (woNo, rowIndex, correction) => {
-      // Apply the suggested correction
-      if (correction.mapped_stage_id && correction.mapped_stage_name) {
-        handleUpdateMapping(
-          woNo, 
-          rowIndex, 
-          correction.mapped_stage_id, 
-          correction.mapped_stage_name,
-          correction.mapped_stage_spec_id,
-          correction.mapped_stage_spec_name
-        );
-      }
-    });
-  };
-
-  const getCurrentOrderSuggestions = () => {
-    if (!currentOrder) return [];
-    return suggestions.filter(suggestion => {
-      const mapping = suggestion.suggested_mapping as any;
-      return mapping?.wo_no === currentOrder;
-    });
   };
 
   const extractUserApprovedMappings = (woNo: string) => {
@@ -538,20 +491,7 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
             {/* Overall Progress */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  Processing Progress
-                  {isAnalyzing && (
-                    <Badge variant="outline" className="text-xs">
-                      <Brain className="h-3 w-3 mr-1" />
-                      AI Analyzing...
-                    </Badge>
-                  )}
-                  {getCurrentOrderSuggestions().length > 0 && (
-                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                      {getCurrentOrderSuggestions().length} Smart Suggestions
-                    </Badge>
-                  )}
-                </CardTitle>
+                <CardTitle className="text-sm">Processing Progress</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -608,15 +548,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
                         availableStages={availableStages}
                         stageSpecifications={stageSpecifications}
                         workOrderNumber={currentOrder}
-                        suggestions={getCurrentOrderSuggestions()}
                         onUpdateMapping={(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName) => 
                           handleUpdateMapping(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName)
                         }
                         onToggleManualOverride={(woNo, rowIndex) => handleToggleManualOverride(woNo, rowIndex)}
                         onIgnoreRow={(woNo, rowIndex) => handleIgnoreRow(woNo, rowIndex)}
                         onRestoreRow={(woNo, rowIndex) => handleRestoreRow(woNo, rowIndex)}
-                        onAcceptSuggestion={handleAcceptSuggestion}
-                        onRejectSuggestion={rejectSuggestion}
                       />
                       
                       <div className="mt-4 flex gap-2">

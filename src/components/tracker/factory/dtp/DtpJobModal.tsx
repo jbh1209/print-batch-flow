@@ -181,7 +181,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                 {getCurrentStage() === 'dtp' && (
                   <DtpStageActions
                     job={job}
-                    stageStatus={getStageStatus()}
+                    stageStatus="active"
                     notes=""
                     isLoading={false}
                     onClose={onClose}

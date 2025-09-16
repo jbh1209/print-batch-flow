@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +35,6 @@ import { format } from "date-fns";
 import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
@@ -43,7 +42,6 @@ interface EnhancedJobDetailsModalProps {
   onClose: () => void;
   onStartJob?: (jobId: string) => Promise<boolean>;
   onCompleteJob?: (jobId: string) => Promise<boolean>;
-  scanCompleted?: boolean;
 }
 
 export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = ({
@@ -51,25 +49,15 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   isOpen,
   onClose,
   onStartJob,
-  onCompleteJob,
-  scanCompleted: externalScanCompleted = false
+  onCompleteJob
 }) => {
   const [operatorNotes, setOperatorNotes] = useState("");
   const [reworkReason, setReworkReason] = useState("");
   const [qualityIssue, setQualityIssue] = useState("");
   const [activeTab, setActiveTab] = useState("scanning");
   const [scanRequired, setScanRequired] = useState(true);
+  const [scanCompleted, setScanCompleted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Use external scan state (managed by parent)
-  const scanCompleted = externalScanCompleted;
-
-  // Reset tab when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab("scanning");
-    }
-  }, [isOpen]);
 
   if (!job) return null;
 
@@ -129,7 +117,6 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   };
 
   const statusInfo = getStatusInfo();
-  const StatusIcon = statusInfo.icon;
 
   const handleStartJob = async () => {
     if (!onStartJob) return;
@@ -196,7 +183,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] sm:max-w-4xl h-[90vh] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Hash className="h-5 w-5" />
@@ -232,9 +219,13 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                 </div>
                 
                 {!scanCompleted ? (
-                  <div className="text-center text-orange-700 font-medium">
-                    Listening for barcode scan… Present the job QR code to the scanner.
-                  </div>
+                  <Button 
+                    onClick={() => setScanCompleted(true)}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Scan className="w-5 h-5 mr-2" />
+                    Confirm Job Scan
+                  </Button>
                 ) : (
                   <div className="text-center text-green-700 font-medium">
                     ✓ Ready to start production
@@ -267,7 +258,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                   </div>
                   <div className="text-right space-y-3">
                     <Badge className={`${statusInfo.color} border px-4 py-2 text-lg`}>
-                      <StatusIcon className="w-5 h-5 mr-2" />
+                      <statusInfo.icon className="w-5 h-5 mr-2" />
                       {statusInfo.text}
                     </Badge>
                     <div className="text-lg font-medium text-gray-700">
@@ -304,7 +295,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                   </div>
                   <div className="text-right space-y-2">
                     <Badge className={`${statusInfo.color} border px-4 py-2 text-sm`}>
-                      <StatusIcon className="w-4 h-4 mr-2" />
+                      <statusInfo.icon className="w-4 h-4 mr-2" />
                       {statusInfo.text}
                     </Badge>
                     {job.queue_position && (

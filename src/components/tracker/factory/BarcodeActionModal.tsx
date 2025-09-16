@@ -21,7 +21,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useBarcodeControlledActions, JobActionState } from "@/hooks/tracker/useBarcodeControlledActions";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 interface BarcodeActionModalProps {
   isOpen: boolean;
@@ -83,9 +82,6 @@ export const BarcodeActionModal: React.FC<BarcodeActionModalProps> = ({
 }) => {
   const [manualBarcode, setManualBarcode] = useState("");
   const [notes, setNotes] = useState("");
-  
-  const { isAdmin, isManager } = useUserRole();
-  const canManualEntry = isAdmin || isManager;
   
   const {
     actionState,
@@ -203,30 +199,26 @@ export const BarcodeActionModal: React.FC<BarcodeActionModalProps> = ({
                   <p className="text-sm font-medium">
                     Scan the barcode on the work order
                   </p>
-                  {canManualEntry && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Or enter it manually below (Admin/Manager only)
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Or enter it manually below
+                  </p>
                 </div>
 
-                {canManualEntry && (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter barcode manually"
-                      value={manualBarcode}
-                      onChange={(e) => setManualBarcode(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleManualBarcodeSubmit()}
-                    />
-                    <Button 
-                      onClick={handleManualBarcodeSubmit}
-                      disabled={!manualBarcode.trim()}
-                      size="sm"
-                    >
-                      Verify
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter barcode manually"
+                    value={manualBarcode}
+                    onChange={(e) => setManualBarcode(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleManualBarcodeSubmit()}
+                  />
+                  <Button 
+                    onClick={handleManualBarcodeSubmit}
+                    disabled={!manualBarcode.trim()}
+                    size="sm"
+                  >
+                    Verify
+                  </Button>
+                </div>
               </div>
             )}
 

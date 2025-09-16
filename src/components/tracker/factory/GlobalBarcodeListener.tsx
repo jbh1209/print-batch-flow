@@ -9,22 +9,17 @@ interface GlobalBarcodeListenerProps {
 
 export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
   onBarcodeDetected,
-  minLength = 5,
+  minLength = 8,
   timeout = 500
 }) => {
   const barcodeRef = useRef<string>("");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyPress = (event: KeyboardEvent) => {
       // Ignore keystrokes when user is typing in input fields
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return;
-      }
-
-      // Ignore modified keys (Ctrl, Alt, Shift combinations)
-      if (event.ctrlKey || event.altKey || event.metaKey) {
         return;
       }
 
@@ -50,8 +45,8 @@ export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
         return;
       }
 
-      // Only append printable characters (letters, numbers, some symbols)
-      if (event.key.length === 1 && /[a-zA-Z0-9\-_]/.test(event.key)) {
+      // Accumulate characters
+      if (event.key.length === 1) {
         barcodeRef.current += event.key;
         
         // Set timeout to process accumulated data
@@ -64,12 +59,12 @@ export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
       }
     };
 
-    // Only listen to keydown to avoid character duplication
-    window.addEventListener('keydown', handleKeyDown);
+    // Add event listener
+    window.addEventListener('keypress', handleKeyPress);
 
     // Cleanup
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keypress', handleKeyPress);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }

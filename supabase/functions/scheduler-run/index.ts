@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Supabase Edge Function: scheduler-run
  * 
@@ -72,44 +71,75 @@ async function withCors(req: Request, fn: () => Promise<Response>) {
   }
 }
 
-// Health check removed in rollback for simplicity (was only connectivity ping)
-async function healthCheck(_supabase: any): Promise<void> {
-  return; // no-op
-}
-// Core scheduling function (rollback to last week's simple flow)
-async function schedule(supabase: any, req: ScheduleRequest) {
-  const t0 = Date.now();
+// Health check
+async function healthCheck(supabase: any): Promise<void> {
   try {
+    const { error } = await supabase.from("shift_schedules").select("day_of_week").limit(1);
+    if (error) throw error;
+    console.log("Database connectivity check passed");
+  } catch (e) {
+    console.error("Health check failed:", e);
+    throw new Error(`Database connectivity failed: ${e.message}`);
+  }
+}
+// Core scheduling function that routes to database scheduler
+async function schedule(supabase: any, req: ScheduleRequest) {
+  console.log("Starting scheduler with request:", req);
+
+  try {
+    // Determine which scheduler function to call based on request type
     if (req.onlyJobIds && req.onlyJobIds.length > 0) {
-      // Append specific jobs
-      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
+      // Append specific jobs to schedule
+      console.log(`Appending ${req.onlyJobIds.length} specific jobs to schedule`);
+      
+      const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
+      
+      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
         p_job_ids: req.onlyJobIds,
-        p_start_from: req.startFrom ? new Date(req.startFrom).toISOString() : null,
-        p_only_if_unset: !!req.onlyIfUnset,
+        p_start_from: startTime,
+        p_only_if_unset: !!req.onlyIfUnset
       });
-      if (error) throw error;
+
+      if (error) {
+        console.error('Error calling scheduler_append_jobs:', error);
+        throw error;
+      }
+
       const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+      
       return {
-        wroteSlots: result?.wrote_slots ?? 0,
-        updatedJSI: result?.updated_jsi ?? 0,
+        wroteSlots: result?.wrote_slots || 0,
+        updatedJSI: result?.updated_jsi || 0,
+        dryRun: !req.commit,
+        violations: result?.violations || []
+      };
+      
+    } else {
+      // Reschedule all jobs
+      console.log("Rescheduling all pending jobs");
+      
+      const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
+      
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware', {
+        p_start_from: startTime
+      });
+
+      if (error) {
+        console.error('Error calling scheduler_reschedule_all_parallel_aware:', error);
+        throw error;
+      }
+
+      return {
+        wroteSlots: data?.wrote_slots || 0,
+        updatedJSI: data?.updated_jsi || 0,
+        dryRun: !req.commit,
+        violations: data?.violations || []
       };
     }
-
-    // Full rebuild path
-    if (!req.onlyIfUnset) {
-      const { error: clearError } = await supabase.rpc('clear_non_completed_scheduling_data');
-      if (clearError) throw clearError;
-    }
-
-    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
-    if (error) throw error;
-    const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
-    return {
-      wroteSlots: result?.wrote_slots ?? 0,
-      updatedJSI: result?.updated_jsi ?? 0,
-    };
-  } finally {
-    console.log('scheduler-run elapsed_ms', Date.now() - t0);
+    
+  } catch (error) {
+    console.error('Scheduler error:', error);
+    throw error;
   }
 }
 
@@ -153,8 +183,8 @@ serve((req) =>
 
       return json(req, 200, {
         ok: true,
-        updatedJSI: result?.updatedJSI ?? 0,
-        wroteSlots: result?.wroteSlots ?? 0,
+        request: normalized,
+        ...result,
       });
     })();
 

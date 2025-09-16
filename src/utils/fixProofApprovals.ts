@@ -70,16 +70,20 @@ export const fixProofApprovals = async () => {
       console.log('🎯 Triggering scheduler to pick up fixed jobs...');
       
       try {
-        const { data: schedulerData, error: schedulerError } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
+        const { data: schedulerData, error: schedulerError } = await supabase.functions.invoke('scheduler-run', {
+          body: {
+            commit: true,
+            onlyIfUnset: false // Reschedule everything to pick up newly approved jobs
+          }
+        });
 
         if (schedulerError) {
-          console.error('❌ Scheduler RPC error:', schedulerError);
+          console.error('❌ Scheduler error:', schedulerError);
           toast.error('Jobs fixed but scheduler failed - please run scheduler manually');
           return { fixed: fixedCount, scheduled: false };
         }
 
-        const row = Array.isArray(schedulerData) ? schedulerData[0] : schedulerData;
-        console.log('✅ Scheduler completed:', row);
+        console.log('✅ Scheduler completed:', schedulerData);
         toast.success(`Fixed ${fixedCount} jobs and rescheduled successfully`);
         return { fixed: fixedCount, scheduled: true };
         

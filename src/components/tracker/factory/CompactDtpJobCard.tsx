@@ -88,7 +88,6 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
                 job={job}
                 onStart={onStart}
                 onComplete={onComplete}
-                onJobClick={onJobClick}
                 size="sm"
                 layout="vertical"
                 compact={true}

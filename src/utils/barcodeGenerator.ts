@@ -9,9 +9,11 @@ export interface BarcodeData {
 }
 
 export const generateBarcodeData = (jobData: BarcodeData): string => {
-  // Use just the work order number for a cleaner, scannable barcode
-  // This creates fewer lines and can be printed larger on stickers
-  return jobData.wo_no;
+  // Create a unique barcode using work order number and job ID
+  // Format: WO{wo_no}J{first_8_chars_of_job_id}
+  const shortJobId = jobData.job_id.substring(0, 8).toUpperCase();
+  const woNumber = jobData.wo_no.replace(/[^A-Z0-9]/gi, ''); // Remove special characters
+  return `WO${woNumber}J${shortJobId}`;
 };
 
 export const generateBarcodeImage = async (data: string): Promise<string> => {
@@ -40,12 +42,17 @@ export const generateBarcodeImage = async (data: string): Promise<string> => {
   }
 };
 
-export const parseBarcodeData = (barcodeData: string): { wo_no: string } | null => {
+export const parseBarcodeData = (barcodeData: string): { wo_no: string; job_id_partial: string } | null => {
   try {
-    // Parse the barcode - now it's just the work order number
-    return {
-      wo_no: barcodeData
-    };
+    // Parse the barcode format: WO{wo_no}J{job_id_partial}
+    const match = barcodeData.match(/^WO(.+)J([A-Z0-9]{8})$/);
+    if (match) {
+      return {
+        wo_no: match[1],
+        job_id_partial: match[2]
+      };
+    }
+    return null;
   } catch (error) {
     console.error('Error parsing barcode data:', error);
     return null;

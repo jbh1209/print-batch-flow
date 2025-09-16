@@ -1,4 +1,3 @@
-// @ts-nocheck
 // supabase/functions/schedule-on-approval/index.ts
 // Thin CORS-aware proxy to /functions/v1/scheduler-run
 

@@ -238,6 +238,16 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
         </CardContent>
       </Card>
 
+      {/* Stage Specifications Display */}
+      {(job.current_stage_name || getSubSpecification() || currentStageInfo.stageInstance?.part_name || currentStageInfo.stageInstance?.quantity || currentStageInfo.stageInstance?.notes) && (
+        <StageSpecificationDisplay
+          stageName={job.current_stage_name || 'Unknown Stage'}
+          subSpecification={getSubSpecification() || undefined}
+          partName={currentStageInfo.stageInstance?.part_name || undefined}
+          quantity={currentStageInfo.stageInstance?.quantity || undefined}
+          paperSpecifications={currentStageInfo.stageInstance?.notes || undefined}
+        />
+      )}
     </div>
   );
 };

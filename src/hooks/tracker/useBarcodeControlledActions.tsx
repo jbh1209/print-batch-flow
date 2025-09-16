@@ -57,13 +57,16 @@ export const useBarcodeControlledActions = () => {
 
   // Verify barcode matches expected job
   const verifyBarcode = useCallback((scannedData: string, expectedData: string): boolean => {
-    // For plain text work order numbers, do direct comparison
-    // Handle case where scanned data might have extra characters or formatting
-    const cleanScanned = scannedData.trim().toUpperCase();
-    const cleanExpected = expectedData.trim().toUpperCase();
+    const scannedParsed = parseBarcodeData(scannedData);
+    const expectedParsed = parseBarcodeData(expectedData);
     
-    // Check if scanned data matches expected work order number exactly
-    return cleanScanned === cleanExpected;
+    if (!scannedParsed || !expectedParsed) {
+      return false;
+    }
+    
+    // Match both WO number and job ID partial
+    return scannedParsed.wo_no === expectedParsed.wo_no && 
+           scannedParsed.job_id_partial === expectedParsed.job_id_partial;
   }, []);
 
   // Process barcode scan during job actions

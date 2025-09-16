@@ -638,45 +638,6 @@ export type Database = {
         }
         Relationships: []
       }
-      excel_import_learning_sessions: {
-        Row: {
-          created_at: string
-          file_name: string
-          id: string
-          manual_corrections_count: number
-          original_data: Json
-          parsed_data: Json
-          session_completed: boolean
-          suggestions_generated: Json
-          updated_at: string
-          uploaded_by: string
-        }
-        Insert: {
-          created_at?: string
-          file_name: string
-          id?: string
-          manual_corrections_count?: number
-          original_data?: Json
-          parsed_data?: Json
-          session_completed?: boolean
-          suggestions_generated?: Json
-          updated_at?: string
-          uploaded_by: string
-        }
-        Update: {
-          created_at?: string
-          file_name?: string
-          id?: string
-          manual_corrections_count?: number
-          original_data?: Json
-          parsed_data?: Json
-          session_completed?: boolean
-          suggestions_generated?: Json
-          updated_at?: string
-          uploaded_by?: string
-        }
-        Relationships: []
-      }
       excel_import_mappings: {
         Row: {
           address_extraction_pattern: string | null
@@ -835,111 +796,6 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      geographic_delivery_patterns: {
-        Row: {
-          accuracy_rate: number
-          created_at: string
-          delivery_method: string
-          id: string
-          is_active: boolean
-          learned_from_corrections: number
-          location_pattern: string
-          min_service_level: string | null
-          notes: string | null
-          updated_at: string
-        }
-        Insert: {
-          accuracy_rate?: number
-          created_at?: string
-          delivery_method: string
-          id?: string
-          is_active?: boolean
-          learned_from_corrections?: number
-          location_pattern: string
-          min_service_level?: string | null
-          notes?: string | null
-          updated_at?: string
-        }
-        Update: {
-          accuracy_rate?: number
-          created_at?: string
-          delivery_method?: string
-          id?: string
-          is_active?: boolean
-          learned_from_corrections?: number
-          location_pattern?: string
-          min_service_level?: string | null
-          notes?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      intelligent_suggestions: {
-        Row: {
-          applied_at: string | null
-          confidence_level: string
-          created_at: string
-          excel_text: string
-          id: string
-          learning_session_id: string
-          original_mapping: Json | null
-          pattern_id: string | null
-          reasoning: string
-          row_index: number
-          suggested_mapping: Json
-          suggestion_type: string
-          user_action: string | null
-          user_feedback: string | null
-        }
-        Insert: {
-          applied_at?: string | null
-          confidence_level?: string
-          created_at?: string
-          excel_text: string
-          id?: string
-          learning_session_id: string
-          original_mapping?: Json | null
-          pattern_id?: string | null
-          reasoning: string
-          row_index: number
-          suggested_mapping: Json
-          suggestion_type: string
-          user_action?: string | null
-          user_feedback?: string | null
-        }
-        Update: {
-          applied_at?: string | null
-          confidence_level?: string
-          created_at?: string
-          excel_text?: string
-          id?: string
-          learning_session_id?: string
-          original_mapping?: Json | null
-          pattern_id?: string | null
-          reasoning?: string
-          row_index?: number
-          suggested_mapping?: Json
-          suggestion_type?: string
-          user_action?: string | null
-          user_feedback?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "intelligent_suggestions_learning_session_id_fkey"
-            columns: ["learning_session_id"]
-            isOneToOne: false
-            referencedRelation: "excel_import_learning_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "intelligent_suggestions_pattern_id_fkey"
-            columns: ["pattern_id"]
-            isOneToOne: false
-            referencedRelation: "learned_correction_patterns"
             referencedColumns: ["id"]
           },
         ]
@@ -1220,51 +1076,6 @@ export type Database = {
           },
         ]
       }
-      learned_correction_patterns: {
-        Row: {
-          accuracy_rate: number
-          confidence_score: number
-          created_at: string
-          created_by: string
-          excel_text_pattern: string
-          id: string
-          is_active: boolean
-          last_used_at: string | null
-          learned_mapping: Json
-          pattern_type: string
-          updated_at: string
-          usage_count: number
-        }
-        Insert: {
-          accuracy_rate?: number
-          confidence_score?: number
-          created_at?: string
-          created_by: string
-          excel_text_pattern: string
-          id?: string
-          is_active?: boolean
-          last_used_at?: string | null
-          learned_mapping: Json
-          pattern_type: string
-          updated_at?: string
-          usage_count?: number
-        }
-        Update: {
-          accuracy_rate?: number
-          confidence_score?: number
-          created_at?: string
-          created_by?: string
-          excel_text_pattern?: string
-          id?: string
-          is_active?: boolean
-          last_used_at?: string | null
-          learned_mapping?: Json
-          pattern_type?: string
-          updated_at?: string
-          usage_count?: number
-        }
-        Relationships: []
-      }
       machine_availability: {
         Row: {
           capacity_hours: number
@@ -1303,56 +1114,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      manual_corrections_log: {
-        Row: {
-          confidence_before: number | null
-          corrected_mapping: Json
-          correction_reason: string | null
-          correction_type: string
-          created_at: string
-          id: string
-          learning_session_id: string
-          original_excel_text: string
-          original_system_mapping: Json | null
-          row_index: number
-          user_id: string
-        }
-        Insert: {
-          confidence_before?: number | null
-          corrected_mapping: Json
-          correction_reason?: string | null
-          correction_type: string
-          created_at?: string
-          id?: string
-          learning_session_id: string
-          original_excel_text: string
-          original_system_mapping?: Json | null
-          row_index: number
-          user_id: string
-        }
-        Update: {
-          confidence_before?: number | null
-          corrected_mapping?: Json
-          correction_reason?: string | null
-          correction_type?: string
-          created_at?: string
-          id?: string
-          learning_session_id?: string
-          original_excel_text?: string
-          original_system_mapping?: Json | null
-          row_index?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "manual_corrections_log_learning_session_id_fkey"
-            columns: ["learning_session_id"]
-            isOneToOne: false
-            referencedRelation: "excel_import_learning_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       postcard_jobs: {
         Row: {
@@ -3363,13 +3124,20 @@ export type Database = {
         Returns: string
       }
       advance_job_stage: {
-        Args: {
-          p_completed_by?: string
-          p_current_stage_id: string
-          p_job_id: string
-          p_job_table_name: string
-          p_notes?: string
-        }
+        Args:
+          | {
+              p_completed_by?: string
+              p_current_stage_id: string
+              p_job_id: string
+              p_job_table_name: string
+              p_notes?: string
+            }
+          | {
+              p_current_stage_id: string
+              p_job_id: string
+              p_job_table_name: string
+              p_notes?: string
+            }
         Returns: boolean
       }
       advance_job_stage_with_groups: {
@@ -3600,18 +3368,6 @@ export type Database = {
       export_scheduler_input: {
         Args: Record<PropertyKey, never>
         Returns: Json
-      }
-      find_precedence_violations: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          job_id: string
-          predecessor_end_time: string
-          predecessor_stage_instance_id: string
-          predecessor_stage_order: number
-          slot_start_time: string
-          stage_instance_id: string
-          stage_order: number
-        }[]
       }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
@@ -4121,13 +3877,6 @@ export type Database = {
           references_created: number
         }[]
       }
-      repair_precedence_violations: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          deleted_slots: number
-          reset_instances: number
-        }[]
-      }
       reset_custom_workflow_stages_to_pending: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -4186,17 +3935,6 @@ export type Database = {
           wrote_slots: number
         }[]
       }
-      scheduler_append_jobs_edge: {
-        Args: {
-          p_job_ids: string[]
-          p_only_if_unset?: boolean
-          p_start_from?: string
-        }
-        Returns: {
-          updated_jsi: number
-          wrote_slots: number
-        }[]
-      }
       scheduler_completely_sequential: {
         Args: { p_start_from?: string }
         Returns: {
@@ -4217,14 +3955,6 @@ export type Database = {
           wrote_slots: number
         }[]
       }
-      scheduler_reschedule_all_parallel_aware_edge: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          updated_jsi: number
-          violations: string[]
-          wrote_slots: number
-        }[]
-      }
       scheduler_reschedule_all_sequential_enhanced: {
         Args: { p_start_from?: string }
         Returns: {
@@ -4238,14 +3968,6 @@ export type Database = {
         Returns: {
           updated_jsi: number
           violations: Json
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_time_aware: {
-        Args: { p_commit?: boolean; p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: string[]
           wrote_slots: number
         }[]
       }
@@ -4334,10 +4056,6 @@ export type Database = {
       }
       update_job_due_dates_after_scheduling: {
         Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      update_pattern_accuracy: {
-        Args: { p_pattern_id: string; p_was_correct: boolean }
         Returns: undefined
       }
       update_stage_availability: {

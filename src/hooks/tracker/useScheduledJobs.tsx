@@ -64,7 +64,6 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
       setError(null);
 
       console.log('🔄 Fetching scheduled jobs with options:', { production_stage_id, department_filter });
-      console.log('📊 Initial filter state - production_stage_id:', production_stage_id);
 
       // Query job_stage_instances with scheduling data and job details
       let query = supabase
@@ -95,7 +94,6 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
 
       // Filter by production stage if specified
       if (production_stage_id) {
-        console.log('🎯 Applying production_stage_id filter:', production_stage_id);
         query = query.eq('production_stage_id', production_stage_id);
       }
 
@@ -107,8 +105,6 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
       const { data, error } = await query;
 
       if (error) throw error;
-
-      console.log('📊 Raw job stage instances fetched:', data?.length || 0);
 
       // Get job details with enhanced error handling and debugging
       const jobIds = data?.map(stage => stage.job_id) || [];
@@ -361,119 +357,46 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         return false;
       }
 
-      // First, try the RPC approach
-      try {
-        console.log('🔄 Attempting RPC completion for job:', job.wo_no);
-        
-        // Use appropriate completion function based on job type
-        const { data: parallelCheck } = await supabase
-          .from('job_stage_instances')
-          .select('part_assignment')
-          .eq('job_id', job.job_id)
-          .eq('job_table_name', 'production_jobs')
-          .neq('part_assignment', 'both')
-          .limit(1);
-        
-        const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
-        
-        let error;
-        if (hasParallelComponents) {
-          const result = await supabase.rpc('advance_parallel_job_stage' as any, {
-            p_job_id: job.job_id,
-            p_job_table_name: job.job_table_name,
-            p_current_stage_id: job.production_stage_id,
-            p_completed_by: user?.id,
-            p_notes: notes
-          });
-          error = result.error;
-        } else {
-          const result = await supabase.rpc('advance_job_stage', {
-            p_job_id: job.job_id,
-            p_job_table_name: job.job_table_name,
-            p_current_stage_id: job.production_stage_id,
-            p_completed_by: user?.id,
-            p_notes: notes
-          });
-          error = result.error;
-        }
-
-        if (error) {
-          throw new Error(`RPC Error: ${error.message}`);
-        }
-
-        console.log('✅ RPC completion successful');
-        toast.success(`Completed job ${job.wo_no} - ${job.stage_name}`);
-        await fetchScheduledJobs();
-        return true;
-
-      } catch (rpcError) {
-        const errorMsg = rpcError instanceof Error ? rpcError.message : String(rpcError);
-        console.warn('⚠️ RPC completion failed, falling back to direct update:', errorMsg);
-        
-        // Check if it's the ambiguous column error or similar DB error
-        if (errorMsg.includes('ambiguous') || errorMsg.includes('actual_duration_minutes') || errorMsg.includes('RPC Error')) {
-          console.log('🔄 Using direct database update fallback (admin approach)');
-          
-          // Get stage start time to calculate actual duration
-          const { data: stageData, error: stageError } = await supabase
-            .from('job_stage_instances')
-            .select(`
-              id,
-              started_at,
-              job_id,
-              job_table_name,
-              production_stage:production_stages(name)
-            `)
-            .eq('id', stageId)
-            .single();
-
-          if (stageError) throw new Error(`Failed to get stage data: ${stageError.message}`);
-
-          // Calculate actual duration in minutes
-          let actualDurationMinutes = 1; // Default minimum
-          if (stageData.started_at) {
-            const startTime = new Date(stageData.started_at).getTime();
-            const endTime = new Date().getTime();
-            actualDurationMinutes = Math.max(1, Math.floor((endTime - startTime) / 60000));
-          }
-
-          const isProofStage = stageData?.production_stage?.name?.toLowerCase().includes('proof');
-          
-          // Direct database update (same approach as admin UI)
-          const updateData = {
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            completed_by: user?.id,
-            notes: notes || null,
-            actual_duration_minutes: actualDurationMinutes,
-            updated_at: new Date().toISOString(),
-            ...(isProofStage && { proof_approved_manually_at: new Date().toISOString() })
-          };
-
-          const { error: updateError } = await supabase
-            .from('job_stage_instances')
-            .update(updateData)
-            .eq('id', stageId)
-            .eq('status', 'active');
-
-          if (updateError) {
-            throw new Error(`Fallback update failed: ${updateError.message}`);
-          }
-
-          console.log('✅ Fallback completion successful');
-          toast.success(`Completed ${job.wo_no} - ${job.stage_name} (took ${actualDurationMinutes} min)`);
-          await fetchScheduledJobs();
-          return true;
-        } else {
-          // Re-throw non-DB errors
-          throw rpcError;
-        }
+      // Use appropriate completion function based on job type
+      const { data: parallelCheck } = await supabase
+        .from('job_stage_instances')
+        .select('part_assignment')
+        .eq('job_id', job.job_id)
+        .eq('job_table_name', 'production_jobs')
+        .neq('part_assignment', 'both')
+        .limit(1);
+      
+      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
+      
+      let error;
+      if (hasParallelComponents) {
+        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
+          p_job_id: job.job_id,
+          p_job_table_name: job.job_table_name,
+          p_current_stage_id: job.production_stage_id,
+          p_completed_by: user?.id,
+          p_notes: notes
+        });
+        error = result.error;
+      } else {
+        const result = await supabase.rpc('advance_job_stage', {
+          p_job_id: job.job_id,
+          p_job_table_name: job.job_table_name,
+          p_current_stage_id: job.production_stage_id,
+          p_completed_by: user?.id,
+          p_notes: notes
+        });
+        error = result.error;
       }
 
+      if (error) throw error;
+
+      toast.success(`Completed job ${job.wo_no} - ${job.stage_name}`);
+      await fetchScheduledJobs();
+      return true;
     } catch (error) {
       console.error('❌ Error completing scheduled job:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to complete job';
-      toast.error(errorMessage);
+      toast.error('Failed to complete job');
       return false;
     }
   }, [scheduledJobs, user?.id, fetchScheduledJobs]);

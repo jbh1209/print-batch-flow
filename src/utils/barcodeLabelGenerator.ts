@@ -57,30 +57,58 @@ export const generateBarcodeLabelPDF = async (jobs: BarcodeLabelData[]): Promise
         borderWidth: 1,
       });
 
-      // Calculate barcode dimensions and position first
-      const barcodeWidth = mmToPoints(70); // 70mm barcode width
-      const barcodeHeight = mmToPoints(20); // 20mm barcode height
-      const barcodeX = (labelWidth - barcodeWidth) / 2;
-      const barcodeY = (labelHeight - barcodeHeight) / 2;
-
-      // Order number just above the barcode (ensure D prefix)
+      // Order number at the top (ensure D prefix)
       const orderNumber = job.wo_no.startsWith('D') ? job.wo_no : `D${job.wo_no}`;
-      const orderNumberY = barcodeY + barcodeHeight + 4; // 4pt gap above barcode
       currentPage.drawText(orderNumber, {
         x: labelWidth / 2 - boldFont.widthOfTextAtSize(orderNumber, 14) / 2,
-        y: orderNumberY,
+        y: labelHeight - 15,
         size: 14,
         font: boldFont,
         color: rgb(0, 0, 0),
       });
+
+      // Barcode - centered
+      const barcodeWidth = mmToPoints(70); // 70mm barcode width
+      const barcodeHeight = mmToPoints(20); // 20mm barcode height
+      const barcodeX = (labelWidth - barcodeWidth) / 2;
+      const barcodeY = (labelHeight - barcodeHeight) / 2 - 2;
       
-      // Draw the barcode - centered
       currentPage.drawImage(barcodeImage, {
         x: barcodeX,
         y: barcodeY,
         width: barcodeWidth,
         height: barcodeHeight,
       });
+
+      // Additional info at bottom if available
+      let bottomY = 8;
+      
+      if (job.customer) {
+        const customerText = job.customer.length > 30 ? 
+          job.customer.substring(0, 27) + '...' : 
+          job.customer;
+        const customerWidth = font.widthOfTextAtSize(customerText, 8);
+        currentPage.drawText(customerText, {
+          x: labelWidth / 2 - customerWidth / 2,
+          y: bottomY,
+          size: 8,
+          font: font,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+        bottomY -= 10;
+      }
+
+      if (job.due_date) {
+        const dueDateText = `Due: ${new Date(job.due_date).toLocaleDateString()}`;
+        const dueDateWidth = font.widthOfTextAtSize(dueDateText, 7);
+        currentPage.drawText(dueDateText, {
+          x: labelWidth / 2 - dueDateWidth / 2,
+          y: bottomY,
+          size: 7,
+          font: font,
+          color: rgb(0.5, 0.5, 0.5),
+        });
+      }
 
     } catch (error) {
       console.error(`Error generating barcode for job ${job.wo_no}:`, error);

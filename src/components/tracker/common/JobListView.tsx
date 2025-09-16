@@ -104,13 +104,10 @@ export const JobListView: React.FC<JobListViewProps> = ({
                       Start
                     </Button>
                   )}
-                  {job.current_stage_status === 'active' && onJobClick && (
+                  {job.current_stage_status === 'active' && onComplete && (
                     <Button
                       size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onJobClick(job);
-                      }}
+                      onClick={(e) => handleJobAction(e, job, 'complete')}
                       className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
                     >
                       <CheckCircle className="h-3 w-3 mr-1" />

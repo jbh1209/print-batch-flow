@@ -1,14 +1,13 @@
 import React from "react";
 import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
+import { supabase } from "@/integrations/supabase/client";
 import { useScheduleReader } from "@/hooks/useScheduleReader";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { useChunkedScheduler } from "@/hooks/useChunkedScheduler";
 import { toast } from "sonner";
 
 export default function ScheduleBoardPage() {
   const { scheduleDays, isLoading, fetchSchedule } = useScheduleReader();
   const { isAdmin } = useUserRole();
-  const { rescheduleAllChunked, isLoading: isRescheduling } = useChunkedScheduler();
 
   const handleRefresh = async () => {
     await fetchSchedule();
@@ -16,25 +15,37 @@ export default function ScheduleBoardPage() {
 
   const handleReschedule = async () => {
     try {
-      const { totals, progress } = await rescheduleAllChunked();
-      
+      try { toast.message?.("Rebuilding schedule…"); } catch {}
+
+      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
+        p_mode: 'reschedule_all' // Use the persistent queue scheduler with DTP/Proof exclusions
+      });
+
+      if (error) {
+        console.error("simple_scheduler_wrapper error:", error);
+        try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
+        throw error;
+      }
+
+      console.log("simple_scheduler_wrapper response:", data);
       await fetchSchedule();
       
-      if (progress.failed > 0) {
-        toast.warning(`Rescheduled ${totals.updated_jsi} stages (${totals.wrote_slots} slots), but ${progress.failed} jobs failed`);
-      } else {
-        toast.success(`Rescheduled ${totals.updated_jsi} stages with ${totals.wrote_slots} time slots`);
-      }
-    } catch (error: any) {
-      console.error("Reschedule failed:", error);
-      toast.error(`Reschedule failed: ${error?.message ?? error}`);
+      // Handle the wrapper's jsonb response format
+      const result = data as any;
+      const scheduledCount = result?.scheduled_count ?? 0;
+      const wroteSlots = result?.wrote_slots ?? 0;
+      
+      try { toast.success?.(`Rescheduled ${scheduledCount} stages with ${wroteSlots} time slots`); } catch {}
+    } catch (e: any) {
+      console.error("Reschedule failed:", e);
+      try { toast.error?.(`Reschedule failed: ${e?.message ?? e}`); } catch {}
     }
   };
 
   return (
     <ScheduleBoard
       scheduleDays={scheduleDays}
-      isLoading={isLoading || isRescheduling}
+      isLoading={isLoading}
       onRefresh={handleRefresh}
       onReschedule={handleReschedule}
       isAdminUser={isAdmin}

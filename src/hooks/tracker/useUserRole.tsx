@@ -161,13 +161,9 @@ export const useUserRole = (): UserRoleResponse => {
           return;
         }
 
-        // Enhanced operator detection - check both group names and workable/manageable stages
+        // Enhanced operator detection - check both group names and workable stages
         const workableStages = normalizedStages.filter(stage => stage.can_work);
-        const manageableStages = normalizedStages.filter(stage => stage.can_manage);
-        // Consider manageable stages as workable since manage implies work capability
-        const effectiveWorkableStages = [...workableStages, ...manageableStages.filter(stage => !workableStages.some(ws => ws.stage_id === stage.stage_id))];
-        
-        const dtpRelatedStages = effectiveWorkableStages.filter(stage => {
+        const dtpRelatedStages = workableStages.filter(stage => {
           const stageName = stage.stage_name.toLowerCase();
           return stageName.includes('dtp') || 
                  stageName.includes('digital') ||
@@ -177,7 +173,7 @@ export const useUserRole = (): UserRoleResponse => {
                  stageName.includes('artwork');
         });
 
-        const printingRelatedStages = effectiveWorkableStages.filter(stage => {
+        const printingRelatedStages = workableStages.filter(stage => {
           const stageName = stage.stage_name.toLowerCase();
           return stageName.includes('print') ||
                  stageName.includes('hp') ||
@@ -185,58 +181,27 @@ export const useUserRole = (): UserRoleResponse => {
                  stageName.includes('production');
         });
 
-        // Enhanced operator group detection - include equipment-specific groups
+        // Check if user is in operator-related groups
         const isInOperatorGroup = groupNames.some(name => 
           name.includes('operator') || 
           name.includes('printing') || 
           name.includes('dtp') || 
-          name.includes('production') ||
-          // Equipment-specific groups
-          name.includes('hunkeler') ||
-          name.includes('case') && name.includes('binding') ||
-          name.includes('perfect') && name.includes('binding') ||
-          name.includes('laminating') ||
-          name.includes('finishing') ||
-          name.includes('gathering') ||
-          name.includes('saddle') ||
-          name.includes('cutting') ||
-          name.includes('folding') ||
-          name.includes('hp12000') ||
-          name.includes('hp') ||
-          name.includes('press')
+          name.includes('production')
         );
 
         console.log('🧑‍💻 Enhanced operator analysis:', {
           workableStages: workableStages.length,
-          manageableStages: manageableStages.length,
-          effectiveWorkableStages: effectiveWorkableStages.length,
           dtpStages: dtpRelatedStages.length,
           printingStages: printingRelatedStages.length,
           isInOperatorGroup,
-          groupNames,
-          stageNames: effectiveWorkableStages.map(s => s.stage_name)
-        });
-
-        // Enhanced DTP operator detection
-        const isDtpGroup = groupNames.some(name => name.toLowerCase() === 'dtp');
-        const hasDtpStages = dtpRelatedStages.length > 0;
-        const hasOnlyDtpStages = hasDtpStages && printingRelatedStages.length === 0;
-        
-        console.log('🎯 DTP detection analysis:', {
-          isDtpGroup,
-          hasDtpStages,
-          hasOnlyDtpStages,
-          dtpStagesCount: dtpRelatedStages.length,
-          printingStagesCount: printingRelatedStages.length,
-          dtpStageNames: dtpRelatedStages.map(s => s.stage_name),
-          printingStageNames: printingRelatedStages.map(s => s.stage_name)
+          stageNames: workableStages.map(s => s.stage_name)
         });
 
         // Role determination with enhanced logic and fallbacks
-        if (isDtpGroup || hasOnlyDtpStages || (hasDtpStages && dtpRelatedStages.length >= printingRelatedStages.length)) {
+        if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
           console.log('🔑 User determined as dtp_operator');
           setUserRole('dtp_operator');
-        } else if (effectiveWorkableStages.length > 0 || isInOperatorGroup) {
+        } else if (workableStages.length > 0 || isInOperatorGroup) {
           console.log('🔑 User determined as operator');
           setUserRole('operator');
         } else {

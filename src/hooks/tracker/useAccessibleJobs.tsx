@@ -5,8 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getJobWorkflowStages } from "@/utils/productionWorkflowUtils";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
-import { toast } from "sonner";
-import { completeJobStage } from "./useAccessibleJobs/utils/jobCompletionUtils";
 
 export const useAccessibleJobs = ({ 
   permissionType = 'work', 
@@ -235,7 +233,6 @@ export const useAccessibleJobs = ({
         })
         .eq('job_id', jobId)
         .eq('production_stage_id', stageId)
-        .eq('job_table_name', 'production_jobs')
         .eq('status', 'pending');
 
       if (error) throw error;
@@ -250,7 +247,7 @@ export const useAccessibleJobs = ({
 
   const completeJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
-      console.log('🔄 Completing job stage (safe):', { jobId, stageId });
+      console.log('🔄 Completing job stage:', { jobId, stageId });
 
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
@@ -261,20 +258,46 @@ export const useAccessibleJobs = ({
         throw new Error('Stage ID is required to complete job');
       }
 
-      const success = await completeJobStage(jobId, stageId);
-
-      if (!success) {
-        throw new Error('Completion failed');
+      // Phase 4: Fix UI Display Logic - Enhanced parallel stage detection
+      const { data: parallelCheck } = await supabase
+        .from('job_stage_instances')
+        .select('part_assignment, dependency_group, status, stage_order')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .neq('part_assignment', 'both');
+      
+      const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
+      
+      let error;
+      if (hasParallelComponents) {
+        // Use parallel-aware advancement for cover/text jobs
+        const result = await supabase.rpc('advance_parallel_job_stage' as any, {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: stageId,
+          p_completed_by: user?.id
+        });
+        error = result.error;
+      } else {
+        // Use standard advancement for regular jobs
+        const result = await supabase.rpc('advance_job_stage', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: stageId,
+          p_completed_by: user?.id
+        });
+        error = result.error;
       }
 
-      await Promise.all([refetchJobs(), refetchStages()]);
+      if (error) throw error;
+
+      await refreshJobs();
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Error completing job:', error);
-      toast.error(`Failed to complete job: ${error.message || 'Unknown error'}`);
       return false;
     }
-  }, [jobs, refetchJobs, refetchStages]);
+  }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
     console.log('🔄 Refreshing accessible jobs...');

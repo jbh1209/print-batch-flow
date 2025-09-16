@@ -4,8 +4,6 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "../../common/JobActionButtons";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
-import { JobActionState, BarcodeJobAction } from "@/hooks/tracker/useBarcodeControlledActions";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 interface StageInstance {
   id: string;
@@ -35,10 +33,6 @@ interface DtpJobActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   onModalDataRefresh?: () => void;
-  onStartWithBarcode?: () => Promise<void>;
-  onCompleteWithBarcode?: () => Promise<void>;
-  barcodeActionState?: JobActionState;
-  currentBarcodeAction?: BarcodeJobAction | null;
 }
 
 export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
@@ -57,11 +51,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onModalDataRefresh,
-  onStartWithBarcode,
-  onCompleteWithBarcode,
-  barcodeActionState,
-  currentBarcodeAction
+  onModalDataRefresh
 }) => {
   if (currentStage === 'dtp') {
     return (
@@ -75,10 +65,6 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onRefresh={onRefresh}
         onClose={onClose}
         onJobStatusUpdate={onJobStatusUpdate}
-        onStartWithBarcode={onStartWithBarcode}
-        onCompleteWithBarcode={onCompleteWithBarcode}
-        barcodeActionState={barcodeActionState}
-        currentBarcodeAction={currentBarcodeAction}
       />
     );
   }
@@ -103,24 +89,19 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
     );
   }
 
-  // Fallback: Show universal job action buttons only for admin/manager roles
+  // Fallback: Show universal job action buttons if no specific actions
   if (job.current_stage_id) {
-    const { isAdmin, isManager } = useUserRole();
-    
-    // Only show fallback buttons for admin/manager, operators must use barcode flow
-    if (isAdmin || isManager) {
-      return (
-        <JobActionButtons
-          job={job}
-          onStart={onStart || (() => Promise.resolve(false))}
-          onComplete={onComplete || (() => Promise.resolve(false))}
-          onJobUpdated={onRefresh}
-          size="default"
-          layout="vertical"
-          showExpedite={true}
-        />
-      );
-    }
+    return (
+      <JobActionButtons
+        job={job}
+        onStart={onStart || (() => Promise.resolve(false))}
+        onComplete={onComplete || (() => Promise.resolve(false))}
+        onJobUpdated={onRefresh}
+        size="default"
+        layout="vertical"
+        showExpedite={true}
+      />
+    );
   }
 
   return null;
