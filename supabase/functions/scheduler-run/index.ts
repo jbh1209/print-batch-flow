@@ -129,38 +129,73 @@ async function schedule(supabase: any, req: ScheduleRequest) {
             throw clearError;
           }
         }
-        // Use the working parallel-aware scheduler with timeouts disabled
-        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
 
-        if (error) {
-          console.error('Error calling scheduler_reschedule_all_parallel_aware_edge:', error);
-          
-          // Check for precedence violation (P0001 error)
-          if (error.code === 'P0001' && error.message?.includes('Precedence violation')) {
-            console.error('Precedence violation detected:', error.message);
-            throw {
-              code: 'PRECEDENCE_VIOLATION',
-              message: error.message,
-              details: error.details
-            };
-          }
-          
-          throw error;
+        // Fetch distinct job IDs that have pending stages ready to schedule
+        console.log('Fetching pending jobs from v_scheduler_stages_ready ...');
+        const { data: jobsData, error: jobsError } = await supabase
+          .from('v_scheduler_stages_ready')
+          .select('job_id');
+        if (jobsError) {
+          console.error('Error fetching pending jobs:', jobsError);
+          throw jobsError;
         }
 
-        const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
-        
-        console.log('Parallel-aware scheduler completed:', {
-          wroteSlots: result?.wrote_slots || 0,
-          updatedJSI: result?.updated_jsi || 0,
-          violations: result?.violations || []
+        const allJobIds: string[] = Array.from(
+          new Set((jobsData ?? []).map((r: any) => r.job_id).filter(Boolean))
+        );
+        console.log(`Found ${allJobIds.length} jobs with pending stages to schedule`);
+
+        // Process in batches to avoid timeouts
+        const batchSize = Math.max(1, Math.min(100, req.pageSize ?? 50));
+        let totalUpdated = 0;
+        let totalSlots = 0;
+
+        for (let i = 0; i < allJobIds.length; i += batchSize) {
+          const batch = allJobIds.slice(i, i + batchSize);
+          const batchNo = Math.floor(i / batchSize) + 1;
+          const totalBatches = Math.ceil(allJobIds.length / batchSize);
+          console.log(`Scheduling batch ${batchNo}/${totalBatches} (${batch.length} jobs)`);
+
+          const { data: appendData, error: appendError } = await supabase.rpc('scheduler_append_jobs_edge', {
+            p_job_ids: batch,
+            p_start_from: startTime,
+            p_only_if_unset: !!req.onlyIfUnset,
+          });
+
+          if (appendError) {
+            console.error('Error calling scheduler_append_jobs_edge for batch:', appendError);
+
+            // Check for precedence violation (P0001 error)
+            if (appendError.code === 'P0001' && appendError.message?.includes('Precedence violation')) {
+              console.error('Precedence violation detected:', appendError.message);
+              throw {
+                code: 'PRECEDENCE_VIOLATION',
+                message: appendError.message,
+                details: appendError.details,
+              };
+            }
+
+            throw appendError;
+          }
+
+          const appendResult = Array.isArray(appendData) && appendData.length > 0 ? appendData[0] : appendData;
+          const wrote = appendResult?.wrote_slots || 0;
+          const updated = appendResult?.updated_jsi || 0;
+          totalSlots += wrote;
+          totalUpdated += updated;
+          console.log(`Batch ${batchNo}/${totalBatches} complete: +${updated} stages, +${wrote} slots`);
+        }
+
+        console.log('Chunked scheduling completed:', {
+          wroteSlots: totalSlots,
+          updatedJSI: totalUpdated,
         });
 
         return {
-          wroteSlots: result?.wrote_slots || 0,
-          updatedJSI: result?.updated_jsi || 0,
+          wroteSlots: totalSlots,
+          updatedJSI: totalUpdated,
           dryRun: !req.commit,
-          violations: result?.violations || []
+          violations: [],
         };
         
       } catch (scheduleError) {
