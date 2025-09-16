@@ -5,61 +5,47 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useChunkedScheduler } from "./useChunkedScheduler";
 
 export function useSequentialScheduler() {
   const [isLoading, setIsLoading] = useState(false);
+  const { rescheduleAllChunked, appendJobsChunked } = useChunkedScheduler();
 
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Direct RPC to avoid Edge Function timeout
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware_edge');
+      const { totals, progress } = await rescheduleAllChunked();
       
-      if (error) {
-        console.error('Error calling reschedule RPC:', error);
-        toast.error('Failed to generate schedule');
-        return;
+      if (progress.failed > 0) {
+        toast.warning(`Rescheduled ${totals.updated_jsi} stages (${totals.wrote_slots} slots), but ${progress.failed} jobs failed`);
+      } else {
+        toast.success(`Successfully rescheduled ${totals.updated_jsi} stages (${totals.wrote_slots} time slots created)`);
       }
-      
-      const row = Array.isArray(data) ? data[0] : data;
-      const scheduledCount = row?.updated_jsi ?? 0;
-      const wroteSlots = row?.wrote_slots ?? 0;
-      toast.success(`Successfully rescheduled ${scheduledCount} stages (${wroteSlots} time slots created)`);
     } catch (error) {
       console.error('Error generating schedule:', error);
       toast.error('Failed to generate schedule');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [rescheduleAllChunked]);
 
   const appendJobs = useCallback(async (jobIds: string[]) => {
     setIsLoading(true);
     try {
-      // Append specific jobs via RPC (timeout-safe)
-      const { data, error } = await supabase.rpc('scheduler_append_jobs_edge', {
-        p_job_ids: jobIds,
-        p_start_from: null,
-        p_only_if_unset: true,
-      });
+      const { totals, progress } = await appendJobsChunked(jobIds);
       
-      if (error) {
-        console.error('Error appending jobs via RPC:', error);
-        toast.error('Failed to schedule jobs');
-        return;
+      if (progress.failed > 0) {
+        toast.warning(`Scheduled ${totals.updated_jsi} stages for ${jobIds.length} jobs, but ${progress.failed} jobs failed`);
+      } else {
+        toast.success(`Successfully scheduled ${totals.updated_jsi} stages for ${jobIds.length} jobs`);
       }
-      
-      const row = Array.isArray(data) ? data[0] : data;
-      const scheduledCount = row?.updated_jsi ?? 0;
-      const wroteSlots = row?.wrote_slots ?? 0;
-      toast.success(`Successfully scheduled ${scheduledCount} stages for ${jobIds.length} jobs`);
     } catch (error) {
       console.error('Error appending jobs:', error);
       toast.error('Failed to schedule jobs');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [appendJobsChunked]);
 
   const carryForwardOverdueJobs = useCallback(async () => {
     setIsLoading(true);
