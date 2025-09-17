@@ -32,7 +32,23 @@ export default function ScheduleBoardPage() {
       const result = (data as any)?.[0] || {};
       const wroteSlots = (result as any)?.wrote_slots ?? 0;
       const updatedJSI = (result as any)?.updated_jsi ?? 0;
-      const violations = (result as any)?.violations ? JSON.parse((result as any).violations) : [];
+      
+      // Normalize violations - could be string, array, or object from jsonb
+      let violations = [];
+      if ((result as any)?.violations) {
+        const violationsData = (result as any).violations;
+        if (Array.isArray(violationsData)) {
+          violations = violationsData;
+        } else if (typeof violationsData === 'string') {
+          try {
+            violations = JSON.parse(violationsData);
+          } catch {
+            violations = [];
+          }
+        } else if (typeof violationsData === 'object') {
+          violations = [violationsData];
+        }
+      }
       
       if (violations.length > 0) {
         try { toast.warning?.(`Scheduled ${updatedJSI} stages with ${wroteSlots} slots, but ${violations.length} precedence violations detected`); } catch {}
