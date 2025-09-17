@@ -45,7 +45,8 @@ export default function ScheduleBoardPage() {
           } catch {
             violations = [];
           }
-        } else if (typeof violationsData === 'object') {
+        } else if (typeof violationsData === 'object' && violationsData !== null) {
+          // Single violation object, wrap it in an array
           violations = [violationsData];
         }
       }
