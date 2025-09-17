@@ -4178,6 +4178,21 @@ export type Database = {
         Args: { check_time: string }
         Returns: boolean
       }
+      validate_slot_timing_consistency: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          discrepancy_minutes: number
+          issue_type: string
+          job_wo_no: string
+          jsi_end: string
+          jsi_start: string
+          slot_count: number
+          slots_end: string
+          slots_start: string
+          stage_instance_id: string
+          stage_name: string
+        }[]
+      }
       validate_working_day: {
         Args: { check_time: string }
         Returns: boolean
