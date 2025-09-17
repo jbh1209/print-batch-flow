@@ -17,25 +17,28 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-        p_mode: 'reschedule_all' // Use the persistent queue scheduler with DTP/Proof exclusions
-      });
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed');
 
       if (error) {
-        console.error("simple_scheduler_wrapper error:", error);
+        console.error("scheduler_reschedule_all_sequential_fixed error:", error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("simple_scheduler_wrapper response:", data);
+      console.log("scheduler_reschedule_all_sequential_fixed response:", data);
       await fetchSchedule();
       
-      // Handle the wrapper's jsonb response format
-      const result = data as any;
-      const scheduledCount = result?.scheduled_count ?? 0;
-      const wroteSlots = result?.wrote_slots ?? 0;
+      // Handle the sequential_fixed function response format
+      const result = (data as any)?.[0] || {};
+      const wroteSlots = (result as any)?.wrote_slots ?? 0;
+      const updatedJSI = (result as any)?.updated_jsi ?? 0;
+      const violations = (result as any)?.violations ? JSON.parse((result as any).violations) : [];
       
-      try { toast.success?.(`Rescheduled ${scheduledCount} stages with ${wroteSlots} time slots`); } catch {}
+      if (violations.length > 0) {
+        try { toast.warning?.(`Scheduled ${updatedJSI} stages with ${wroteSlots} slots, but ${violations.length} precedence violations detected`); } catch {}
+      } else {
+        try { toast.success?.(`Successfully scheduled ${updatedJSI} stages with ${wroteSlots} time slots`); } catch {}
+      }
     } catch (e: any) {
       console.error("Reschedule failed:", e);
       try { toast.error?.(`Reschedule failed: ${e?.message ?? e}`); } catch {}
