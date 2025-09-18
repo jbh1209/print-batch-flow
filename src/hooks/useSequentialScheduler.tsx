@@ -12,19 +12,27 @@ export function useSequentialScheduler() {
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Call the new SQL-based scheduler directly
-      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-        p_mode: 'reschedule_all'
-      });
+      // Call the FIXED scheduler that eliminates convergence violations
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed_v2');
       
       if (error) {
-        console.error('Error calling SQL scheduler:', error);
+        console.error('Error calling FIXED scheduler V2:', error);
         toast.error('Failed to generate schedule');
         return;
       }
       
-      const result = data as { scheduled_count: number; wrote_slots: number; success: boolean; mode: string } | null;
-      toast.success(`Successfully rescheduled ${result?.scheduled_count || 0} stages (${result?.wrote_slots || 0} time slots created)`);
+      const result = (data as { wrote_slots: number; updated_jsi: number; violations: any }[] | null)?.[0];
+      
+      if (result) {
+        const violationCount = Array.isArray(result.violations) ? result.violations.length : 0;
+        if (violationCount === 0) {
+          toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 convergence violations!`);
+        } else {
+          toast.warning(`Schedule generated with ${violationCount} violations: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
+        }
+      } else {
+        toast.success('Schedule generated successfully');
+      }
     } catch (error) {
       console.error('Error generating schedule:', error);
       toast.error('Failed to generate schedule');
