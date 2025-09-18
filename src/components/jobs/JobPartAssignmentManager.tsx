@@ -204,9 +204,16 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
   // Optimized mutation with specific query key invalidation
   const updatePartAssignmentMutation = useMutation({
     mutationFn: async ({ stageId, partAssignment }: { stageId: string; partAssignment: string }) => {
+      // Convert part assignment to capitalized part name for display
+      const partName = partAssignment === 'none' ? null : 
+        partAssignment.charAt(0).toUpperCase() + partAssignment.slice(1);
+      
       const { error } = await supabase
         .from('job_stage_instances')
-        .update({ part_assignment: partAssignment })
+        .update({ 
+          part_assignment: partAssignment,
+          part_name: partName
+        })
         .eq('id', stageId);
       
       if (error) throw error;
