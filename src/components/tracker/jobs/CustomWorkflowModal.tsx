@@ -337,9 +337,9 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       }
 
       // Update the job with custom workflow flag and manual SLA data
+      // FIXED: Preserve category_id - don't set to null as it corrupts job metadata
       const updateData: any = {
         has_custom_workflow: true,
-        category_id: null, // Set to null instead of 'custom'
         updated_at: new Date().toISOString()
       };
 
