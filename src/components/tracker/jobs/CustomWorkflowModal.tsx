@@ -295,45 +295,14 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         manualSlaDays
       });
 
-      // If there are existing stages, delete them first
       if (hasExistingWorkflow) {
-        console.log('🗑️ Deleting existing stages...');
-        const { error: deleteError } = await supabase
-          .from('job_stage_instances')
-          .delete()
-          .eq('job_id', job.id)
-          .eq('job_table_name', 'production_jobs');
-
-        if (deleteError) {
-          console.error('❌ Error deleting existing stages:', deleteError);
-          throw deleteError;
-        }
-      }
-
-      // Create new stage instances - ALL START AS PENDING
-      console.log('🔄 Creating new stage instances (ALL PENDING)...');
-      
-      for (let i = 0; i < selectedStages.length; i++) {
-        const stage = selectedStages[i];
-        
-        console.log(`Creating stage ${i + 1} as PENDING:`, stage);
-        
-        const { error: insertError } = await supabase
-          .from('job_stage_instances')
-          .insert({
-            job_id: job.id,
-            job_table_name: 'production_jobs',
-            production_stage_id: stage.id,
-            stage_order: stage.order,
-            status: 'pending', // CRITICAL FIX: All stages start as pending
-            started_at: null,   // CRITICAL FIX: No auto-start
-            started_by: null    // CRITICAL FIX: No auto-assignment
-          });
-
-        if (insertError) {
-          console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
-          throw insertError;
-        }
+        // SURGICAL UPDATE: Preserve existing stage metadata, only update what changed
+        console.log('🔧 Surgically updating existing workflow...');
+        await updateExistingWorkflow();
+      } else {
+        // CREATE NEW: First time custom workflow
+        console.log('🔄 Creating new custom workflow...');
+        await createNewWorkflow();
       }
 
       // Update the job with custom workflow flag and manual SLA data
@@ -368,6 +337,174 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       toast.error(errorMessage);
     } finally {
       setIsInitializing(false);
+    }
+  };
+
+  const updateExistingWorkflow = async () => {
+    // Get current job stage instances with full metadata
+    const { data: currentStages, error: fetchError } = await supabase
+      .from('job_stage_instances')
+      .select('*')
+      .eq('job_id', job.id)
+      .eq('job_table_name', 'production_jobs')
+      .order('stage_order');
+
+    if (fetchError) {
+      console.error('❌ Error fetching existing stages:', fetchError);
+      throw fetchError;
+    }
+
+    console.log('📋 Current stages:', currentStages?.length || 0);
+    console.log('🎯 Target stages:', selectedStages.length);
+
+    // Create maps for efficient lookup
+    const currentStageMap = new Map(currentStages?.map(s => [s.production_stage_id, s]) || []);
+    const selectedStageMap = new Map(selectedStages.map(s => [s.id, s]));
+
+    // Track what we need to do
+    const stagesToUpdate: Array<{current: any, target: SelectedStage}> = [];
+    const stagesToInsert: SelectedStage[] = [];
+    const stagesToDelete: any[] = [];
+
+    // Analyze changes needed
+    selectedStages.forEach(targetStage => {
+      const currentStage = currentStageMap.get(targetStage.id);
+      if (currentStage) {
+        // Stage exists - check if it needs updating
+        if (currentStage.stage_order !== targetStage.order) {
+          stagesToUpdate.push({ current: currentStage, target: targetStage });
+        }
+      } else {
+        // New stage - needs inserting
+        stagesToInsert.push(targetStage);
+      }
+    });
+
+    // Find stages to remove (only if they're still pending)
+    currentStages?.forEach(currentStage => {
+      if (!selectedStageMap.has(currentStage.production_stage_id)) {
+        if (currentStage.status === 'pending') {
+          stagesToDelete.push(currentStage);
+        } else {
+          console.warn(`⚠️ Cannot remove ${currentStage.status} stage:`, currentStage.production_stage_id);
+          toast.warning(`Cannot remove ${currentStage.status} stage. Skipping removal.`);
+        }
+      }
+    });
+
+    console.log(`🔄 Changes needed: ${stagesToUpdate.length} updates, ${stagesToInsert.length} inserts, ${stagesToDelete.length} deletes`);
+
+    // Apply updates (preserve all metadata, only change stage_order)
+    for (const { current, target } of stagesToUpdate) {
+      console.log(`📝 Updating stage order: ${current.production_stage_id} from ${current.stage_order} to ${target.order}`);
+      
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({ 
+          stage_order: target.order,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', current.id);
+
+      if (updateError) {
+        console.error('❌ Error updating stage:', updateError);
+        throw updateError;
+      }
+    }
+
+    // Insert new stages with safe defaults
+    for (const stage of stagesToInsert) {
+      console.log(`➕ Inserting new stage: ${stage.name} at order ${stage.order}`);
+      
+      const { error: insertError } = await supabase
+        .from('job_stage_instances')
+        .insert({
+          job_id: job.id,
+          job_table_name: 'production_jobs',
+          production_stage_id: stage.id,
+          stage_order: stage.order,
+          status: 'pending',
+          started_at: null,
+          started_by: null
+        });
+
+      if (insertError) {
+        console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
+        throw insertError;
+      }
+    }
+
+    // Delete removed stages (only pending ones)
+    for (const stage of stagesToDelete) {
+      console.log(`🗑️ Removing pending stage: ${stage.production_stage_id}`);
+      
+      const { error: deleteError } = await supabase
+        .from('job_stage_instances')
+        .delete()
+        .eq('id', stage.id);
+
+      if (deleteError) {
+        console.error('❌ Error deleting stage:', deleteError);
+        throw deleteError;
+      }
+    }
+
+    // Update the job metadata
+    await updateJobMetadata();
+  };
+
+  const createNewWorkflow = async () => {
+    // Create all new stage instances - ALL START AS PENDING
+    console.log('🔄 Creating new stage instances (ALL PENDING)...');
+    
+    for (let i = 0; i < selectedStages.length; i++) {
+      const stage = selectedStages[i];
+      
+      console.log(`Creating stage ${i + 1} as PENDING:`, stage);
+      
+      const { error: insertError } = await supabase
+        .from('job_stage_instances')
+        .insert({
+          job_id: job.id,
+          job_table_name: 'production_jobs',
+          production_stage_id: stage.id,
+          stage_order: stage.order,
+          status: 'pending',
+          started_at: null,
+          started_by: null
+        });
+
+      if (insertError) {
+        console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
+        throw insertError;
+      }
+    }
+
+    // Update the job metadata
+    await updateJobMetadata();
+  };
+
+  const updateJobMetadata = async () => {
+    // Update the job with custom workflow flag and manual SLA data
+    // FIXED: Preserve category_id - don't set to null as it corrupts job metadata
+    const updateData: any = {
+      has_custom_workflow: true,
+      updated_at: new Date().toISOString()
+    };
+
+    // FIXED: Always include manual_due_date and manual_sla_days in the update
+    // This ensures that clearing dates actually persists to the database
+    updateData.manual_due_date = manualDueDate || null;
+    updateData.manual_sla_days = manualSlaDays > 0 ? manualSlaDays : null;
+
+    const { error: updateError } = await supabase
+      .from('production_jobs')
+      .update(updateData)
+      .eq('id', job.id);
+
+    if (updateError) {
+      console.error('❌ Error updating job:', updateError);
+      throw updateError;
     }
   };
 
