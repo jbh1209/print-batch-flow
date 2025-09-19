@@ -3214,6 +3214,13 @@ export type Database = {
           wo_no: string
         }[]
       }
+      batch_update_stage_instances: {
+        Args: { p_job_id: string; p_updates: Json[] }
+        Returns: {
+          errors: string[]
+          updated_count: number
+        }[]
+      }
       bulk_recalculate_job_due_dates: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -3653,6 +3660,20 @@ export type Database = {
       get_user_role_safe: {
         Args: { user_id_param: string }
         Returns: string
+      }
+      get_workflow_metrics: {
+        Args: { p_job_id: string }
+        Returns: {
+          complete_stages: number
+          configuration_warnings: string[]
+          empty_stages: number
+          estimated_completion_days: number
+          partial_stages: number
+          total_duration_minutes: number
+          total_quantity: number
+          total_stages: number
+          validation_status: string
+        }[]
       }
       initialize_custom_job_stages: {
         Args: {
