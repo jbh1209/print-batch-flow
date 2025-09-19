@@ -42,11 +42,11 @@ export const useProofApprovalFlow = () => {
   }, []);
 
   /**
-   * Complete proof stage and move to next stage with queue calculation
+   * Complete proof stage WITHOUT auto-activating next stage - for manual factory floor control
    */
   const completeProofStage = useCallback(async (jobId: string, stageId: string) => {
     try {
-      console.log(`📋 Completing proof stage for job ${jobId}`);
+      console.log(`📋 Completing proof stage for job ${jobId} - NO auto-activation`);
       
       // Complete the proof stage - database trigger will sync production_jobs.proof_approved_at
       const { error: completeError } = await supabase
@@ -63,39 +63,14 @@ export const useProofApprovalFlow = () => {
         throw completeError;
       }
 
-      // Trigger queue-based due date calculation and auto-schedule downstream stages
+      // Trigger queue-based due date calculation for scheduling
       await triggerQueueBasedCalculation(jobId);
-      // Auto-scheduler removed - skipping auto-schedule
+      
+      // CRITICAL: DO NOT auto-activate next stage for proof completions
+      // Next stage will remain "pending" for manual factory floor activation
+      console.log(`✅ Proof stage completed for job ${jobId} - next stage remains pending for manual activation`);
 
-      // Find and activate next stage
-      const { data: nextStage, error: nextStageError } = await supabase
-        .from('job_stage_instances')
-        .select('id, stage_order')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .eq('status', 'pending')
-        .order('stage_order', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (!nextStageError && nextStage) {
-        const { error: activateError } = await supabase
-          .from('job_stage_instances')
-          .update({
-            status: 'active',
-            started_at: new Date().toISOString(),
-            started_by: (await supabase.auth.getUser()).data.user?.id,
-          })
-          .eq('id', nextStage.id);
-
-        if (activateError) {
-          console.error('Error activating next stage:', activateError);
-        } else {
-          console.log(`✅ Next stage activated for job ${jobId}`);
-        }
-      }
-
-      toast.success('Proof approved and job moved to production queue');
+      toast.success('Proof approved - next stage awaits manual factory floor activation');
       return true;
 
     } catch (error) {

@@ -252,7 +252,8 @@ export const useStageActions = () => {
         nextStageToActivate = pendingStages[0];
       }
 
-      if (nextStageToActivate) {
+      // CRITICAL: Do not auto-activate next stage if current stage was a proof stage
+      if (nextStageToActivate && !isProofStage) {
         const { error: activateError } = await supabase
           .from('job_stage_instances')
           .update({
@@ -265,7 +266,7 @@ export const useStageActions = () => {
 
         if (activateError) throw activateError;
 
-        console.log('✅ Stage completed and next stage activated:', {
+        console.log('✅ Non-proof stage completed and next stage activated:', {
           completedStage: currentStageInstanceId,
           activatedStage: nextStageToActivate.id,
           activatedStageName: nextStageToActivate.production_stages?.name,
@@ -273,6 +274,14 @@ export const useStageActions = () => {
         });
 
         toast.success(`Stage completed and advanced to: ${nextStageToActivate.production_stages?.name}`);
+      } else if (nextStageToActivate && isProofStage) {
+        console.log('✅ Proof stage completed - next stage remains pending for manual factory floor activation:', {
+          completedProofStage: currentStageInstanceId,
+          nextStagePending: nextStageToActivate.id,
+          nextStageName: nextStageToActivate.production_stages?.name
+        });
+
+        toast.success(`Proof stage completed - ${nextStageToActivate.production_stages?.name} awaits manual activation`);
       } else {
         console.log('ℹ️ No more stages to activate - workflow may be complete');
         toast.success("Stage completed - workflow finished");
