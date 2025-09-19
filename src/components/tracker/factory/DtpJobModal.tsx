@@ -59,28 +59,25 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setSelectedBatchCategory
   } = useDtpJobModal(job, isOpen);
 
-  // Barcode scanning integration - removed unused parts
+  // Enhanced barcode scanning integration 
   const {
     actionState,
     currentAction,
-    scanResult
+    scanResult,
+    startJobWithBarcode,
+    proceedWithStart,
+    completeJobWithBarcode,
+    proceedWithComplete,
+    processBarcodeForAction
   } = useBarcodeControlledActions();
 
-  // Reset local state when modal opens and auto-start scanning
+  // Reset local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setLocalJobStatus(job.status);
       setLocalStageStatus(job.current_stage_status);
       setNotes("");
       loadModalData();
-      
-      // Auto-start scanning based on stage status
-      const currentStageStatus = job.current_stage_status;
-      if (currentStageStatus === 'pending') {
-        handleStartWithBarcode();
-      } else if (currentStageStatus === 'active') {
-        handleCompleteWithBarcode();
-      }
     }
   }, [isOpen, job.status, job.current_stage_status, loadModalData]);
 
@@ -103,63 +100,69 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     onRefresh?.(); // Also refresh the parent component to get updated job data
   };
 
-  // Handle barcode scan with auto-proceed
+  // Handle barcode scan with enhanced processing
   const handleBarcodeDetected = async (barcodeData: string) => {
-    console.log('🔍 Barcode detected:', barcodeData, 'Expected:', job.wo_no);
+    console.log('🔍 Barcode detected in DTP modal:', barcodeData, 'Expected:', job.wo_no);
     
-    // Verification - allow simple variations (prefix letters, extra whitespace)
-    const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const stripLetters = (s: string) => s.replace(/^[A-Z]+/, "");
-
-    const cleanScanned = normalize(barcodeData);
-    const cleanExpected = normalize(job.wo_no);
-    const numericScanned = stripLetters(cleanScanned);
-    const numericExpected = stripLetters(cleanExpected);
-
-    const isValid =
-      cleanScanned === cleanExpected ||
-      numericScanned === numericExpected ||
-      cleanScanned.includes(cleanExpected) ||
-      cleanExpected.includes(cleanScanned) ||
-      numericScanned.includes(numericExpected) ||
-      numericExpected.includes(numericScanned);
+    // Process the barcode through the enhanced system
+    const success = await processBarcodeForAction(barcodeData);
     
-    if (isValid) {
-      // Auto-proceed after successful scan
-      const currentStageStatus = job.current_stage_status;
-      if (currentStageStatus === 'pending') {
-        // Use the direct job action functions if available
-        if (onStart && job.current_stage_id) {
-          const success = await onStart(job.job_id, job.current_stage_id);
-          if (success) {
+    if (success && currentAction) {
+      // Auto-proceed based on the current action state
+      if (actionState === 'scanning' && currentAction.expectedBarcodeData === job.wo_no) {
+        const currentStageStatus = job.current_stage_status;
+        
+        if (currentStageStatus === 'pending') {
+          const startSuccess = await proceedWithStart();
+          if (startSuccess) {
             handleJobStatusUpdate('In Progress', 'active');
             handleModalDataRefresh();
           }
-        }
-      } else if (currentStageStatus === 'active') {
-        if (onComplete && job.current_stage_id) {
-          const success = await onComplete(job.job_id, job.current_stage_id);
-          if (success) {
+        } else if (currentStageStatus === 'active') {
+          const completeSuccess = await proceedWithComplete();
+          if (completeSuccess) {
             handleJobStatusUpdate('Ready for Proof', 'completed');
             handleModalDataRefresh();
             onClose();
           }
         }
       }
-    } else {
-      toast.error(`Wrong barcode scanned. Expected like: ${job.wo_no} (prefix optional). Got: ${barcodeData}`);
     }
   };
 
-  // Create barcode-enabled action handlers - simplified for auto-scanning
+  // Enhanced barcode action handlers
   const handleStartWithBarcode = async () => {
-    // Auto-scanning is handled by the barcode listener
-    console.log('Start with barcode initiated - waiting for scan...');
+    if (!job.current_stage_id) {
+      toast.error("No current stage found");
+      return;
+    }
+
+    const action = {
+      jobId: job.job_id,
+      jobTableName: 'production_jobs',
+      stageId: job.current_stage_id,
+      expectedBarcodeData: job.wo_no,
+      isBatchMaster: false
+    };
+
+    await startJobWithBarcode(action);
   };
 
   const handleCompleteWithBarcode = async () => {
-    // Auto-scanning is handled by the barcode listener
-    console.log('Complete with barcode initiated - waiting for scan...');
+    if (!job.current_stage_id) {
+      toast.error("No current stage found");
+      return;
+    }
+
+    const action = {
+      jobId: job.job_id,
+      jobTableName: 'production_jobs', 
+      stageId: job.current_stage_id,
+      expectedBarcodeData: job.wo_no,
+      isBatchMaster: false
+    };
+
+    await completeJobWithBarcode(action);
   };
 
   return (

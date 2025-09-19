@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -98,26 +99,34 @@ export const DtpKanbanDashboard = () => {
     }
   }, [refreshJobs]);
 
-  const handleScanSuccess = useCallback((data: string) => {
-    const allJobs = [...dtpJobs, ...proofJobs, ...batchAllocationJobs];
-    const job = allJobs.find(j => {
-      const woMatch = j.wo_no?.toLowerCase().includes(data.toLowerCase());
-      const referenceMatch = j.reference && j.reference.toLowerCase().includes(data.toLowerCase());
-      return woMatch || referenceMatch;
-    });
-    
-    if (job) {
-      setSearchQuery(data);
-      toast.success(`Found job: ${job.wo_no}`);
-    } else {
-      toast.warning(`No job found for: ${data}`);
-    }
-  }, [dtpJobs, proofJobs, batchAllocationJobs]);
-
   const handleJobClick = useCallback((job) => {
     setSelectedJob(job);
     setShowJobModal(true);
   }, []);
+
+  const handleBarcodeDetected = useCallback((barcodeData: string) => {
+    console.log('🔍 Global barcode detected in DTP Dashboard:', barcodeData);
+    
+    // Try to find matching job across all categories
+    const allJobs = [...dtpJobs, ...proofJobs, ...batchAllocationJobs];
+    const matchingJob = allJobs.find(job => {
+      const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const cleanScanned = normalize(barcodeData);
+      const cleanWO = normalize(job.wo_no);
+      
+      return cleanScanned === cleanWO || 
+             cleanScanned.includes(cleanWO) || 
+             cleanWO.includes(cleanScanned);
+    });
+    
+    if (matchingJob) {
+      setSearchQuery(barcodeData);
+      handleJobClick(matchingJob);
+      toast.success(`Found and opened job: ${matchingJob.wo_no}`);
+    } else {
+      toast.warning(`No job found for barcode: ${barcodeData}`);
+    }
+  }, [dtpJobs, proofJobs, batchAllocationJobs, handleJobClick]);
 
   const handleCloseModal = useCallback(() => {
     setShowJobModal(false);
@@ -159,6 +168,12 @@ export const DtpKanbanDashboard = () => {
 
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
+      {/* Global Barcode Listener for the entire dashboard */}
+      <GlobalBarcodeListener 
+        onBarcodeDetected={handleBarcodeDetected}
+        minLength={5}
+      />
+      
       <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-white border-b">
         <TrackerErrorBoundary componentName="DTP Dashboard Filters">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -166,7 +181,7 @@ export const DtpKanbanDashboard = () => {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onRefresh={handleRefresh}
-              onScanSuccess={handleScanSuccess}
+              onScanSuccess={handleBarcodeDetected}
               refreshing={refreshing}
               dtpJobsCount={dtpJobs.length}
               proofJobsCount={proofJobs.length}

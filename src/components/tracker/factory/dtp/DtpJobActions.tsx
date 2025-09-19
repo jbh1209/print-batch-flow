@@ -99,6 +99,10 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onProofApprovalFlowChange={onProofApprovalFlowChange}
         onBatchCategoryChange={onBatchCategoryChange}
         onModalDataRefresh={onModalDataRefresh}
+        onStartWithBarcode={onStartWithBarcode}
+        onCompleteWithBarcode={onCompleteWithBarcode}
+        barcodeActionState={barcodeActionState}
+        currentBarcodeAction={currentBarcodeAction}
       />
     );
   }

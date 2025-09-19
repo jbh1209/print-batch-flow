@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight } from "lucide-react";
+import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
 import { BatchJobFormRHF } from "../../batch-allocation/BatchJobFormRHF";
@@ -34,6 +34,10 @@ interface ProofStageActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   onModalDataRefresh?: () => void;
+  onStartWithBarcode?: () => Promise<void>;
+  onCompleteWithBarcode?: () => Promise<void>;
+  barcodeActionState?: import("@/hooks/tracker/useBarcodeControlledActions").JobActionState;
+  currentBarcodeAction?: import("@/hooks/tracker/useBarcodeControlledActions").BarcodeJobAction | null;
 }
 
 export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
@@ -49,7 +53,11 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onModalDataRefresh
+  onModalDataRefresh,
+  onStartWithBarcode,
+  onCompleteWithBarcode,
+  barcodeActionState,
+  currentBarcodeAction
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
@@ -271,16 +279,40 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   const hasProofBeenEmailed = stageInstance?.proof_emailed_at;
   const hasProofBeenApproved = stageInstance?.proof_approved_manually_at;
 
+  // Show scanning state if barcode action is in progress
+  const isScanning = barcodeActionState === 'scanning';
+  const isBarcodeProcessing = barcodeActionState === 'working' || barcodeActionState === 'completing';
+
   if (stageStatus === 'pending') {
     return (
-      <Button 
-        onClick={handleStartProof}
-        disabled={isLoading || isProcessing}
-        className="w-full bg-green-600 hover:bg-green-700"
-      >
-        <Play className="h-4 w-4 mr-2" />
-        Start Proof Process
-      </Button>
+      <div className="space-y-3">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800 font-medium mb-1">
+            Barcode Required - Work Order: {job.wo_no}
+          </p>
+          <p className="text-xs text-blue-600">
+            Scan the barcode sticker on your work order to start proof process
+          </p>
+        </div>
+        
+        <Button 
+          onClick={onStartWithBarcode || handleStartProof}
+          disabled={isLoading || isProcessing || isBarcodeProcessing}
+          className="w-full bg-green-600 hover:bg-green-700"
+        >
+          {isScanning ? (
+            <>
+              <Play className="h-4 w-4 mr-2 animate-pulse" />
+              Scanning Barcode...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4 mr-2" />
+              {onStartWithBarcode ? 'Scan Barcode to Start' : 'Start Proof Process'}
+            </>
+          )}
+        </Button>
+      </div>
     );
   }
 
