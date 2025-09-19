@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import { AlertTriangle, FileText, CheckCircle, RefreshCw, Package } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useAuth } from "@/hooks/useAuth";
 import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
 import { DtpJobModal } from "./dtp/DtpJobModal";
@@ -29,14 +30,20 @@ export const DtpKanbanDashboard = () => {
     jobs, 
     isLoading, 
     error, 
-    startJob, 
-    completeJob, 
     refreshJobs,
     hasOptimisticUpdates,
     hasPendingUpdates
   } = useAccessibleJobs({
     permissionType: 'work'
   });
+
+  // Use proper job actions that resolve stage instance IDs correctly
+  const { 
+    startJob, 
+    completeJob,
+    optimisticUpdates,
+    hasOptimisticUpdates: hasJobActionUpdates 
+  } = useJobActions(refreshJobs);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -233,11 +240,11 @@ export const DtpKanbanDashboard = () => {
           />
         </TrackerErrorBoundary>
 
-        {(hasOptimisticUpdates || hasPendingUpdates()) && (
+        {(hasOptimisticUpdates || hasPendingUpdates() || hasJobActionUpdates) && (
           <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <RefreshCw className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0" />
             <span className="text-sm text-blue-700 truncate">
-              {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
+              {hasJobActionUpdates ? 'Processing job action...' : hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
             </span>
           </div>
         )}

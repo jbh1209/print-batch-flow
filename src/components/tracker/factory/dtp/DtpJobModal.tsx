@@ -44,12 +44,34 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     isLoading,
     getCurrentStage,
     getStageStatus,
+    getStageIdForActions,
     loadModalData,
     setStageInstance,
     setProofApprovalFlow,
     setSelectedBatchCategory,
     setIsLoading
   } = useDtpJobModal(job, isOpen);
+
+  // Wrap job action handlers to use the correct stage instance ID
+  const handleStartJob = useCallback(async (jobId: string, _stageId: string) => {
+    const correctStageId = getStageIdForActions();
+    if (!correctStageId) {
+      console.error('❌ No stage ID available for start action');
+      return false;
+    }
+    console.log('🎬 DtpJobModal: Starting job with correct stage ID:', correctStageId);
+    return onStartJob ? onStartJob(jobId, correctStageId) : false;
+  }, [onStartJob, getStageIdForActions]);
+
+  const handleCompleteJob = useCallback(async (jobId: string, _stageId: string) => {
+    const correctStageId = getStageIdForActions();
+    if (!correctStageId) {
+      console.error('❌ No stage ID available for complete action');
+      return false;
+    }
+    console.log('🏁 DtpJobModal: Completing job with correct stage ID:', correctStageId);
+    return onCompleteJob ? onCompleteJob(jobId, correctStageId) : false;
+  }, [onCompleteJob, getStageIdForActions]);
 
   // Load modal data when opened
   useEffect(() => {
@@ -219,8 +241,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     job={job}
                     stageStatus={getStageStatus()}
                     scanCompleted={scanCompleted}
-                    onStart={onStartJob}
-                    onComplete={onCompleteJob}
+                    onStart={handleStartJob}
+                    onComplete={handleCompleteJob}
                     onRefresh={onRefresh}
                     onClose={onClose}
                   />

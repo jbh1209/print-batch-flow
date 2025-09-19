@@ -43,15 +43,18 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
     // Reset batch category selection
     setSelectedBatchCategory("");
 
-    // Load current stage instance data
+    // CRITICAL FIX: Load the actual stage instance to get the correct ID
     if (job.current_stage_id) {
+      console.log('🔍 Loading stage instance data for job:', job.job_id, 'stage:', job.current_stage_id);
+      
       const { data: stageData } = await supabase
         .from('job_stage_instances')
-        .select('id, status, proof_emailed_at, proof_approved_manually_at, client_email, client_name')
+        .select('id, status, proof_emailed_at, proof_approved_manually_at, client_email, client_name, production_stage_id')
         .eq('job_id', job.job_id)
         .eq('production_stage_id', job.current_stage_id)
         .single();
 
+      console.log('🎯 Stage instance loaded:', stageData);
       setStageInstance(stageData || null);
 
       // Initialize proofApprovalFlow based on the actual database state
@@ -85,6 +88,16 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
     }
   }, [isOpen, job.current_stage_status, job.status, loadModalData]);
 
+  // Helper to get the correct stage ID for actions - prioritize stage instance ID
+  const getStageIdForActions = useCallback(() => {
+    if (stageInstance?.id) {
+      console.log('✅ Using stage instance ID:', stageInstance.id);
+      return stageInstance.id;
+    }
+    console.log('⚠️ Falling back to production_stage_id:', job.current_stage_id);
+    return job.current_stage_id;
+  }, [stageInstance?.id, job.current_stage_id]);
+
   return {
     stageInstance,
     proofApprovalFlow,
@@ -92,6 +105,7 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
     isLoading,
     getCurrentStage,
     getStageStatus,
+    getStageIdForActions,
     loadModalData,
     setStageInstance,
     setProofApprovalFlow,

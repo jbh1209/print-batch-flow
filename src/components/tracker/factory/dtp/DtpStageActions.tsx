@@ -36,15 +36,18 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
     }
 
     if (onStart && job.current_stage_id) {
-      console.log('🎬 Starting DTP work for job:', job.job_id);
+      console.log('🎬 Starting DTP work for job:', job.job_id, 'stage:', job.current_stage_id);
       const success = await onStart(job.job_id, job.current_stage_id);
       if (success) {
-        console.log('✅ DTP work started successfully, refreshing...');
+        console.log('✅ DTP work started successfully');
         toast.success("DTP work started");
         if (onRefresh) {
-          await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay for DB consistency
+          await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay for consistency
           onRefresh();
         }
+      } else {
+        console.error('❌ DTP work start failed');
+        toast.error("Failed to start DTP work");
       }
     }
   };
@@ -56,16 +59,19 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
     }
 
     if (onComplete && job.current_stage_id) {
-      console.log('🏁 Completing DTP work for job:', job.job_id);
+      console.log('🏁 Completing DTP work for job:', job.job_id, 'stage:', job.current_stage_id);
       const success = await onComplete(job.job_id, job.current_stage_id);
       if (success) {
-        console.log('✅ DTP work completed successfully, refreshing...');
+        console.log('✅ DTP work completed successfully');
         toast.success("DTP completed - moved to Proof");
         if (onRefresh) {
-          await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay for DB consistency
+          await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay for consistency
           onRefresh();
         }
         onClose();
+      } else {
+        console.error('❌ DTP work completion failed');
+        toast.error("Failed to complete DTP work");
       }
     }
   };
