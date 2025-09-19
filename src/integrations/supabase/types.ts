@@ -894,6 +894,7 @@ export type Database = {
           client_name: string | null
           completed_at: string | null
           completed_by: string | null
+          configuration_completeness_score: number | null
           created_at: string
           dependency_group: string | null
           estimated_duration_minutes: number | null
@@ -942,6 +943,7 @@ export type Database = {
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          configuration_completeness_score?: number | null
           created_at?: string
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
@@ -990,6 +992,7 @@ export type Database = {
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          configuration_completeness_score?: number | null
           created_at?: string
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
@@ -1617,6 +1620,8 @@ export type Database = {
           user_id: string
           user_name: string | null
           wo_no: string
+          workflow_last_modified_at: string | null
+          workflow_validation_status: string | null
         }
         Insert: {
           batch_allocated_at?: string | null
@@ -1668,6 +1673,8 @@ export type Database = {
           user_id: string
           user_name?: string | null
           wo_no: string
+          workflow_last_modified_at?: string | null
+          workflow_validation_status?: string | null
         }
         Update: {
           batch_allocated_at?: string | null
@@ -1719,6 +1726,8 @@ export type Database = {
           user_id?: string
           user_name?: string | null
           wo_no?: string
+          workflow_last_modified_at?: string | null
+          workflow_validation_status?: string | null
         }
         Relationships: [
           {
