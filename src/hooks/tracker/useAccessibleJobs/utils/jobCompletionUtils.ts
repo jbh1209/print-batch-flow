@@ -2,6 +2,43 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+/**
+ * Helper to resolve stage instance ID from various inputs
+ * Handles both production_stage_id and job_stage_instances.id
+ */
+const resolveStageInstance = async (jobId: string, stageId: string) => {
+  console.log('🔍 Resolving stage instance:', { jobId, stageId });
+  
+  // First try to find by job_stage_instances.id (exact match)
+  let { data: stageInstance, error } = await supabase
+    .from('job_stage_instances')
+    .select('*')
+    .eq('job_id', jobId)
+    .eq('id', stageId)
+    .maybeSingle();
+
+  if (!error && stageInstance) {
+    console.log('✅ Found stage instance by ID:', stageInstance.id);
+    return stageInstance;
+  }
+
+  // Fallback: try to find by production_stage_id
+  const { data: fallbackInstance, error: fallbackError } = await supabase
+    .from('job_stage_instances')
+    .select('*')
+    .eq('job_id', jobId)
+    .eq('production_stage_id', stageId)
+    .maybeSingle();
+
+  if (!fallbackError && fallbackInstance) {
+    console.log('✅ Found stage instance by production_stage_id:', fallbackInstance.id);
+    return fallbackInstance;
+  }
+
+  console.error('❌ Could not resolve stage instance:', { jobId, stageId, error, fallbackError });
+  return null;
+};
+
 export const completeJobStage = async (jobId: string, stageId: string): Promise<boolean> => {
   console.log('🔄 [jobCompletionUtils] Completing job stage:', { jobId, stageId });
   
@@ -15,22 +52,51 @@ export const completeJobStage = async (jobId: string, stageId: string): Promise<
       return false;
     }
     console.log('✅ User authenticated:', user.user.id);
+    
+    // CRITICAL FIX: Resolve the actual stage instance
+    const stageInstance = await resolveStageInstance(jobId, stageId);
+    if (!stageInstance) {
+      console.error('❌ Stage instance not found:', { jobId, stageId });
+      toast.error('Stage not found - please refresh and try again');
+      return false;
+    }
+
+    // Ensure stage is active before completing
+    if (stageInstance.status !== 'active') {
+      console.log('⚠️ Stage not active, activating first...', stageInstance.status);
+      const { error: activateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'active',
+          started_at: stageInstance.started_at || new Date().toISOString(),
+          started_by: stageInstance.started_by || user.user.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageInstance.id);
+
+      if (activateError) {
+        console.error('❌ Failed to activate stage:', activateError);
+        toast.error('Failed to activate stage');
+        return false;
+      }
+    }
+    
     // Get stage info to check if it's a proof stage  
     const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../../utils/proofStageUtils');
-    const stageInfo = await getStageInfoForProofCheck(stageId);
+    const stageInfo = await getStageInfoForProofCheck(stageInstance.id);
     
     // Use the advance_job_stage RPC function to properly complete and advance the job
     console.log('🚀 Calling advance_job_stage RPC with params:', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_current_stage_id: stageId,
+      p_current_stage_id: stageInstance.id, // Use resolved stage instance ID
       p_completed_by: user.user.id
     });
     
     const { data, error } = await supabase.rpc('advance_job_stage', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_current_stage_id: stageId,
+      p_current_stage_id: stageInstance.id, // Use resolved stage instance ID
       p_completed_by: user.user.id
     });
     

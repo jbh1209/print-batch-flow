@@ -47,11 +47,13 @@ export const isProofStage = (stageName?: string): boolean => {
 
 /**
  * Get stage information from database to determine if it's a proof stage
+ * Handles both job_stage_instances.id and production_stage_id inputs
  */
 export const getStageInfoForProofCheck = async (stageId: string) => {
+  console.log('🔍 Getting stage info for proof check:', stageId);
   
-  
-  const { data: stageInfo, error } = await supabase
+  // First try by job_stage_instances.id
+  let { data: stageInfo, error } = await supabase
     .from('job_stage_instances')
     .select(`
       id,
@@ -60,15 +62,36 @@ export const getStageInfoForProofCheck = async (stageId: string) => {
       production_stage:production_stages(name)
     `)
     .eq('id', stageId)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    console.error('Error fetching stage info for proof check:', error);
-    return null;
+  if (!error && stageInfo) {
+    console.log('✅ Found stage info by ID:', stageInfo.id);
+    return {
+      ...stageInfo,
+      isProof: isProofStage(stageInfo?.production_stage?.name)
+    };
   }
 
-  return {
-    ...stageInfo,
-    isProof: isProofStage(stageInfo?.production_stage?.name)
-  };
+  // Fallback: try by production_stage_id
+  const { data: fallbackInfo, error: fallbackError } = await supabase
+    .from('job_stage_instances')
+    .select(`
+      id,
+      job_id,
+      job_table_name,
+      production_stage:production_stages(name)
+    `)
+    .eq('production_stage_id', stageId)
+    .maybeSingle();
+
+  if (!fallbackError && fallbackInfo) {
+    console.log('✅ Found stage info by production_stage_id:', fallbackInfo.id);
+    return {
+      ...fallbackInfo,
+      isProof: isProofStage(fallbackInfo?.production_stage?.name)
+    };
+  }
+
+  console.error('❌ Error fetching stage info for proof check:', { error, fallbackError });
+  return null;
 };
