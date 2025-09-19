@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
+
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -106,6 +106,26 @@ export const DtpKanbanDashboard = () => {
 
   // Removed automatic barcode search and modal opening
   // DTP operators now click on jobs to open modals, then scan to start/complete
+
+  // Open modal when Start is clicked in lists/cards
+  const openModalForStart = useCallback(async (jobId: string, _stageId: string) => {
+    const jobToOpen = jobs.find(j => j.job_id === jobId);
+    if (jobToOpen) {
+      setSelectedJob(jobToOpen as any);
+      setShowJobModal(true);
+    }
+    return true;
+  }, [jobs]);
+
+  // Open modal when Complete is clicked in lists/cards
+  const openModalForComplete = useCallback(async (jobId: string, _stageId: string) => {
+    const jobToOpen = jobs.find(j => j.job_id === jobId);
+    if (jobToOpen) {
+      setSelectedJob(jobToOpen as any);
+      setShowJobModal(true);
+    }
+    return true;
+  }, [jobs]);
 
   const handleCloseModal = useCallback(() => {
     console.log('Closing DTP modal and resetting state');
@@ -203,8 +223,8 @@ export const DtpKanbanDashboard = () => {
               <DtpKanbanColumnWithBoundary
                 title="DTP Jobs"
                 jobs={dtpJobs}
-                onStart={startJob}
-                onComplete={completeJob}
+                onStart={openModalForStart}
+                onComplete={openModalForComplete}
                 onJobClick={handleJobClick}
                 colorClass="bg-blue-600"
                 icon={<FileText className="h-4 w-4" />}
@@ -215,8 +235,8 @@ export const DtpKanbanDashboard = () => {
               <DtpKanbanColumnWithBoundary
                 title="Proofing Jobs"
                 jobs={proofJobs}
-                onStart={startJob}
-                onComplete={completeJob}
+                onStart={openModalForStart}
+                onComplete={openModalForComplete}
                 onJobClick={handleJobClick}
                 colorClass="bg-purple-600"
                 icon={<CheckCircle className="h-4 w-4" />}
@@ -227,8 +247,8 @@ export const DtpKanbanDashboard = () => {
               <DtpKanbanColumnWithBoundary
                 title="Batch Allocation"
                 jobs={batchAllocationJobs}
-                onStart={startJob}
-                onComplete={completeJob}
+                onStart={openModalForStart}
+                onComplete={openModalForComplete}
                 onJobClick={handleJobClick}
                 colorClass="bg-orange-600"
                 icon={<Package className="h-4 w-4" />}
@@ -246,8 +266,8 @@ export const DtpKanbanDashboard = () => {
                 <div className="pr-4">
                   <JobListView
                     jobs={dtpJobs}
-                    onStart={startJob}
-                    onComplete={completeJob}
+                    onStart={openModalForStart}
+                    onComplete={openModalForComplete}
                     onJobClick={handleJobClick}
                   />
                 </div>

@@ -102,30 +102,26 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   // Handle barcode scan with enhanced processing
   const handleBarcodeDetected = async (barcodeData: string) => {
+    if (actionState !== 'scanning') return; // Ignore scans unless explicitly scanning
     console.log('🔍 Barcode detected in DTP modal:', barcodeData, 'Expected:', job.wo_no);
-    
-    // Process the barcode through the enhanced system
+
     const success = await processBarcodeForAction(barcodeData);
-    
-    if (success && currentAction) {
-      // Auto-proceed based on the current action state
-      if (actionState === 'scanning' && currentAction.expectedBarcodeData === job.wo_no) {
-        const currentStageStatus = job.current_stage_status;
-        
-        if (currentStageStatus === 'pending') {
-          const startSuccess = await proceedWithStart();
-          if (startSuccess) {
-            handleJobStatusUpdate('In Progress', 'active');
-            handleModalDataRefresh();
-          }
-        } else if (currentStageStatus === 'active') {
-          const completeSuccess = await proceedWithComplete();
-          if (completeSuccess) {
-            handleJobStatusUpdate('Ready for Proof', 'completed');
-            handleModalDataRefresh();
-            onClose();
-          }
-        }
+    if (!success || !currentAction) return;
+
+    // Decide based on live stage status
+    const currentStageStatus = getStageStatus();
+    if (currentStageStatus === 'pending') {
+      const startSuccess = await proceedWithStart();
+      if (startSuccess) {
+        handleJobStatusUpdate('In Progress', 'active');
+        await handleModalDataRefresh();
+      }
+    } else if (currentStageStatus === 'active') {
+      const completeSuccess = await proceedWithComplete();
+      if (completeSuccess) {
+        handleJobStatusUpdate('Ready for Proof', 'completed');
+        await handleModalDataRefresh();
+        onClose();
       }
     }
   };
@@ -167,14 +163,14 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* Global Barcode Listener - only active when modal is open */}
-      {isOpen && (
+      {/* Barcode Listener - only active while scanning inside modal */}
+      {isOpen && actionState === 'scanning' && (
         <GlobalBarcodeListener 
           onBarcodeDetected={handleBarcodeDetected}
           minLength={5}
         />
       )}
-      <DialogContent className="max-w-full sm:max-w-4xl h-[90vh] overflow-y-auto p-3 sm:p-6">
+      <DialogContent className="max-w-full sm:max-w-4xl h-[90vh] overflow-y-auto p-3 sm:p-6" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Job Details: {job.wo_no}</span>
