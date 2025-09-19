@@ -152,7 +152,7 @@ const Covers = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batchflow/batches/covers/jobs/new")}
+                onClick={() => navigate("/printstream/batches/covers/jobs/new")}
               >
                 Add New Job
               </Button>

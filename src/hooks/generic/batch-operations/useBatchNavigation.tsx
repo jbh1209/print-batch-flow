@@ -29,7 +29,7 @@ export function useBatchNavigation(productType: string) {
   const handleViewBatchDetails = (batchId: string) => {
     // Format the product type for the URL (lowercase with dashes)
     const formattedProductType = productType.toLowerCase().replace(/ /g, '-');
-    const path = `/batchflow/batches/${formattedProductType}/batches/${batchId}`;
+    const path = `/printstream/batches/${formattedProductType}/batches/${batchId}`;
     console.log("Navigating to batch details:", path);
     navigate(path);
   };

@@ -50,7 +50,7 @@ export const FlyerJobRow = ({
 
   const handleEdit = () => {
     try {
-      navigate(`/batchflow/batches/flyers/jobs/${job.id}/edit`);
+      navigate(`/printstream/batches/flyers/jobs/${job.id}/edit`);
     } catch (error) {
       console.error("Error navigating to edit:", error);
       toast.error("Failed to open edit page");
@@ -85,7 +85,7 @@ export const FlyerJobRow = ({
             size="icon" 
             variant="ghost" 
             title="View Job"
-            onClick={() => navigate(`/batchflow/batches/flyers/jobs/${job.id}`)}
+            onClick={() => navigate(`/printstream/batches/flyers/jobs/${job.id}`)}
             disabled={isDeleting}
           >
             <Eye size={16} />

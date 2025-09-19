@@ -10,7 +10,7 @@ const BoxBatchDetails = () => {
     <BatchDetails 
       batchId={batchId || ""} 
       productType="Boxes" 
-      backUrl="/batchflow/batches/boxes/batches" 
+      backUrl="/printstream/batches/boxes/batches" 
     />
   );
 };

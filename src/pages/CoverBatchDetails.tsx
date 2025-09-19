@@ -10,7 +10,7 @@ const CoverBatchDetails = () => {
     <BatchDetails 
       batchId={batchId || ""} 
       productType="Covers" 
-      backUrl="/batchflow/batches/covers/batches" 
+      backUrl="/printstream/batches/covers/batches" 
     />
   );
 };

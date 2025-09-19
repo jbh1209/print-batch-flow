@@ -17,7 +17,7 @@ const FlyerBatches = () => {
   
   // If batchId is present, redirect to the proper route
   if (batchId) {
-    return <Navigate to={`/batchflow/batches/flyers/batches/${batchId}`} replace />;
+    return <Navigate to={`/printstream/batches/flyers/batches/${batchId}`} replace />;
   }
   
   const {

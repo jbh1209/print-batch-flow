@@ -89,7 +89,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    navigate(`/batchflow/batches/business-cards/batches/${batchId}`);
+    navigate(`/printstream/batches/business-cards/batches/${batchId}`);
   };
 
   // Set up real-time subscriptions for batch changes

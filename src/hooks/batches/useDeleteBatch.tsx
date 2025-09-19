@@ -95,8 +95,8 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
         description: "The batch has been deleted and all jobs returned to queue."
       });
       
-      // Navigate back to the batches page with correct batchflow prefix
-      const updatedBackUrl = backUrl.startsWith('/batchflow') ? backUrl : `/batchflow${backUrl}`;
+      // Navigate back to the batches page with correct printstream prefix
+      const updatedBackUrl = backUrl.startsWith('/printstream') ? backUrl : `/printstream${backUrl}`;
       navigate(updatedBackUrl);
     } catch (error) {
       console.error("Error deleting batch:", error);

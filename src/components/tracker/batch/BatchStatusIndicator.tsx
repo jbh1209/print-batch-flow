@@ -65,7 +65,7 @@ export const BatchStatusIndicator: React.FC<BatchStatusIndicatorProps> = ({
           className="text-xs"
         >
           <ExternalLink className="h-3 w-3 mr-1" />
-          View in BatchFlow
+          View in Printstream
         </Button>
       )}
       

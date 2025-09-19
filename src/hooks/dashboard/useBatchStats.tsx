@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BatchStats {
-  // Legacy batch counts (BatchFlow)
+  // Legacy batch counts (Printstream)
   businessCardBatches: number;
   flyerBatches: number;
   totalBatches: number;

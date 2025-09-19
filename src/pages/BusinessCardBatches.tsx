@@ -65,13 +65,13 @@ const BusinessCardBatches = () => {
       <BatchDetails 
         batchId={batchId} 
         productType="Business Cards" 
-        backUrl="/batchflow/batches/business-cards" 
+        backUrl="/printstream/batches/business-cards" 
       />
     );
   }
 
   const handleTabChange = (tab: string) => {
-    navigate(`/batchflow/batches/business-cards?tab=${tab}`);
+    navigate(`/printstream/batches/business-cards?tab=${tab}`);
   };
 
   return (

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Package, Users, ArrowRight, Settings } from 'lucide-react';
 
-export const BatchFlowIntegrationSummary: React.FC = () => {
+export const PrintstreamIntegrationSummary: React.FC = () => {
   const integrationFeatures = [
     {
       title: 'Enhanced Batch-to-Tracker Handoff',
@@ -68,7 +68,7 @@ export const BatchFlowIntegrationSummary: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            BatchFlow-Tracker Integration Status
+            Printstream-Tracker Integration Status
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -109,7 +109,7 @@ export const BatchFlowIntegrationSummary: React.FC = () => {
           <div className="flex items-center gap-2 text-sm">
             <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
             <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            <span>Batch sent to print in BatchFlow creates master job in Tracker</span>
+            <span>Batch sent to print in Printstream creates master job in Tracker</span>
           </div>
           
           <div className="flex items-center gap-2 text-sm">
@@ -139,7 +139,7 @@ export const BatchFlowIntegrationSummary: React.FC = () => {
             <div>
               <h3 className="font-semibold text-green-800">Integration Complete</h3>
               <p className="text-sm text-green-700">
-                BatchFlow and Tracker are now fully integrated with automatic workflow management
+                Printstream and Tracker are now fully integrated with automatic workflow management
               </p>
             </div>
           </div>

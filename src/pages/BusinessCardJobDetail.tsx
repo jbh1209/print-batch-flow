@@ -91,7 +91,7 @@ const BusinessCardJobDetail = () => {
         <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">Job not found</h3>
         <p className="text-gray-500 mb-6">{error || "The requested job could not be found."}</p>
-        <Button onClick={() => navigate("/batchflow/batches/business-cards/jobs")}>
+        <Button onClick={() => navigate("/printstream/batches/business-cards/jobs")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Jobs
         </Button>
@@ -106,7 +106,7 @@ const BusinessCardJobDetail = () => {
           <Button 
             variant="outline" 
             className="mb-4"
-            onClick={() => navigate("/batchflow/batches/business-cards/jobs")}
+            onClick={() => navigate("/printstream/batches/business-cards/jobs")}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Jobs
@@ -120,7 +120,7 @@ const BusinessCardJobDetail = () => {
         <div className="flex gap-2">
           <Button 
             variant="outline"
-            onClick={() => navigate(`/batchflow/batches/business-cards/jobs/${id}/edit`)}
+            onClick={() => navigate(`/printstream/batches/business-cards/jobs/${id}/edit`)}
           >
             <Edit className="mr-2 h-4 w-4" />
             Edit Job
@@ -186,7 +186,7 @@ const BusinessCardJobDetail = () => {
               <p className="mb-4">This job has been added to a batch for processing.</p>
               <Button 
                 variant="outline"
-                onClick={() => navigate(`/batchflow/batches/business-cards/batches/${job.batch_id}`)}
+                onClick={() => navigate(`/printstream/batches/business-cards/batches/${job.batch_id}`)}
               >
                 View Batch
               </Button>

@@ -89,8 +89,8 @@ export function useFlyerBatches(batchId: string | null = null) {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    // Updated to use the correct batchflow prefix
-    navigate(`/batchflow/batches/flyers/batches/${batchId}`);
+    // Updated to use the correct printstream prefix
+    navigate(`/printstream/batches/flyers/batches/${batchId}`);
   };
   
   const handleDeleteBatch = async () => {

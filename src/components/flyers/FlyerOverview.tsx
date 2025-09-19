@@ -107,7 +107,7 @@ export const FlyerOverview = ({ onTabChange }: FlyerOverviewProps) => {
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2">
               <Button asChild>
-                <Link to="/batchflow/batches/flyers/jobs/new" className="flex items-center gap-2">
+                <Link to="/printstream/batches/flyers/jobs/new" className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
                   Create New Job
                 </Link>

@@ -74,13 +74,13 @@ const AppSelector = () => {
             </CardContent>
           </Card>
 
-          {/* BatchFlow App */}
+          {/* Printstream App */}
           <Card className="hover:shadow-xl transition-all duration-300 group cursor-pointer">
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                 <Package className="h-10 w-10 text-blue-600" />
               </div>
-              <CardTitle className="text-2xl text-gray-900">BatchFlow</CardTitle>
+              <CardTitle className="text-2xl text-gray-900">Printstream</CardTitle>
               <CardDescription className="text-gray-600">
                 Printing batch management and production workflows
               </CardDescription>
@@ -93,8 +93,8 @@ const AppSelector = () => {
                 <li>• PDF generation and management</li>
               </ul>
               <Button asChild size="lg" className="w-full bg-blue-600 hover:bg-blue-700">
-                <Link to="/batchflow" className="flex items-center justify-center gap-2">
-                  Open BatchFlow
+                <Link to="/printstream" className="flex items-center justify-center gap-2">
+                  Open Printstream
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>

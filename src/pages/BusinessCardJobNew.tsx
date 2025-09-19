@@ -116,7 +116,7 @@ const BusinessCardJobNew = () => {
       }
 
       toast.success("Job created successfully");
-      navigate("/batchflow/batches/business-cards?tab=jobs");
+      navigate("/printstream/batches/business-cards?tab=jobs");
     } catch (error) {
       console.error("Error submitting job:", error);
       toast.error("Error creating job", {
@@ -152,7 +152,7 @@ const BusinessCardJobNew = () => {
 
             <FormActions 
               isSubmitting={isUploading} 
-              cancelPath="/batchflow/batches/business-cards?tab=jobs" 
+              cancelPath="/printstream/batches/business-cards?tab=jobs" 
             />
           </form>
         </Form>

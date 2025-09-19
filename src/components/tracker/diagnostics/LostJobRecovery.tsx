@@ -80,7 +80,7 @@ export const LostJobRecovery: React.FC = () => {
         </CardTitle>
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Jobs that are stuck between Production Tracker and BatchFlow
+            Jobs that are stuck between Production Tracker and Printstream
           </p>
           <Button
             onClick={loadLostJobs}

@@ -201,7 +201,7 @@ export const ProductionManagerView = () => {
                   {batchProcessingJobs} Job{batchProcessingJobs !== 1 ? 's' : ''} in Batch Processing
                 </h3>
                 <p className="text-sm text-orange-700">
-                  These jobs are currently being processed in BatchFlow
+                  These jobs are currently being processed in Printstream
                 </p>
               </div>
             </div>

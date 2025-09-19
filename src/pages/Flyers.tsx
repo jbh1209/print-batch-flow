@@ -16,9 +16,9 @@ const Flyers = () => {
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>
-            <Link to="/batchflow" className="flex items-center gap-2">
+            <Link to="/printstream" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to BatchFlow
+              Back to Printstream
             </Link>
           </Button>
         </div>

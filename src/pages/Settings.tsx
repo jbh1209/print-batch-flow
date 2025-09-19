@@ -140,7 +140,7 @@ const Settings = () => {
       <div className="flex justify-between items-center">
         <div>
           <div className="flex items-center">
-            <SettingsIcon className="h-6 w-6 mr-2 text-batchflow-primary" />
+            <SettingsIcon className="h-6 w-6 mr-2 text-printstream-primary" />
             <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
           </div>
           <p className="text-gray-500 mt-1">Configure application settings</p>

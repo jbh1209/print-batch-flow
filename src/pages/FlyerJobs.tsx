@@ -12,7 +12,7 @@ const FlyerJobs = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center">
-            <FileText className="h-6 w-6 mr-2 text-batchflow-primary" />
+            <FileText className="h-6 w-6 mr-2 text-printstream-primary" />
             <h1 className="text-2xl font-bold tracking-tight">Flyer Jobs</h1>
           </div>
           <p className="text-gray-500 mt-1">Manage print jobs for flyers</p>

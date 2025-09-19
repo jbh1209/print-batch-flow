@@ -152,7 +152,7 @@ const Boxes = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batchflow/batches/boxes/jobs/new")}
+                onClick={() => navigate("/printstream/batches/boxes/jobs/new")}
               >
                 Add New Job
               </Button>

@@ -74,7 +74,7 @@ export const MultiStageKanban = () => {
         name: 'In Batch Processing',
         color: '#F59E0B',
         order_index: 999, // Place at end
-        description: 'Jobs currently being processed in BatchFlow',
+        description: 'Jobs currently being processed in Printstream',
         is_active: true,
         is_virtual: true,
         master_queue_id: null,
@@ -151,7 +151,7 @@ export const MultiStageKanban = () => {
         const jobId = stageId.replace('virtual-batch-', '');
         if (action === 'complete') {
           // Here we would integrate with batch completion logic
-          toast.info('Batch processing completion - integrate with BatchFlow');
+          toast.info('Batch processing completion - integrate with Printstream');
         }
         return;
       }

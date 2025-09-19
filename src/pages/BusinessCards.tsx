@@ -11,9 +11,9 @@ const BusinessCards = () => {
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>
-            <Link to="/batchflow" className="flex items-center gap-2">
+            <Link to="/printstream" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to BatchFlow
+              Back to Printstream
             </Link>
           </Button>
         </div>
@@ -26,10 +26,10 @@ const BusinessCards = () => {
           
           <div className="flex justify-center gap-4">
             <Button asChild size="lg">
-              <Link to="/batchflow/batches/business-cards/jobs/new">Create New Job</Link>
+              <Link to="/printstream/batches/business-cards/jobs/new">Create New Job</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link to="/batchflow/batches/business-cards/batches">View All Batches</Link>
+              <Link to="/printstream/batches/business-cards/batches">View All Batches</Link>
             </Button>
           </div>
         </div>
@@ -51,7 +51,7 @@ const BusinessCards = () => {
           </CardContent>
           <CardFooter className="bg-gray-50 p-4 flex justify-center">
             <Button asChild>
-              <Link to="/batchflow/batches/business-cards/jobs">Manage Jobs</Link>
+              <Link to="/printstream/batches/business-cards/jobs">Manage Jobs</Link>
             </Button>
           </CardFooter>
         </Card>
@@ -71,7 +71,7 @@ const BusinessCards = () => {
           </CardContent>
           <CardFooter className="bg-gray-50 p-4 flex justify-center">
             <Button asChild>
-              <Link to="/batchflow/batches/business-cards/batches">View Batches</Link>
+              <Link to="/printstream/batches/business-cards/batches">View Batches</Link>
             </Button>
           </CardFooter>
         </Card>
@@ -85,13 +85,13 @@ const BusinessCards = () => {
           </CardHeader>
           <CardContent className="flex justify-center gap-4 pb-6">
             <Button variant="outline" asChild>
-              <Link to="/batchflow/batches/business-cards/jobs" className="flex items-center gap-2">
+              <Link to="/printstream/batches/business-cards/jobs" className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 View All Jobs
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/batchflow/batches/business-cards/jobs/new" className="flex items-center gap-2">
+              <Link to="/printstream/batches/business-cards/jobs/new" className="flex items-center gap-2">
                 <Plus className="h-5 w-5" />
                 Create New Job
               </Link>

@@ -128,7 +128,7 @@ export const useFlyerJobForm = () => {
         toast.success("Flyer job created successfully");
       }
       
-      navigate("/batchflow/batches/flyers/jobs");
+      navigate("/printstream/batches/flyers/jobs");
       return true;
     } catch (error) {
       console.error("Error with flyer job:", error);

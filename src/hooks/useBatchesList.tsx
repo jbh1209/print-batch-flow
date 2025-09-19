@@ -85,30 +85,30 @@ export const useBatchesList = () => {
   }, [user]);
 
   const getProductUrl = (productType: string) => {
-    // Convert product type to URL format and use proper batchflow prefix
+    // Convert product type to URL format and use proper printstream prefix
     switch(productType) {
-      case "Business Cards": return "/batchflow/batches/business-cards";
-      case "Flyers": return "/batchflow/batches/flyers";
-      case "Postcards": return "/batchflow/batches/postcards";
-      case "Boxes": return "/batchflow/batches/boxes";
-      case "Stickers": return "/batchflow/batches/stickers";
-      case "Covers": return "/batchflow/batches/covers";
-      case "Posters": return "/batchflow/batches/posters";
-      case "Sleeves": return "/batchflow/batches/sleeves";
-      default: return "/batchflow/batches";
+      case "Business Cards": return "/printstream/batches/business-cards";
+      case "Flyers": return "/printstream/batches/flyers";
+      case "Postcards": return "/printstream/batches/postcards";
+      case "Boxes": return "/printstream/batches/boxes";
+      case "Stickers": return "/printstream/batches/stickers";
+      case "Covers": return "/printstream/batches/covers";
+      case "Posters": return "/printstream/batches/posters";
+      case "Sleeves": return "/printstream/batches/sleeves";
+      default: return "/printstream/batches";
     }
   };
 
   const getBatchUrl = (batch: BatchSummary) => {
-    // Generate proper URLs for batch details using the batchflow prefix
+    // Generate proper URLs for batch details using the printstream prefix
     const productPath = getProductUrl(batch.product_type);
-    if (productPath === "/batchflow/batches") {
-      return `/batchflow/batches`;
+    if (productPath === "/printstream/batches") {
+      return `/printstream/batches`;
     }
     
     console.log(`Generating batch URL: ${productPath}/batches/${batch.id} for product type: ${batch.product_type}`);
     
-    // Use the direct path pattern for all batch types with batchflow prefix
+    // Use the direct path pattern for all batch types with printstream prefix
     return `${productPath}/batches/${batch.id}`;
   };
 

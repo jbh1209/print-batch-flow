@@ -49,7 +49,7 @@ export const BatchProcessingStatusCard: React.FC<BatchProcessingStatusCardProps>
       case 'In Batch Processing':
         return {
           icon: Package,
-          text: 'In BatchFlow',
+          text: 'In Printstream',
           color: 'text-orange-700 border-orange-300 bg-orange-50',
           badgeColor: 'bg-orange-100 text-orange-800'
         };
@@ -102,7 +102,7 @@ export const BatchProcessingStatusCard: React.FC<BatchProcessingStatusCardProps>
               onClick={() => window.open('/batch', '_blank')}
             >
               <ExternalLink className="h-3 w-3 mr-1" />
-              View in BatchFlow
+              View in Printstream
             </Button>
             
             {status === 'In Batch Processing' && (
