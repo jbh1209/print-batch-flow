@@ -4,7 +4,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
-import { DtpJobModal } from "./DtpJobModal";
+import { DtpJobModal } from "./dtp/DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
@@ -132,6 +132,16 @@ export const DtpKanbanDashboard = () => {
     setSelectedJob(null);
     setScanCompleted(false); // Reset scan state
   }, []);
+
+  // Update selectedJob when jobs change to keep it in sync
+  React.useEffect(() => {
+    if (selectedJob && jobs.length > 0) {
+      const updatedJob = jobs.find(j => j.job_id === selectedJob.job_id);
+      if (updatedJob && JSON.stringify(updatedJob) !== JSON.stringify(selectedJob)) {
+        setSelectedJob(updatedJob);
+      }
+    }
+  }, [jobs, selectedJob]);
 
   const handleLogout = useCallback(async () => {
     try {
