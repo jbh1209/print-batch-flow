@@ -102,10 +102,48 @@ export function useSequentialScheduler() {
     }
   }, []);
 
+  const rescheduleJobs = useCallback(async (jobIds: string[]) => {
+    setIsLoading(true);
+    try {
+      console.log('🔄 Rescheduling specific jobs:', jobIds);
+      
+      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
+        p_job_ids: jobIds,
+        p_start_from: null,
+        p_only_if_unset: false // Force reschedule even if already scheduled
+      });
+      
+      if (error) {
+        console.error('❌ Error rescheduling jobs:', error);
+        toast.error(`Failed to reschedule jobs: ${error.message}`);
+        return null;
+      }
+
+      const result = (data as { wrote_slots: number; updated_jsi: number }[] | null)?.[0];
+      
+      if (result) {
+        toast.success(`✅ Rescheduled ${jobIds.length} job(s): ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
+        console.log('✅ Job reschedule completed:', result);
+      } else {
+        toast.success(`Rescheduled ${jobIds.length} job(s) successfully`);
+      }
+      
+      return result;
+    } catch (err) {
+      console.error('❌ Error in job reschedule operation:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reschedule jobs';
+      toast.error(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     isLoading,
     generateSchedule,
     appendJobs,
-    carryForwardOverdueJobs
+    carryForwardOverdueJobs,
+    rescheduleJobs
   };
 }

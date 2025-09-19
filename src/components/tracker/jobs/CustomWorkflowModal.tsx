@@ -12,6 +12,8 @@ import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StageInstanceEditModal } from "./StageInstanceEditModal";
+import { useSequentialScheduler } from "@/hooks/useSequentialScheduler";
+import { useScheduleInvalidation } from "@/hooks/tracker/useScheduleInvalidation";
 
 interface CustomWorkflowModalProps {
   isOpen: boolean;
@@ -39,6 +41,14 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   onSuccess
 }) => {
   const { stages, isLoading } = useProductionStages();
+  const { rescheduleJobs, isLoading: isRescheduling } = useSequentialScheduler();
+  const { 
+    invalidateJobSchedule, 
+    detectScheduleImpact, 
+    getEstimatedImpact,
+    pendingInvalidations,
+    isInvalidating
+  } = useScheduleInvalidation();
   const [selectedStages, setSelectedStages] = useState<SelectedStage[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
@@ -50,13 +60,33 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   // Stage configuration modal
   const [editingStage, setEditingStage] = useState<SelectedStage | null>(null);
   const [stageConfigurations, setStageConfigurations] = useState<Record<string, any>>({});
+  
+  // Schedule management state
+  const [scheduleImpact, setScheduleImpact] = useState<{
+    hasScheduledSlots: boolean;
+    affectedStages: number;
+  } | null>(null);
+  const [showScheduleControls, setShowScheduleControls] = useState(false);
 
   // Load existing workflow stages or category template when modal opens
   useEffect(() => {
     if (isOpen && job?.id) {
       loadWorkflowData();
+      checkScheduleImpact();
     }
   }, [isOpen, job?.id]);
+
+  const checkScheduleImpact = async () => {
+    if (!job?.id) return;
+    
+    try {
+      const impact = await detectScheduleImpact(job.id);
+      setScheduleImpact(impact);
+      setShowScheduleControls(impact.hasScheduledSlots);
+    } catch (error) {
+      console.error('Error checking schedule impact:', error);
+    }
+  };
 
   const loadWorkflowData = async () => {
     setIsLoadingExisting(true);
@@ -356,6 +386,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         manualSlaDays
       });
 
+      // Check if we need to invalidate existing schedule
+      if (scheduleImpact?.hasScheduledSlots) {
+        console.log('📅 Invalidating existing schedule due to workflow changes...');
+        await invalidateJobSchedule(job.id, { autoReschedule: false });
+      }
+
       if (hasExistingWorkflow) {
         // SURGICAL UPDATE: Preserve existing stage metadata, only update what changed
         console.log('🔧 Surgically updating existing workflow...');
@@ -390,6 +426,10 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
 
       console.log('✅ Custom workflow initialized/updated successfully');
       toast.success(hasExistingWorkflow ? "Custom workflow updated successfully" : "Custom workflow initialized successfully");
+      
+      // Refresh schedule impact after changes
+      await checkScheduleImpact();
+      
       onSuccess();
       onClose();
     } catch (err) {
@@ -824,17 +864,77 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           </Card>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isInitializing}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleInitializeCustomWorkflow}
-            disabled={selectedStages.length === 0 || isInitializing}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            {getButtonText()}
-          </Button>
+        <DialogFooter className="flex-col space-y-3">
+          {/* Schedule Management Controls */}
+          {showScheduleControls && scheduleImpact && (
+            <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">
+                    Schedule Impact: {scheduleImpact.affectedStages} stages scheduled
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!job?.id) return;
+                      try {
+                        await invalidateJobSchedule(job.id, { autoReschedule: false });
+                        await checkScheduleImpact();
+                        toast.success('Schedule cleared successfully');
+                      } catch (error) {
+                        console.error('Error invalidating schedule:', error);
+                        toast.error('Failed to clear schedule');
+                      }
+                    }}
+                    disabled={isInvalidating}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                  >
+                    Clear Schedule
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!job?.id) return;
+                      try {
+                        await rescheduleJobs([job.id]);
+                        await checkScheduleImpact();
+                        toast.success('Job rescheduled successfully');
+                      } catch (error) {
+                        console.error('Error rescheduling job:', error);
+                        toast.error('Failed to reschedule job');
+                      }
+                    }}
+                    disabled={isRescheduling}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    {isRescheduling ? 'Rescheduling...' : 'Reschedule Job'}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-amber-700">
+                Workflow changes may require schedule updates. Use "Reschedule Job" after making changes.
+              </p>
+            </div>
+          )}
+          
+          {/* Main Action Buttons */}
+          <div className="flex justify-end space-x-2 w-full">
+            <Button variant="outline" onClick={onClose} disabled={isInitializing}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleInitializeCustomWorkflow}
+              disabled={selectedStages.length === 0 || isInitializing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {getButtonText()}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
       
