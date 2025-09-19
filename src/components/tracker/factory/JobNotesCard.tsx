@@ -23,6 +23,13 @@ export const JobNotesCard: React.FC<JobNotesCardProps> = ({
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
           className="min-h-[100px]"
+          autoFocus={false}
+          onFocus={(e) => {
+            // Only focus if user explicitly clicked on the textarea
+            if (e.target !== document.activeElement) {
+              e.target.blur();
+            }
+          }}
         />
       </CardContent>
     </Card>

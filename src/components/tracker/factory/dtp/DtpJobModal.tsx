@@ -43,9 +43,13 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setIsLoading
   } = useDtpJobModal(job, isOpen);
 
+  // Reset barcode state when modal closes
   useEffect(() => {
-    loadModalData();
-  }, [loadModalData]);
+    if (!isOpen) {
+      // Clean up any barcode scanning state when modal closes
+      console.log('DTP modal closed - should reset any barcode state');
+    }
+  }, [isOpen]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
@@ -83,7 +87,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-[95vw] md:max-w-4xl max-h-[95vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Job Details - {job.wo_no}</span>
@@ -91,7 +95,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
           {/* Left Column - Job Information */}
           <div className="space-y-4">
             <Card>

@@ -105,14 +105,16 @@ export const DtpKanbanDashboard = () => {
   }, []);
 
   const handleBarcodeDetected = useCallback((barcodeData: string) => {
-    console.log('🔍 Global barcode detected in DTP Dashboard:', barcodeData);
+    console.log('🔍 DTP Barcode detected:', barcodeData, 'Looking for D426216-style codes');
     
     // Try to find matching job across all categories
     const allJobs = [...dtpJobs, ...proofJobs, ...batchAllocationJobs];
     const matchingJob = allJobs.find(job => {
-      const normalize = (s: string) => (s || "").toString().trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const normalize = (s: string) => (s || "").toString().trim().toUpperCase();
       const cleanScanned = normalize(barcodeData);
       const cleanWO = normalize(job.wo_no);
+      
+      console.log('Comparing:', { cleanScanned, cleanWO, jobWO: job.wo_no });
       
       return cleanScanned === cleanWO || 
              cleanScanned.includes(cleanWO) || 
@@ -120,17 +122,25 @@ export const DtpKanbanDashboard = () => {
     });
     
     if (matchingJob) {
+      console.log('✅ Found matching job:', matchingJob.wo_no);
       setSearchQuery(barcodeData);
       handleJobClick(matchingJob);
       toast.success(`Found and opened job: ${matchingJob.wo_no}`);
     } else {
+      console.log('❌ No job found for barcode:', barcodeData);
       toast.warning(`No job found for barcode: ${barcodeData}`);
     }
   }, [dtpJobs, proofJobs, batchAllocationJobs, handleJobClick]);
 
   const handleCloseModal = useCallback(() => {
+    console.log('Closing DTP modal and resetting state');
     setShowJobModal(false);
     setSelectedJob(null);
+    
+    // Small delay to ensure modal is fully closed before clearing selection
+    setTimeout(() => {
+      setSelectedJob(null);
+    }, 100);
   }, []);
 
   const handleLogout = useCallback(async () => {

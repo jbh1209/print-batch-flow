@@ -57,13 +57,24 @@ export const useBarcodeControlledActions = () => {
 
   // Verify barcode matches expected job
   const verifyBarcode = useCallback((scannedData: string, expectedData: string): boolean => {
-    // For plain text work order numbers, do direct comparison
-    // Handle case where scanned data might have extra characters or formatting
+    // Clean and normalize both strings
     const cleanScanned = scannedData.trim().toUpperCase();
     const cleanExpected = expectedData.trim().toUpperCase();
     
-    // Check if scanned data matches expected work order number exactly
-    return cleanScanned === cleanExpected;
+    console.log('Barcode verification:', { cleanScanned, cleanExpected });
+    
+    // Direct comparison for work order numbers like D426216
+    if (cleanScanned === cleanExpected) {
+      return true;
+    }
+    
+    // Also check if scanned data contains the expected work order number
+    // This handles cases where barcode might have extra formatting
+    if (cleanScanned.includes(cleanExpected) || cleanExpected.includes(cleanScanned)) {
+      return true;
+    }
+    
+    return false;
   }, []);
 
   // Process barcode scan during job actions
@@ -246,7 +257,15 @@ export const useBarcodeControlledActions = () => {
     setActionState('idle');
     setCurrentAction(null);
     setScanResult(null);
-    toast.info("Action cancelled");
+    console.log('Barcode action cancelled and state reset');
+  }, []);
+
+  // Reset all state when component unmounts or action completes
+  const resetState = useCallback(() => {
+    setActionState('idle');
+    setCurrentAction(null);
+    setScanResult(null);
+    console.log('Barcode state fully reset');
   }, []);
 
   return {
@@ -261,6 +280,7 @@ export const useBarcodeControlledActions = () => {
     holdJob,
     resumeJob,
     cancelAction,
+    resetState,
     processBarcodeForAction
   };
 };

@@ -36,7 +36,8 @@ export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
       // Handle Enter key (common barcode scanner behavior)
       if (event.key === 'Enter') {
         if (barcodeRef.current.length >= minLength) {
-          onBarcodeDetected(barcodeRef.current);
+          console.log('Barcode detected via Enter:', barcodeRef.current);
+          onBarcodeDetected(barcodeRef.current.trim());
         }
         barcodeRef.current = "";
         return;
@@ -45,7 +46,8 @@ export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
       // Handle Tab key (some scanners use this)
       if (event.key === 'Tab' && barcodeRef.current.length >= minLength) {
         event.preventDefault();
-        onBarcodeDetected(barcodeRef.current);
+        console.log('Barcode detected via Tab:', barcodeRef.current);
+        onBarcodeDetected(barcodeRef.current.trim());
         barcodeRef.current = "";
         return;
       }
@@ -57,7 +59,8 @@ export const GlobalBarcodeListener: React.FC<GlobalBarcodeListenerProps> = ({
         // Set timeout to process accumulated data
         timeoutRef.current = setTimeout(() => {
           if (barcodeRef.current.length >= minLength) {
-            onBarcodeDetected(barcodeRef.current);
+            console.log('Barcode detected via timeout:', barcodeRef.current);
+            onBarcodeDetected(barcodeRef.current.trim());
           }
           barcodeRef.current = "";
         }, timeout);
