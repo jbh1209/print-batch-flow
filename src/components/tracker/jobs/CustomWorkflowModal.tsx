@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { GripVertical, Plus, X, Calendar } from "lucide-react";
+import { GripVertical, Plus, X, Calendar, Settings } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { StageInstanceEditModal } from "./StageInstanceEditModal";
 
 interface CustomWorkflowModalProps {
   isOpen: boolean;
@@ -24,6 +25,11 @@ interface SelectedStage {
   name: string;
   color: string;
   order: number;
+  // Stage instance configuration data
+  quantity?: number | null;
+  estimatedDurationMinutes?: number | null;
+  partAssignment?: 'cover' | 'text' | 'both' | null;
+  stageSpecificationId?: string | null;
 }
 
 export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
@@ -40,6 +46,10 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   const [workflowType, setWorkflowType] = useState<'custom' | 'category' | 'blank'>('blank');
   const [manualDueDate, setManualDueDate] = useState<string>('');
   const [manualSlaDays, setManualSlaDays] = useState<number>(3);
+  
+  // Stage configuration modal
+  const [editingStage, setEditingStage] = useState<SelectedStage | null>(null);
+  const [stageConfigurations, setStageConfigurations] = useState<Record<string, any>>({});
 
   // Load existing workflow stages or category template when modal opens
   useEffect(() => {
@@ -78,6 +88,10 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           id,
           stage_order,
           status,
+          quantity,
+          estimated_duration_minutes,
+          part_assignment,
+          stage_specification_id,
           production_stage:production_stages(
             id,
             name,
@@ -103,7 +117,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           id: stage.production_stage.id,
           name: stage.production_stage.name,
           color: stage.production_stage.color,
-          order: stage.stage_order
+          order: stage.stage_order,
+          // Load existing configuration data if available
+          quantity: (stage as any).quantity || null,
+          estimatedDurationMinutes: (stage as any).estimated_duration_minutes || null,
+          partAssignment: (stage as any).part_assignment || null,
+          stageSpecificationId: (stage as any).stage_specification_id || null
         }));
         
         setSelectedStages(mappedStages);
@@ -152,7 +171,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           id: stage.production_stage.id,
           name: stage.production_stage.name,
           color: stage.production_stage.color,
-          order: stage.stage_order
+          order: stage.stage_order,
+          // Initialize with default values for new stages
+          quantity: job?.qty || null,
+          estimatedDurationMinutes: null,
+          partAssignment: null,
+          stageSpecificationId: null
         }));
         
         setSelectedStages(mappedStages);
@@ -205,7 +229,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         id: stage.id,
         name: stage.name,
         color: stage.color,
-        order: selectedStages.length + 1
+        order: selectedStages.length + 1,
+        // Initialize with job quantity as default
+        quantity: job?.qty || null,
+        estimatedDurationMinutes: null,
+        partAssignment: null,
+        stageSpecificationId: null
       };
       setSelectedStages(prev => [...prev, newStage]);
     } else {
@@ -262,6 +291,38 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       const filtered = prev.filter(s => s.id !== stageId);
       return filtered.map((s, index) => ({ ...s, order: index + 1 }));
     });
+  };
+
+  const handleConfigureStage = (stage: SelectedStage) => {
+    console.log('🔧 Opening configuration for stage:', stage);
+    setEditingStage(stage);
+  };
+
+  const handleSaveStageConfiguration = (updatedConfig: any) => {
+    if (!editingStage) return;
+    
+    console.log('💾 Saving stage configuration:', updatedConfig);
+    
+    // Update the stage in selectedStages
+    setSelectedStages(prev => prev.map(stage => 
+      stage.id === editingStage.id 
+        ? { 
+            ...stage, 
+            quantity: updatedConfig.quantity,
+            estimatedDurationMinutes: updatedConfig.estimatedDurationMinutes,
+            partAssignment: updatedConfig.partAssignment,
+            stageSpecificationId: updatedConfig.stageSpecificationId
+          }
+        : stage
+    ));
+    
+    // Store configuration for later database update
+    setStageConfigurations(prev => ({
+      ...prev,
+      [editingStage.id]: updatedConfig
+    }));
+    
+    setEditingStage(null);
   };
 
   const calculateDueDateFromSLA = () => {
@@ -412,7 +473,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       }
     }
 
-    // Insert new stages with safe defaults
+    // Insert new stages with safe defaults and configuration data
     for (const stage of stagesToInsert) {
       console.log(`➕ Inserting new stage: ${stage.name} at order ${stage.order}`);
       
@@ -425,7 +486,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           stage_order: stage.order,
           status: 'pending',
           started_at: null,
-          started_by: null
+          started_by: null,
+          // Include stage configuration data
+          quantity: stage.quantity || job?.qty || null,
+          estimated_duration_minutes: stage.estimatedDurationMinutes || null,
+          part_assignment: stage.partAssignment || null,
+          stage_specification_id: stage.stageSpecificationId || null
         });
 
       if (insertError) {
@@ -471,7 +537,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           stage_order: stage.order,
           status: 'pending',
           started_at: null,
-          started_by: null
+          started_by: null,
+          // Include stage configuration data with defaults
+          quantity: stage.quantity || job?.qty || null,
+          estimated_duration_minutes: stage.estimatedDurationMinutes || null,
+          part_assignment: stage.partAssignment || null,
+          stage_specification_id: stage.stageSpecificationId || null
         });
 
       if (insertError) {
@@ -510,6 +581,21 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
 
   const isStageSelected = (stageId: string) => {
     return selectedStages.some(s => s.id === stageId);
+  };
+
+  const getStageConfigurationStatus = (stage: SelectedStage) => {
+    const hasQuantity = stage.quantity && stage.quantity > 0;
+    const hasDuration = stage.estimatedDurationMinutes && stage.estimatedDurationMinutes > 0;
+    const hasSpec = stage.stageSpecificationId;
+    
+    let configured = 0;
+    let total = 3;
+    
+    if (hasQuantity) configured++;
+    if (hasDuration) configured++;
+    if (hasSpec) configured++;
+    
+    return { configured, total, hasQuantity, hasDuration, hasSpec };
   };
 
   if (isLoading || isLoadingExisting) {
@@ -678,15 +764,52 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
                                   >
                                     {stage.name}
                                   </Badge>
+                                  
+                                  {/* Configuration status indicators */}
+                                  <div className="flex items-center gap-1">
+                                    {(() => {
+                                      const config = getStageConfigurationStatus(stage);
+                                      return (
+                                        <>
+                                          {config.hasQuantity && (
+                                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                              Qty: {stage.quantity}
+                                            </Badge>
+                                          )}
+                                          {config.hasDuration && (
+                                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                              {stage.estimatedDurationMinutes}min
+                                            </Badge>
+                                          )}
+                                          {!config.hasQuantity && (
+                                            <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
+                                              No Qty
+                                            </Badge>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveStage(stage.id)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleConfigureStage(stage)}
+                                    className="h-8 w-8 p-0"
+                                    title="Configure stage details"
+                                  >
+                                    <Settings className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveStage(stage.id)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             )}
                           </Draggable>
@@ -714,6 +837,29 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+      
+      {/* Stage Configuration Modal */}
+      {editingStage && (
+        <StageInstanceEditModal
+          isOpen={!!editingStage}
+          onClose={() => setEditingStage(null)}
+          jobData={{
+            id: job?.id || '',
+            wo_no: job?.wo_no || '',
+            qty: job?.qty || 1
+          }}
+          stageData={{
+            stageId: editingStage.id,
+            stageName: editingStage.name,
+            stageColor: editingStage.color,
+            quantity: editingStage.quantity || null,
+            estimatedDurationMinutes: editingStage.estimatedDurationMinutes || null,
+            partAssignment: editingStage.partAssignment || null,
+            stageSpecificationId: editingStage.stageSpecificationId || null
+          }}
+          onSave={handleSaveStageConfiguration}
+        />
+      )}
     </Dialog>
   );
 };
