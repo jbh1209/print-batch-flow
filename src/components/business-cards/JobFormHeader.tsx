@@ -19,14 +19,14 @@ const JobFormHeader = ({ isEditing = false }: JobFormHeaderProps) => {
     <div className="flex justify-between items-center mb-6">
       <div>
         <div className="flex items-center">
-          <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
+          <CreditCard className="h-6 w-6 mr-2 text-printstream-primary" />
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         </div>
         <p className="text-gray-500 mt-1">{subtitle}</p>
       </div>
       <Button 
         variant="outline" 
-        onClick={() => navigate("/batchflow/batches/business-cards?tab=jobs")}
+        onClick={() => navigate("/printstream/batches/business-cards?tab=jobs")}
         className="flex items-center gap-1"
       >
         <ArrowLeft size={16} />

@@ -128,7 +128,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
           variant="outline" 
           size="sm" 
           className="mr-4"
-          onClick={() => navigate("/batchflow/batches/flyers/jobs")}
+          onClick={() => navigate("/printstream/batches/flyers/jobs")}
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Jobs
         </Button>
@@ -150,7 +150,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
             <FormActions 
               isSubmitting={isSubmitting}
               submitLabel={mode === 'create' ? 'Create Job' : 'Save Changes'}
-              cancelPath="/batchflow/batches/flyers/jobs"
+              cancelPath="/printstream/batches/flyers/jobs"
             />
           </form>
         </Form>

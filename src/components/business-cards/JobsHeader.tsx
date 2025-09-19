@@ -28,7 +28,7 @@ const JobsHeader = ({
     <div className="flex justify-between items-center mb-6">
       <div>
         <div className="flex items-center">
-          <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
+          <CreditCard className="h-6 w-6 mr-2 text-printstream-primary" />
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         </div>
         <div className="text-gray-500 mt-1">

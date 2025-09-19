@@ -10,7 +10,7 @@ const Layout = () => {
   const { user, signOut } = useAuth();
 
   return (
-    <div className="flex h-screen bg-batchflow-background">
+    <div className="flex h-screen bg-printstream-background">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="bg-white border-b flex items-center justify-between px-6 py-3 h-16">

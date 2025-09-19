@@ -5,31 +5,31 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Layers, CreditCard, Mail, FileText, Box, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const BatchFlowHome = () => {
+const PrintstreamHome = () => {
   const productTypes = [
     {
       name: "Business Cards",
       icon: <CreditCard className="h-6 w-6 mb-2" />,
       description: "Manage business card batches and jobs",
-      link: "/batchflow/batches/business-cards"
+      link: "/printstream/batches/business-cards"
     },
     {
       name: "Postcards",
       icon: <Mail className="h-6 w-6 mb-2" />,
       description: "Create and manage postcard print batches",
-      link: "/batchflow/batches/postcards"
+      link: "/printstream/batches/postcards"
     },
     {
       name: "Flyers",
       icon: <FileText className="h-6 w-6 mb-2" />,
       description: "Organize flyer production batches",
-      link: "/batchflow/batches/flyers"
+      link: "/printstream/batches/flyers"
     },
     {
       name: "Product Boxes",
       icon: <Box className="h-6 w-6 mb-2" />,
       description: "Manage product box printing",
-      link: "/batchflow/batches/boxes"
+      link: "/printstream/batches/boxes"
     }
   ];
 
@@ -45,15 +45,15 @@ const BatchFlowHome = () => {
           </Button>
         </div>
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-2">BatchFlow</h1>
-          <p className="text-gray-600 mb-6">Your printing batch management solution</p>
+          <h1 className="text-3xl font-bold mb-2">Printstream</h1>
+          <p className="text-gray-600 mb-6">Professional print production management</p>
           
           <div className="flex justify-center gap-4">
             <Button asChild size="lg">
-              <Link to="/batchflow/batches">View All Batches</Link>
+              <Link to="/printstream/batches">View All Batches</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link to="/batchflow/batches/business-cards/jobs/new">Create New Job</Link>
+              <Link to="/printstream/batches/business-cards/jobs/new">Create New Job</Link>
             </Button>
           </div>
         </div>
@@ -84,7 +84,7 @@ const BatchFlowHome = () => {
           </CardHeader>
           <CardContent className="pb-6">
             <Button asChild>
-              <Link to="/batchflow/batches" className="flex items-center gap-2">
+              <Link to="/printstream/batches" className="flex items-center gap-2">
                 <Layers className="h-5 w-5" />
                 View All Batches
               </Link>
@@ -96,4 +96,4 @@ const BatchFlowHome = () => {
   );
 };
 
-export default BatchFlowHome;
+export default PrintstreamHome;

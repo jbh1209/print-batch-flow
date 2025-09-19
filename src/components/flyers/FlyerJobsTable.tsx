@@ -138,7 +138,7 @@ export const FlyerJobsTable = () => {
             {selectedJobs.length} of {selectableJobsCount} jobs selected
           </div>
           <Button 
-            onClick={() => navigate("/batchflow/batches/flyers/jobs/new")}
+            onClick={() => navigate("/printstream/batches/flyers/jobs/new")}
             variant="outline"
             size="sm"
           >

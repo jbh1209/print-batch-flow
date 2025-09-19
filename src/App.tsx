@@ -29,9 +29,9 @@ import TrackerDTPWorkflow from "@/pages/tracker/TrackerDTPWorkflow";
 import FactoryFloor from "@/pages/tracker/FactoryFloor";
 import MobileFactory from "@/pages/tracker/MobileFactory";
 
-// BatchFlow imports
-import BatchFlowLayout from "@/components/BatchFlowLayout";
-import BatchFlowHome from "@/pages/BatchFlowHome";
+// Printstream imports
+import PrintstreamLayout from "@/components/PrintstreamLayout";
+import PrintstreamHome from "@/pages/PrintstreamHome";
 import AllBatches from "@/pages/AllBatches";
 import AllJobsPage from "@/pages/AllJobsPage";
 import BusinessCardBatches from "@/pages/BusinessCardBatches";
@@ -113,13 +113,13 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
-                {/* BatchFlow routes with nested layout */}
-                <Route path="/batchflow" element={
+                {/* Printstream routes with nested layout */}
+                <Route path="/printstream" element={
                   <ProtectedRoute>
-                    <BatchFlowLayout />
+                    <PrintstreamLayout />
                   </ProtectedRoute>
                 }>
-                  <Route index element={<BatchFlowHome />} />
+                  <Route index element={<PrintstreamHome />} />
                   <Route path="all-jobs" element={<AllJobsPage />} />
                   <Route path="batches" element={<AllBatches />} />
                   
@@ -221,7 +221,7 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
-                {/* Admin routes without BatchFlow layout */}
+                {/* Admin routes without Printstream layout */}
                 <Route path="/admin" element={
                   <ProtectedRoute>
                     <AdminDashboard />

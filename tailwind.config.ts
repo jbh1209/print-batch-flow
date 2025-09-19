@@ -63,8 +63,8 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // BatchFlow custom colors
-        batchflow: {
+        // Printstream custom colors
+        printstream: {
           primary: "#15365b",
           secondary: "#3498db",
           accent: "#2ecc71",
