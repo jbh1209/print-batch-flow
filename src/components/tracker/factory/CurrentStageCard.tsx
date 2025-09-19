@@ -108,7 +108,7 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
     };
 
     fetchStageInfo();
-  }, [job.current_stage_id, job.job_id]);
+  }, [job.current_stage_id, job.job_id, job.current_stage_status]);
 
   // Format duration as hours and minutes
   const formatDuration = (minutes: number | null): string => {

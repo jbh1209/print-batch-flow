@@ -28,8 +28,14 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
   }, [job.current_stage_name]);
 
   const getStageStatus = useCallback(() => {
+    // Prefer stageInstance.status (from DB) over job.current_stage_status (from job list)
+    if (stageInstance?.status) {
+      console.log('🎯 Using stageInstance.status:', stageInstance.status);
+      return stageInstance.status;
+    }
+    console.log('🎯 Fallback to job.current_stage_status:', job.current_stage_status || 'pending');
     return job.current_stage_status || 'pending';
-  }, [job.current_stage_status]);
+  }, [stageInstance?.status, job.current_stage_status]);
 
   const loadModalData = useCallback(async () => {
     if (!isOpen) return;
@@ -67,6 +73,17 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
       loadModalData();
     }
   }, [isOpen, loadModalData]);
+
+  // Reload modal data when job properties change to sync with updated state
+  useEffect(() => {
+    if (isOpen && (job.current_stage_status || job.status)) {
+      console.log('🔄 Job properties changed, reloading modal data:', {
+        current_stage_status: job.current_stage_status,
+        status: job.status
+      });
+      loadModalData();
+    }
+  }, [isOpen, job.current_stage_status, job.status, loadModalData]);
 
   return {
     stageInstance,

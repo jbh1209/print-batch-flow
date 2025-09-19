@@ -36,10 +36,15 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
     }
 
     if (onStart && job.current_stage_id) {
+      console.log('🎬 Starting DTP work for job:', job.job_id);
       const success = await onStart(job.job_id, job.current_stage_id);
       if (success) {
+        console.log('✅ DTP work started successfully, refreshing...');
         toast.success("DTP work started");
-        onRefresh?.();
+        if (onRefresh) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay for DB consistency
+          onRefresh();
+        }
       }
     }
   };
@@ -51,10 +56,15 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
     }
 
     if (onComplete && job.current_stage_id) {
+      console.log('🏁 Completing DTP work for job:', job.job_id);
       const success = await onComplete(job.job_id, job.current_stage_id);
       if (success) {
+        console.log('✅ DTP work completed successfully, refreshing...');
         toast.success("DTP completed - moved to Proof");
-        onRefresh?.();
+        if (onRefresh) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay for DB consistency
+          onRefresh();
+        }
         onClose();
       }
     }
