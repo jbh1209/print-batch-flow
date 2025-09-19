@@ -9,28 +9,33 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, User, Hash, Building, FileText } from "lucide-react";
+import { Calendar, Hash, Building, FileText } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { CurrentStageCard } from "../CurrentStageCard";
 import { useDtpJobModal } from "./useDtpJobModal";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
-import { useBarcodeControlledActions, BarcodeJobAction } from "@/hooks/tracker/useBarcodeControlledActions";
-import { GlobalBarcodeListener } from "../GlobalBarcodeListener";
-import { toast } from "sonner";
 
 interface DtpJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   job: AccessibleJob;
+  scanCompleted: boolean;
+  onClearScan?: () => void;
   onRefresh?: () => void;
+  onStartJob?: (jobId: string, stageId: string) => Promise<boolean>;
+  onCompleteJob?: (jobId: string, stageId: string) => Promise<boolean>;
 }
 
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   isOpen,
   onClose,
   job,
-  onRefresh
+  scanCompleted,
+  onClearScan,
+  onRefresh,
+  onStartJob,
+  onCompleteJob
 }) => {
   const {
     stageInstance,
@@ -46,81 +51,12 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setIsLoading
   } = useDtpJobModal(job, isOpen);
 
-  // Barcode controlled actions
-  const {
-    actionState,
-    currentAction,
-    scanResult,
-    startJobWithBarcode,
-    proceedWithStart,
-    completeJobWithBarcode,
-    proceedWithComplete,
-    cancelAction,
-    resetState,
-    processBarcodeForAction
-  } = useBarcodeControlledActions();
-
-  // Load modal data when opened and reset barcode state when closed
+  // Load modal data when opened
   useEffect(() => {
     if (isOpen) {
       loadModalData();
-    } else {
-      resetState();
-      console.log('DTP modal closed - barcode state reset');
     }
-  }, [isOpen, loadModalData, resetState]);
-
-  // Handle barcode scanning for job actions
-  const handleStartWithBarcode = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage to start");
-      return;
-    }
-
-    const barcodeAction: BarcodeJobAction = {
-      jobId: job.job_id,
-      jobTableName: 'production_jobs',
-      stageId: job.current_stage_id,
-      expectedBarcodeData: job.wo_no || job.job_id,
-      isBatchMaster: false
-    };
-
-    await startJobWithBarcode(barcodeAction);
-  };
-
-  const handleCompleteWithBarcode = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage to complete");
-      return;
-    }
-
-    const barcodeAction: BarcodeJobAction = {
-      jobId: job.job_id,
-      jobTableName: 'production_jobs',
-      stageId: job.current_stage_id,
-      expectedBarcodeData: job.wo_no || job.job_id,
-      isBatchMaster: false
-    };
-
-    await completeJobWithBarcode(barcodeAction);
-  };
-
-  // Handle barcode detection from scanner
-  const handleBarcodeDetected = async (barcodeData: string) => {
-    if (actionState === 'scanning' && currentAction) {
-      const isValid = await processBarcodeForAction(barcodeData);
-      if (isValid) {
-        // Determine if this is a start or complete action based on current stage status
-        const stageStatus = getStageStatus();
-        if (stageStatus === 'pending') {
-          await proceedWithStart();
-        } else if (stageStatus === 'active') {
-          await proceedWithComplete();
-        }
-        onRefresh?.();
-      }
-    }
-  };
+  }, [isOpen, loadModalData]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
@@ -157,18 +93,11 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const statusInfo = getStatusBadge();
 
   return (
-    <>
-      {/* Barcode listener for modal actions */}
-      {actionState === 'scanning' && (
-        <GlobalBarcodeListener 
-          onBarcodeDetected={handleBarcodeDetected}
-          minLength={5}
-          timeout={300}
-        />
-      )}
-      
-      <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-[95vw] md:max-w-4xl max-h-[95vh] overflow-y-auto p-4 md:p-6">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent 
+        className="w-full max-w-[95vw] md:max-w-4xl max-h-[95vh] overflow-y-auto p-4 md:p-6"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Job Details - {job.wo_no}</span>
@@ -176,9 +105,31 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
-          {/* Left Column - Job Information */}
-          <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Scanning Status Card */}
+          <Card className={`border-2 ${scanCompleted ? "border-green-500 bg-green-50" : "border-orange-500 bg-orange-50"}`}>
+            <CardHeader>
+              <CardTitle className={`text-lg flex items-center gap-2 ${scanCompleted ? "text-green-700" : "text-orange-700"}`}>
+                <Hash className="w-5 h-5" />
+                {scanCompleted ? "✓ Job Scanned Successfully" : `⚠ Scan Required - Work Order: ${job.wo_no}`}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!scanCompleted ? (
+                <div className="text-center text-orange-700 font-medium">
+                  Listening for barcode scan… Present the work order barcode to the scanner.
+                </div>
+              ) : (
+                <div className="text-center text-green-700 font-medium">
+                  ✓ Ready to start/complete work
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+            {/* Left Column - Job Information */}
+            <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -267,15 +218,11 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                   <DtpStageActions
                     job={job}
                     stageStatus={getStageStatus()}
-                    notes=""
-                    isLoading={isLoading}
-                    onClose={onClose}
-                    onJobStatusUpdate={() => {}}
+                    scanCompleted={scanCompleted}
+                    onStart={onStartJob}
+                    onComplete={onCompleteJob}
                     onRefresh={onRefresh}
-                    onStartWithBarcode={handleStartWithBarcode}
-                    onCompleteWithBarcode={handleCompleteWithBarcode}
-                    barcodeActionState={actionState}
-                    currentBarcodeAction={currentAction}
+                    onClose={onClose}
                   />
                 )}
                 
@@ -287,29 +234,24 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     selectedBatchCategory={selectedBatchCategory}
                     isLoading={isLoading}
                     stageStatus={getStageStatus()}
-                    notes=""
+                    scanCompleted={scanCompleted}
                     onClose={onClose}
-                    onJobStatusUpdate={() => {}}
                     onProofApprovalFlowChange={setProofApprovalFlow}
                     onBatchCategoryChange={setSelectedBatchCategory}
                     onRefresh={onRefresh}
-                    onStartWithBarcode={handleStartWithBarcode}
-                    onCompleteWithBarcode={handleCompleteWithBarcode}
-                    barcodeActionState={actionState}
-                    currentBarcodeAction={currentAction}
                   />
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Right Column - Current Stage & Specifications */}
-          <div className="space-y-4">
-            <CurrentStageCard job={job} statusInfo={statusInfo} />
+            {/* Right Column - Current Stage & Specifications */}
+            <div className="space-y-4">
+              <CurrentStageCard job={job} statusInfo={statusInfo} />
+            </div>
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  </>
   );
 };

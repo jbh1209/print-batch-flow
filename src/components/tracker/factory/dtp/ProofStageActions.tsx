@@ -26,18 +26,12 @@ interface ProofStageActionsProps {
   stageInstance: StageInstance | null;
   proofApprovalFlow: ProofApprovalFlow;
   selectedBatchCategory: string;
-  notes: string;
+  scanCompleted: boolean;
   isLoading: boolean;
   onRefresh?: () => void;
   onClose: () => void;
-  onJobStatusUpdate: (status: string, stageStatus: string) => void;
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
-  onModalDataRefresh?: () => void;
-  onStartWithBarcode?: () => Promise<void>;
-  onCompleteWithBarcode?: () => Promise<void>;
-  barcodeActionState?: import("@/hooks/tracker/useBarcodeControlledActions").JobActionState;
-  currentBarcodeAction?: import("@/hooks/tracker/useBarcodeControlledActions").BarcodeJobAction | null;
 }
 
 export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
@@ -46,18 +40,12 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   stageInstance,
   proofApprovalFlow,
   selectedBatchCategory,
-  notes,
+  scanCompleted,
   isLoading,
   onRefresh,
   onClose,
-  onJobStatusUpdate,
   onProofApprovalFlowChange,
-  onBatchCategoryChange,
-  onModalDataRefresh,
-  onStartWithBarcode,
-  onCompleteWithBarcode,
-  barcodeActionState,
-  currentBarcodeAction
+  onBatchCategoryChange
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
@@ -107,8 +95,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
         if (jobError) throw jobError;
 
         toast.success("Proof stage started");
-        onJobStatusUpdate('Proof In Progress', 'active');
-        onModalDataRefresh?.();
         onRefresh?.();
       }
     } catch (error) {
@@ -142,10 +128,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       if (jobError) throw jobError;
 
-      onJobStatusUpdate('Awaiting Client Sign Off', stageStatus);
       toast.success("Proof marked as emailed");
       onRefresh?.();
-      onModalDataRefresh?.();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
       toast.error("Failed to mark proof as emailed");
@@ -182,7 +166,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onProofApprovalFlowChange('choosing_allocation');
       toast.success('Proof approved! Scheduling triggered. Choose next step.');
       onRefresh?.();
-      onModalDataRefresh?.();
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');
@@ -202,7 +185,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       // Complete the current proof stage using the stage instance ID
       const success = await completeStage(
         currentStageInstanceId,
-        notes || 'Proof approved - sending to batch allocation'
+        'Proof approved - sending to batch allocation'
       );
 
       if (!success) {
@@ -244,7 +227,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       const success = await completeStageAndSkipConditional(
         job.job_id,
         currentStageInstanceId,
-        notes || 'Proof approved - advancing directly to printing'
+        'Proof approved - advancing directly to printing'
       );
 
       if (!success) {
@@ -279,38 +262,16 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   const hasProofBeenEmailed = stageInstance?.proof_emailed_at;
   const hasProofBeenApproved = stageInstance?.proof_approved_manually_at;
 
-  // Show scanning state if barcode action is in progress
-  const isScanning = barcodeActionState === 'scanning';
-  const isBarcodeProcessing = barcodeActionState === 'working' || barcodeActionState === 'completing';
-
   if (stageStatus === 'pending') {
     return (
       <div className="space-y-3">
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800 font-medium mb-1">
-            Barcode Required - Work Order: {job.wo_no}
-          </p>
-          <p className="text-xs text-blue-600">
-            Scan the barcode sticker on your work order to start proof process
-          </p>
-        </div>
-        
         <Button 
-          onClick={onStartWithBarcode || handleStartProof}
-          disabled={isLoading || isProcessing || isBarcodeProcessing}
-          className="w-full bg-green-600 hover:bg-green-700"
+          onClick={handleStartProof}
+          disabled={!scanCompleted || isLoading || isProcessing}
+          className={`w-full ${scanCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
         >
-          {isScanning ? (
-            <>
-              <Play className="h-4 w-4 mr-2 animate-pulse" />
-              Scanning Barcode...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4 mr-2" />
-              {onStartWithBarcode ? 'Scan Barcode to Start' : 'Start Proof Process'}
-            </>
-          )}
+          <Play className="h-4 w-4 mr-2" />
+          {scanCompleted ? "Start Proof Process" : "Scan Required First"}
         </Button>
       </div>
     );

@@ -85,18 +85,12 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         stageInstance={stageInstance}
         proofApprovalFlow={proofApprovalFlow}
         selectedBatchCategory={selectedBatchCategory}
-        notes={notes}
+        scanCompleted={false} // Will be provided by parent modal
         isLoading={isLoading}
         onRefresh={onRefresh}
         onClose={onClose}
-        onJobStatusUpdate={onJobStatusUpdate}
         onProofApprovalFlowChange={onProofApprovalFlowChange}
         onBatchCategoryChange={onBatchCategoryChange}
-        onModalDataRefresh={onModalDataRefresh}
-        onStartWithBarcode={onStartWithBarcode}
-        onCompleteWithBarcode={onCompleteWithBarcode}
-        barcodeActionState={barcodeActionState}
-        currentBarcodeAction={currentBarcodeAction}
       />
     );
   }
