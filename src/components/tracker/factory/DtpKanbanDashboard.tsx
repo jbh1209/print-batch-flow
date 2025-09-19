@@ -104,33 +104,8 @@ export const DtpKanbanDashboard = () => {
     setShowJobModal(true);
   }, []);
 
-  const handleBarcodeDetected = useCallback((barcodeData: string) => {
-    console.log('🔍 DTP Barcode detected:', barcodeData, 'Looking for D426216-style codes');
-    
-    // Try to find matching job across all categories
-    const allJobs = [...dtpJobs, ...proofJobs, ...batchAllocationJobs];
-    const matchingJob = allJobs.find(job => {
-      const normalize = (s: string) => (s || "").toString().trim().toUpperCase();
-      const cleanScanned = normalize(barcodeData);
-      const cleanWO = normalize(job.wo_no);
-      
-      console.log('Comparing:', { cleanScanned, cleanWO, jobWO: job.wo_no });
-      
-      return cleanScanned === cleanWO || 
-             cleanScanned.includes(cleanWO) || 
-             cleanWO.includes(cleanScanned);
-    });
-    
-    if (matchingJob) {
-      console.log('✅ Found matching job:', matchingJob.wo_no);
-      setSearchQuery(barcodeData);
-      handleJobClick(matchingJob);
-      toast.success(`Found and opened job: ${matchingJob.wo_no}`);
-    } else {
-      console.log('❌ No job found for barcode:', barcodeData);
-      toast.warning(`No job found for barcode: ${barcodeData}`);
-    }
-  }, [dtpJobs, proofJobs, batchAllocationJobs, handleJobClick]);
+  // Removed automatic barcode search and modal opening
+  // DTP operators now click on jobs to open modals, then scan to start/complete
 
   const handleCloseModal = useCallback(() => {
     console.log('Closing DTP modal and resetting state');
@@ -178,11 +153,7 @@ export const DtpKanbanDashboard = () => {
 
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
-      {/* Global Barcode Listener for the entire dashboard */}
-      <GlobalBarcodeListener 
-        onBarcodeDetected={handleBarcodeDetected}
-        minLength={5}
-      />
+      {/* Removed global barcode listener - operators click jobs to open modals */}
       
       <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-white border-b">
         <TrackerErrorBoundary componentName="DTP Dashboard Filters">
@@ -191,7 +162,7 @@ export const DtpKanbanDashboard = () => {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onRefresh={handleRefresh}
-              onScanSuccess={handleBarcodeDetected}
+              onScanSuccess={() => {}}
               refreshing={refreshing}
               dtpJobsCount={dtpJobs.length}
               proofJobsCount={proofJobs.length}

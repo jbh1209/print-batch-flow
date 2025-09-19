@@ -22,14 +22,7 @@ export const JobNotesCard: React.FC<JobNotesCardProps> = ({
           placeholder="Add notes about your work on this job..."
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
-          className="min-h-[100px]"
-          autoFocus={false}
-          onFocus={(e) => {
-            // Only focus if user explicitly clicked on the textarea
-            if (e.target !== document.activeElement) {
-              e.target.blur();
-            }
-          }}
+          className="min-h-[100px] resize-none"
         />
       </CardContent>
     </Card>

@@ -15,6 +15,9 @@ import { CurrentStageCard } from "../CurrentStageCard";
 import { useDtpJobModal } from "./useDtpJobModal";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
+import { useBarcodeControlledActions, BarcodeJobAction } from "@/hooks/tracker/useBarcodeControlledActions";
+import { GlobalBarcodeListener } from "../GlobalBarcodeListener";
+import { toast } from "sonner";
 
 interface DtpJobModalProps {
   isOpen: boolean;
@@ -43,13 +46,81 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setIsLoading
   } = useDtpJobModal(job, isOpen);
 
-  // Reset barcode state when modal closes
+  // Barcode controlled actions
+  const {
+    actionState,
+    currentAction,
+    scanResult,
+    startJobWithBarcode,
+    proceedWithStart,
+    completeJobWithBarcode,
+    proceedWithComplete,
+    cancelAction,
+    resetState,
+    processBarcodeForAction
+  } = useBarcodeControlledActions();
+
+  // Load modal data when opened and reset barcode state when closed
   useEffect(() => {
-    if (!isOpen) {
-      // Clean up any barcode scanning state when modal closes
-      console.log('DTP modal closed - should reset any barcode state');
+    if (isOpen) {
+      loadModalData();
+    } else {
+      resetState();
+      console.log('DTP modal closed - barcode state reset');
     }
-  }, [isOpen]);
+  }, [isOpen, loadModalData, resetState]);
+
+  // Handle barcode scanning for job actions
+  const handleStartWithBarcode = async () => {
+    if (!job.current_stage_id) {
+      toast.error("No current stage to start");
+      return;
+    }
+
+    const barcodeAction: BarcodeJobAction = {
+      jobId: job.job_id,
+      jobTableName: 'production_jobs',
+      stageId: job.current_stage_id,
+      expectedBarcodeData: job.wo_no || job.job_id,
+      isBatchMaster: false
+    };
+
+    await startJobWithBarcode(barcodeAction);
+  };
+
+  const handleCompleteWithBarcode = async () => {
+    if (!job.current_stage_id) {
+      toast.error("No current stage to complete");
+      return;
+    }
+
+    const barcodeAction: BarcodeJobAction = {
+      jobId: job.job_id,
+      jobTableName: 'production_jobs',
+      stageId: job.current_stage_id,
+      expectedBarcodeData: job.wo_no || job.job_id,
+      isBatchMaster: false
+    };
+
+    await completeJobWithBarcode(barcodeAction);
+  };
+
+  // Handle barcode detection from scanner
+  const handleBarcodeDetected = async (barcodeData: string) => {
+    if (actionState === 'scanning' && currentAction) {
+      const isValid = await processBarcodeForAction(barcodeData);
+      if (isValid) {
+        // Determine if this is a start or complete action based on current stage status
+        const stageStatus = getStageStatus();
+        if (stageStatus === 'pending') {
+          await proceedWithStart();
+        } else if (stageStatus === 'active') {
+          await proceedWithComplete();
+        }
+        onRefresh?.();
+      }
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
@@ -86,7 +157,17 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const statusInfo = getStatusBadge();
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+      {/* Barcode listener for modal actions */}
+      {actionState === 'scanning' && (
+        <GlobalBarcodeListener 
+          onBarcodeDetected={handleBarcodeDetected}
+          minLength={5}
+          timeout={300}
+        />
+      )}
+      
+      <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-[95vw] md:max-w-4xl max-h-[95vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
@@ -185,12 +266,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                 {getCurrentStage() === 'dtp' && (
                   <DtpStageActions
                     job={job}
-                    stageStatus="active"
+                    stageStatus={getStageStatus()}
                     notes=""
-                    isLoading={false}
+                    isLoading={isLoading}
                     onClose={onClose}
                     onJobStatusUpdate={() => {}}
                     onRefresh={onRefresh}
+                    onStartWithBarcode={handleStartWithBarcode}
+                    onCompleteWithBarcode={handleCompleteWithBarcode}
+                    barcodeActionState={actionState}
+                    currentBarcodeAction={currentAction}
                   />
                 )}
                 
@@ -201,13 +286,17 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     proofApprovalFlow={proofApprovalFlow}
                     selectedBatchCategory={selectedBatchCategory}
                     isLoading={isLoading}
-                    stageStatus="active"
+                    stageStatus={getStageStatus()}
                     notes=""
                     onClose={onClose}
                     onJobStatusUpdate={() => {}}
                     onProofApprovalFlowChange={setProofApprovalFlow}
                     onBatchCategoryChange={setSelectedBatchCategory}
                     onRefresh={onRefresh}
+                    onStartWithBarcode={handleStartWithBarcode}
+                    onCompleteWithBarcode={handleCompleteWithBarcode}
+                    barcodeActionState={actionState}
+                    currentBarcodeAction={currentAction}
                   />
                 )}
               </CardContent>
@@ -221,5 +310,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         </div>
       </DialogContent>
     </Dialog>
+  </>
   );
 };

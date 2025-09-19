@@ -55,22 +55,26 @@ export const useBarcodeControlledActions = () => {
     }
   }, [user?.id]);
 
-  // Verify barcode matches expected job
+  // Verify barcode matches expected job - enhanced for D426216 format
   const verifyBarcode = useCallback((scannedData: string, expectedData: string): boolean => {
     // Clean and normalize both strings
     const cleanScanned = scannedData.trim().toUpperCase();
     const cleanExpected = expectedData.trim().toUpperCase();
     
-    console.log('Barcode verification:', { cleanScanned, cleanExpected });
+    console.log('Barcode verification for D426216-style codes:', { cleanScanned, cleanExpected });
     
-    // Direct comparison for work order numbers like D426216
+    // Direct exact match - most reliable
     if (cleanScanned === cleanExpected) {
       return true;
     }
     
-    // Also check if scanned data contains the expected work order number
-    // This handles cases where barcode might have extra formatting
-    if (cleanScanned.includes(cleanExpected) || cleanExpected.includes(cleanScanned)) {
+    // Check if scanned data contains the expected work order number
+    if (cleanScanned.includes(cleanExpected)) {
+      return true;
+    }
+    
+    // Check if expected contains scanned (for partial scans)
+    if (cleanExpected.includes(cleanScanned) && cleanScanned.length >= 5) {
       return true;
     }
     
