@@ -88,15 +88,23 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
     }
   }, [isOpen, job.current_stage_status, job.status, loadModalData]);
 
-  // Helper to get the correct stage ID for actions - prioritize stage instance ID
+  // Helper to get the correct stage ID for actions - ONLY use stage instance ID
   const getStageIdForActions = useCallback(() => {
     if (stageInstance?.id) {
-      console.log('✅ Using stage instance ID:', stageInstance.id);
+      console.log('✅ DTP Modal: Using stage instance ID:', stageInstance.id);
       return stageInstance.id;
     }
-    console.log('⚠️ Falling back to production_stage_id:', job.current_stage_id);
-    return job.current_stage_id;
-  }, [stageInstance?.id, job.current_stage_id]);
+    
+    // CRITICAL: Never fall back to production_stage_id - RPC functions need job_stage_instances.id
+    console.error('❌ DTP Modal: No stage instance loaded! Cannot proceed with action.');
+    console.error('Debug info:', {
+      stageInstanceExists: !!stageInstance,
+      stageInstanceId: stageInstance?.id,
+      productionStageId: job.current_stage_id,
+      jobId: job.job_id
+    });
+    return null;
+  }, [stageInstance?.id, job.current_stage_id, job.job_id]);
 
   return {
     stageInstance,
