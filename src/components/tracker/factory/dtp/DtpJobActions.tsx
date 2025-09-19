@@ -68,17 +68,11 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
       <DtpStageActions
         job={job}
         stageStatus={stageStatus}
-        notes={notes}
-        isLoading={isLoading}
+        scanCompleted={false} // Will be provided by parent modal
         onStart={onStart}
         onComplete={onComplete}
         onRefresh={onRefresh}
         onClose={onClose}
-        onJobStatusUpdate={onJobStatusUpdate}
-        onStartWithBarcode={onStartWithBarcode}
-        onCompleteWithBarcode={onCompleteWithBarcode}
-        barcodeActionState={barcodeActionState}
-        currentBarcodeAction={currentBarcodeAction}
       />
     );
   }

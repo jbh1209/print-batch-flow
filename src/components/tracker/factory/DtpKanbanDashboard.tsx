@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo } from "react";
 import { AlertTriangle, FileText, CheckCircle, RefreshCw, Package } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -10,6 +9,7 @@ import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
+import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { ViewToggle } from "../common/ViewToggle";
 import { JobListView } from "../common/JobListView";
 import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -40,8 +40,9 @@ export const DtpKanbanDashboard = () => {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
+  const [scanCompleted, setScanCompleted] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const dashboardMetrics = useMemo(() => {
@@ -99,43 +100,37 @@ export const DtpKanbanDashboard = () => {
     }
   }, [refreshJobs]);
 
-  const handleJobClick = useCallback((job) => {
+  const handleJobClick = useCallback((job: AccessibleJob) => {
     setSelectedJob(job);
     setShowJobModal(true);
+    setScanCompleted(false); // Reset scan state for new job
   }, []);
 
-  // Removed automatic barcode search and modal opening
-  // DTP operators now click on jobs to open modals, then scan to start/complete
-
-  // Open modal when Start is clicked in lists/cards
+  // Modal handlers for start/complete actions - now just open modal
   const openModalForStart = useCallback(async (jobId: string, _stageId: string) => {
     const jobToOpen = jobs.find(j => j.job_id === jobId);
     if (jobToOpen) {
-      setSelectedJob(jobToOpen as any);
+      setSelectedJob(jobToOpen);
       setShowJobModal(true);
+      setScanCompleted(false); // Reset scan state
     }
     return true;
   }, [jobs]);
 
-  // Open modal when Complete is clicked in lists/cards
   const openModalForComplete = useCallback(async (jobId: string, _stageId: string) => {
     const jobToOpen = jobs.find(j => j.job_id === jobId);
     if (jobToOpen) {
-      setSelectedJob(jobToOpen as any);
+      setSelectedJob(jobToOpen);
       setShowJobModal(true);
+      setScanCompleted(false); // Reset scan state
     }
     return true;
   }, [jobs]);
 
   const handleCloseModal = useCallback(() => {
-    console.log('Closing DTP modal and resetting state');
     setShowJobModal(false);
     setSelectedJob(null);
-    
-    // Small delay to ensure modal is fully closed before clearing selection
-    setTimeout(() => {
-      setSelectedJob(null);
-    }, 100);
+    setScanCompleted(false); // Reset scan state
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -150,6 +145,25 @@ export const DtpKanbanDashboard = () => {
   const handleNavigation = useCallback((path: string) => {
     navigate(path);
   }, [navigate]);
+
+  // Global barcode handler - strict D###### verification
+  const handleBarcodeDetected = (barcodeData: string) => {
+    if (!selectedJob) return;
+    
+    console.log('🔍 Barcode detected in DTP:', barcodeData, 'Expected:', selectedJob.wo_no);
+    
+    // Strict D###### token extraction and verification
+    const tokenMatch = barcodeData.match(/D\d{6}/i);
+    const scannedToken = tokenMatch ? tokenMatch[0].toUpperCase() : '';
+    const expectedToken = selectedJob.wo_no?.toUpperCase() || '';
+    
+    if (scannedToken && scannedToken === expectedToken) {
+      setScanCompleted(true);
+      toast.success(`Work order ${scannedToken} verified - ready to proceed`);
+    } else {
+      toast.error(`Wrong barcode scanned. Expected: ${expectedToken}, Got: ${barcodeData}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -173,7 +187,10 @@ export const DtpKanbanDashboard = () => {
 
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
-      {/* Removed global barcode listener - operators click jobs to open modals */}
+      {/* Global Barcode Listener - Only active when modal is open */}
+      {showJobModal && selectedJob && (
+        <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} minLength={5} />
+      )}
       
       <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-white border-b">
         <TrackerErrorBoundary componentName="DTP Dashboard Filters">
@@ -283,8 +300,8 @@ export const DtpKanbanDashboard = () => {
                 <div className="pr-4">
                   <JobListView
                     jobs={proofJobs}
-                    onStart={startJob}
-                    onComplete={completeJob}
+                    onStart={openModalForStart}
+                    onComplete={openModalForComplete}
                     onJobClick={handleJobClick}
                   />
                 </div>
@@ -300,8 +317,8 @@ export const DtpKanbanDashboard = () => {
                 <div className="pr-4">
                   <JobListView
                     jobs={batchAllocationJobs}
-                    onStart={startJob}
-                    onComplete={completeJob}
+                    onStart={openModalForStart}
+                    onComplete={openModalForComplete}
                     onJobClick={handleJobClick}
                   />
                 </div>
@@ -317,9 +334,10 @@ export const DtpKanbanDashboard = () => {
             job={selectedJob}
             isOpen={showJobModal}
             onClose={handleCloseModal}
-            onStart={startJob}
-            onComplete={completeJob}
-            onRefresh={refreshJobs}
+            onRefresh={handleRefresh}
+            scanCompleted={scanCompleted}
+            onStartJob={startJob}
+            onCompleteJob={completeJob}
           />
         </TrackerErrorBoundary>
       )}

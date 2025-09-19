@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -7,31 +6,29 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Package } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Hash, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobOverviewCard } from "./JobOverviewCard";
 import { CurrentStageCard } from "./CurrentStageCard";
-import { JobNotesCard } from "./JobNotesCard";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
-import { DtpJobActions } from "./dtp/DtpJobActions";
+import { DtpStageActions } from "./dtp/DtpStageActions";
+import { ProofStageActions } from "./dtp/ProofStageActions";
 import { useDtpJobModal } from "./dtp/useDtpJobModal";
-import { ConditionalStageRenderer } from "./ConditionalStageRenderer";
-import { BatchSplitDetector } from "../batch/BatchSplitDetector";
-import { BatchSplitDialog } from "../batch/BatchSplitDialog";
-import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
-import { toast } from "sonner";
-import { useBarcodeControlledActions } from "@/hooks/tracker/useBarcodeControlledActions";
-// Removed QR code generator import - now using plain work order numbers
 
 interface DtpJobModalProps {
   job: AccessibleJob;
   isOpen: boolean;
   onClose: () => void;
   onRefresh?: () => void;
-  onStart?: (jobId: string, stageId: string) => Promise<boolean>;
-  onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
+  scanCompleted?: boolean;
+  onStartJob?: (jobId: string, stageId: string) => Promise<boolean>;
+  onCompleteJob?: (jobId: string, stageId: string) => Promise<boolean>;
+  // Backward compatibility
+  onStart?: (jobId: string, stageId?: string) => Promise<boolean>;
+  onComplete?: (jobId: string, stageId?: string) => Promise<boolean>;
 }
 
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
@@ -39,47 +36,45 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   isOpen,
   onClose,
   onRefresh,
+  scanCompleted = false,
+  onStartJob,
+  onCompleteJob,
   onStart,
   onComplete
 }) => {
   const [notes, setNotes] = useState("");
   const [localJobStatus, setLocalJobStatus] = useState(job.status);
-  const [localStageStatus, setLocalStageStatus] = useState(job.current_stage_status);
-  const [showBatchSplitDialog, setShowBatchSplitDialog] = useState(false);
+  const [localStageStatus, setLocalStageStatus] = useState<string>(() => {
+    if (job.current_stage_id) {
+      return 'pending';
+    }
+    return 'completed';
+  });
 
   const {
     stageInstance,
     proofApprovalFlow,
     selectedBatchCategory,
-    isLoading,
-    getCurrentStage,
-    getStageStatus,
-    loadModalData,
     setProofApprovalFlow,
-    setSelectedBatchCategory
+    setSelectedBatchCategory,
+    isLoading,
+    loadModalData
   } = useDtpJobModal(job, isOpen);
-
-  // Enhanced barcode scanning integration 
-  const {
-    actionState,
-    currentAction,
-    scanResult,
-    startJobWithBarcode,
-    proceedWithStart,
-    completeJobWithBarcode,
-    proceedWithComplete,
-    processBarcodeForAction
-  } = useBarcodeControlledActions();
 
   // Reset local state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setLocalJobStatus(job.status);
-      setLocalStageStatus(job.current_stage_status);
       setNotes("");
+      setLocalJobStatus(job.status);
+      setLocalStageStatus(() => {
+        if (job.current_stage_id) {
+          return 'pending';
+        }
+        return 'completed';
+      });
       loadModalData();
     }
-  }, [isOpen, job.status, job.current_stage_status, loadModalData]);
+  }, [isOpen, job.status, job.current_stage_id, loadModalData]);
 
   const statusBadgeInfo = getJobStatusBadgeInfo({
     ...job,
@@ -87,90 +82,28 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     current_stage_status: localStageStatus
   });
 
-  const currentStage = getCurrentStage();
-  const stageStatus = getStageStatus();
-
-  const handleJobStatusUpdate = (newStatus: string, newStageStatus: string) => {
-    setLocalJobStatus(newStatus);
-    setLocalStageStatus(newStageStatus);
-  };
-
-  const handleModalDataRefresh = async () => {
-    await loadModalData(); // This will refresh stageInstance and other modal data
-    onRefresh?.(); // Also refresh the parent component to get updated job data
-  };
-
-  // Handle barcode scan with enhanced processing
-  const handleBarcodeDetected = async (barcodeData: string) => {
-    if (actionState !== 'scanning') return; // Ignore scans unless explicitly scanning
-    console.log('🔍 Barcode detected in DTP modal:', barcodeData, 'Expected:', job.wo_no);
-
-    const success = await processBarcodeForAction(barcodeData);
-    if (!success || !currentAction) return;
-
-    // Decide based on live stage status
-    const currentStageStatus = getStageStatus();
-    if (currentStageStatus === 'pending') {
-      const startSuccess = await proceedWithStart();
-      if (startSuccess) {
-        handleJobStatusUpdate('In Progress', 'active');
-        await handleModalDataRefresh();
-      }
-    } else if (currentStageStatus === 'active') {
-      const completeSuccess = await proceedWithComplete();
-      if (completeSuccess) {
-        handleJobStatusUpdate('Ready for Proof', 'completed');
-        await handleModalDataRefresh();
-        onClose();
-      }
+  const getCurrentStage = (): 'dtp' | 'proof' | 'unknown' => {
+    const stageName = job.current_stage_name?.toLowerCase() || '';
+    
+    if (stageName.includes('dtp') || stageName.includes('desktop')) {
+      return 'dtp';
+    } else if (stageName.includes('proof')) {
+      return 'proof';
     }
+    
+    return 'unknown';
   };
 
-  // Enhanced barcode action handlers
-  const handleStartWithBarcode = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage found");
-      return;
-    }
-
-    const action = {
-      jobId: job.job_id,
-      jobTableName: 'production_jobs',
-      stageId: job.current_stage_id,
-      expectedBarcodeData: job.wo_no,
-      isBatchMaster: false
-    };
-
-    await startJobWithBarcode(action);
-  };
-
-  const handleCompleteWithBarcode = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage found");
-      return;
-    }
-
-    const action = {
-      jobId: job.job_id,
-      jobTableName: 'production_jobs', 
-      stageId: job.current_stage_id,
-      expectedBarcodeData: job.wo_no,
-      isBatchMaster: false
-    };
-
-    await completeJobWithBarcode(action);
+  const getStageStatus = (): string => {
+    return localStageStatus;
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* Barcode Listener - only active while scanning inside modal */}
-      {isOpen && actionState === 'scanning' && (
-        <GlobalBarcodeListener 
-          onBarcodeDetected={handleBarcodeDetected}
-          minLength={5}
-        />
-      )}
-      <DialogContent className="max-w-full sm:max-w-4xl h-[90vh] overflow-y-auto p-3 sm:p-6" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent 
+        className="max-w-4xl h-[90vh] max-h-[90vh] overflow-y-auto"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Job Details: {job.wo_no}</span>
@@ -184,86 +117,76 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          <JobOverviewCard job={job} />
-          <CurrentStageCard job={{...job, status: localJobStatus, current_stage_status: localStageStatus}} statusInfo={statusBadgeInfo} />
-          <JobNotesCard notes={notes} onNotesChange={setNotes} />
-        </div>
+          {/* Mandatory Scanning Section */}
+          <Card className={`border-2 ${scanCompleted ? "border-green-500 bg-green-50" : "border-orange-500 bg-orange-50"}`}>
+            <CardHeader>
+              <CardTitle className={`text-lg flex items-center gap-2 ${scanCompleted ? "text-green-700" : "text-orange-700"}`}>
+                <Hash className="w-5 h-5" />
+                {scanCompleted ? "✓ Work Order Scanned Successfully" : "⚠ Scan Required - Work Order: " + job.wo_no}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!scanCompleted ? (
+                <div className="text-center text-orange-700 font-medium">
+                  Listening for barcode scan… Present the work order barcode to the scanner.
+                </div>
+              ) : (
+                <div className="text-center text-green-700 font-medium">
+                  ✓ Ready to start/complete work
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Conditional Stage Renderer - shows for batch allocation and other conditional stages */}
-        {job.current_stage_name === 'Batch Allocation' && (
-          <div className="border-t pt-4">
-            <ConditionalStageRenderer
-              job={job}
-              onStageComplete={() => {
-                handleModalDataRefresh();
-                onRefresh?.();
-              }}
-              onCancel={onClose}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <JobOverviewCard job={job} />
+            <CurrentStageCard 
+              job={{...job, status: localJobStatus, current_stage_status: localStageStatus}} 
+              statusInfo={statusBadgeInfo} 
             />
+
+            {/* Stage Actions */}
+            {getCurrentStage() === 'dtp' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>DTP Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DtpStageActions
+                    job={job}
+                    stageStatus={getStageStatus()}
+                    scanCompleted={scanCompleted}
+                    onStart={onStartJob}
+                    onComplete={onCompleteJob}
+                    onRefresh={onRefresh}
+                    onClose={onClose}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+          {/* Notes Section - Only show when stage is active AND scanned */}
+          {getStageStatus() === 'active' && scanCompleted && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Production Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Add notes about this job (optional)..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
+                  className="w-full"
+                />
+              </CardContent>
+            </Card>
+          )}
           </div>
-        )}
-
-        {/* Batch Split Section - shows for batch master jobs at split-eligible stages */}
-        <BatchSplitDetector job={job}>
-          {({ isBatchJob, isReadyForSplit }) => 
-            isBatchJob && isReadyForSplit && (
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Batch Operations
-                </h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  This batch is ready to be split back into individual jobs.
-                </p>
-                <Button
-                  onClick={() => setShowBatchSplitDialog(true)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                >
-                  Split Batch to Individual Jobs
-                </Button>
-              </div>
-            )
-          }
-        </BatchSplitDetector>
-
-        <div className="border-t pt-4">
-          <h4 className="font-medium mb-3">Job Actions</h4>
-          
-          <DtpJobActions
-            job={job}
-            currentStage={currentStage}
-            stageStatus={stageStatus}
-            stageInstance={stageInstance}
-            proofApprovalFlow={proofApprovalFlow}
-            selectedBatchCategory={selectedBatchCategory}
-            notes={notes}
-            isLoading={isLoading}
-            onStart={onStart}
-            onComplete={onComplete}
-            onRefresh={onRefresh}
-            onClose={onClose}
-            onJobStatusUpdate={handleJobStatusUpdate}
-            onProofApprovalFlowChange={setProofApprovalFlow}
-            onBatchCategoryChange={setSelectedBatchCategory}
-            onModalDataRefresh={handleModalDataRefresh}
-            onStartWithBarcode={handleStartWithBarcode}
-            onCompleteWithBarcode={handleCompleteWithBarcode}
-            barcodeActionState={actionState}
-            currentBarcodeAction={currentAction}
-          />
         </div>
-
-        {/* Batch Split Dialog */}
-        <BatchSplitDialog
-          isOpen={showBatchSplitDialog}
-          onClose={() => setShowBatchSplitDialog(false)}
-          batchJob={job}
-          onSplitComplete={() => {
-            setShowBatchSplitDialog(false);
-            handleModalDataRefresh();
-            onRefresh?.();
-          }}
-        />
       </DialogContent>
     </Dialog>
   );
