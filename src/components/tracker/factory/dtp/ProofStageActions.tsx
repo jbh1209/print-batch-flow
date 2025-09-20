@@ -32,6 +32,7 @@ interface ProofStageActionsProps {
   onClose: () => void;
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
+  setStageInstance: (instance: StageInstance | null) => void;
 }
 
 export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
@@ -45,7 +46,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onRefresh,
   onClose,
   onProofApprovalFlowChange,
-  onBatchCategoryChange
+  onBatchCategoryChange,
+  setStageInstance
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
@@ -164,6 +166,15 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       }
 
       console.log('✅ Proof approved and scheduling triggered:', data);
+      
+      // CRITICAL: Update local stageInstance immediately to prevent loadModalData race condition
+      if (stageInstance) {
+        const currentTime = new Date().toISOString();
+        setStageInstance({
+          ...stageInstance,
+          proof_approved_manually_at: currentTime
+        });
+      }
       
       // IMMEDIATE STATE UPDATE for instant UI feedback
       onProofApprovalFlowChange('choosing_allocation');

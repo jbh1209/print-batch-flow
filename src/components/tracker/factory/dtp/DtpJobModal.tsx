@@ -261,6 +261,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     onProofApprovalFlowChange={setProofApprovalFlow}
                     onBatchCategoryChange={setSelectedBatchCategory}
                     onRefresh={onRefresh}
+                    setStageInstance={setStageInstance}
                   />
                 )}
               </CardContent>

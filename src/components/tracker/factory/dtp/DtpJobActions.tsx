@@ -34,6 +34,7 @@ interface DtpJobActionsProps {
   onJobStatusUpdate: (status: string, stageStatus: string) => void;
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
+  setStageInstance: (instance: StageInstance | null) => void;
   onModalDataRefresh?: () => void;
   onStartWithBarcode?: () => Promise<void>;
   onCompleteWithBarcode?: () => Promise<void>;
@@ -57,6 +58,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
+  setStageInstance,
   onModalDataRefresh,
   onStartWithBarcode,
   onCompleteWithBarcode,
@@ -91,6 +93,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onClose={onClose}
         onProofApprovalFlowChange={onProofApprovalFlowChange}
         onBatchCategoryChange={onBatchCategoryChange}
+        setStageInstance={setStageInstance}
       />
     );
   }
