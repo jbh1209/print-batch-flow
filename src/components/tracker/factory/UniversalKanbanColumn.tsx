@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Mail, CheckCircle, AlertTriangle } from "lucide-react";
 import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
 import { calculateAndFormatStageTime } from "@/utils/tracker/stageTimeCalculations";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
@@ -49,6 +50,39 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
     return calculateAndFormatStageTime(jobs);
   }, [jobs]);
 
+  // Calculate proof status breakdown for this column
+  const statusBreakdown = useMemo(() => {
+    const breakdown = {
+      total: jobs.length,
+      proofSent: 0,
+      proofOverdue: 0,
+      readyForProduction: 0,
+      needsAttention: 0
+    };
+
+    jobs.forEach(job => {
+      const isProofStage = job.current_stage_name?.toLowerCase().includes('proof') || 
+                           stage.stage_name.toLowerCase().includes('proof');
+      
+      if (job.current_stage_status === 'completed' && isProofStage) {
+        breakdown.readyForProduction++;
+      } else if (job.proof_emailed_at) {
+        breakdown.proofSent++;
+        const elapsed = Date.now() - new Date(job.proof_emailed_at).getTime();
+        const days = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+        
+        if (days >= 3) {
+          breakdown.proofOverdue++;
+          breakdown.needsAttention++;
+        } else if (days >= 1) {
+          breakdown.needsAttention++;
+        }
+      }
+    });
+
+    return breakdown;
+  }, [jobs, stage.stage_name]);
+
   return (
     <Card className="h-full flex flex-col max-h-[calc(100vh-12rem)]">
       <CardHeader 
@@ -58,6 +92,38 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
         <CardTitle className="flex items-center justify-between text-base sm:text-lg">
           <span className="truncate">{stage.stage_name}</span>
           <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+            {/* Proof Status Indicators */}
+            {statusBreakdown.readyForProduction > 0 && (
+              <Badge 
+                variant="secondary" 
+                className="bg-green-500/90 text-white text-xs font-bold animate-pulse"
+                title="Ready for Production"
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                {statusBreakdown.readyForProduction}
+              </Badge>
+            )}
+            {statusBreakdown.proofOverdue > 0 && (
+              <Badge 
+                variant="secondary" 
+                className="bg-red-500/90 text-white text-xs font-bold animate-pulse"
+                title="Overdue Proofs"
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {statusBreakdown.proofOverdue}
+              </Badge>
+            )}
+            {statusBreakdown.proofSent > 0 && (
+              <Badge 
+                variant="secondary" 
+                className="bg-blue-500/90 text-white text-xs font-bold"
+                title="Proofs Sent"
+              >
+                <Mail className="h-3 w-3 mr-1" />
+                {statusBreakdown.proofSent}
+              </Badge>
+            )}
+            {/* Time and Total Count */}
             <Badge variant="secondary" className="bg-white/30 text-white text-xs font-medium">
               {totalTime}
             </Badge>

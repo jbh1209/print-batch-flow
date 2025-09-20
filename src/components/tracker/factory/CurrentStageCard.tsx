@@ -7,10 +7,14 @@ import {
   Clock, 
   CheckCircle,
   AlertTriangle,
-  Play
+  Play,
+  Mail,
+  PrinterIcon,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { ProofStatusIndicator } from "./ProofStatusIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 
@@ -136,13 +140,41 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
     return null;
   };
 
+  // Check for proof-related stage and create proof stage instance
+  const isProofStage = job.current_stage_name?.toLowerCase().includes('proof');
+  const hasProofData = job.proof_emailed_at || isProofStage;
+  
+  const proofStageInstance = hasProofData ? {
+    status: job.current_stage_status,
+    proof_emailed_at: job.proof_emailed_at,
+    client_email: job.contact,
+    client_name: job.customer,
+    updated_at: undefined
+  } : null;
+
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className={cn(
+        "transition-all duration-200",
+        proofStageInstance && job.current_stage_status === 'completed' && "factory-success border-green-500",
+        proofStageInstance && job.proof_emailed_at && job.current_stage_status !== 'completed' && "factory-info border-blue-500"
+      )}>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Current Stage
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Current Stage
+            </div>
+            {/* Enhanced Proof Status in Header */}
+            {proofStageInstance && (
+              <div className="ml-4">
+                <ProofStatusIndicator 
+                  stageInstance={proofStageInstance}
+                  variant="default"
+                  showTimeElapsed={true}
+                />
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

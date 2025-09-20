@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar, Hash, Building, FileText } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { CurrentStageCard } from "../CurrentStageCard";
+import { ProofStatusIndicator } from "../ProofStatusIndicator";
 import { useDtpJobModal } from "./useDtpJobModal";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
@@ -85,29 +86,67 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     return new Date(dateString).toLocaleString();
   };
 
+  // Check for proof-related current stage and create proof stage instance
+  const isProofStage = job.current_stage_name?.toLowerCase().includes('proof');
+  const hasProofData = job.proof_emailed_at || isProofStage;
+  
+  const proofStageInstance = hasProofData ? {
+    status: job.current_stage_status,
+    proof_emailed_at: job.proof_emailed_at,
+    client_email: job.contact,
+    client_name: job.customer,
+    updated_at: undefined
+  } : null;
+
   const getStatusBadge = () => {
     const status = getStageStatus();
     const stage = getCurrentStage();
     
+    // Enhanced proof-specific status badges
     if (stage === 'proof' && stageInstance?.proof_approved_manually_at) {
       return {
-        text: 'Proof Approved',
-        className: 'bg-green-500 text-white',
+        text: 'READY FOR PRODUCTION',
+        className: 'factory-success text-lg px-4 py-2 font-bold',
         variant: 'default' as const
       };
+    }
+    
+    if (stage === 'proof' && job.proof_emailed_at) {
+      const elapsed = Date.now() - new Date(job.proof_emailed_at).getTime();
+      const days = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+      
+      if (days >= 3) {
+        return {
+          text: 'PROOF OVERDUE',
+          className: 'factory-critical text-lg px-4 py-2 font-bold animate-pulse',
+          variant: 'destructive' as const
+        };
+      } else if (days >= 1) {
+        return {
+          text: 'PROOF PENDING',
+          className: 'factory-warning text-lg px-4 py-2 font-bold',
+          variant: 'default' as const
+        };
+      } else {
+        return {
+          text: 'PROOF SENT',
+          className: 'factory-info text-lg px-4 py-2 font-bold',
+          variant: 'default' as const
+        };
+      }
     }
     
     if (status === 'active') {
       return {
         text: 'In Progress',
-        className: 'bg-blue-500 text-white',
+        className: 'bg-blue-500 text-white text-lg px-4 py-2',
         variant: 'default' as const
       };
     }
     
     return {
       text: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending',
-      className: 'bg-gray-500 text-white',
+      className: 'bg-gray-500 text-white text-lg px-4 py-2',
       variant: 'secondary' as const
     };
   };
@@ -123,6 +162,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Job Details - {job.wo_no}</span>
+            {/* Prominent Proof Status Badge */}
+            {proofStageInstance && (
+              <div className="ml-4">
+                <ProofStatusIndicator 
+                  stageInstance={proofStageInstance}
+                  variant="prominent"
+                  showTimeElapsed={true}
+                />
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
