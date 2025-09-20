@@ -7,6 +7,7 @@ import { Play, CheckCircle, Clock, User, Calendar, Package } from "lucide-react"
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
 import { SubSpecificationBadge } from "./SubSpecificationBadge";
+import { ProofStatusIndicator } from "../factory/ProofStatusIndicator";
 
 interface JobListViewProps {
   jobs: AccessibleJob[];
@@ -34,6 +35,40 @@ export const JobListView: React.FC<JobListViewProps> = ({
     }
   };
 
+  // Check if this job is in proof stage
+  const isProofJob = (job: AccessibleJob) => {
+    return job.current_stage_name && job.current_stage_name.toLowerCase().includes('proof');
+  };
+
+  // Get proof status for job  
+  const getProofStatus = (job: AccessibleJob) => {
+    if (job.proof_emailed_at) {
+      return 'awaiting_approval'; // Proof sent, waiting for approval
+    }
+    return null;
+  };
+
+  // Get row styling based on proof status
+  const getRowClassName = (job: AccessibleJob) => {
+    const baseClasses = "p-3 hover:bg-gray-50 cursor-pointer transition-colors";
+    
+    if (isProofJob(job) && job.proof_emailed_at) {
+      const daysSinceProof = job.proof_emailed_at 
+        ? Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      
+      if (daysSinceProof >= 3) {
+        return `${baseClasses} bg-red-50 border-l-4 border-l-red-500`; // Critical urgency
+      } else if (daysSinceProof >= 1) {
+        return `${baseClasses} bg-orange-50 border-l-4 border-l-orange-500`; // Warning urgency
+      } else {
+        return `${baseClasses} bg-blue-50 border-l-4 border-l-blue-500`; // Normal proof status
+      }
+    }
+    
+    return baseClasses;
+  };
+
   return (
     <Card className={cn("", className)}>
       <CardContent className="p-0">
@@ -41,7 +76,7 @@ export const JobListView: React.FC<JobListViewProps> = ({
           {jobs.map((job) => (
             <div
               key={job.job_id}
-              className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+              className={getRowClassName(job)}
               onClick={() => onJobClick?.(job)}
             >
               <div className="flex items-center justify-between">
@@ -84,14 +119,29 @@ export const JobListView: React.FC<JobListViewProps> = ({
                          <span>Last worked by: {job.started_by_name}</span>
                        </div>
                      )}
-                    {job.workflow_progress > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{job.workflow_progress}%</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                     {job.workflow_progress > 0 && (
+                       <div className="flex items-center gap-1">
+                         <Clock className="h-3 w-3" />
+                         <span>{job.workflow_progress}%</span>
+                       </div>
+                     )}
+                   </div>
+                   
+                   {/* Proof Status Indicator */}
+                   {isProofJob(job) && job.proof_emailed_at && (
+                     <div className="mt-2">
+                       <ProofStatusIndicator
+                         stageInstance={{
+                           status: getProofStatus(job) || 'pending',
+                           proof_emailed_at: job.proof_emailed_at,
+                           updated_at: job.proof_emailed_at
+                         }}
+                         variant="default"
+                         showTimeElapsed={true}
+                       />
+                     </div>
+                   )}
+                 </div>
                 
                 <div className="flex items-center gap-2 ml-4">
                   {job.current_stage_status === 'pending' && onStart && (

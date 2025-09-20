@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
+import { ProofStatusIndicator } from "./ProofStatusIndicator";
 import { 
   processJobStatus, 
   isJobOverdue, 
@@ -29,9 +30,32 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
   const jobStatus = processJobStatus(job);
+  
+  // Check if this is a proof stage job
+  const isProofJob = job.current_stage_name && job.current_stage_name.toLowerCase().includes('proof');
+  
+  // Get proof status and urgency
+  const getProofUrgency = () => {
+    if (!job.proof_emailed_at) return null;
+    const daysSinceProof = Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceProof >= 3) return "critical";
+    if (daysSinceProof >= 1) return "warning";
+    return "normal";
+  };
+  
+  const proofUrgency = getProofUrgency();
 
   const getCardStyle = () => {
+    // Priority order: Active > Proof urgency > Overdue > Due soon
     if (jobStatus === 'active') return "border-blue-500 bg-blue-50 shadow-md";
+    
+    // Proof-specific styling with urgency
+    if (isProofJob && job.proof_emailed_at) {
+      if (proofUrgency === "critical") return "border-red-500 bg-red-50 shadow-md animate-pulse";
+      if (proofUrgency === "warning") return "border-orange-500 bg-orange-50 shadow-md";
+      return "border-purple-500 bg-purple-50 shadow-sm";
+    }
+    
     if (isOverdue) return "border-red-500 bg-red-50";
     if (isDueSoon) return "border-orange-500 bg-orange-50";
     return "border-gray-200 bg-white hover:shadow-sm";
@@ -46,12 +70,25 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   return (
     <Card 
       className={cn(
-        "mb-2 transition-all duration-200 cursor-pointer hover:shadow-md", 
+        "mb-2 transition-all duration-200 cursor-pointer hover:shadow-md relative", 
         getCardStyle()
       )}
       onClick={handleCardClick}
     >
       <CardContent className="p-3">
+        {/* Corner proof status indicator */}
+        {isProofJob && job.proof_emailed_at && (
+          <ProofStatusIndicator
+            stageInstance={{
+              status: 'awaiting_approval',
+              proof_emailed_at: job.proof_emailed_at,
+              updated_at: job.proof_emailed_at
+            }}
+            variant="corner-badge"
+            showTimeElapsed={false}
+          />
+        )}
+        
         <div className="space-y-2">
           {/* Header Row */}
           <div className="flex items-center justify-between">
