@@ -3606,18 +3606,16 @@ export type Database = {
           current_stage_color: string
           current_stage_id: string
           current_stage_name: string
-          current_stage_order: number
           current_stage_status: string
           customer: string
           display_stage_name: string
           due_date: string
+          effectiveduedate: string
           has_custom_workflow: boolean
-          id: string
           is_batch_master: boolean
           is_in_batch_processing: boolean
           job_id: string
           manual_due_date: string
-          parallel_stages: Json
           proof_emailed_at: string
           qty: number
           reference: string
