@@ -53,11 +53,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   const getStatusColor = () => {
-    if (job.status === 'active') return 'bg-green-100 text-green-800 border-green-300';
-    if (job.is_ready_now) return 'bg-blue-100 text-blue-800 border-blue-300';
-    if (job.is_scheduled_later) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    if (job.is_waiting_for_dependencies) return 'bg-gray-100 text-gray-800 border-gray-300';
-    return 'bg-red-100 text-red-800 border-red-300';
+    if (job.status === 'active') return 'bg-green-100 text-green-900 border-green-300';
+    if (job.is_ready_now) return 'bg-blue-100 text-blue-900 border-blue-300';
+    if (job.is_scheduled_later) return 'bg-yellow-100 text-yellow-900 border-yellow-300';
+    if (job.is_waiting_for_dependencies) return 'bg-gray-100 text-gray-900 border-gray-300';
+    return 'bg-red-100 text-red-900 border-red-300';
   };
 
   const canStart = job.status === 'pending' && job.is_ready_now;
@@ -65,9 +65,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <Hash className="h-5 w-5" />
             Job Details: {job.wo_no}
           </DialogTitle>
@@ -75,18 +75,18 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
         <div className="space-y-6">
           {/* Job Header */}
-          <Card>
+          <Card className="border-gray-200 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                     {job.wo_no}
                   </h3>
-                  <p className="text-gray-600">{job.customer}</p>
+                  <p className="text-gray-700 dark:text-gray-300">{job.customer}</p>
                 </div>
                 <div className="text-right space-y-1">
                   <Badge 
-                    className={`${getStatusColor()} border px-3 py-1`}
+                    className={`${getStatusColor()} border px-3 py-1 font-medium`}
                   >
                     {job.status === 'active' ? 'Active' : 
                      job.is_ready_now ? 'Ready Now' :
@@ -94,7 +94,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                      job.is_waiting_for_dependencies ? 'Waiting' : 'Blocked'}
                   </Badge>
                   {job.queue_position && (
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-700 dark:text-gray-300 font-medium">
                       Queue #{job.queue_position}
                     </div>
                   )}
@@ -103,15 +103,15 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-gray-500" />
-                  <span className="font-medium">Quantity:</span>
-                  <span>{job.qty}</span>
+                  <Package className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Quantity:</span>
+                  <span className="text-gray-800 dark:text-gray-200">{job.qty}</span>
                 </div>
                 {job.due_date && (
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <span className="font-medium">Due Date:</span>
-                    <span>{format(new Date(job.due_date), 'MMM dd, yyyy')}</span>
+                    <Calendar className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Due Date:</span>
+                    <span className="text-gray-800 dark:text-gray-200">{format(new Date(job.due_date), 'MMM dd, yyyy')}</span>
                   </div>
                 )}
               </div>
@@ -120,16 +120,18 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
           {/* Category & Stage */}
           <div className="grid grid-cols-2 gap-4">
-            <Card>
+            <Card className="border-gray-200 dark:border-gray-700">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Category</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-900 dark:text-gray-100">Category</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <Badge 
                   variant="outline"
+                  className="border-2 font-medium"
                   style={{ 
                     borderColor: job.category_color,
-                    color: job.category_color 
+                    color: job.category_color,
+                    backgroundColor: job.category_color + '10'
                   }}
                 >
                   {job.category_name}
@@ -137,18 +139,18 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-gray-200 dark:border-gray-700">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Current Stage</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-900 dark:text-gray-100">Current Stage</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" style={{ color: job.stage_color }} />
-                  <span className="font-medium" style={{ color: job.stage_color }}>
+                  <span className="font-medium text-gray-900 dark:text-gray-100" style={{ color: job.stage_color }}>
                     {job.stage_name}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                   Stage Order: {job.stage_order}
                 </div>
               </CardContent>

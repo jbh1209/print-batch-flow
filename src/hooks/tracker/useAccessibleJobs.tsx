@@ -164,6 +164,7 @@ export const useAccessibleJobs = ({
         started_by: job.started_by || null,
         started_by_name: job.started_by_name || null,
         proof_emailed_at: job.proof_emailed_at || null,
+        proof_approved_at: (job as any).proof_approved_at || null,
         // Add batch-related fields - use safe property access
         batch_category: (job as any).batch_category || null,
         is_in_batch_processing: job.status === 'In Batch Processing',

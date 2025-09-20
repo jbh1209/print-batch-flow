@@ -40,6 +40,7 @@ export interface AccessibleJob {
   started_by?: string | null;
   started_by_name?: string | null;
   proof_emailed_at?: string | null;
+  proof_approved_at?: string | null;
   // Batch master job properties
   is_batch_master?: boolean;
   batch_name?: string | null;

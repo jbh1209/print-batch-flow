@@ -42,6 +42,9 @@ export const JobListView: React.FC<JobListViewProps> = ({
 
   // Get proof status for job  
   const getProofStatus = (job: AccessibleJob) => {
+    if (job.proof_approved_at) {
+      return 'completed'; // Proof approved, ready for production
+    }
     if (job.proof_emailed_at) {
       return 'awaiting_approval'; // Proof sent, waiting for approval
     }
@@ -52,17 +55,23 @@ export const JobListView: React.FC<JobListViewProps> = ({
   const getRowClassName = (job: AccessibleJob) => {
     const baseClasses = "p-3 hover:bg-gray-50 cursor-pointer transition-colors";
     
-    if (isProofJob(job) && job.proof_emailed_at) {
-      const daysSinceProof = job.proof_emailed_at 
-        ? Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
+    if (isProofJob(job)) {
+      // Proof approved - ready for production (green)
+      if (job.proof_approved_at) {
+        return `${baseClasses} bg-green-50 border-l-4 border-l-green-500`;
+      }
       
-      if (daysSinceProof >= 3) {
-        return `${baseClasses} bg-red-50 border-l-4 border-l-red-500`; // Critical urgency
-      } else if (daysSinceProof >= 1) {
-        return `${baseClasses} bg-orange-50 border-l-4 border-l-orange-500`; // Warning urgency
-      } else {
-        return `${baseClasses} bg-blue-50 border-l-4 border-l-blue-500`; // Normal proof status
+      // Proof emailed - awaiting approval with urgency levels
+      if (job.proof_emailed_at) {
+        const daysSinceProof = Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceProof >= 3) {
+          return `${baseClasses} bg-red-50 border-l-4 border-l-red-500`; // Critical urgency
+        } else if (daysSinceProof >= 1) {
+          return `${baseClasses} bg-orange-50 border-l-4 border-l-orange-500`; // Warning urgency
+        } else {
+          return `${baseClasses} bg-blue-50 border-l-4 border-l-blue-500`; // Normal proof status
+        }
       }
     }
     
@@ -127,20 +136,20 @@ export const JobListView: React.FC<JobListViewProps> = ({
                      )}
                    </div>
                    
-                   {/* Proof Status Indicator */}
-                   {isProofJob(job) && job.proof_emailed_at && (
-                     <div className="mt-2">
-                       <ProofStatusIndicator
-                         stageInstance={{
-                           status: getProofStatus(job) || 'pending',
-                           proof_emailed_at: job.proof_emailed_at,
-                           updated_at: job.proof_emailed_at
-                         }}
-                         variant="default"
-                         showTimeElapsed={true}
-                       />
-                     </div>
-                   )}
+                    {/* Proof Status Indicator */}
+                    {isProofJob(job) && (job.proof_emailed_at || job.proof_approved_at) && (
+                      <div className="mt-2">
+                        <ProofStatusIndicator
+                          stageInstance={{
+                            status: getProofStatus(job) || 'pending',
+                            proof_emailed_at: job.proof_emailed_at,
+                            updated_at: job.proof_approved_at || job.proof_emailed_at
+                          }}
+                          variant="default"
+                          showTimeElapsed={true}
+                        />
+                      </div>
+                    )}
                  </div>
                 
                 <div className="flex items-center gap-2 ml-4">

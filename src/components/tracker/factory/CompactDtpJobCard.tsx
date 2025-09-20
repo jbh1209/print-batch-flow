@@ -35,22 +35,34 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   const isProofJob = job.current_stage_name && job.current_stage_name.toLowerCase().includes('proof');
   
   // Get proof status and urgency
+  const getProofStatus = () => {
+    if (job.proof_approved_at) return "approved";
+    if (job.proof_emailed_at) return "awaiting_approval";
+    return null;
+  };
+
   const getProofUrgency = () => {
-    if (!job.proof_emailed_at) return null;
+    if (!job.proof_emailed_at || job.proof_approved_at) return null;
     const daysSinceProof = Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24));
     if (daysSinceProof >= 3) return "critical";
     if (daysSinceProof >= 1) return "warning";
     return "normal";
   };
   
+  const proofStatus = getProofStatus();
   const proofUrgency = getProofUrgency();
 
   const getCardStyle = () => {
-    // Priority order: Active > Proof urgency > Overdue > Due soon
+    // Priority order: Active > Proof approved > Proof urgency > Overdue > Due soon
     if (jobStatus === 'active') return "border-blue-500 bg-blue-50 shadow-md";
     
-    // Proof-specific styling with urgency
-    if (isProofJob && job.proof_emailed_at) {
+    // Proof approved - ready for production
+    if (isProofJob && proofStatus === "approved") {
+      return "border-green-500 bg-green-50 shadow-md";
+    }
+    
+    // Proof awaiting approval with urgency
+    if (isProofJob && proofStatus === "awaiting_approval") {
       if (proofUrgency === "critical") return "border-red-500 bg-red-50 shadow-md animate-pulse";
       if (proofUrgency === "warning") return "border-orange-500 bg-orange-50 shadow-md";
       return "border-purple-500 bg-purple-50 shadow-sm";
@@ -77,12 +89,12 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     >
       <CardContent className="p-3">
         {/* Corner proof status indicator */}
-        {isProofJob && job.proof_emailed_at && (
+        {isProofJob && proofStatus && (
           <ProofStatusIndicator
             stageInstance={{
-              status: 'awaiting_approval',
+              status: proofStatus === "approved" ? 'completed' : 'awaiting_approval',
               proof_emailed_at: job.proof_emailed_at,
-              updated_at: job.proof_emailed_at
+              updated_at: job.proof_approved_at || job.proof_emailed_at
             }}
             variant="corner-badge"
             showTimeElapsed={false}

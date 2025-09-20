@@ -3572,6 +3572,7 @@ export type Database = {
           display_stage_name: string
           due_date: string
           job_id: string
+          proof_approved_at: string
           proof_emailed_at: string
           qty: number
           reference: string
