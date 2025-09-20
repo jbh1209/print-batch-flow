@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BulkDeleteConfirmDialog } from "./BulkDeleteConfirmDialog";
 
 interface BulkDeleteHandlerProps {
-  selectedJobs: string[];
+  selectedJobs: (string | { id: string })[];
   onDeleteComplete: () => void;
   children: (props: {
     showDialog: boolean;
@@ -30,7 +30,7 @@ export const BulkDeleteHandler: React.FC<BulkDeleteHandlerProps> = ({
       const { error } = await supabase
         .from('production_jobs')
         .delete()
-        .in('id', selectedJobs);
+        .in('id', selectedJobs.map(job => typeof job === 'string' ? job : job.id));
 
       if (error) throw error;
 
