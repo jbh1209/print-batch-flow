@@ -53,12 +53,14 @@ export const useResponsiveJobsTable = (refreshJobs: () => void) => {
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .eq('id', jobId);
+      const { data, error } = await supabase.rpc('delete_production_jobs', {
+        job_ids: [jobId]
+      });
 
       if (error) throw error;
+      if (data && !(data as any).success) {
+        throw new Error((data as any).error || 'Failed to delete job');
+      }
 
       toast.success('Job deleted successfully');
       refreshJobs();
@@ -98,12 +100,15 @@ export const useResponsiveJobsTable = (refreshJobs: () => void) => {
     if (tableState.selectedJobs.length === 0) return;
 
     try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .in('id', tableState.selectedJobs.map(j => j.id));
+      const jobIds = tableState.selectedJobs.map(j => j.id);
+      const { data, error } = await supabase.rpc('delete_production_jobs', {
+        job_ids: jobIds
+      });
 
       if (error) throw error;
+      if (data && !(data as any).success) {
+        throw new Error((data as any).error || 'Failed to delete jobs');
+      }
 
       toast.success(`Successfully deleted ${tableState.selectedJobs.length} job${tableState.selectedJobs.length > 1 ? 's' : ''}`);
       tableState.setSelectedJobs([]);

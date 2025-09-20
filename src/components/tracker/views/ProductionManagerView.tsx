@@ -239,12 +239,16 @@ export const ProductionManagerView = () => {
             const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
             
             try {
-              const { error } = await supabase
-                .from('production_jobs')
-                .delete()
-                .eq('id', actualJobId);
+              const { data, error } = await supabase.rpc('delete_production_jobs', {
+                job_ids: [actualJobId]
+              });
 
               if (error) throw error;
+              
+              // Check if the RPC succeeded
+              if (data && !(data as any).success) {
+                throw new Error((data as any).error || 'Failed to delete job');
+              }
 
               toast.success('Job deleted successfully');
               await handleRefresh(); // Use our enhanced refresh
@@ -283,12 +287,17 @@ export const ProductionManagerView = () => {
           onBulkMarkCompleted={handleBulkMarkCompleted}
           onBulkDelete={async (selectedJobs) => {
             try {
-              const { error } = await supabase
-                .from('production_jobs')
-                .delete()
-                .in('id', selectedJobs.map(j => j.job_id));
+              const jobIds = selectedJobs.map(j => j.job_id);
+              const { data, error } = await supabase.rpc('delete_production_jobs', {
+                job_ids: jobIds
+              });
 
               if (error) throw error;
+              
+              // Check if the RPC succeeded
+              if (data && !(data as any).success) {
+                throw new Error((data as any).error || 'Failed to delete jobs');
+              }
 
               toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
               await handleRefresh(); // Use our enhanced refresh

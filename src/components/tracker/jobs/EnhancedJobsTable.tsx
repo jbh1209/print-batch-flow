@@ -54,12 +54,14 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
 
   const handleDeleteJob = async (jobId: string) => {
     try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .eq('id', jobId);
+      const { data, error } = await supabase.rpc('delete_production_jobs', {
+        job_ids: [jobId]
+      });
 
       if (error) throw error;
+      if (data && !(data as any).success) {
+        throw new Error((data as any).error || 'Failed to delete job');
+      }
 
       toast.success('Job deleted successfully');
       onJobDeleted();
