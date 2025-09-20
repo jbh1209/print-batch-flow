@@ -3552,17 +3552,25 @@ export type Database = {
         Returns: string
       }
       get_user_accessible_jobs: {
-        Args: {
-          p_permission_type?: string
-          p_stage_filter?: string
-          p_status_filter?: string
-          p_user_id?: string
-        }
+        Args:
+          | {
+              p_permission_type?: string
+              p_stage_filter?: string
+              p_status_filter?: string
+              p_user_id?: string
+            }
+          | {
+              p_permission_type?: string
+              p_stage_filter?: string
+              p_status_filter?: string
+              p_user_id?: string
+            }
         Returns: {
           category_color: string
           category_id: string
           category_name: string
           completed_stages: number
+          contact: string
           current_stage_color: string
           current_stage_id: string
           current_stage_name: string
@@ -3599,6 +3607,7 @@ export type Database = {
           category_id: string
           category_name: string
           completed_stages: number
+          contact: string
           current_stage_color: string
           current_stage_id: string
           current_stage_name: string
