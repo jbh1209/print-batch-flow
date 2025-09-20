@@ -75,13 +75,14 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   };
 
   const handleStartProof = async () => {
-    if (!job.current_stage_id) {
-      toast.error("No current stage found");
+    const stageInstanceId = await getCurrentStageInstanceId();
+    if (!stageInstanceId) {
+      toast.error("No current stage instance found");
       return;
     }
 
     try {
-      const success = await startStage(job.current_stage_id);
+      const success = await startStage(stageInstanceId);
       
       if (success) {
         const { error: jobError } = await supabase
