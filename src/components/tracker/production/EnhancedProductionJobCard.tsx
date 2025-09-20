@@ -23,8 +23,10 @@ import { JobSpecificationCard } from "../common/JobSpecificationCard";
 import { PartAssignmentIndicator } from "../common/PartAssignmentIndicator";
 import { StageProgressIndicator } from "../common/StageProgressIndicator";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
-import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { ProofStatusIndicator } from "../factory/ProofStatusIndicator";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import { getStageContextForJob, canStartContextStage, canCompleteContextStage } from "@/utils/stageContextUtils";
+import { cn } from "@/lib/utils";
 
 interface EnhancedProductionJobCardProps {
   job: AccessibleJob;
@@ -52,15 +54,71 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
   const canStart = canStartContextStage(job, stageContext);
   const canComplete = canCompleteContextStage(job, stageContext);
 
+  // Check for proof-related current stage
+  const isProofStage = job.current_stage_name?.toLowerCase().includes('proof');
+  const hasProofData = job.proof_emailed_at || isProofStage;
+  
+  // Create a stage instance for ProofStatusIndicator if this is a proof stage
+  const proofStageInstance = hasProofData ? {
+    status: job.current_stage_status,
+    proof_emailed_at: job.proof_emailed_at,
+    client_email: job.contact, // Using contact field as client_email
+    client_name: job.customer,
+    updated_at: undefined
+  } : null;
+
+  // Determine card styling based on proof status
+  const getCardClassName = () => {
+    if (isProofStage && job.current_stage_status === 'completed') {
+      return cn(
+        "transition-all duration-200 hover:shadow-md cursor-pointer relative",
+        "factory-success border-green-500 bg-green-50/30"
+      );
+    }
+    
+    if (job.proof_emailed_at) {
+      const elapsed = Date.now() - new Date(job.proof_emailed_at).getTime();
+      const days = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+      
+      if (days >= 3) {
+        return cn(
+          "transition-all duration-200 hover:shadow-md cursor-pointer relative",
+          "factory-critical border-red-500 bg-red-50/30 factory-pulse"
+        );
+      } else if (days >= 1) {
+        return cn(
+          "transition-all duration-200 hover:shadow-md cursor-pointer relative",
+          "factory-warning border-orange-500 bg-orange-50/30"
+        );
+      } else {
+        return cn(
+          "transition-all duration-200 hover:shadow-md cursor-pointer relative",
+          "factory-info border-blue-500 bg-blue-50/30"
+        );
+      }
+    }
+    
+    return cn(
+      "transition-all duration-200 hover:shadow-md cursor-pointer relative",
+      isOverdue ? 'border-red-300 bg-red-50' : 
+      isDueSoon ? 'border-orange-300 bg-orange-50' : 
+      'border-gray-200 bg-white'
+    );
+  };
+
   return (
     <Card 
-      className={`transition-all duration-200 hover:shadow-md cursor-pointer ${
-        isOverdue ? 'border-red-300 bg-red-50' : 
-        isDueSoon ? 'border-orange-300 bg-orange-50' : 
-        'border-gray-200 bg-white'
-      }`}
+      className={getCardClassName()}
       onClick={() => onJobClick?.(job)}
     >
+      {/* Proof Status Corner Badge */}
+      {proofStageInstance && (
+        <ProofStatusIndicator 
+          stageInstance={proofStageInstance}
+          variant="corner-badge"
+          showTimeElapsed={false}
+        />
+      )}
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">

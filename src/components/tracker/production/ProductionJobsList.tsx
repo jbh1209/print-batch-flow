@@ -15,9 +15,11 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
+import { ProofStatusIndicator } from "../factory/ProofStatusIndicator";
 import { getStageContextForJob, canStartContextStage, canCompleteContextStage } from "@/utils/stageContextUtils";
+import { cn } from "@/lib/utils";
 
 interface ProductionJobsListProps {
   jobs: AccessibleJob[];
@@ -57,21 +59,60 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
             new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
           
           // Get stage context for this job
-          const stageContext = getStageContextForJob(job, contextStageName);
-          const canStart = canStartContextStage(job, stageContext);
-          const canComplete = canCompleteContextStage(job, stageContext);
+    const stageContext = getStageContextForJob(job, contextStageName);
+    const canStart = canStartContextStage(job, stageContext);
+    const canComplete = canCompleteContextStage(job, stageContext);
+
+    // Check for proof-related current stage
+    const isProofStage = job.current_stage_name?.toLowerCase().includes('proof');
+    const hasProofData = job.proof_emailed_at || isProofStage;
+    
+    // Create a stage instance for ProofStatusIndicator if this is a proof stage
+    const proofStageInstance = hasProofData ? {
+      status: job.current_stage_status,
+      proof_emailed_at: job.proof_emailed_at,
+      client_email: job.contact,
+      client_name: job.customer,
+      updated_at: undefined
+    } : null;
+
+    // Determine row styling based on proof status
+    const getRowClassName = () => {
+      if (isProofStage && job.current_stage_status === 'completed') {
+        return "factory-success bg-green-50/50 hover:bg-green-100/50";
+      }
+      
+      if (job.proof_emailed_at) {
+        const elapsed = Date.now() - new Date(job.proof_emailed_at).getTime();
+        const days = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+        
+        if (days >= 3) {
+          return "factory-critical bg-red-50/50 hover:bg-red-100/50";
+        } else if (days >= 1) {
+          return "factory-warning bg-orange-50/50 hover:bg-orange-100/50";
+        } else {
+          return "factory-info bg-blue-50/50 hover:bg-blue-100/50";
+        }
+      }
+      
+      return isOverdue 
+        ? "bg-red-50 hover:bg-red-100" 
+        : isDueSoon 
+        ? "bg-orange-50 hover:bg-orange-100" 
+        : "hover:bg-gray-50";
+    };
 
           return (
             <div 
               key={job.job_id}
-              className={`grid grid-cols-12 gap-4 items-center px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
-                isOverdue ? 'bg-red-50 border-l-4 border-red-500' : 
-                isDueSoon ? 'bg-orange-50 border-l-4 border-orange-500' : ''
-              }`}
+              className={cn(
+                "grid grid-cols-12 gap-4 items-center px-4 py-3 cursor-pointer transition-colors",
+                getRowClassName()
+              )}
               onClick={() => onJobClick(job)}
             >
               {/* Job */}
-              <div className="col-span-2">
+              <div className="col-span-2 relative">
                 <div className="flex items-center gap-2">
                   <Badge 
                     variant={stageContext.stageStatus === 'active' ? 'default' : 'secondary'}
@@ -85,6 +126,17 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
                     </Badge>
                   )}
                 </div>
+                
+                {/* Proof Status Indicator */}
+                {proofStageInstance && (
+                  <div className="mt-1">
+                    <ProofStatusIndicator 
+                      stageInstance={proofStageInstance}
+                      variant="default"
+                      showTimeElapsed={true}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Customer */}
