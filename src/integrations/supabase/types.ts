@@ -3574,7 +3574,6 @@ export type Database = {
           customer: string
           display_stage_name: string
           due_date: string
-          effectiveduedate: string
           has_custom_workflow: boolean
           is_batch_master: boolean
           is_in_batch_processing: boolean
