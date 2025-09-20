@@ -27,12 +27,19 @@ export const BulkDeleteHandler: React.FC<BulkDeleteHandlerProps> = ({
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .in('id', selectedJobs.map(job => typeof job === 'string' ? job : job.id));
+      const jobIds = selectedJobs.map(job => typeof job === 'string' ? job : job.id);
+      
+      // Use RPC function for production_jobs to avoid cascade conflicts
+      const { data, error } = await supabase.rpc('delete_production_jobs', {
+        job_ids: jobIds
+      });
 
       if (error) throw error;
+
+      // Check if the RPC succeeded
+      if (data && !(data as any).success) {
+        throw new Error((data as any).error || 'Failed to delete jobs');
+      }
 
       toast.success(`Successfully deleted ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''}`);
       setShowDialog(false);

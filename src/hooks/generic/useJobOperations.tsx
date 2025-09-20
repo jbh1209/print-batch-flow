@@ -20,13 +20,27 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Remove user_id filter to allow any authenticated user to delete any job
-      const { error } = await supabase
-        .from(tableName as any)
-        .delete()
-        .eq('id', jobId);
+      // Use RPC function for production_jobs to avoid cascade conflicts
+      if ((tableName as string) === 'production_jobs') {
+        const { data, error } = await supabase.rpc('delete_production_jobs', {
+          job_ids: [jobId]
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+
+        // Check if the RPC succeeded
+        if (data && !(data as any).success) {
+          throw new Error((data as any).error || 'Failed to delete job');
+        }
+      } else {
+        // Use regular delete for other job types
+        const { error } = await supabase
+          .from(tableName as any)
+          .delete()
+          .eq('id', jobId);
+
+        if (error) throw error;
+      }
       
       toast.success("Job deleted successfully");
       return true;

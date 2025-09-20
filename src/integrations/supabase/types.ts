@@ -3357,6 +3357,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      delete_production_jobs: {
+        Args: { job_ids: string[] }
+        Returns: Json
+      }
       expedite_job_factory_wide: {
         Args: {
           p_expedite_reason: string
