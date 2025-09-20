@@ -88,18 +88,18 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
       onClick={handleCardClick}
     >
       <CardContent className="p-3">
-        {/* Corner proof status indicator */}
-        {isProofJob && proofStatus && (
-          <ProofStatusIndicator
-            stageInstance={{
-              status: proofStatus === "approved" ? 'completed' : 'awaiting_approval',
-              proof_emailed_at: job.proof_emailed_at,
-              updated_at: job.proof_approved_at || job.proof_emailed_at
-            }}
-            variant="corner-badge"
-            showTimeElapsed={false}
-          />
-        )}
+         {/* FIXED: Only show corner indicator for jobs awaiting approval */}
+         {isProofJob && proofStatus === "awaiting_approval" && (
+           <ProofStatusIndicator
+             stageInstance={{
+               status: 'awaiting_approval',
+               proof_emailed_at: job.proof_emailed_at,
+               updated_at: job.proof_emailed_at
+             }}
+             variant="corner-badge"
+             showTimeElapsed={false}
+           />
+         )}
         
         <div className="space-y-2">
           {/* Header Row */}
@@ -108,11 +108,17 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
               <h4 className="font-bold text-sm text-gray-900 truncate">
                 {job.wo_no}
               </h4>
-              {job.customer && (
-                <p className="text-xs text-gray-600 truncate">
-                  {job.customer}
-                </p>
-              )}
+               {job.customer && (
+                 <p className="text-xs text-gray-600 truncate">
+                   {job.customer}
+                 </p>
+               )}
+               {/* ADDED: Contact information */}
+               {job.contact && (
+                 <p className="text-xs text-gray-500 truncate">
+                   Contact: {job.contact}
+                 </p>
+               )}
             </div>
           </div>
 

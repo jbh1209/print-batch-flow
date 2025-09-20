@@ -3559,10 +3559,13 @@ export type Database = {
           p_user_id?: string
         }
         Returns: {
+          batch_category: string
+          batch_name: string
           category_color: string
           category_id: string
           category_name: string
           completed_stages: number
+          constituent_job_count: number
           contact: string
           current_stage_color: string
           current_stage_id: string
@@ -3571,7 +3574,12 @@ export type Database = {
           customer: string
           display_stage_name: string
           due_date: string
+          effectiveduedate: string
+          has_custom_workflow: boolean
+          is_batch_master: boolean
+          is_in_batch_processing: boolean
           job_id: string
+          manual_due_date: string
           proof_approved_at: string
           proof_emailed_at: string
           qty: number

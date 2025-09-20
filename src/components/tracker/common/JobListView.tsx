@@ -92,18 +92,22 @@ export const JobListView: React.FC<JobListViewProps> = ({
                 <div className="flex-1 min-w-0">
                    <div className="flex items-center gap-3 flex-wrap">
                      <h4 className="font-medium text-sm">{job.wo_no}</h4>
-                     <Badge 
-                       variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
-                       className="text-xs px-1.5 py-0.5"
-                     >
-                       {job.current_stage_name}
-                     </Badge>
-                     <Badge 
-                       variant={job.current_stage_status === 'active' ? 'success' : 'outline'}
-                       className="text-xs px-1.5 py-0.5"
-                     >
-                       {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
-                     </Badge>
+                     
+                     {/* FIXED: Single status badge - show proof approval status or current stage */}
+                     {job.proof_approved_at ? (
+                       <Badge variant="outline" className="factory-success text-xs px-1.5 py-0.5 font-semibold">
+                         <CheckCircle className="h-3 w-3 mr-1" />
+                         READY FOR PRODUCTION
+                       </Badge>
+                     ) : (
+                       <Badge 
+                         variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+                         className="text-xs px-1.5 py-0.5"
+                       >
+                         {job.current_stage_name} - {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
+                       </Badge>
+                     )}
+                     
                      <SubSpecificationBadge 
                        jobId={job.job_id}
                        stageId={job.current_stage_id}
@@ -111,11 +115,18 @@ export const JobListView: React.FC<JobListViewProps> = ({
                      />
                    </div>
                   
-                  <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span>{job.customer || 'Unknown'}</span>
-                    </div>
+                   <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
+                     <div className="flex items-center gap-1">
+                       <User className="h-3 w-3" />
+                       <span>{job.customer || 'Unknown'}</span>
+                     </div>
+                     {/* ADDED: Contact information display */}
+                     {job.contact && (
+                       <div className="flex items-center gap-1">
+                         <User className="h-3 w-3" />
+                         <span>Contact: {job.contact}</span>
+                       </div>
+                     )}
                     {job.due_date && (
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -136,20 +147,20 @@ export const JobListView: React.FC<JobListViewProps> = ({
                      )}
                    </div>
                    
-                    {/* Proof Status Indicator */}
-                    {isProofJob(job) && (job.proof_emailed_at || job.proof_approved_at) && (
-                      <div className="mt-2">
-                        <ProofStatusIndicator
-                          stageInstance={{
-                            status: getProofStatus(job) || 'pending',
-                            proof_emailed_at: job.proof_emailed_at,
-                            updated_at: job.proof_approved_at || job.proof_emailed_at
-                          }}
-                          variant="default"
-                          showTimeElapsed={true}
-                        />
-                      </div>
-                    )}
+                     {/* FIXED: Only show proof indicator for jobs awaiting approval (not approved ones) */}
+                     {isProofJob(job) && job.proof_emailed_at && !job.proof_approved_at && (
+                       <div className="mt-2">
+                         <ProofStatusIndicator
+                           stageInstance={{
+                             status: 'awaiting_approval',
+                             proof_emailed_at: job.proof_emailed_at,
+                             updated_at: job.proof_emailed_at
+                           }}
+                           variant="default"
+                           showTimeElapsed={true}
+                         />
+                       </div>
+                     )}
                  </div>
                 
                 <div className="flex items-center gap-2 ml-4">
