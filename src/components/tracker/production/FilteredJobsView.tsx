@@ -101,7 +101,7 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
             {/* Workflow Progress */}
             <div style={{ width: 80 }} className="pl-1">
               {typeof job.workflow_progress === "number" && (
-                <Progress value={job.workflow_progress} className="h-1" />
+                <Progress value={Math.round(job.workflow_progress)} className="h-1" />
               )}
             </div>
             {/* Expand/Collapse Icon */}

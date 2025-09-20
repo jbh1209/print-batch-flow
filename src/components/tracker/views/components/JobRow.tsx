@@ -91,7 +91,7 @@ export const JobRow: React.FC<JobRowProps> = ({
               </Badge>
             )}
             <Badge variant="outline" className="text-xs">
-              {job.workflow_progress}% Complete
+              {Math.round(job.workflow_progress)}% Complete
             </Badge>
           </div>
           <div className="text-sm text-gray-600 mt-1">

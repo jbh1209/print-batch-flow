@@ -142,7 +142,7 @@ export const JobListView: React.FC<JobListViewProps> = ({
                      {job.workflow_progress > 0 && (
                        <div className="flex items-center gap-1">
                          <Clock className="h-3 w-3" />
-                         <span>{job.workflow_progress}%</span>
+                         <span>{Math.round(job.workflow_progress)}%</span>
                        </div>
                      )}
                    </div>

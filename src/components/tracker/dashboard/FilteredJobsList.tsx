@@ -179,7 +179,7 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
                       <div className="text-right">
                         {job.workflow_progress !== undefined && (
                           <div className="mb-2">
-                            <div className="text-sm font-medium">{job.workflow_progress}%</div>
+                            <div className="text-sm font-medium">{Math.round(job.workflow_progress)}%</div>
                             <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
                               <div 
                                 className="h-full bg-blue-500 transition-all duration-300"

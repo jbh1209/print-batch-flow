@@ -108,7 +108,7 @@ export const MobileJobCard: React.FC<MobileJobCardProps> = ({
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-gray-700">Progress</span>
               <span className="font-bold text-gray-900">
-                {job.workflow_progress}%
+                {Math.round(job.workflow_progress)}%
               </span>
             </div>
             <Progress value={job.workflow_progress} className="h-2" />

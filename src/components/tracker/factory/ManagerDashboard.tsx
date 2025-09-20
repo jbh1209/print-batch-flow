@@ -352,7 +352,7 @@ export const ManagerDashboard: React.FC = () => {
                       <div className="font-medium">{job.wo_no}</div>
                       <div className="text-sm text-gray-600">{job.customer || 'Unknown Customer'}</div>
                     </div>
-                    <Badge className="bg-green-600">{job.workflow_progress}%</Badge>
+                    <Badge className="bg-green-600">{Math.round(job.workflow_progress)}%</Badge>
                   </div>
                 ))
               ) : (

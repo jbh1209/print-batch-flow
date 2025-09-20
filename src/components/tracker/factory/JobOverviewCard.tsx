@@ -84,7 +84,7 @@ export const JobOverviewCard: React.FC<JobOverviewCardProps> = ({ job }) => {
 
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Progress:</span>
-              <span className="font-bold">{job.workflow_progress}%</span>
+              <span className="font-bold">{Math.round(job.workflow_progress)}%</span>
               <span className="text-xs text-gray-500">
                 ({job.completed_stages}/{job.total_stages} stages)
               </span>

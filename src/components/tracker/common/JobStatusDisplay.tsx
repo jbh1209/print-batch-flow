@@ -184,7 +184,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
           </span>
           <span className={cn("font-medium text-gray-700", textSize)}>
             {job.workflow_progress !== undefined 
-              ? `${job.workflow_progress}%`
+              ? `${Math.round(job.workflow_progress)}%`
               : displayStatus
             }
           </span>

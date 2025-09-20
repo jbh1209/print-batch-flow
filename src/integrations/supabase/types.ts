@@ -800,6 +800,36 @@ export type Database = {
           },
         ]
       }
+      hp12000_paper_sizes: {
+        Row: {
+          created_at: string
+          dimensions: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dimensions: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dimensions?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_print_specifications: {
         Row: {
           created_at: string
@@ -898,6 +928,7 @@ export type Database = {
           created_at: string
           dependency_group: string | null
           estimated_duration_minutes: number | null
+          hp12000_paper_size_id: string | null
           id: string
           is_rework: boolean | null
           is_split_job: boolean | null
@@ -947,6 +978,7 @@ export type Database = {
           created_at?: string
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
+          hp12000_paper_size_id?: string | null
           id?: string
           is_rework?: boolean | null
           is_split_job?: boolean | null
@@ -996,6 +1028,7 @@ export type Database = {
           created_at?: string
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
+          hp12000_paper_size_id?: string | null
           id?: string
           is_rework?: boolean | null
           is_split_job?: boolean | null
@@ -1054,6 +1087,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_hp12000_paper_size_id_fkey"
+            columns: ["hp12000_paper_size_id"]
+            isOneToOne: false
+            referencedRelation: "hp12000_paper_sizes"
             referencedColumns: ["id"]
           },
           {
@@ -3510,6 +3550,18 @@ export type Database = {
           wo_no: string
         }[]
       }
+      get_job_hp12000_stages: {
+        Args: { p_job_id: string }
+        Returns: {
+          is_paper_size_required: boolean
+          paper_size_id: string
+          paper_size_name: string
+          production_stage_id: string
+          stage_instance_id: string
+          stage_name: string
+          stage_order: number
+        }[]
+      }
       get_job_rework_history: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: {
@@ -3764,6 +3816,10 @@ export type Database = {
       }
       is_admin_simple: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_hp12000_stage: {
+        Args: { stage_name: string }
         Returns: boolean
       }
       is_public_holiday: {

@@ -121,7 +121,7 @@ export const TouchOptimizedJobCard: React.FC<TouchOptimizedJobCardProps> = ({
                 Progress
               </span>
               <span className={cn("font-bold text-gray-900", size === 'compact' ? 'text-xs' : 'text-sm')}>
-                {job.workflow_progress}%
+                {Math.round(job.workflow_progress)}%
               </span>
             </div>
             <Progress 

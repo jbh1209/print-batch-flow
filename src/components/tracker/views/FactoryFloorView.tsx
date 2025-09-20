@@ -208,8 +208,8 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
                               <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
                             )}
                             <span> • Status: {job.status}</span>
-                            {job.workflow_progress > 0 && (
-                              <span> • {job.workflow_progress}%</span>
+                              {job.workflow_progress > 0 && (
+                                <span> • {Math.round(job.workflow_progress)}%</span>
                             )}
                           </div>
                         </div>

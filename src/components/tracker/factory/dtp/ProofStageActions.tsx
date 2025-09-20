@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { HP12000PaperSizeSelector } from "./HP12000PaperSizeSelector";
+import { useState } from "react";
 
 interface StageInstance {
   id: string;
@@ -51,6 +53,10 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
+  const [hp12000ValidationStatus, setHP12000ValidationStatus] = useState<{
+    isValid: boolean;
+    message?: string;
+  }>({ isValid: true });
 
   // Get the current stage instance ID from the job stage instances
   const getCurrentStageInstanceId = async (): Promise<string | null> => {
@@ -140,6 +146,12 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   };
 
   const handleProofApproved = async () => {
+    // Check HP12000 paper size validation before proceeding
+    if (!hp12000ValidationStatus.isValid) {
+      toast.error(hp12000ValidationStatus.message || 'Please assign paper sizes to all HP12000 stages before approving proof');
+      return;
+    }
+
     try {
       console.log(`🎯 Starting proof approval for job ${job.job_id}`);
       
@@ -313,6 +325,12 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     if (hasProofBeenEmailed && !hasProofBeenApproved) {
       return (
         <div className="space-y-3">
+          {/* HP12000 Paper Size Selector */}
+          <HP12000PaperSizeSelector 
+            jobId={job.job_id}
+            onValidationChange={(isValid, message) => setHP12000ValidationStatus({ isValid, message })}
+          />
+          
           <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
             <Mail className="h-4 w-4" />
             <span className="text-sm font-medium">Proof Emailed - Awaiting Client Response</span>
@@ -324,11 +342,11 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
           <Button 
             onClick={handleProofApproved}
-            disabled={isLoading || isProcessing}
+            disabled={isLoading || isProcessing || !hp12000ValidationStatus.isValid}
             className="w-full bg-green-600 hover:bg-green-700"
           >
             <ThumbsUp className="h-4 w-4 mr-2" />
-            Mark as Approved
+            {hp12000ValidationStatus.isValid ? 'Mark as Approved' : 'HP12000 Paper Sizes Required'}
           </Button>
         </div>
       );

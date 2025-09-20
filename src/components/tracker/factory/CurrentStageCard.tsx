@@ -218,7 +218,7 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Workflow Progress</span>
-              <span className="text-sm font-bold text-gray-900">{job.workflow_progress}%</span>
+              <span className="text-sm font-bold text-gray-900">{Math.round(job.workflow_progress)}%</span>
             </div>
             <Progress value={job.workflow_progress} className="h-2" />
           </div>
