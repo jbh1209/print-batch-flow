@@ -164,9 +164,16 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       }
 
       console.log('✅ Proof approved and scheduling triggered:', data);
+      
+      // IMMEDIATE STATE UPDATE for instant UI feedback
       onProofApprovalFlowChange('choosing_allocation');
       toast.success('Proof approved! Scheduling triggered. Choose next step.');
-      onRefresh?.();
+      
+      // Delayed refresh to ensure database consistency 
+      setTimeout(() => {
+        onRefresh?.();
+      }, 100);
+      
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');
