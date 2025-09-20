@@ -78,12 +78,12 @@ export const JobListView: React.FC<JobListViewProps> = ({
                         <span>{new Date(job.due_date).toLocaleDateString()}</span>
                       </div>
                     )}
-                    {job.category_name && (
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        <span>{job.category_name}</span>
-                      </div>
-                    )}
+                     {job.started_by_name && (
+                       <div className="flex items-center gap-1">
+                         <User className="h-3 w-3" />
+                         <span>Last worked by: {job.started_by_name}</span>
+                       </div>
+                     )}
                     {job.workflow_progress > 0 && (
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />

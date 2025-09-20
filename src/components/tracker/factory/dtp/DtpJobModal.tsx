@@ -123,7 +123,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Job Details - {job.wo_no}</span>
-            <Badge variant="outline">{job.category_name || 'No Category'}</Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -168,6 +167,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     </p>
                     <p className="font-medium">{job.customer || 'Not specified'}</p>
                   </div>
+
+                  {job.contact && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-gray-500 flex items-center gap-1">
+                        <Building className="h-4 w-4" />
+                        Contact
+                      </p>
+                      <p className="font-medium">{job.contact}</p>
+                    </div>
+                  )}
                   
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-gray-500 flex items-center gap-1">
@@ -268,7 +277,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             </Card>
           </div>
 
-            {/* Right Column - Current Stage & Specifications */}
+            {/* Right Column - Current Stage Info */}
             <div className="space-y-4">
               <CurrentStageCard job={job} statusInfo={statusInfo} />
             </div>

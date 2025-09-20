@@ -47,6 +47,8 @@ export interface AccessibleJob {
   // Parallel stages support
   parallel_stages?: ParallelStageInfo[];
   current_stage_order?: number;
+  // Contact information from Excel import
+  contact?: string | null;
 }
 
 export interface UseAccessibleJobsOptions {

@@ -44,6 +44,14 @@ export const JobOverviewCard: React.FC<JobOverviewCardProps> = ({ job }) => {
               <span>{job.customer || 'Unknown'}</span>
             </div>
             
+            {job.contact && (
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-gray-400" />
+                <span className="text-sm font-medium">Contact:</span>
+                <span>{job.contact}</span>
+              </div>
+            )}
+            
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-gray-400" />
               <span className="text-sm font-medium">Status:</span>
@@ -66,14 +74,11 @@ export const JobOverviewCard: React.FC<JobOverviewCardProps> = ({ job }) => {
               </div>
             )}
 
-            {job.category_name && (
+            {job.started_by_name && (
               <div className="flex items-center gap-2">
-                <div 
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: job.category_color || '#6B7280' }}
-                />
-                <span className="text-sm font-medium">Category:</span>
-                <span>{job.category_name}</span>
+                <User className="h-4 w-4 text-gray-400" />
+                <span className="text-sm font-medium">Last worked by:</span>
+                <span>{job.started_by_name}</span>
               </div>
             )}
 
@@ -88,17 +93,12 @@ export const JobOverviewCard: React.FC<JobOverviewCardProps> = ({ job }) => {
         </div>
 
         {/* Current Stage Specifications */}
-        {job.current_stage_name && job.current_stage_id && (
+        {job.current_stage_name && job.current_stage_id && job.started_by_name && (
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium">Current Stage:</span>
-              <span className="font-bold">{job.current_stage_name}</span>
+              <span className="text-sm font-medium">Last worked by:</span>
+              <span className="font-bold">{job.started_by_name}</span>
             </div>
-            <SubSpecificationBadge 
-              jobId={job.job_id}
-              stageId={job.current_stage_id}
-              compact={false}
-            />
           </div>
         )}
       </CardContent>

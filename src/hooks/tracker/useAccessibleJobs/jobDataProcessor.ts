@@ -30,6 +30,7 @@ export interface RawJobData {
   started_by?: string | null;
   started_by_name?: string | null;
   proof_emailed_at?: string | null;
+  contact?: string | null;
   // Additional fields from enhanced production jobs
   current_stage?: string;
   stages?: any[];
@@ -84,6 +85,7 @@ export const processJobData = (rawJob: RawJobData, index: number = 0): Accessibl
     started_by: rawJob.started_by || null,
     started_by_name: rawJob.started_by_name || null,
     proof_emailed_at: rawJob.proof_emailed_at || null,
+    contact: rawJob.contact || null,
     batch_category: null, // Will be set by batch processing logic
     is_in_batch_processing: rawJob.status === 'In Batch Processing'
   };

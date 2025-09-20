@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { StageSpecificationDisplay } from "./StageSpecificationDisplay";
 
 interface StatusBadgeInfo {
   text: string;
@@ -237,17 +236,6 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
           </div>
         </CardContent>
       </Card>
-
-      {/* Stage Specifications Display */}
-      {(job.current_stage_name || getSubSpecification() || currentStageInfo.stageInstance?.part_name || currentStageInfo.stageInstance?.quantity || currentStageInfo.stageInstance?.notes) && (
-        <StageSpecificationDisplay
-          stageName={job.current_stage_name || 'Unknown Stage'}
-          subSpecification={getSubSpecification() || undefined}
-          partName={currentStageInfo.stageInstance?.part_name || undefined}
-          quantity={currentStageInfo.stageInstance?.quantity || undefined}
-          paperSpecifications={currentStageInfo.stageInstance?.notes || undefined}
-        />
-      )}
     </div>
   );
 };
