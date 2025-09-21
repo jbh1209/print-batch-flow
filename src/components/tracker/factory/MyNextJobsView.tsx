@@ -248,6 +248,9 @@ export const MyNextJobsView: React.FC<MyNextJobsViewProps> = ({
                         locked: false,
                         has_custom_workflow: false,
                         is_in_batch_processing: false,
+                        print_specs: job.print_specs,
+                        paper_specs: job.paper_specs,
+                        sheet_size: job.sheet_size,
                       } as AccessibleJob}
                       onStart={async (jobId, stageId) => {
                         return startJobWithBarcode({
