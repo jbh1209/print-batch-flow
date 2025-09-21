@@ -88,29 +88,93 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
       const stageRow: any | undefined = hp12000Data?.find((r: any) => r.stage_instance_id === stageInstanceId);
 
       // Sheet size
-      const sheetSize = stageRow?.paper_size_name || '';
+      const sheetSize = stageRow?.paper_size_name || stageRow?.hp12000_paper_size_name || '';
+
+      // Helpers to extract readable strings from possibly nested spec objects
+      const extractString = (val: any): string => {
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'string') return val;
+        if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+        if (typeof val === 'object') {
+          if ('display_name' in val && val.display_name) return String(val.display_name);
+          if ('name' in val && val.name) return String(val.name);
+          if ('label' in val && val.label) return String(val.label);
+          if ('value' in val && (typeof (val as any).value === 'string' || typeof (val as any).value === 'number')) return String((val as any).value);
+          const firstReadable = Object.values(val).find((v) => typeof v === 'string' || typeof v === 'number');
+          return firstReadable ? String(firstReadable) : '';
+        }
+        return '';
+      };
+
+      const joinReadableValues = (obj: any, sep: string = ', '): string => {
+        if (!obj || typeof obj !== 'object') return '';
+        const parts = Object.values(obj)
+          .map(extractString)
+          .map((s) => (s || '').trim())
+          .filter((s) => s.length > 0);
+        return parts.join(sep);
+      };
+
+      const pick = (...vals: any[]) => vals.find((v) => extractString(v));
 
       // Paper specs (stage-specific)
       const paperSpecsObj: Record<string, any> = stageRow?.filtered_paper_specs || stageRow?.paper_specifications || {};
-      const paperType = paperSpecsObj.paper_type || paperSpecsObj.PaperType || paperSpecsObj.type || paperSpecsObj["Paper Type"];
-      const paperWeight = paperSpecsObj.paper_weight || paperSpecsObj.PaperWeight || paperSpecsObj.weight || paperSpecsObj["Paper Weight"];
-      let paperSpec = [paperWeight, paperType].filter(Boolean).join(' ');
-      if (!paperSpec && paperSpecsObj && typeof paperSpecsObj === 'object') {
-        const vals = Object.values(paperSpecsObj).filter(Boolean);
-        paperSpec = vals.join(' ');
+      const weightRaw = pick(
+        paperSpecsObj.paper_weight,
+        paperSpecsObj.PaperWeight,
+        paperSpecsObj.weight,
+        paperSpecsObj.gsm,
+        paperSpecsObj["Paper Weight"],
+        paperSpecsObj["GSM"]
+      );
+      let paperWeight = extractString(weightRaw);
+      if (paperWeight && !/gsm/i.test(paperWeight) && /^\d+(?:\.\d+)?$/.test(paperWeight.trim())) {
+        paperWeight = `${paperWeight}gsm`;
+      }
+      const paperType = extractString(
+        paperSpecsObj.paper_type ??
+          paperSpecsObj.PaperType ??
+          paperSpecsObj.type ??
+          paperSpecsObj["Paper Type"]
+      );
+      let paperSpec = [paperWeight, paperType].filter(Boolean).join(' ').trim();
+      if (!paperSpec) {
+        paperSpec = joinReadableValues(paperSpecsObj, ' ');
       }
 
       // Printing specs (stage-specific)
       const printingSpecsObj: Record<string, any> = stageRow?.filtered_printing_specs || stageRow?.printing_specifications || {};
-      const colours = printingSpecsObj.colours || printingSpecsObj.colors || printingSpecsObj.Colors || printingSpecsObj["Colour"] || printingSpecsObj["Colors"];
-      const sides = printingSpecsObj.sides || printingSpecsObj.simplex_duplex || printingSpecsObj.Sides || printingSpecsObj.SimplexDuplex || printingSpecsObj["Sides"];
-      let printSpec = colours && sides ? `${colours} (${sides})` : (colours ? String(colours) : '');
-      if (!printSpec && printingSpecsObj && typeof printingSpecsObj === 'object') {
-        const parts = Object.entries(printingSpecsObj)
-          .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
-          .map(([k, v]) => `${k}: ${v}`);
-        printSpec = parts.join(', ');
+      const colourRaw = pick(
+        printingSpecsObj.colours,
+        printingSpecsObj.colors,
+        printingSpecsObj.Colors,
+        printingSpecsObj["Colour"],
+        printingSpecsObj["Colors"]
+      );
+      const colours = extractString(colourRaw);
+      const sidesRaw = pick(
+        printingSpecsObj.sides,
+        printingSpecsObj.simplex_duplex,
+        printingSpecsObj.Sides,
+        printingSpecsObj.SimplexDuplex,
+        printingSpecsObj["Sides"]
+      );
+      let sides = extractString(sidesRaw);
+      const normalizeSides = (s: string) => {
+        const t = (s || '').toLowerCase();
+        if (!t) return '';
+        if (/(simplex|single|one|^1$)/i.test(t)) return '1 side';
+        if (/(duplex|double|two|both|^2$)/i.test(t)) return '2 sides';
+        return s;
+      };
+      if (sides) sides = normalizeSides(sides);
+      let printSpec = colours && sides ? `${colours} (${sides})` : (colours || '');
+      if (!printSpec) {
+        printSpec = joinReadableValues(printingSpecsObj, ', ');
       }
+
+      // Debug once to verify structure
+      console.debug('HP12000 specs', { stageRow, paperSpecsObj, printingSpecsObj, sheetSize, paperSpec, printSpec });
 
       setJobSpecs({
         print_specs: (printSpec || undefined),
