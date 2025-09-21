@@ -10,6 +10,7 @@ interface SubSpecificationBadgeProps {
   stageId?: string | null;
   compact?: boolean;
   className?: string;
+  partAssignment?: string | null;
 }
 
 interface JobPrintSpecification {
@@ -24,7 +25,8 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   jobId,
   stageId,
   compact = false,
-  className = ""
+  className = "",
+  partAssignment = null
 }) => {
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
   const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
@@ -44,9 +46,17 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
 
         if (error) throw error;
         
-        const paperSpecs = (data || []).filter((spec: JobPrintSpecification) => 
+        let paperSpecs = (data || []).filter((spec: JobPrintSpecification) => 
           spec.category === 'paper_type' || spec.category === 'paper_weight'
         );
+
+        // Filter by part assignment if specified
+        if (partAssignment && partAssignment !== 'both') {
+          const suffix = partAssignment === 'cover' ? '_Cover' : partAssignment === 'text' ? '_Text' : '';
+          if (suffix) {
+            paperSpecs = paperSpecs.filter(spec => spec.name.includes(suffix));
+          }
+        }
         
         setPaperSpecs(paperSpecs);
       } catch (error) {
@@ -57,7 +67,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     };
 
     fetchPaperSpecs();
-  }, [jobId]);
+  }, [jobId, partAssignment]);
 
   if (isLoading || paperLoading) {
     return (
