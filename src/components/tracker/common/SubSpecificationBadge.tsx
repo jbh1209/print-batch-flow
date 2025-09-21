@@ -31,6 +31,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
   const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
   const [paperLoading, setPaperLoading] = useState(false);
+  const [paperDisplayOverride, setPaperDisplayOverride] = useState<string | null>(null);
 
   // Fetch paper specifications for the job - use HP12000 stages data when partAssignment is provided
   useEffect(() => {
@@ -38,6 +39,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       if (!jobId) return;
       
       setPaperLoading(true);
+      setPaperDisplayOverride(null);
       try {
         // If partAssignment is provided, use get_job_hp12000_stages for part-specific data
         if (partAssignment && partAssignment !== 'both') {
@@ -47,18 +49,26 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
 
           if (error) throw error;
 
-          // Find the stage data that matches our part assignment
+          // Find the stage data that matches our part assignment (case-insensitive)
+          const normPart = String(partAssignment).toLowerCase();
           const stageData = (data || []).find((stage: any) => 
-            stage.part_assignment === partAssignment
+            String(stage.part_assignment || '').toLowerCase() === normPart
           );
 
           if (stageData?.paper_specifications) {
-            // Convert the part-specific paper specifications to our expected format
-            const paperSpecs: JobPrintSpecification[] = [];
             const specs = stageData.paper_specifications as Record<string, any>;
-            
+
+            // If RPC returns a keyed object of paper descriptions (most common),
+            // use the first key as a display override so Cover/Text differ correctly
+            const specKeys = Object.keys(specs || {});
+            if (specKeys.length > 0) {
+              setPaperDisplayOverride(specKeys[0]);
+            }
+
+            // Also support explicit paper_type / paper_weight if present
+            const localPaperSpecs: JobPrintSpecification[] = [];
             if (specs.paper_type) {
-              paperSpecs.push({
+              localPaperSpecs.push({
                 category: 'paper_type',
                 specification_id: 'paper_type',
                 name: 'paper_type',
@@ -66,9 +76,8 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
                 properties: {}
               });
             }
-            
             if (specs.paper_weight) {
-              paperSpecs.push({
+              localPaperSpecs.push({
                 category: 'paper_weight',
                 specification_id: 'paper_weight',
                 name: 'paper_weight',
@@ -76,8 +85,13 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
                 properties: {}
               });
             }
-            
-            setPaperSpecs(paperSpecs);
+
+            if (localPaperSpecs.length > 0) {
+              setPaperSpecs(localPaperSpecs);
+            } else {
+              // Ensure previous specs don't bleed across parts if only override is used
+              setPaperSpecs([]);
+            }
             return;
           }
         }
@@ -129,10 +143,10 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
-  // Get paper details for display - first try from job_print_specifications, then from notes
+  // Get paper details for display - prefer override from HP12000 RPC when available
   const paperType = paperSpecs.find(spec => spec.category === 'paper_type')?.display_name;
   const paperWeight = paperSpecs.find(spec => spec.category === 'paper_weight')?.display_name;
-  let paperDisplay = [paperWeight, paperType].filter(Boolean).join(' ');
+  let paperDisplay = (paperDisplayOverride || [paperWeight, paperType].filter(Boolean).join(' '));
   
   // If no paper specs from job_print_specifications, try to extract from notes
   if (!paperDisplay && specifications.length > 0) {
