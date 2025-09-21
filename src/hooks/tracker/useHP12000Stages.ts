@@ -22,8 +22,6 @@ export interface HP12000StageInstance {
   part_name: string | null;
   paper_specifications: any;
   printing_specifications: any;
-  suggested_paper_size_id: string | null;
-  suggested_paper_size_name: string | null;
 }
 
 export const useHP12000Stages = (jobId: string) => {

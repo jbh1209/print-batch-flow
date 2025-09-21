@@ -3564,8 +3564,6 @@ export type Database = {
           stage_instance_id: string
           stage_name: string
           stage_order: number
-          suggested_paper_size_id: string
-          suggested_paper_size_name: string
         }[]
       }
       get_job_rework_history: {

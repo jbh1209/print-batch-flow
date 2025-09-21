@@ -106,11 +106,6 @@ export const HP12000PaperSizeSelector: React.FC<HP12000PaperSizeSelectorProps> =
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {stage.suggested_paper_size_name && (
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                      Suggested: {stage.suggested_paper_size_name}
-                    </Badge>
-                  )}
                   {stage.paper_size_id && (
                     <Badge className={getPaperSizeColor(
                       paperSizes.find(ps => ps.id === stage.paper_size_id)!
@@ -160,16 +155,6 @@ export const HP12000PaperSizeSelector: React.FC<HP12000PaperSizeSelectorProps> =
                     ))}
                   </SelectContent>
                 </Select>
-                
-                {/* Use suggested button */}
-                {stage.suggested_paper_size_id && stage.paper_size_id !== stage.suggested_paper_size_id && (
-                  <button
-                    onClick={() => handlePaperSizeChange(stage.stage_instance_id, stage.suggested_paper_size_id!)}
-                    className="px-3 py-2 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors border border-green-200"
-                  >
-                    Use Suggested
-                  </button>
-                )}
               </div>
             </div>
           ))}
