@@ -32,13 +32,57 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
   const [paperLoading, setPaperLoading] = useState(false);
 
-  // Fetch paper specifications for the job
+  // Fetch paper specifications for the job - use HP12000 stages data when partAssignment is provided
   useEffect(() => {
     const fetchPaperSpecs = async () => {
       if (!jobId) return;
       
       setPaperLoading(true);
       try {
+        // If partAssignment is provided, use get_job_hp12000_stages for part-specific data
+        if (partAssignment && partAssignment !== 'both') {
+          const { data, error } = await supabase.rpc('get_job_hp12000_stages', {
+            p_job_id: jobId
+          });
+
+          if (error) throw error;
+
+          // Find the stage data that matches our part assignment
+          const stageData = (data || []).find((stage: any) => 
+            stage.part_assignment === partAssignment
+          );
+
+          if (stageData?.paper_specifications) {
+            // Convert the part-specific paper specifications to our expected format
+            const paperSpecs: JobPrintSpecification[] = [];
+            const specs = stageData.paper_specifications as Record<string, any>;
+            
+            if (specs.paper_type) {
+              paperSpecs.push({
+                category: 'paper_type',
+                specification_id: 'paper_type',
+                name: 'paper_type',
+                display_name: String(specs.paper_type),
+                properties: {}
+              });
+            }
+            
+            if (specs.paper_weight) {
+              paperSpecs.push({
+                category: 'paper_weight',
+                specification_id: 'paper_weight',
+                name: 'paper_weight',
+                display_name: String(specs.paper_weight),
+                properties: {}
+              });
+            }
+            
+            setPaperSpecs(paperSpecs);
+            return;
+          }
+        }
+
+        // Fallback to job-level specifications
         const { data, error } = await supabase.rpc('get_job_specifications', {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs'
@@ -50,7 +94,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
           spec.category === 'paper_type' || spec.category === 'paper_weight'
         );
 
-        // Filter by part assignment if specified
+        // Filter by part assignment if specified (fallback filtering)
         if (partAssignment && partAssignment !== 'both') {
           const suffix = partAssignment === 'cover' ? '_Cover' : partAssignment === 'text' ? '_Text' : '';
           if (suffix) {
