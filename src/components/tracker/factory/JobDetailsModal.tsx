@@ -25,7 +25,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
-
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
+import { PrintSpecsBadge } from "./PrintSpecsBadge";
 interface JobDetailsModalProps {
   job: ScheduledJobStage | null;
   isOpen: boolean;
@@ -41,8 +42,16 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   onStartJob,
   onCompleteJob
 }) => {
-  if (!job) return null;
+  const { isLoading: specsLoading, error: specsError, getSize, getPaperType, getPaperWeight, getLamination } = useJobSpecificationDisplay(job?.job_id, job ? 'production_jobs' : undefined);
 
+  const sheetSize = getSize();
+  const paperType = getPaperType();
+  const paperWeight = getPaperWeight();
+  const paperSpecs = [paperWeight, paperType].filter(v => v && v !== 'N/A').join(' ');
+  const lamination = getLamination();
+  const printSpecs = lamination && lamination !== 'None' ? `Lamination: ${lamination}` : undefined;
+
+  if (!job) return null;
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
     try {
@@ -199,11 +208,37 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                     </Badge>
                   </div>
                 )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Print Specifications */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Printer className="w-4 h-4" />
+                  Print Specifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {specsLoading ? (
+                  <div className="text-sm text-gray-600">Loading specifications...</div>
+                ) : specsError ? (
+                  <div className="text-sm text-red-600">Failed to load specifications</div>
+                ) : (printSpecs || paperSpecs || sheetSize) ? (
+                  <PrintSpecsBadge
+                    printSpecs={printSpecs}
+                    paperSpecs={paperSpecs}
+                    sheetSize={sheetSize}
+                    size="normal"
+                  />
+                ) : (
+                  <div className="text-sm text-gray-600">No specifications set</div>
+                )}
               </CardContent>
             </Card>
-          )}
 
-          {/* Batch Information */}
+            {/* Batch Information */}
           {job.is_batch_master && (
             <Card className="border-purple-200 bg-purple-50">
               <CardHeader className="pb-2">
