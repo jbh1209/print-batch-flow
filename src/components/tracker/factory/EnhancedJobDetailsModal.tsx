@@ -329,7 +329,6 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                             jobId={job.job_id} 
                             stageId={job.id} 
                             partAssignment={job.part_assignment}
-                            compact={true}
                           />
                           {jobSpecs.sheet_size && (
                             <PrintSpecsBadge 
