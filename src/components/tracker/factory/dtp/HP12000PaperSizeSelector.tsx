@@ -86,15 +86,31 @@ export const HP12000PaperSizeSelector: React.FC<HP12000PaperSizeSelectorProps> =
         {/* Stage List */}
         <div className="space-y-3">
           {hp12000Stages.map((stage) => (
-            <div key={stage.stage_instance_id} className="p-3 bg-white rounded-md border">
+            <div key={stage.stage_instance_id} className="p-4 bg-white rounded-md border space-y-3">
+              {/* Header with stage name and part assignment */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-gray-500" />
                   <span className="font-medium">{stage.stage_name}</span>
                   <Badge variant="outline">Order: {stage.stage_order}</Badge>
+                  {stage.part_assignment && (
+                    <Badge 
+                      variant={stage.part_assignment === 'cover' ? 'default' : 'secondary'} 
+                      className="text-xs"
+                    >
+                      {stage.part_assignment === 'cover' ? 'Cover' : 
+                       stage.part_assignment === 'text' ? 'Text' : 
+                       stage.part_assignment}
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
+                  {stage.suggested_paper_size_name && (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                      Suggested: {stage.suggested_paper_size_name}
+                    </Badge>
+                  )}
                   {stage.paper_size_id && (
                     <Badge className={getPaperSizeColor(
                       paperSizes.find(ps => ps.id === stage.paper_size_id)!
@@ -102,28 +118,58 @@ export const HP12000PaperSizeSelector: React.FC<HP12000PaperSizeSelectorProps> =
                       {stage.paper_size_name}
                     </Badge>
                   )}
-                  
-                  <Select
-                    value={stage.paper_size_id || ''}
-                    onValueChange={(value) => handlePaperSizeChange(stage.stage_instance_id, value)}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Select paper size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paperSizes.map(paperSize => (
-                        <SelectItem key={paperSize.id} value={paperSize.id}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${
-                              paperSize.name.includes('Large') ? 'bg-blue-500' : 'bg-orange-500'
-                            }`} />
-                            {paperSize.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
+              </div>
+
+              {/* Part specifications */}
+              {(stage.part_name || stage.paper_specifications || stage.printing_specifications) && (
+                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded space-y-1">
+                  {stage.part_name && (
+                    <p><span className="font-medium text-gray-800">Part:</span> {stage.part_name}</p>
+                  )}
+                  {stage.paper_specifications && Object.keys(stage.paper_specifications).length > 0 && (
+                    <p><span className="font-medium text-gray-800">Paper Specs:</span> {Object.entries(stage.paper_specifications)
+                      .map(([key, value]) => `${key}: ${value}`).join(', ')}</p>
+                  )}
+                  {stage.printing_specifications && Object.keys(stage.printing_specifications).length > 0 && (
+                    <p><span className="font-medium text-gray-800">Print Specs:</span> {Object.entries(stage.printing_specifications)
+                      .map(([key, value]) => `${key}: ${value}`).join(', ')}</p>
+                  )}
+                </div>
+              )}
+              
+              {/* Paper size selection */}
+              <div className="flex items-center gap-2">
+                <Select
+                  value={stage.paper_size_id || ''}
+                  onValueChange={(value) => handlePaperSizeChange(stage.stage_instance_id, value)}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select paper size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paperSizes.map(paperSize => (
+                      <SelectItem key={paperSize.id} value={paperSize.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${
+                            paperSize.name.includes('Large') ? 'bg-blue-500' : 'bg-orange-500'
+                          }`} />
+                          {paperSize.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {/* Use suggested button */}
+                {stage.suggested_paper_size_id && stage.paper_size_id !== stage.suggested_paper_size_id && (
+                  <button
+                    onClick={() => handlePaperSizeChange(stage.stage_instance_id, stage.suggested_paper_size_id!)}
+                    className="px-3 py-2 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors border border-green-200"
+                  >
+                    Use Suggested
+                  </button>
+                )}
               </div>
             </div>
           ))}

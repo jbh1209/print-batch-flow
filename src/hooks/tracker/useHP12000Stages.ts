@@ -18,6 +18,12 @@ export interface HP12000StageInstance {
   paper_size_id: string | null;
   paper_size_name: string | null;
   is_paper_size_required: boolean;
+  part_assignment: string | null;
+  part_name: string | null;
+  paper_specifications: any;
+  printing_specifications: any;
+  suggested_paper_size_id: string | null;
+  suggested_paper_size_name: string | null;
 }
 
 export const useHP12000Stages = (jobId: string) => {

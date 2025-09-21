@@ -3556,10 +3556,16 @@ export type Database = {
           is_paper_size_required: boolean
           paper_size_id: string
           paper_size_name: string
+          paper_specifications: Json
+          part_assignment: string
+          part_name: string
+          printing_specifications: Json
           production_stage_id: string
           stage_instance_id: string
           stage_name: string
           stage_order: number
+          suggested_paper_size_id: string
+          suggested_paper_size_name: string
         }[]
       }
       get_job_rework_history: {
