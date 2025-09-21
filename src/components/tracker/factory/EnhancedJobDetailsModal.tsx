@@ -36,8 +36,8 @@ import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
-import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 import { PrintSpecsBadge } from "./PrintSpecsBadge";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
@@ -62,28 +62,99 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   const [activeTab, setActiveTab] = useState("scanning");
   const [scanRequired, setScanRequired] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [jobSpecs, setJobSpecs] = useState<{
+    print_specs?: string;
+    paper_specs?: string; 
+    sheet_size?: string;
+  }>({});
+  const [specsLoading, setSpecsLoading] = useState(false);
   
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
 
-  // Fetch print specifications for this job
-  const { isLoading: specsLoading, error: specsError, getSize, getPaperType, getPaperWeight, getLamination } =
-    useJobSpecificationDisplay(job?.job_id, job ? 'production_jobs' : undefined);
+  // Fetch job specifications - copy proven logic from usePersonalOperatorQueue
+  const fetchJobSpecifications = async (jobId: string) => {
+    try {
+      setSpecsLoading(true);
+      
+      // Fetch print specifications
+      const { data: printSpecs } = await supabase.rpc('get_job_specifications', {
+        p_job_id: jobId,
+        p_job_table_name: 'production_jobs'
+      });
 
-  // Derive display strings
-  const sheetSize = getSize();
-  const paperType = getPaperType();
-  const paperWeight = getPaperWeight();
-  const paperSpecs = [paperWeight, paperType].filter(v => v && v !== 'N/A').join(' ');
-  const lamination = getLamination();
-  const printSpecs = lamination && lamination !== 'None' ? `Lamination: ${lamination}` : undefined;
+      // Fetch HP12000 paper size info
+      const { data: hp12000Data } = await supabase.rpc('get_job_hp12000_stages', {
+        p_job_id: jobId
+      });
 
-  // Reset tab when modal opens
+      // Parse print specifications
+      const printingSpecs = printSpecs?.find(spec => spec.category === 'printing');
+      const paperSpecs = printSpecs?.filter(spec => ['paper_type', 'paper_weight'].includes(spec.category));
+      
+      // Build print specs string
+      let printSpecsString = '';
+      if (printingSpecs?.properties) {
+        const props = printingSpecs.properties as any;
+        if (props.colours && props.sides) {
+          printSpecsString = `${props.colours} (${props.sides})`;
+        } else if (props.colours) {
+          printSpecsString = props.colours;
+        }
+      }
+
+      // Build paper specs string
+      let paperSpecsString = '';
+      if (paperSpecs?.length > 0) {
+        const paperType = paperSpecs.find(s => s.category === 'paper_type')?.display_name;
+        const paperWeight = paperSpecs.find(s => s.category === 'paper_weight')?.display_name;
+        if (paperWeight && paperType) {
+          paperSpecsString = `${paperWeight} ${paperType}`;
+        } else if (paperWeight) {
+          paperSpecsString = paperWeight;
+        } else if (paperType) {
+          paperSpecsString = paperType;
+        }
+      }
+
+      // Get sheet size from HP12000 data
+      let sheetSize = '';
+      if (hp12000Data?.length > 0) {
+        const paperSize = hp12000Data[0]?.paper_size_name;
+        if (paperSize) {
+          // Determine if it's large or small sheet based on paper size name
+          if (paperSize.includes('B1') || paperSize.includes('Large')) {
+            sheetSize = 'Large Sheet';
+          } else if (paperSize.includes('B2') || paperSize.includes('Small')) {
+            sheetSize = 'Small Sheet';
+          } else {
+            sheetSize = paperSize;
+          }
+        }
+      }
+
+      setJobSpecs({
+        print_specs: printSpecsString,
+        paper_specs: paperSpecsString,
+        sheet_size: sheetSize
+      });
+    } catch (error) {
+      console.error('Error fetching job specifications:', error);
+      setJobSpecs({});
+    } finally {
+      setSpecsLoading(false);
+    }
+  };
+
+  // Reset tab when modal opens and fetch specs
   useEffect(() => {
     if (isOpen) {
       setActiveTab("scanning");
+      if (job?.job_id) {
+        fetchJobSpecifications(job.job_id);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, job?.job_id]);
 
   if (!job) return null;
 
@@ -400,17 +471,15 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
               <CardContent>
                 {specsLoading ? (
                   <div className="text-sm text-gray-600">Loading specifications...</div>
-                ) : specsError ? (
-                  <div className="text-sm text-red-600">Failed to load specifications</div>
-                ) : (printSpecs || paperSpecs || sheetSize) ? (
+                ) : (jobSpecs.print_specs || jobSpecs.paper_specs || jobSpecs.sheet_size) ? (
                   <PrintSpecsBadge
-                    printSpecs={printSpecs}
-                    paperSpecs={paperSpecs}
-                    sheetSize={sheetSize}
+                    printSpecs={jobSpecs.print_specs}
+                    paperSpecs={jobSpecs.paper_specs}
+                    sheetSize={jobSpecs.sheet_size}
                     size="normal"
                   />
                 ) : (
-                  <div className="text-sm text-gray-600">No specifications set</div>
+                  <div className="text-sm text-gray-600">No specifications available</div>
                 )}
               </CardContent>
             </Card>
