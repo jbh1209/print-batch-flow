@@ -73,45 +73,39 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
 
-  // Fetch job specifications - simplified approach
+  // Fetch job specifications for this stage instance from HP12000 view only (simple + per-part)
   const fetchJobSpecifications = async (jobId: string, stageInstanceId: string) => {
     try {
       setSpecsLoading(true);
-      
-      // Get specifications from RPC
-      const { data: specs } = await supabase.rpc('get_job_specifications', {
-        p_job_id: jobId,
-        p_job_table_name: 'production_jobs'
-      });
 
-      // Get HP12000 sheet size
-      const { data: hp12000Data } = await supabase.rpc('get_job_hp12000_stages', {
+      // Fetch HP12000 stage info (this already works for Large/Small)
+      const { data: hp12000Data, error } = await supabase.rpc('get_job_hp12000_stages', {
         p_job_id: jobId
       });
+      if (error) throw error;
 
-      console.log('Job specifications:', specs);
+      // Match current stage instance
+      const stageRow: any | undefined = hp12000Data?.find((r: any) => r.stage_instance_id === stageInstanceId);
 
-      // Extract print specs - look for printing category display_name
-      const printSpec = specs?.find(spec => spec.category === 'printing')?.display_name;
-      
-      // Extract paper specs - combine paper_weight and paper_type display_names
-      const paperTypeSpec = specs?.find(spec => spec.category === 'paper_type')?.display_name;
-      const paperWeightSpec = specs?.find(spec => spec.category === 'paper_weight')?.display_name;
-      const paperSpec = [paperWeightSpec, paperTypeSpec].filter(Boolean).join(' ');
+      // Sheet size
+      const sheetSize = stageRow?.paper_size_name || '';
 
-      // Get sheet size from HP12000 data (keep existing working logic)
-      let sheetSize = '';
-      if (hp12000Data?.length > 0) {
-        const stageRow = hp12000Data.find((r: any) => r.stage_instance_id === stageInstanceId);
-        if (stageRow?.paper_size_name) {
-          sheetSize = stageRow.paper_size_name;
-        }
-      }
+      // Paper specs (stage-specific)
+      const paperSpecsObj: Record<string, any> = stageRow?.filtered_paper_specs || {};
+      const paperType = paperSpecsObj.paper_type || paperSpecsObj.PaperType || paperSpecsObj.type || paperSpecsObj["Paper Type"];
+      const paperWeight = paperSpecsObj.paper_weight || paperSpecsObj.PaperWeight || paperSpecsObj.weight || paperSpecsObj["Paper Weight"];
+      const paperSpec = [paperWeight, paperType].filter(Boolean).join(' ');
+
+      // Printing specs (stage-specific)
+      const printingSpecsObj: Record<string, any> = stageRow?.filtered_printing_specs || {};
+      const colours = printingSpecsObj.colours || printingSpecsObj.colors || printingSpecsObj.Colors;
+      const sides = printingSpecsObj.sides || printingSpecsObj.simplex_duplex || printingSpecsObj.Sides || printingSpecsObj.SimplexDuplex;
+      const printSpec = colours && sides ? `${colours} (${sides})` : (colours ? String(colours) : '');
 
       setJobSpecs({
-        print_specs: printSpec || undefined,
-        paper_specs: paperSpec || undefined,
-        sheet_size: sheetSize || undefined
+        print_specs: (printSpec || undefined),
+        paper_specs: (paperSpec || undefined),
+        sheet_size: (sheetSize || undefined)
       });
     } catch (error) {
       console.error('Error fetching job specifications:', error);
