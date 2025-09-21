@@ -250,7 +250,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] sm:max-w-4xl h-[90vh] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+      <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full h-[95vh] max-h-[95vh] overflow-y-auto p-3 sm:p-4">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Hash className="h-5 w-5" />
@@ -275,12 +275,12 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                   {scanCompleted ? "✓ Job Scanned Successfully" : "⚠ Scan Required Before Starting"}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-white p-8 rounded-lg border text-center">
-                  <QrCode className="w-32 h-32 text-gray-400 mx-auto mb-4" />
-                  <div className="text-lg font-bold mb-2">{job.wo_no}</div>
-                  <div className="text-sm text-gray-600 mb-4">{job.stage_name}</div>
-                  <div className="text-xs font-mono bg-gray-100 p-2 rounded">
+              <CardContent className="space-y-3">
+                <div className="bg-white p-4 rounded-lg border text-center">
+                  <QrCode className="w-20 h-20 text-gray-400 mx-auto mb-3" />
+                  <div className="text-base font-bold mb-1">{job.wo_no}</div>
+                  <div className="text-sm text-gray-600 mb-2">{job.stage_name}</div>
+                  <div className="text-xs font-mono bg-gray-100 p-1 rounded">
                     {generateQRCode()}
                   </div>
                 </div>
@@ -316,6 +316,28 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                           <span className="font-medium">Due:</span>
                           <span className="font-semibold">{format(new Date(job.due_date), 'MMM dd, yyyy')}</span>
                         </div>
+                      )}
+                    </div>
+                    
+                    {/* Print Specifications Row */}
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-200">
+                      {specsLoading ? (
+                        <div className="text-sm text-gray-500">Loading specifications...</div>
+                      ) : (
+                        <>
+                          <SubSpecificationBadge 
+                            jobId={job.job_id} 
+                            stageId={job.id} 
+                            partAssignment={job.part_assignment}
+                            compact={true}
+                          />
+                          {jobSpecs.sheet_size && (
+                            <PrintSpecsBadge 
+                              sheetSize={jobSpecs.sheet_size}
+                              size="compact"
+                            />
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
