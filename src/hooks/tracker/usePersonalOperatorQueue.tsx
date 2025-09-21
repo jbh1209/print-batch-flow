@@ -3,6 +3,80 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+// Helper function to fetch job specifications
+const fetchJobSpecifications = async (jobId: string) => {
+  try {
+    // Fetch print specifications
+    const { data: printSpecs } = await supabase.rpc('get_job_specifications', {
+      p_job_id: jobId,
+      p_job_table_name: 'production_jobs'
+    });
+
+    // Fetch HP12000 paper size info
+    const { data: hp12000Data } = await supabase.rpc('get_job_hp12000_stages', {
+      p_job_id: jobId
+    });
+
+    // Parse print specifications
+    const printingSpecs = printSpecs?.find(spec => spec.category === 'printing');
+    const paperSpecs = printSpecs?.filter(spec => ['paper_type', 'paper_weight'].includes(spec.category));
+    
+    // Build print specs string
+    let printSpecsString = '';
+    if (printingSpecs?.properties) {
+      const props = printingSpecs.properties as any;
+      if (props.colours && props.sides) {
+        printSpecsString = `${props.colours} (${props.sides})`;
+      } else if (props.colours) {
+        printSpecsString = props.colours;
+      }
+    }
+
+    // Build paper specs string
+    let paperSpecsString = '';
+    if (paperSpecs?.length > 0) {
+      const paperType = paperSpecs.find(s => s.category === 'paper_type')?.display_name;
+      const paperWeight = paperSpecs.find(s => s.category === 'paper_weight')?.display_name;
+      if (paperWeight && paperType) {
+        paperSpecsString = `${paperWeight} ${paperType}`;
+      } else if (paperWeight) {
+        paperSpecsString = paperWeight;
+      } else if (paperType) {
+        paperSpecsString = paperType;
+      }
+    }
+
+    // Get sheet size from HP12000 data
+    let sheetSize = '';
+    if (hp12000Data?.length > 0) {
+      const paperSize = hp12000Data[0]?.paper_size_name;
+      if (paperSize) {
+        // Determine if it's large or small sheet based on paper size name
+        if (paperSize.includes('B1') || paperSize.includes('Large')) {
+          sheetSize = 'Large Sheet';
+        } else if (paperSize.includes('B2') || paperSize.includes('Small')) {
+          sheetSize = 'Small Sheet';
+        } else {
+          sheetSize = paperSize;
+        }
+      }
+    }
+
+    return {
+      print_specs: printSpecsString,
+      paper_specs: paperSpecsString,
+      sheet_size: sheetSize
+    };
+  } catch (error) {
+    console.error('Error fetching job specifications:', error);
+    return {
+      print_specs: undefined,
+      paper_specs: undefined,
+      sheet_size: undefined
+    };
+  }
+};
+
 export interface PersonalQueueJob {
   job_id: string;
   job_stage_instance_id: string;
@@ -20,6 +94,15 @@ export interface PersonalQueueJob {
   category_name?: string;
   category_color?: string;
   is_rush: boolean;
+  // Print operator specifications
+  print_specs?: string;
+  paper_specs?: string;
+  sheet_size?: string;
+  // Additional fields for compatibility with TouchOptimizedJobCard
+  completed_stages?: number;
+  total_stages?: number;
+  user_can_work?: boolean;
+  current_stage_id?: string;
 }
 
 export const usePersonalOperatorQueue = (operatorId?: string) => {
@@ -61,24 +144,40 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
 
       if (error) throw error;
 
-      return data.map((item, index): PersonalQueueJob => ({
-        job_id: item.job_id,
-        job_stage_instance_id: item.id,
-        wo_no: item.production_jobs.wo_no,
-        customer: item.production_jobs.customer,
-        current_stage_name: item.production_stages.name,
-        current_stage_status: item.status as 'pending',
-        scheduled_start_at: item.scheduled_start_at,
-        estimated_duration_minutes: item.estimated_duration_minutes,
-        due_date: item.production_jobs.due_date,
-        priority_score: 0, // Default priority since column doesn't exist
-        queue_position: index + 1,
-        workflow_progress: 0, // Will be calculated separately if needed
-        reference: item.production_jobs.reference,
-        category_name: item.categories?.name || 'No Category',
-        category_color: item.categories?.color || '#6B7280',
-        is_rush: false, // Default since column doesn't exist on production_jobs
-      }));
+      // Fetch specifications for each job
+      const jobsWithSpecs = await Promise.all(
+        data.map(async (item, index) => {
+          const specs = await fetchJobSpecifications(item.job_id);
+          
+          return {
+            job_id: item.job_id,
+            job_stage_instance_id: item.id,
+            wo_no: item.production_jobs.wo_no,
+            customer: item.production_jobs.customer,
+            current_stage_name: item.production_stages.name,
+            current_stage_status: item.status as 'pending',
+            scheduled_start_at: item.scheduled_start_at,
+            estimated_duration_minutes: item.estimated_duration_minutes,
+            due_date: item.production_jobs.due_date,
+            priority_score: 0,
+            queue_position: index + 1,
+            workflow_progress: 0,
+            reference: item.production_jobs.reference,
+            category_name: item.categories?.name || 'No Category',
+            category_color: item.categories?.color || '#6B7280',
+            is_rush: false,
+            print_specs: specs.print_specs,
+            paper_specs: specs.paper_specs,
+            sheet_size: specs.sheet_size,
+            completed_stages: 0,
+            total_stages: 1,
+            user_can_work: true,
+            current_stage_id: item.id,
+          } as PersonalQueueJob;
+        })
+      );
+
+      return jobsWithSpecs;
     },
     enabled: !!effectiveOperatorId,
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -117,24 +216,40 @@ export const usePersonalOperatorQueue = (operatorId?: string) => {
 
       if (error) throw error;
 
-      return data.map((item): PersonalQueueJob => ({
-        job_id: item.job_id,
-        job_stage_instance_id: item.id,
-        wo_no: item.production_jobs.wo_no,
-        customer: item.production_jobs.customer,
-        current_stage_name: item.production_stages.name,
-        current_stage_status: 'active',
-        scheduled_start_at: item.started_at,
-        estimated_duration_minutes: item.estimated_duration_minutes,
-        due_date: item.production_jobs.due_date,
-        priority_score: 1000, // Active jobs have highest priority
-        queue_position: 0, // Active jobs are position 0
-        workflow_progress: 50, // Assume halfway through active stage
-        reference: item.production_jobs.reference,
-        category_name: item.categories?.name || 'No Category',
-        category_color: item.categories?.color || '#6B7280',
-        is_rush: false, // Default since column doesn't exist
-      }));
+      // Fetch specifications for each active job
+      const jobsWithSpecs = await Promise.all(
+        data.map(async (item) => {
+          const specs = await fetchJobSpecifications(item.job_id);
+          
+          return {
+            job_id: item.job_id,
+            job_stage_instance_id: item.id,
+            wo_no: item.production_jobs.wo_no,
+            customer: item.production_jobs.customer,
+            current_stage_name: item.production_stages.name,
+            current_stage_status: 'active',
+            scheduled_start_at: item.started_at,
+            estimated_duration_minutes: item.estimated_duration_minutes,
+            due_date: item.production_jobs.due_date,
+            priority_score: 1000,
+            queue_position: 0,
+            workflow_progress: 50,
+            reference: item.production_jobs.reference,
+            category_name: item.categories?.name || 'No Category',
+            category_color: item.categories?.color || '#6B7280',
+            is_rush: false,
+            print_specs: specs.print_specs,
+            paper_specs: specs.paper_specs,
+            sheet_size: specs.sheet_size,
+            completed_stages: 0,
+            total_stages: 1,
+            user_can_work: true,
+            current_stage_id: item.id,
+          } as PersonalQueueJob;
+        })
+      );
+
+      return jobsWithSpecs;
     },
     enabled: !!effectiveOperatorId,
     refetchInterval: 10000, // Refresh every 10 seconds for active jobs

@@ -18,9 +18,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { PrintSpecsBadge } from "./PrintSpecsBadge";
+import { PersonalQueueJob } from "@/hooks/tracker/usePersonalOperatorQueue";
 
 interface TouchOptimizedJobCardProps {
-  job: AccessibleJob;
+  job: AccessibleJob | PersonalQueueJob;
   onStart: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
   onHold?: (jobId: string, reason: string) => Promise<boolean>;
@@ -114,24 +116,40 @@ export const TouchOptimizedJobCard: React.FC<TouchOptimizedJobCardProps> = ({
             </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={cn("font-medium text-gray-700", size === 'compact' ? 'text-xs' : 'text-sm')}>
+                  Progress
+                </span>
+                <span className={cn("font-bold text-gray-900", size === 'compact' ? 'text-xs' : 'text-sm')}>
+                  {Math.round(job.workflow_progress)}%
+                </span>
+              </div>
+              <Progress 
+                value={job.workflow_progress} 
+                className={cn("transition-all duration-300", size === 'compact' ? 'h-1' : 'h-2')}
+              />
+              {'completed_stages' in job && 'total_stages' in job && (
+                <div className={cn("text-gray-500", size === 'compact' ? 'text-xs' : 'text-sm')}>
+                  Stage {job.completed_stages} of {job.total_stages}
+                </div>
+              )}
+            </div>
+
+          {/* Print Specifications */}
+          {'print_specs' in job && (job.print_specs || job.paper_specs || job.sheet_size) && (
+            <div className="space-y-2">
               <span className={cn("font-medium text-gray-700", size === 'compact' ? 'text-xs' : 'text-sm')}>
-                Progress
+                Specifications
               </span>
-              <span className={cn("font-bold text-gray-900", size === 'compact' ? 'text-xs' : 'text-sm')}>
-                {Math.round(job.workflow_progress)}%
-              </span>
+              <PrintSpecsBadge 
+                printSpecs={job.print_specs}
+                paperSpecs={job.paper_specs}
+                sheetSize={job.sheet_size}
+                size={size === 'compact' ? 'compact' : 'normal'}
+              />
             </div>
-            <Progress 
-              value={job.workflow_progress} 
-              className={cn("transition-all duration-300", size === 'compact' ? 'h-1' : 'h-2')}
-            />
-            <div className={cn("text-gray-500", size === 'compact' ? 'text-xs' : 'text-sm')}>
-              Stage {job.completed_stages} of {job.total_stages}
-            </div>
-          </div>
+          )}
 
           {/* Job Details */}
           {(showFullDetails || size !== 'compact') && (
@@ -178,7 +196,7 @@ export const TouchOptimizedJobCard: React.FC<TouchOptimizedJobCardProps> = ({
           )}
 
           {/* Action Buttons */}
-          {job.user_can_work && job.current_stage_id && (
+          {'user_can_work' in job && job.user_can_work && 'current_stage_id' in job && job.current_stage_id && (
             <div className="pt-2 border-t">
               {showHoldReasons ? (
                 <div className="space-y-2">
@@ -210,7 +228,6 @@ export const TouchOptimizedJobCard: React.FC<TouchOptimizedJobCardProps> = ({
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  {job.current_stage_status === 'pending' && (
                     <Button 
                       onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id!))}
                       className={cn(
@@ -222,7 +239,6 @@ export const TouchOptimizedJobCard: React.FC<TouchOptimizedJobCardProps> = ({
                       <Play className={cn("mr-2", size === 'compact' ? 'h-3 w-3' : 'h-5 w-5')} />
                       Start Job
                     </Button>
-                  )}
                   
                   {job.current_stage_status === 'active' && (
                     <>
