@@ -31,6 +31,7 @@ export const useEnhancedStageSpecifications = (jobId: string, stageId?: string |
         let query = supabase
           .from('job_stage_instances')
           .select(`
+            id,
             production_stage_id,
             part_name,
             quantity,
@@ -49,7 +50,8 @@ export const useEnhancedStageSpecifications = (jobId: string, stageId?: string |
 
         // If specific stage requested, filter to that stage
         if (stageId) {
-          query = query.eq('production_stage_id', stageId);
+          // Support both unique stage instance id and production_stage_id for compatibility
+          query = query.or(`id.eq.${stageId},production_stage_id.eq.${stageId}`);
         }
 
         const { data, error: fetchError } = await query;
@@ -58,7 +60,7 @@ export const useEnhancedStageSpecifications = (jobId: string, stageId?: string |
 
         if (data) {
           const specs: EnhancedStageSpecificationData[] = data.map(item => ({
-            stage_id: item.production_stage_id,
+            stage_id: item.id,
             stage_name: item.production_stages?.name || 'Unknown Stage',
             sub_specification: item.stage_specifications?.description || 
                               item.stage_specifications?.name ||

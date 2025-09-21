@@ -387,9 +387,9 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                <div className="flex-1">
                                  <div className="flex items-center gap-2 mb-1">
                                    <h4 className="font-medium">{stage.production_stage.name}</h4>
-                                    <SubSpecificationBadge 
+                                   <SubSpecificationBadge 
                                       jobId={job.job_id}
-                                      stageId={stage.production_stage_id}
+                                      stageId={stage.id}
                                       compact={true}
                                       className="ml-2"
                                       partAssignment={stage.part_assignment}
