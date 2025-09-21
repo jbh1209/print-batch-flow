@@ -440,15 +440,23 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
               <CardContent>
                 {specsLoading ? (
                   <div className="text-sm text-gray-600">Loading specifications...</div>
-                ) : (jobSpecs.print_specs || jobSpecs.paper_specs || jobSpecs.sheet_size) ? (
-                  <PrintSpecsBadge
-                    printSpecs={jobSpecs.print_specs}
-                    paperSpecs={jobSpecs.paper_specs}
-                    sheetSize={jobSpecs.sheet_size}
-                    size="normal"
-                  />
                 ) : (
-                  <SubSpecificationBadge jobId={job.job_id} stageId={job.id} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Use the same spec source as MasterOrderModal via SubSpecificationBadge */}
+                    <SubSpecificationBadge 
+                      jobId={job.job_id} 
+                      stageId={job.id} 
+                      partAssignment={job.part_assignment}
+                    />
+
+                    {/* Keep existing sheet size display */}
+                    {jobSpecs.sheet_size && (
+                      <PrintSpecsBadge 
+                        sheetSize={jobSpecs.sheet_size}
+                        size="normal"
+                      />
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
