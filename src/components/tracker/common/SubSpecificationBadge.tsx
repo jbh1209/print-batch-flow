@@ -11,6 +11,7 @@ interface SubSpecificationBadgeProps {
   compact?: boolean;
   className?: string;
   partAssignment?: string | null;
+  stageNotes?: string | null;
 }
 
 interface JobPrintSpecification {
@@ -26,7 +27,8 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   stageId,
   compact = false,
   className = "",
-  partAssignment = null
+  partAssignment = null,
+  stageNotes = null
 }) => {
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
   const [paperSpecs, setPaperSpecs] = useState<JobPrintSpecification[]>([]);
@@ -41,6 +43,16 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       setPaperLoading(true);
       setPaperDisplayOverride(null);
       try {
+        // Priority 0: If this specific stage instance has notes with Paper:, use that (matches schedule board logic)
+        if (stageNotes && stageNotes.toLowerCase().includes('paper:')) {
+          const parsed = parsePaperSpecsFromNotes(stageNotes);
+          const display = formatPaperDisplay(parsed);
+          if (display) {
+            setPaperDisplayOverride(display);
+            setPaperSpecs([]);
+            return;
+          }
+        }
         // If partAssignment is provided, use get_job_hp12000_stages for part-specific data
         if (partAssignment && partAssignment !== 'both') {
           const { data, error } = await supabase.rpc('get_job_hp12000_stages', {
@@ -125,7 +137,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     };
 
     fetchPaperSpecs();
-  }, [jobId, partAssignment]);
+  }, [jobId, partAssignment, stageNotes]);
 
   if (isLoading || paperLoading) {
     return (
@@ -148,14 +160,23 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const paperWeight = paperSpecs.find(spec => spec.category === 'paper_weight')?.display_name;
   let paperDisplay = (paperDisplayOverride || [paperWeight, paperType].filter(Boolean).join(' '));
   
-  // If no paper specs from job_print_specifications, try to extract from notes
-  if (!paperDisplay && specifications.length > 0) {
-    const notesWithPaper = specifications.find(spec => spec.notes?.toLowerCase().includes('paper:'));
-    if (notesWithPaper) {
-      const parsedPaper = parsePaperSpecsFromNotes(notesWithPaper.notes);
-      paperDisplay = formatPaperDisplay(parsedPaper) || '';
-    }
+// If no paper specs from job_print_specifications, try to extract from notes (prefer part-specific)
+if (!paperDisplay && specifications.length > 0) {
+  const normPart = (partAssignment || '').toLowerCase();
+  let targetSpec = specifications.find(s => s.notes?.toLowerCase().includes('paper:') && (
+    normPart === '' || normPart === 'both' ||
+    (normPart === 'cover' && (s.part_name || '').toLowerCase().includes('cover')) ||
+    (normPart === 'text' && (s.part_name || '').toLowerCase().includes('text'))
+  ));
+  // Fallback to any spec with Paper: if part-specific not found
+  if (!targetSpec) {
+    targetSpec = specifications.find(s => s.notes?.toLowerCase().includes('paper:'));
   }
+  if (targetSpec?.notes) {
+    const parsedPaper = parsePaperSpecsFromNotes(targetSpec.notes);
+    paperDisplay = formatPaperDisplay(parsedPaper) || '';
+  }
+}
 
   if (compact) {
     // Show stage + sub-spec + paper in compact mode

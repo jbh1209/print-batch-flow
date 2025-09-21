@@ -393,6 +393,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                       compact={true}
                                       className="ml-2"
                                       partAssignment={stage.part_assignment}
+                                      stageNotes={stage.notes}
                                     />
                                  </div>
                                  {stage.part_name && (
