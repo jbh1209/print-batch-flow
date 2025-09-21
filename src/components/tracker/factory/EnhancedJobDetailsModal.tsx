@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { PrintSpecsBadge } from "./PrintSpecsBadge";
+import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { supabase } from "@/integrations/supabase/client";
 
 interface EnhancedJobDetailsModalProps {
@@ -479,7 +480,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                     size="normal"
                   />
                 ) : (
-                  <div className="text-sm text-gray-600">No specifications available</div>
+                  <SubSpecificationBadge jobId={job.job_id} stageId={job.id} />
                 )}
               </CardContent>
             </Card>
