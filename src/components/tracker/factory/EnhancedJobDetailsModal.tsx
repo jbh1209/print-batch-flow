@@ -73,95 +73,44 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
 
-  // Fetch job specifications - copy proven logic from usePersonalOperatorQueue
+  // Fetch job specifications - simplified approach
   const fetchJobSpecifications = async (jobId: string, stageInstanceId: string) => {
     try {
       setSpecsLoading(true);
       
-      // Fetch print specifications
-      const { data: printSpecs } = await supabase.rpc('get_job_specifications', {
+      // Get specifications from RPC
+      const { data: specs } = await supabase.rpc('get_job_specifications', {
         p_job_id: jobId,
         p_job_table_name: 'production_jobs'
       });
 
-      // Fetch HP12000 paper size info
+      // Get HP12000 sheet size
       const { data: hp12000Data } = await supabase.rpc('get_job_hp12000_stages', {
         p_job_id: jobId
       });
 
-      // Parse print specifications
-      const printingSpecs = printSpecs?.find(spec => spec.category === 'printing');
-      const laminationSpec = printSpecs?.find(spec => spec.category === 'lamination_type')?.display_name;
-      const paperSpecs = printSpecs?.filter(spec => ['paper_type', 'paper_weight'].includes(spec.category));
+      console.log('Job specifications:', specs);
+
+      // Extract print specs - look for printing category display_name
+      const printSpec = specs?.find(spec => spec.category === 'printing')?.display_name;
       
-      // Build print specs string
-      let printSpecsString = '';
-      if (printingSpecs?.properties) {
-        const props = printingSpecs.properties as any;
-        const colours = props.colours || props.colors || props.Colors || props.colours_mode;
-        const sides = props.sides || props.Sides || props.simplex_duplex || props.SimplexDuplex;
-        if (colours && sides) {
-          printSpecsString = `${colours} (${sides})`;
-        } else if (colours) {
-          printSpecsString = String(colours);
-        }
-      }
-      // Fallback: use lamination as print spec if available
-      if (!printSpecsString && laminationSpec && laminationSpec !== 'None') {
-        printSpecsString = `Lamination: ${laminationSpec}`;
-      }
+      // Extract paper specs - combine paper_weight and paper_type display_names
+      const paperTypeSpec = specs?.find(spec => spec.category === 'paper_type')?.display_name;
+      const paperWeightSpec = specs?.find(spec => spec.category === 'paper_weight')?.display_name;
+      const paperSpec = [paperWeightSpec, paperTypeSpec].filter(Boolean).join(' ');
 
-      // Build paper specs string
-      let paperSpecsString = '';
-      if (paperSpecs?.length > 0) {
-        const paperType = paperSpecs.find(s => s.category === 'paper_type')?.display_name;
-        const paperWeight = paperSpecs.find(s => s.category === 'paper_weight')?.display_name;
-        if (paperWeight && paperType) {
-          paperSpecsString = `${paperWeight} ${paperType}`;
-        } else if (paperWeight || paperType) {
-          paperSpecsString = String(paperWeight || paperType);
-        }
-      }
-
-      // Get sheet size and possible part-specific fallbacks from HP12000 data (match current stage instance)
+      // Get sheet size from HP12000 data (keep existing working logic)
       let sheetSize = '';
-      let stageRow: any | undefined = undefined;
       if (hp12000Data?.length > 0) {
-        stageRow = hp12000Data.find((r: any) => r.stage_instance_id === stageInstanceId);
-        const paperSize = stageRow?.paper_size_name as string | undefined;
-        if (paperSize) {
-          sheetSize = paperSize; // Use exact name from DB (e.g., Large/Small)
-        }
-      }
-
-      // Fallback to HP12000 part-specific paper specs when job-level specs are missing
-      if (!paperSpecsString && stageRow?.paper_specifications) {
-        const specs = stageRow.paper_specifications as Record<string, any>;
-        const pType = specs.paper_type || specs.PaperType;
-        const pWeight = specs.paper_weight || specs.PaperWeight;
-        if (pType || pWeight) {
-          paperSpecsString = [pWeight, pType].filter(Boolean).join(' ');
-        } else {
-          const keys = Object.keys(specs || {});
-          if (keys.length > 0) paperSpecsString = keys[0];
-        }
-      }
-
-      // Fallback to HP12000 printing specs if available
-      if (!printSpecsString && stageRow?.printing_specifications) {
-        const ps = stageRow.printing_specifications as Record<string, any>;
-        const colours = ps.colours || ps.colors;
-        const sides = ps.sides || ps.simplex_duplex;
-        if (colours && sides) {
-          printSpecsString = `${colours} (${sides})`;
-        } else if (colours) {
-          printSpecsString = String(colours);
+        const stageRow = hp12000Data.find((r: any) => r.stage_instance_id === stageInstanceId);
+        if (stageRow?.paper_size_name) {
+          sheetSize = stageRow.paper_size_name;
         }
       }
 
       setJobSpecs({
-        print_specs: printSpecsString || undefined,
-        paper_specs: paperSpecsString || undefined,
+        print_specs: printSpec || undefined,
+        paper_specs: paperSpec || undefined,
         sheet_size: sheetSize || undefined
       });
     } catch (error) {
