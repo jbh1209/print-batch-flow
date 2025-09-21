@@ -36,6 +36,8 @@ import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
+import { PrintSpecsBadge } from "./PrintSpecsBadge";
 
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
@@ -63,6 +65,18 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
+
+  // Fetch print specifications for this job
+  const { isLoading: specsLoading, error: specsError, getSize, getPaperType, getPaperWeight, getLamination } =
+    useJobSpecificationDisplay(job?.job_id, job ? 'production_jobs' : undefined);
+
+  // Derive display strings
+  const sheetSize = getSize();
+  const paperType = getPaperType();
+  const paperWeight = getPaperWeight();
+  const paperSpecs = [paperWeight, paperType].filter(v => v && v !== 'N/A').join(' ');
+  const lamination = getLamination();
+  const printSpecs = lamination && lamination !== 'None' ? `Lamination: ${lamination}` : undefined;
 
   // Reset tab when modal opens
   useEffect(() => {
@@ -375,6 +389,31 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                 </CardContent>
               </Card>
             )}
+            {/* Print Specifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Printer className="w-5 h-5" />
+                  Print Specifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {specsLoading ? (
+                  <div className="text-sm text-gray-600">Loading specifications...</div>
+                ) : specsError ? (
+                  <div className="text-sm text-red-600">Failed to load specifications</div>
+                ) : (printSpecs || paperSpecs || sheetSize) ? (
+                  <PrintSpecsBadge
+                    printSpecs={printSpecs}
+                    paperSpecs={paperSpecs}
+                    sheetSize={sheetSize}
+                    size="normal"
+                  />
+                ) : (
+                  <div className="text-sm text-gray-600">No specifications set</div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="workflow" className="space-y-6">
