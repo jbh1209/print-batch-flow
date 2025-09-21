@@ -160,9 +160,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
       }
 
       setJobSpecs({
-        print_specs: printSpecsString,
-        paper_specs: paperSpecsString,
-        sheet_size: sheetSize
+        print_specs: printSpecsString || undefined,
+        paper_specs: paperSpecsString || undefined,
+        sheet_size: sheetSize || undefined
       });
     } catch (error) {
       console.error('Error fetching job specifications:', error);
