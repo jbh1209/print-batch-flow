@@ -21,6 +21,8 @@ export interface ScheduledStageData {
   paper_type?: string;
   paper_weight?: string;
   paper_display?: string;     // combined display format like "230gsm FBB"
+  hp12000_paper_size_name?: string;  // HP12000 paper size name (e.g., "A3+ Large", "A4+ Small")
+  hp12000_paper_size?: string;       // Extracted size only (Large/Small)
   is_split_job?: boolean;     // true if this stage is part of a cross-day split job
   split_job_part?: number;    // which part of the split (1, 2, etc.)
   split_job_total_parts?: number; // total parts in the split
@@ -121,7 +123,7 @@ export function useScheduleReader() {
   const fetchSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1) Pull scheduled stage instances (+ minute fields we need)
+      // 1) Pull scheduled stage instances (+ minute fields we need + HP12000 paper size)
       const { data: stageInstances, error: stagesError } = await supabase
         .from("job_stage_instances")
         .select(
@@ -140,12 +142,18 @@ export function useScheduleReader() {
           job_table_name,
           notes,
           stage_specification_id,
+          hp12000_paper_size_id,
           is_split_job,
           split_job_part,
           split_job_total_parts,
           stage_specifications(
             id,
             description
+          ),
+          hp12000_paper_sizes(
+            id,
+            name,
+            dimensions
           )
         `
         )
@@ -205,6 +213,15 @@ export function useScheduleReader() {
           return 'uv_varnish';
         }
         return 'other';
+      };
+
+      // Helper function to extract paper size from HP12000 paper size name
+      const extractPaperSize = (paperSizeName: string): string | undefined => {
+        if (!paperSizeName) return undefined;
+        const name = paperSizeName.toLowerCase();
+        if (name.includes('large')) return 'Large';
+        if (name.includes('small')) return 'Small';
+        return undefined;
       };
       
       // Helper function to extract UV varnish specs from finishing_specifications JSONB
@@ -278,6 +295,10 @@ export function useScheduleReader() {
         let displaySpec = undefined;
         let paperSpecs = null;
         
+        // Extract HP12000 paper size information
+        const hp12000PaperSizeName = row.hp12000_paper_sizes?.name;
+        const hp12000PaperSize = hp12000PaperSizeName ? extractPaperSize(hp12000PaperSizeName) : undefined;
+        
         // Priority 1: For printing stages, extract paper specs from THIS stage's notes
         if (stageType === 'printing' && row.notes?.toLowerCase().includes('paper:')) {
           const parsedPaper = parsePaperSpecsFromNotes(row.notes);
@@ -333,6 +354,8 @@ export function useScheduleReader() {
             paper_type: paperSpecs?.paper_type,
             paper_weight: paperSpecs?.paper_weight,
             paper_display: displaySpec,
+            hp12000_paper_size_name: hp12000PaperSizeName,
+            hp12000_paper_size: hp12000PaperSize,
             is_split_job: row.is_split_job || false,
             split_job_part: row.split_job_part || undefined,
             split_job_total_parts: row.split_job_total_parts || undefined,

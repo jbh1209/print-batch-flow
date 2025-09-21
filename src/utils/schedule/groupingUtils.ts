@@ -168,3 +168,92 @@ export const isLaminatingStage = (stageName: string): boolean => {
   const name = stageName.toLowerCase();
   return name.includes('lamination') || name.includes('laminating') || name.includes('laminate');
 };
+
+// Determine if a stage is an HP12000 stage
+export const isHP12000Stage = (stageName: string): boolean => {
+  const name = stageName.toLowerCase();
+  return name.includes('hp12000') || name.includes('hp 12000');
+};
+
+// Group HP12000 stages by paper specifications AND paper size (Large/Small)
+export const groupStagesByPaperAndSize = (stages: ScheduledStageData[]): { grouped: ScheduledStageData[]; previews: GroupPreview[] } => {
+  const groups = new Map<string, ScheduledStageData[]>();
+  
+  // First, group stages by job_id to handle cover/text relationships
+  const jobStagesMap = new Map<string, ScheduledStageData[]>();
+  stages.forEach(stage => {
+    if (!jobStagesMap.has(stage.job_id)) {
+      jobStagesMap.set(stage.job_id, []);
+    }
+    jobStagesMap.get(stage.job_id)!.push(stage);
+  });
+  
+  // Process each job's stages together to maintain cover/text relationships
+  jobStagesMap.forEach((jobStages, jobId) => {
+    // Sort stages within job by stage_order to maintain proper sequence
+    jobStages.sort((a, b) => (a.stage_order || 0) - (b.stage_order || 0));
+    
+    // Group by paper type + paper size combination
+    const jobPaperGroups = new Map<string, ScheduledStageData[]>();
+    jobStages.forEach(stage => {
+      const paperSpec = stage.paper_display || 'Unknown Paper';
+      const paperSize = stage.hp12000_paper_size || 'Unknown Size';
+      const combinedSpec = `${paperSpec} - ${paperSize}`;
+      
+      if (!jobPaperGroups.has(combinedSpec)) {
+        jobPaperGroups.set(combinedSpec, []);
+      }
+      jobPaperGroups.get(combinedSpec)!.push(stage);
+    });
+    
+    // Add job's paper groups to main groups, maintaining stage order
+    jobPaperGroups.forEach((stages, combinedSpec) => {
+      if (!groups.has(combinedSpec)) {
+        groups.set(combinedSpec, []);
+      }
+      groups.get(combinedSpec)!.push(...stages);
+    });
+  });
+  
+  // Sort groups by paper specification name, then by size (Large before Small)
+  const sortedGroups = Array.from(groups.entries()).sort(([a], [b]) => {
+    const aParts = a.split(' - ');
+    const bParts = b.split(' - ');
+    const paperComparison = aParts[0].localeCompare(bParts[0]);
+    if (paperComparison !== 0) return paperComparison;
+    
+    // Within same paper type, sort by size (Large before Small)
+    const aSize = aParts[1] || '';
+    const bSize = bParts[1] || '';
+    if (aSize === 'Large' && bSize === 'Small') return -1;
+    if (aSize === 'Small' && bSize === 'Large') return 1;
+    return aSize.localeCompare(bSize);
+  });
+  
+  // Create grouped stages array and previews
+  const grouped: ScheduledStageData[] = [];
+  const previews: GroupPreview[] = [];
+  
+  sortedGroups.forEach(([combinedSpec, groupStages], index) => {
+    // Sort stages within group by WO number, then by stage_order
+    groupStages.sort((a, b) => {
+      const woComparison = a.job_wo_no.localeCompare(b.job_wo_no);
+      if (woComparison !== 0) return woComparison;
+      return (a.stage_order || 0) - (b.stage_order || 0);
+    });
+    grouped.push(...groupStages);
+    
+    // Get unique job WO numbers for preview
+    const uniqueJobs = [...new Set(groupStages.map(s => s.job_wo_no))];
+    
+    previews.push({
+      id: `paper-size-${index}`,
+      groupName: combinedSpec,
+      count: groupStages.length,
+      jobs: uniqueJobs,
+      originalIndex: index
+    });
+  });
+  
+  return { grouped, previews };
+};

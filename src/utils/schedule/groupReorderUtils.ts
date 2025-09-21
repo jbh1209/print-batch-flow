@@ -7,7 +7,7 @@ export const applyCustomGroupOrder = (
   stages: ScheduledStageData[],
   groupPreviews: GroupPreview[],
   customOrder: string[],
-  groupingType: 'paper' | 'lamination',
+  groupingType: 'paper' | 'lamination' | 'paper_and_size',
   jobSpecs?: Map<string, any>
 ): ScheduledStageData[] => {
   // Create a map of group name to stages
@@ -20,6 +20,16 @@ export const applyCustomGroupOrder = (
         groupStagesMap.set(paperSpec, []);
       }
       groupStagesMap.get(paperSpec)!.push(stage);
+    });
+  } else if (groupingType === 'paper_and_size') {
+    stages.forEach(stage => {
+      const paperSpec = stage.paper_display || 'Unknown Paper';
+      const paperSize = stage.hp12000_paper_size || 'Unknown Size';
+      const combinedSpec = `${paperSpec} - ${paperSize}`;
+      if (!groupStagesMap.has(combinedSpec)) {
+        groupStagesMap.set(combinedSpec, []);
+      }
+      groupStagesMap.get(combinedSpec)!.push(stage);
     });
   } else if (groupingType === 'lamination' && jobSpecs) {
     stages.forEach(stage => {

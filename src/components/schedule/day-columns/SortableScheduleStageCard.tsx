@@ -91,11 +91,18 @@ export const SortableScheduleStageCard: React.FC<SortableScheduleStageCardProps>
           {stage.stage_name}
         </div>
         
-        {stage.paper_display && (
-          <div className="mt-1">
-            <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
-              {stage.paper_display}
-            </Badge>
+        {(stage.paper_display || stage.hp12000_paper_size) && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {stage.paper_display && (
+              <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
+                {stage.paper_display}
+              </Badge>
+            )}
+            {stage.hp12000_paper_size && (
+              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                {stage.hp12000_paper_size}
+              </Badge>
+            )}
           </div>
         )}
        
