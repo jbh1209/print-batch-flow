@@ -74,7 +74,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   const scanCompleted = externalScanCompleted;
 
   // Fetch job specifications - copy proven logic from usePersonalOperatorQueue
-  const fetchJobSpecifications = async (jobId: string) => {
+  const fetchJobSpecifications = async (jobId: string, stageInstanceId: string) => {
     try {
       setSpecsLoading(true);
       
@@ -118,19 +118,13 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
         }
       }
 
-      // Get sheet size from HP12000 data
+      // Get sheet size from HP12000 data (match current stage instance)
       let sheetSize = '';
       if (hp12000Data?.length > 0) {
-        const paperSize = hp12000Data[0]?.paper_size_name;
+        const stageRow = hp12000Data.find((r: any) => r.stage_instance_id === stageInstanceId);
+        const paperSize = stageRow?.paper_size_name as string | undefined;
         if (paperSize) {
-          // Determine if it's large or small sheet based on paper size name
-          if (paperSize.includes('B1') || paperSize.includes('Large')) {
-            sheetSize = 'Large Sheet';
-          } else if (paperSize.includes('B2') || paperSize.includes('Small')) {
-            sheetSize = 'Small Sheet';
-          } else {
-            sheetSize = paperSize;
-          }
+          sheetSize = paperSize; // Use exact name from DB (e.g., Large/Small)
         }
       }
 
@@ -151,11 +145,11 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   useEffect(() => {
     if (isOpen) {
       setActiveTab("scanning");
-      if (job?.job_id) {
-        fetchJobSpecifications(job.job_id);
+      if (job?.job_id && job?.id) {
+        fetchJobSpecifications(job.job_id, job.id);
       }
     }
-  }, [isOpen, job?.job_id]);
+  }, [isOpen, job?.job_id, job?.id]);
 
   if (!job) return null;
 
