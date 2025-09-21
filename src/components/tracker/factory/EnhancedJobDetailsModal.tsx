@@ -91,16 +91,26 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
       const sheetSize = stageRow?.paper_size_name || '';
 
       // Paper specs (stage-specific)
-      const paperSpecsObj: Record<string, any> = stageRow?.filtered_paper_specs || {};
+      const paperSpecsObj: Record<string, any> = stageRow?.filtered_paper_specs || stageRow?.paper_specifications || {};
       const paperType = paperSpecsObj.paper_type || paperSpecsObj.PaperType || paperSpecsObj.type || paperSpecsObj["Paper Type"];
       const paperWeight = paperSpecsObj.paper_weight || paperSpecsObj.PaperWeight || paperSpecsObj.weight || paperSpecsObj["Paper Weight"];
-      const paperSpec = [paperWeight, paperType].filter(Boolean).join(' ');
+      let paperSpec = [paperWeight, paperType].filter(Boolean).join(' ');
+      if (!paperSpec && paperSpecsObj && typeof paperSpecsObj === 'object') {
+        const vals = Object.values(paperSpecsObj).filter(Boolean);
+        paperSpec = vals.join(' ');
+      }
 
       // Printing specs (stage-specific)
-      const printingSpecsObj: Record<string, any> = stageRow?.filtered_printing_specs || {};
-      const colours = printingSpecsObj.colours || printingSpecsObj.colors || printingSpecsObj.Colors;
-      const sides = printingSpecsObj.sides || printingSpecsObj.simplex_duplex || printingSpecsObj.Sides || printingSpecsObj.SimplexDuplex;
-      const printSpec = colours && sides ? `${colours} (${sides})` : (colours ? String(colours) : '');
+      const printingSpecsObj: Record<string, any> = stageRow?.filtered_printing_specs || stageRow?.printing_specifications || {};
+      const colours = printingSpecsObj.colours || printingSpecsObj.colors || printingSpecsObj.Colors || printingSpecsObj["Colour"] || printingSpecsObj["Colors"];
+      const sides = printingSpecsObj.sides || printingSpecsObj.simplex_duplex || printingSpecsObj.Sides || printingSpecsObj.SimplexDuplex || printingSpecsObj["Sides"];
+      let printSpec = colours && sides ? `${colours} (${sides})` : (colours ? String(colours) : '');
+      if (!printSpec && printingSpecsObj && typeof printingSpecsObj === 'object') {
+        const parts = Object.entries(printingSpecsObj)
+          .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+          .map(([k, v]) => `${k}: ${v}`);
+        printSpec = parts.join(', ');
+      }
 
       setJobSpecs({
         print_specs: (printSpec || undefined),
