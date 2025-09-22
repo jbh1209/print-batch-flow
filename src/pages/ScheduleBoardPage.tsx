@@ -17,15 +17,15 @@ export default function ScheduleBoardPage() {
     try {
       try { toast.message?.("Rebuilding schedule…"); } catch {}
 
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed');
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed_v2');
 
       if (error) {
-        console.error("scheduler_reschedule_all_sequential_fixed error:", error);
+        console.error("scheduler_reschedule_all_sequential_fixed_v2 error:", error);
         try { toast.error?.(`Reschedule failed: ${error.message}`); } catch {}
         throw error;
       }
 
-      console.log("scheduler_reschedule_all_sequential_fixed response:", data);
+      console.log("scheduler_reschedule_all_sequential_fixed_v2 response:", data);
       await fetchSchedule();
       
       // Handle the sequential_fixed function response format
