@@ -518,7 +518,7 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Intelligent stage matching using multiple strategies
+   * Intelligent stage matching using multiple strategies with comprehensive logging
    */
   public findIntelligentStageMatch(
     groupName: string,
@@ -529,9 +529,14 @@ export class EnhancedStageMapper {
     const searchText = groupName.toLowerCase() === description.toLowerCase() 
       ? groupName.toLowerCase().trim()
       : `${groupName} ${description}`.toLowerCase().trim();
-    this.logger.addDebugInfo(`Searching for stage match: "${searchText}" in category: ${category}`);
     
-    // Strategy 1: Database mapping lookup (highest confidence)
+    this.logger.addDebugInfo(`\n🎯 INTELLIGENT STAGE MATCHING START`);
+    this.logger.addDebugInfo(`   Input: groupName="${groupName}", description="${description}"`);
+    this.logger.addDebugInfo(`   Search Text: "${searchText}"`);
+    this.logger.addDebugInfo(`   Category: ${category}`);
+    
+    // Strategy 1: Database mapping lookup (highest confidence) - PRIORITIZED
+    this.logger.addDebugInfo(`🔍 STRATEGY 1: Database mapping lookup...`);
     const dbMapping = this.findDatabaseMapping(searchText);
     if (dbMapping) {
       let stage = null;
@@ -540,6 +545,7 @@ export class EnhancedStageMapper {
       // Check if mapping uses production_stage_id
       if (dbMapping.production_stage_id) {
         stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+        this.logger.addDebugInfo(`   Found stage by production_stage_id: ${stage?.name || 'NOT FOUND'}`);
       }
       // If no stage found and mapping uses stage_specification_id, look up the specification
       else if (dbMapping.stage_specification_id) {
@@ -548,11 +554,15 @@ export class EnhancedStageMapper {
           // Find the parent stage for this specification
           stage = this.stages.find(s => s.id === specification.production_stage_id);
           specificationName = specification.name;
+          this.logger.addDebugInfo(`   Found stage by stage_specification_id: ${stage?.name || 'NOT FOUND'} with spec: ${specificationName}`);
         }
       }
 
       if (stage) {
-        this.logger.addDebugInfo(`Found database mapping: "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''} (confidence: ${dbMapping.confidence_score})`);
+        this.logger.addDebugInfo(`✅ STRATEGY 1 SUCCESS: Database mapping found!`);
+        this.logger.addDebugInfo(`   Result: "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''}`);
+        this.logger.addDebugInfo(`   Confidence: ${Math.min(dbMapping.confidence_score + 10, 100)}%`);
+        this.logger.addDebugInfo(`   Source: database (EXACT MATCH - bypassing fuzzy/pattern matching)`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -562,24 +572,36 @@ export class EnhancedStageMapper {
           stageSpecId: dbMapping.stage_specification_id,
           stageSpecName: specificationName
         };
+      } else {
+        this.logger.addDebugInfo(`⚠️ DATABASE MAPPING FOUND BUT NO STAGE: Mapping exists but stage lookup failed`);
       }
     }
 
-    // Strategy 2: Fuzzy string matching (medium confidence)
+    // Strategy 2: Fuzzy string matching (medium confidence) - ONLY if no database match
+    this.logger.addDebugInfo(`🔍 STRATEGY 2: Fuzzy string matching (no database match found)...`);
     const fuzzyMatch = this.findFuzzyMatch(searchText, category);
     if (fuzzyMatch) {
-      this.logger.addDebugInfo(`Found fuzzy match: "${searchText}" -> "${fuzzyMatch.stageName}" (confidence: ${fuzzyMatch.confidence})`);
+      this.logger.addDebugInfo(`✅ STRATEGY 2 SUCCESS: Fuzzy match found!`);
+      this.logger.addDebugInfo(`   Result: "${searchText}" -> "${fuzzyMatch.stageName}"`);
+      this.logger.addDebugInfo(`   Confidence: ${fuzzyMatch.confidence}%`);
+      this.logger.addDebugInfo(`   Source: fuzzy matching`);
       return fuzzyMatch;
     }
 
-    // Strategy 3: Pattern-based matching (lower confidence)
+    // Strategy 3: Pattern-based matching (lower confidence) - ONLY if no other matches
+    this.logger.addDebugInfo(`🔍 STRATEGY 3: Pattern-based matching (no database or fuzzy match found)...`);
     const patternMatch = this.findPatternMatch(groupName, description, category);
     if (patternMatch) {
-      this.logger.addDebugInfo(`Found pattern match: "${searchText}" -> "${patternMatch.stageName}" (confidence: ${patternMatch.confidence})`);
+      this.logger.addDebugInfo(`✅ STRATEGY 3 SUCCESS: Pattern match found!`);
+      this.logger.addDebugInfo(`   Result: "${searchText}" -> "${patternMatch.stageName}"`);
+      this.logger.addDebugInfo(`   Confidence: ${patternMatch.confidence}%`);
+      this.logger.addDebugInfo(`   Source: pattern matching`);
       return patternMatch;
     }
 
-    this.logger.addDebugInfo(`No intelligent match found for: "${searchText}" in category: ${category}`);
+    // No match found
+    this.logger.addDebugInfo(`❌ ALL STRATEGIES FAILED: No match found for "${searchText}" in category ${category}`);
+    this.logger.addDebugInfo(`🎯 INTELLIGENT STAGE MATCHING END\n`);
     return null;
   }
 
@@ -588,13 +610,14 @@ export class EnhancedStageMapper {
    */
   private findDatabaseMapping(searchText: string): any | null {
     const normalizedSearch = this.normalizeText(searchText);
+    this.logger.addDebugInfo(`🔍 DATABASE LOOKUP: Searching for "${searchText}" (normalized: "${normalizedSearch}")`);
     
     // Strategy 1: Case-insensitive exact match
     for (const [mappedText, mapping] of this.existingMappings.entries()) {
       const normalizedMapped = this.normalizeText(mappedText);
       
       if (normalizedSearch === normalizedMapped) {
-        this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mappedText}"`);
+        this.logger.addDebugInfo(`✅ EXACT DATABASE MATCH FOUND: "${searchText}" -> "${mappedText}" (confidence: ${mapping.confidence_score})`);
         return {
           ...mapping,
           confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
@@ -602,30 +625,32 @@ export class EnhancedStageMapper {
       }
     }
 
-    // Strategy 2: Partial match with higher confidence scoring
+    // Strategy 2: High-similarity partial match (only for very close matches)
     let bestMatch: any = null;
     let bestScore = 0;
     
     for (const [mappedText, mapping] of this.existingMappings.entries()) {
       const normalizedMapped = this.normalizeText(mappedText);
       
-      // Calculate similarity for partial matches
-      if (normalizedSearch.includes(normalizedMapped) || normalizedMapped.includes(normalizedSearch)) {
-        const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
+      // Only consider partial matches with high similarity (75%+)
+      const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
+      if (similarity >= 0.75) {
         const score = similarity * mapping.confidence_score;
         
         if (score > bestScore) {
           bestScore = score;
           bestMatch = {
             ...mapping,
-            confidence_score: Math.max(Math.round(score * 0.8), 30) // Reduce confidence for partial matches
+            confidence_score: Math.max(Math.round(score * 0.9), 50) // Higher confidence for good partial matches
           };
         }
       }
     }
 
     if (bestMatch) {
-      this.logger.addDebugInfo(`Found partial match: "${searchText}" -> "${bestMatch.excel_text}" (score: ${bestMatch.confidence_score})`);
+      this.logger.addDebugInfo(`⚠️ HIGH-SIMILARITY PARTIAL MATCH: "${searchText}" -> "${bestMatch.excel_text}" (similarity: ${Math.round(bestScore/bestMatch.confidence_score*100)}%, score: ${bestMatch.confidence_score})`);
+    } else {
+      this.logger.addDebugInfo(`❌ NO DATABASE MATCH: No exact or high-similarity match found for "${searchText}"`);
     }
 
     return bestMatch;
@@ -645,9 +670,42 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Fuzzy string matching against stage names
+   * Check for conflicting keywords that should prevent fuzzy matching
+   */
+  private hasConflictingKeywords(searchText: string, stageName: string): boolean {
+    const conflicts = [
+      // Perfect binding vs Wire binding
+      { search: ['perfect'], stage: ['wire'], description: 'perfect binding vs wire binding' },
+      { search: ['wire'], stage: ['perfect'], description: 'wire binding vs perfect binding' },
+      // Saddle stitch vs other binding types
+      { search: ['saddle'], stage: ['perfect', 'wire', 'comb'], description: 'saddle vs other binding' },
+      // Digital vs offset printing
+      { search: ['digital'], stage: ['offset', 'litho'], description: 'digital vs offset printing' },
+      { search: ['offset', 'litho'], stage: ['digital'], description: 'offset vs digital printing' },
+      // HP vs Xerox printers
+      { search: ['hp'], stage: ['xerox'], description: 'HP vs Xerox printers' },
+      { search: ['xerox'], stage: ['hp'], description: 'Xerox vs HP printers' }
+    ];
+
+    for (const conflict of conflicts) {
+      const hasSearchKeyword = conflict.search.some(keyword => searchText.includes(keyword));
+      const hasStageKeyword = conflict.stage.some(keyword => stageName.includes(keyword));
+      
+      if (hasSearchKeyword && hasStageKeyword) {
+        this.logger.addDebugInfo(`🚫 CONFLICT DETECTED: ${conflict.description} - "${searchText}" vs "${stageName}"`);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Fuzzy string matching against stage names (CONSERVATIVE - only high-confidence matches)
    */
   private findFuzzyMatch(searchText: string, category: string): MappingConfidence | null {
+    this.logger.addDebugInfo(`🔍 FUZZY MATCHING: Searching "${searchText}" in ${category} stages`);
+    
     const categoryStages = this.stages.filter(stage => 
       this.inferStageCategory(stage.name) === category
     );
@@ -659,16 +717,29 @@ export class EnhancedStageMapper {
       const stageName = stage.name.toLowerCase();
       const score = this.calculateSimilarity(searchText, stageName);
       
-      if (score > bestScore && score > 0.4) { // Minimum 40% similarity
+      // INCREASED THRESHOLD: Only accept 60%+ similarity to prevent weak matches
+      if (score > bestScore && score > 0.6) {
+        // Check for conflicting keywords to prevent wrong suggestions
+        if (this.hasConflictingKeywords(searchText, stageName)) {
+          this.logger.addDebugInfo(`⚠️ CONFLICTING KEYWORDS: Skipping "${stageName}" due to conflicting terms with "${searchText}"`);
+          continue;
+        }
+        
         bestScore = score;
         bestMatch = {
           stageId: stage.id,
           stageName: stage.name,
-          confidence: Math.round(score * 80), // Max 80% confidence for fuzzy matches
+          confidence: Math.round(score * 70), // Reduced max confidence for fuzzy matches
           source: 'fuzzy',
           category: this.inferStageCategory(stage.name)
         };
       }
+    }
+
+    if (bestMatch) {
+      this.logger.addDebugInfo(`✅ FUZZY MATCH FOUND: "${searchText}" -> "${bestMatch.stageName}" (similarity: ${Math.round(bestScore*100)}%, confidence: ${bestMatch.confidence})`);
+    } else {
+      this.logger.addDebugInfo(`❌ NO FUZZY MATCH: No high-confidence (60%+) match found for "${searchText}"`);
     }
 
     return bestMatch;
