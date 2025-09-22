@@ -13,7 +13,7 @@ export const ProductionManagerStats: React.FC<ProductionManagerStatsProps> = ({ 
   const { active: activeJobsCount, activeJobs } = getJobCounts(jobs);
   
   const pendingCount = activeJobs.filter(j => j.current_stage_status === 'pending').length;
-  const inProgressCount = activeJobs.filter(j => j.current_stage_status === 'active').length;
+  const inProgressCount = activeJobs.filter(j => j.proof_approved_at && j.current_stage_status !== 'completed').length;
   
   const avgProgress = activeJobs.length > 0 
     ? Math.round(activeJobs.reduce((sum, job) => sum + (job.workflow_progress || 0), 0) / activeJobs.length) 
