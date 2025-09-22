@@ -1122,14 +1122,51 @@ export class EnhancedStageMapper {
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase().trim();
-    
-    // Strategy 1: Direct stage + specification matching
+
+    // Priority 0: Database mapping FIRST (bypass any fuzzy/pattern)
+    this.logger.addDebugInfo(`🔒 PRIORITY: Database lookup before stage+spec for "${searchText}" [${category}]`);
+    const dbMapping = this.findDatabaseMapping(searchText);
+    if (dbMapping) {
+      let stage: any = null;
+      let specificationName: string | null = null;
+
+      if (dbMapping.production_stage_id) {
+        stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+      } else if (dbMapping.stage_specification_id) {
+        const specification = this.stageSpecs?.find(s => s.id === dbMapping.stage_specification_id);
+        if (specification) {
+          stage = this.stages.find(s => s.id === specification.production_stage_id);
+          specificationName = specification.name;
+        }
+      }
+
+      if (stage) {
+        this.logger.addDebugInfo(`✅ DB MATCH (pre-stage+spec): ${searchText} -> ${stage.name}${specificationName ? ` (${specificationName})` : ''}`);
+        return {
+          stageId: stage.id,
+          stageName: stage.name,
+          stageSpecId: dbMapping.stage_specification_id,
+          stageSpecName: specificationName || undefined,
+          confidence: Math.min(dbMapping.confidence_score + 10, 100),
+          source: 'database',
+          category: this.inferStageCategory(stage.name)
+        };
+      }
+    }
+
+    // Strict mode for finishing: if no DB mapping, do NOT attempt fuzzy/pattern
+    if (category === 'finishing') {
+      this.logger.addDebugInfo(`🛑 FINISHING STRICT MODE: No DB mapping for "${searchText}" → skipping fuzzy/pattern stage+spec matching`);
+      return null;
+    }
+
+    // Strategy 1: Direct stage + specification matching (with conflict guard)
     const stageSpecMatch = this.findStageSpecificationMatch(searchText, category);
     if (stageSpecMatch) {
       return stageSpecMatch;
     }
-    
-    // Fallback to original matching logic
+
+    // Fallback to original matching logic (which already prioritizes DB before fuzzy/pattern)
     return this.findIntelligentStageMatch(groupName, description, category);
   }
 
@@ -1147,6 +1184,12 @@ export class EnhancedStageMapper {
 
       const specName = spec.name.toLowerCase();
       const stageName = stage.name.toLowerCase();
+
+      // Conflict guard to avoid bad pairings like Perfect vs Wire binding, etc.
+      if (this.hasConflictingKeywords(searchText, stageName)) {
+        this.logger.addDebugInfo(`⚠️ CONFLICT GUARD (stage+spec): Skipping "${stage.name}" for search "${searchText}"`);
+        continue;
+      }
       
       // Check if the search text matches both stage and specification
       const stageScore = this.calculateSimilarity(searchText, stageName);
