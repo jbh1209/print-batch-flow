@@ -531,15 +531,13 @@ export class EnhancedStageMapper {
   ): MappingConfidence | null {
     const searchText = this.buildSearchText(groupName, description);
     
-
-    
     this.logger.addDebugInfo(`\n🎯 INTELLIGENT STAGE MATCHING START`);
     this.logger.addDebugInfo(`   Input: groupName="${groupName}", description="${description}"`);
     this.logger.addDebugInfo(`   Search Text: "${searchText}"`);
     this.logger.addDebugInfo(`   Category: ${category}`);
     
-    // Strategy 1a: EXACT database mapping lookup (highest confidence) - PRIORITIZED
-    this.logger.addDebugInfo(`🔍 STRATEGY 1a: Exact database mapping lookup...`);
+    // Strategy 1: EXACT database mapping lookup (highest confidence)
+    this.logger.addDebugInfo(`🔍 STRATEGY 1: Exact database mapping lookup...`);
     const dbExact = this.findDatabaseExactMapping(searchText);
     if (dbExact) {
       let stage: any = null;
@@ -558,7 +556,7 @@ export class EnhancedStageMapper {
       }
 
       if (stage) {
-        this.logger.addDebugInfo(`✅ STRATEGY 1a SUCCESS: Exact database mapping found!`);
+        this.logger.addDebugInfo(`✅ STRATEGY 1 SUCCESS: Exact database mapping found!`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -571,14 +569,19 @@ export class EnhancedStageMapper {
       }
     }
 
-    // For FINISHING, enforce strict mode: only exact DB mapping allowed
-    if (category === 'finishing') {
-      this.logger.addDebugInfo(`🛑 FINISHING STRICT MODE (no exact DB match): Skipping fuzzy/partial/pattern for "${searchText}"`);
-      return null;
+    // Strategy 2: Pattern-based matching (RESTORED TO ORIGINAL HIGH POSITION for critical printing patterns)
+    this.logger.addDebugInfo(`🔍 STRATEGY 2: Pattern-based matching...`);
+    const patternMatch = this.findPatternMatch(groupName, description, category);
+    if (patternMatch) {
+      this.logger.addDebugInfo(`✅ STRATEGY 2 SUCCESS: Pattern match found!`);
+      this.logger.addDebugInfo(`   Result: "${searchText}" -> "${patternMatch.stageName}"`);
+      this.logger.addDebugInfo(`   Confidence: ${patternMatch.confidence}%`);
+      this.logger.addDebugInfo(`   Source: pattern matching`);
+      return patternMatch;
     }
 
-    // Strategy 1b: Database mapping lookup (allows partial) - SECONDARY
-    this.logger.addDebugInfo(`🔍 STRATEGY 1b: Database mapping lookup (allow partial)...`);
+    // Strategy 3: Database mapping lookup (allows partial) - AFTER pattern matching
+    this.logger.addDebugInfo(`🔍 STRATEGY 3: Database mapping lookup (allow partial)...`);
     const dbMapping = this.findDatabaseMapping(searchText);
     if (dbMapping) {
       let stage = null as any;
@@ -601,10 +604,10 @@ export class EnhancedStageMapper {
       }
 
       if (stage) {
-        this.logger.addDebugInfo(`✅ STRATEGY 1b SUCCESS: Database mapping found!`);
+        this.logger.addDebugInfo(`✅ STRATEGY 3 SUCCESS: Database mapping found!`);
         this.logger.addDebugInfo(`   Result: "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''}`);
         this.logger.addDebugInfo(`   Confidence: ${Math.min(dbMapping.confidence_score + 10, 100)}%`);
-        this.logger.addDebugInfo(`   Source: database (EXACT/PARTIAL)`);
+        this.logger.addDebugInfo(`   Source: database (PARTIAL)`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -619,26 +622,15 @@ export class EnhancedStageMapper {
       }
     }
 
-    // Strategy 2: Fuzzy string matching (medium confidence) - ONLY if no database match
-    this.logger.addDebugInfo(`🔍 STRATEGY 2: Fuzzy string matching (no database match found)...`);
+    // Strategy 4: Fuzzy string matching (lowest confidence) - ONLY if no other matches
+    this.logger.addDebugInfo(`🔍 STRATEGY 4: Fuzzy string matching (no exact/pattern/partial match found)...`);
     const fuzzyMatch = this.findFuzzyMatch(searchText, category);
     if (fuzzyMatch) {
-      this.logger.addDebugInfo(`✅ STRATEGY 2 SUCCESS: Fuzzy match found!`);
+      this.logger.addDebugInfo(`✅ STRATEGY 4 SUCCESS: Fuzzy match found!`);
       this.logger.addDebugInfo(`   Result: "${searchText}" -> "${fuzzyMatch.stageName}"`);
       this.logger.addDebugInfo(`   Confidence: ${fuzzyMatch.confidence}%`);
       this.logger.addDebugInfo(`   Source: fuzzy matching`);
       return fuzzyMatch;
-    }
-
-    // Strategy 3: Pattern-based matching (lower confidence) - ONLY if no other matches
-    this.logger.addDebugInfo(`🔍 STRATEGY 3: Pattern-based matching (no database or fuzzy match found)...`);
-    const patternMatch = this.findPatternMatch(groupName, description, category);
-    if (patternMatch) {
-      this.logger.addDebugInfo(`✅ STRATEGY 3 SUCCESS: Pattern match found!`);
-      this.logger.addDebugInfo(`   Result: "${searchText}" -> "${patternMatch.stageName}"`);
-      this.logger.addDebugInfo(`   Confidence: ${patternMatch.confidence}%`);
-      this.logger.addDebugInfo(`   Source: pattern matching`);
-      return patternMatch;
     }
 
     // No match found
@@ -711,9 +703,9 @@ export class EnhancedStageMapper {
     let bestScore = 0;
     
     for (const [mappedKey, mapping] of this.existingMappings.entries()) {
-      // Only consider partial matches with very high similarity (85%+) and no keyword conflicts
+      // Only consider partial matches with moderate similarity (70%+) and no keyword conflicts
       const similarity = this.calculateSimilarity(normalizedSearch, mappedKey);
-      if (similarity >= 0.85) {
+      if (similarity >= 0.70) {
         // Resolve stage name for conflict guard
         let stageName = '';
         if (mapping.production_stage_id) {
@@ -736,16 +728,16 @@ export class EnhancedStageMapper {
           bestScore = score;
           bestMatch = {
             ...mapping,
-            confidence_score: Math.max(Math.round(score * 0.85), 50) // Conservative weighting for partial matches
+            confidence_score: Math.max(Math.round(score * 0.75), 45) // Less conservative weighting for partial matches
           };
         }
       }
     }
 
     if (bestMatch) {
-      this.logger.addDebugInfo(`⚠️ HIGH-SIMILARITY PARTIAL MATCH: "${searchText}" -> "${bestMatch.excel_text}" (similarity: ${Math.round(bestScore/bestMatch.confidence_score*100)}%, score: ${bestMatch.confidence_score})`);
+      this.logger.addDebugInfo(`⚠️ MODERATE-SIMILARITY PARTIAL MATCH: "${searchText}" -> "${bestMatch.excel_text}" (similarity: ${Math.round(bestScore/bestMatch.confidence_score*100)}%, score: ${bestMatch.confidence_score})`);
     } else {
-      this.logger.addDebugInfo(`❌ NO DATABASE MATCH: No exact or high-similarity match found for "${searchText}"`);
+      this.logger.addDebugInfo(`❌ NO DATABASE MATCH: No exact or moderate-similarity match found for "${searchText}"`);
     }
 
     return bestMatch;
@@ -1220,8 +1212,8 @@ export class EnhancedStageMapper {
   ): MappingConfidence | null {
     const searchText = this.buildSearchText(groupName, description);
 
-    // Priority 0: Database mapping FIRST (EXACT only; bypass any fuzzy/pattern)
-    this.logger.addDebugInfo(`🔒 PRIORITY: Database lookup before stage+spec for "${searchText}" [${category}]`);
+    // Strategy 1: Exact database mapping (highest priority)
+    this.logger.addDebugInfo(`🔒 STRATEGY 1: Exact database lookup for "${searchText}" [${category}]`);
     const dbMapping = this.findDatabaseExactMapping(searchText);
 
     if (dbMapping) {
@@ -1239,7 +1231,7 @@ export class EnhancedStageMapper {
       }
 
       if (stage) {
-        this.logger.addDebugInfo(`✅ DB MATCH (pre-stage+spec): ${searchText} -> ${stage.name}${specificationName ? ` (${specificationName})` : ''}`);
+        this.logger.addDebugInfo(`✅ DB MATCH (exact): ${searchText} -> ${stage.name}${specificationName ? ` (${specificationName})` : ''}`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -1252,19 +1244,13 @@ export class EnhancedStageMapper {
       }
     }
 
-    // Strict mode for finishing: if no DB mapping, do NOT attempt fuzzy/pattern
-    if (category === 'finishing') {
-      this.logger.addDebugInfo(`🛑 FINISHING STRICT MODE: No DB mapping for "${searchText}" → skipping fuzzy/pattern stage+spec matching`);
-      return null;
-    }
-
-    // Strategy 1: Direct stage + specification matching (with conflict guard)
+    // Strategy 2: Direct stage + specification matching (after exact DB)
     const stageSpecMatch = this.findStageSpecificationMatch(searchText, category);
     if (stageSpecMatch) {
       return stageSpecMatch;
     }
 
-    // Fallback to original matching logic (which already prioritizes DB before fuzzy/pattern)
+    // Strategy 3: Fallback to original matching logic with restored order (Pattern → DB Partial → Fuzzy)
     return this.findIntelligentStageMatch(groupName, description, category);
   }
 
