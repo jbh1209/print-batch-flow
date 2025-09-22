@@ -529,22 +529,60 @@ export class EnhancedStageMapper {
     description: string,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
-    // Avoid duplication when groupName and description are identical
-    const searchText = groupName.toLowerCase() === description.toLowerCase() 
-      ? groupName.toLowerCase().trim()
-      : `${groupName} ${description}`.toLowerCase().trim();
+    const searchText = this.buildSearchText(groupName, description);
+    
+
     
     this.logger.addDebugInfo(`\n🎯 INTELLIGENT STAGE MATCHING START`);
     this.logger.addDebugInfo(`   Input: groupName="${groupName}", description="${description}"`);
     this.logger.addDebugInfo(`   Search Text: "${searchText}"`);
     this.logger.addDebugInfo(`   Category: ${category}`);
     
-    // Strategy 1: Database mapping lookup (highest confidence) - PRIORITIZED
-    this.logger.addDebugInfo(`🔍 STRATEGY 1: Database mapping lookup...`);
+    // Strategy 1a: EXACT database mapping lookup (highest confidence) - PRIORITIZED
+    this.logger.addDebugInfo(`🔍 STRATEGY 1a: Exact database mapping lookup...`);
+    const dbExact = this.findDatabaseExactMapping(searchText);
+    if (dbExact) {
+      let stage: any = null;
+      let specificationName: string | null = null;
+
+      if (dbExact.production_stage_id) {
+        stage = this.stages.find(s => s.id === dbExact.production_stage_id);
+        this.logger.addDebugInfo(`   Found stage by production_stage_id: ${stage?.name || 'NOT FOUND'}`);
+      } else if (dbExact.stage_specification_id) {
+        const specification = this.stageSpecs?.find(s => s.id === dbExact.stage_specification_id);
+        if (specification) {
+          stage = this.stages.find(s => s.id === specification.production_stage_id);
+          specificationName = specification.name;
+          this.logger.addDebugInfo(`   Found stage by stage_specification_id: ${stage?.name || 'NOT FOUND'} with spec: ${specificationName}`);
+        }
+      }
+
+      if (stage) {
+        this.logger.addDebugInfo(`✅ STRATEGY 1a SUCCESS: Exact database mapping found!`);
+        return {
+          stageId: stage.id,
+          stageName: stage.name,
+          confidence: Math.min((dbExact.confidence_score || 0) + 10, 100),
+          source: 'database',
+          category: this.inferStageCategory(stage.name),
+          stageSpecId: dbExact.stage_specification_id,
+          stageSpecName: specificationName || undefined
+        };
+      }
+    }
+
+    // For FINISHING, enforce strict mode: only exact DB mapping allowed
+    if (category === 'finishing') {
+      this.logger.addDebugInfo(`🛑 FINISHING STRICT MODE (no exact DB match): Skipping fuzzy/partial/pattern for "${searchText}"`);
+      return null;
+    }
+
+    // Strategy 1b: Database mapping lookup (allows partial) - SECONDARY
+    this.logger.addDebugInfo(`🔍 STRATEGY 1b: Database mapping lookup (allow partial)...`);
     const dbMapping = this.findDatabaseMapping(searchText);
     if (dbMapping) {
-      let stage = null;
-      let specificationName = null;
+      let stage = null as any;
+      let specificationName: string | null = null;
 
       // Check if mapping uses production_stage_id
       if (dbMapping.production_stage_id) {
@@ -563,10 +601,10 @@ export class EnhancedStageMapper {
       }
 
       if (stage) {
-        this.logger.addDebugInfo(`✅ STRATEGY 1 SUCCESS: Database mapping found!`);
+        this.logger.addDebugInfo(`✅ STRATEGY 1b SUCCESS: Database mapping found!`);
         this.logger.addDebugInfo(`   Result: "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''}`);
         this.logger.addDebugInfo(`   Confidence: ${Math.min(dbMapping.confidence_score + 10, 100)}%`);
-        this.logger.addDebugInfo(`   Source: database (EXACT MATCH - bypassing fuzzy/pattern matching)`);
+        this.logger.addDebugInfo(`   Source: database (EXACT/PARTIAL)`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -574,7 +612,7 @@ export class EnhancedStageMapper {
           source: 'database',
           category: this.inferStageCategory(stage.name),
           stageSpecId: dbMapping.stage_specification_id,
-          stageSpecName: specificationName
+          stageSpecName: specificationName || undefined
         };
       } else {
         this.logger.addDebugInfo(`⚠️ DATABASE MAPPING FOUND BUT NO STAGE: Mapping exists but stage lookup failed`);
@@ -610,7 +648,36 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find mapping in existing database with improved exact matching
+   * Exact database mapping only (no partial)
+   */
+  private findDatabaseExactMapping(searchText: string): any | null {
+    const normalizedSearch = this.normalizeText(searchText);
+    this.logger.addDebugInfo(`🔍 DB EXACT LOOKUP: Searching for "${searchText}" (normalized: "${normalizedSearch}")`);
+    if (this.existingMappings.has(normalizedSearch)) {
+      const mapping = this.existingMappings.get(normalizedSearch)!;
+      this.logger.addDebugInfo(`✅ EXACT DATABASE MATCH FOUND: "${mapping.excel_text}"`);
+      return {
+        ...mapping,
+        confidence_score: Math.min((mapping.confidence_score || 0) + 10, 100)
+      };
+    }
+    // Fallback: normalized equality on raw excel_text
+    for (const [, mapping] of this.existingMappings.entries()) {
+      const mappedNormalized = this.normalizeText(mapping.excel_text || '');
+      if (mappedNormalized === normalizedSearch) {
+        this.logger.addDebugInfo(`✅ EXACT DATABASE MATCH (fallback normalized): "${mapping.excel_text}"`);
+        return {
+          ...mapping,
+          confidence_score: Math.min((mapping.confidence_score || 0) + 5, 100)
+        };
+      }
+    }
+    this.logger.addDebugInfo(`❌ NO EXACT DATABASE MATCH for "${searchText}"`);
+    return null;
+  }
+
+  /**
+   * Find mapping in existing database with improved matching (allows partial)
    */
   private findDatabaseMapping(searchText: string): any | null {
     const normalizedSearch = this.normalizeText(searchText);
@@ -644,16 +711,32 @@ export class EnhancedStageMapper {
     let bestScore = 0;
     
     for (const [mappedKey, mapping] of this.existingMappings.entries()) {
-      // Only consider partial matches with high similarity (75%+)
+      // Only consider partial matches with very high similarity (85%+) and no keyword conflicts
       const similarity = this.calculateSimilarity(normalizedSearch, mappedKey);
-      if (similarity >= 0.75) {
-        const score = similarity * mapping.confidence_score;
-        
+      if (similarity >= 0.85) {
+        // Resolve stage name for conflict guard
+        let stageName = '';
+        if (mapping.production_stage_id) {
+          const st = this.stages.find(s => s.id === mapping.production_stage_id);
+          stageName = st?.name?.toLowerCase?.() || '';
+        } else if (mapping.stage_specification_id) {
+          const spec = this.stageSpecs?.find(s => s.id === mapping.stage_specification_id);
+          if (spec) {
+            const st = this.stages.find(s => s.id === spec.production_stage_id);
+            stageName = st?.name?.toLowerCase?.() || '';
+          }
+        }
+        if (stageName && this.hasConflictingKeywords(normalizedSearch, stageName)) {
+          this.logger.addDebugInfo(`🚫 DB PARTIAL CONFLICT: Skipping mapping "${mapping.excel_text}" due to conflict with stage "${stageName}" and search "${normalizedSearch}"`);
+          continue;
+        }
+
+        const score = similarity * (mapping.confidence_score || 50);
         if (score > bestScore) {
           bestScore = score;
           bestMatch = {
             ...mapping,
-            confidence_score: Math.max(Math.round(score * 0.9), 50) // Higher confidence for good partial matches
+            confidence_score: Math.max(Math.round(score * 0.85), 50) // Conservative weighting for partial matches
           };
         }
       }
@@ -679,6 +762,20 @@ export class EnhancedStageMapper {
       .replace(/[^\w\s&-]/g, '')      // Remove special characters except &, -, and spaces
       .replace(/\s*&\s*/g, ' & ')     // Normalize ampersands
       .replace(/\s*-\s*/g, ' - ');    // Normalize dashes
+  }
+  // Build a normalized, de-duplicated search string from groupName + description
+  private buildSearchText(groupName: string, description: string): string {
+    const g = (groupName || '').toLowerCase().trim();
+    const d = (description || '').toLowerCase().trim();
+    const combined = g === d ? g : `${g} ${d}`.trim();
+    const tokens = combined.split(/\s+/).filter(Boolean);
+    const seen = new Set<string>();
+    const deduped = tokens.filter(t => {
+      if (seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+    return deduped.join(' ').trim();
   }
 
   /**
@@ -1121,11 +1218,12 @@ export class EnhancedStageMapper {
     description: string,
     category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'packaging'
   ): MappingConfidence | null {
-    const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    const searchText = this.buildSearchText(groupName, description);
 
-    // Priority 0: Database mapping FIRST (bypass any fuzzy/pattern)
+    // Priority 0: Database mapping FIRST (EXACT only; bypass any fuzzy/pattern)
     this.logger.addDebugInfo(`🔒 PRIORITY: Database lookup before stage+spec for "${searchText}" [${category}]`);
-    const dbMapping = this.findDatabaseMapping(searchText);
+    const dbMapping = this.findDatabaseExactMapping(searchText);
+
     if (dbMapping) {
       let stage: any = null;
       let specificationName: string | null = null;
