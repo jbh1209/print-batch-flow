@@ -72,15 +72,19 @@ export class EnhancedStageMapper {
     if (mappingsError) {
       this.logger.addDebugInfo(`Warning: Could not load existing mappings: ${mappingsError.message}`);
     } else {
-      // Index mappings by text for quick lookup
+      // Index mappings by text for quick lookup using SAME normalization as search
       (mappingsData || []).forEach(mapping => {
-        const key = mapping.excel_text.toLowerCase().trim();
+        const key = this.normalizeText(mapping.excel_text);
         if (!this.existingMappings.has(key) || 
             (this.existingMappings.get(key)?.confidence_score || 0) < mapping.confidence_score) {
           this.existingMappings.set(key, mapping);
+          this.logger.addDebugInfo(`🗂️ STORED MAPPING: "${mapping.excel_text}" -> normalized key: "${key}" -> stage: ${mapping.production_stage_id}`);
         }
       });
       this.logger.addDebugInfo(`Loaded ${this.existingMappings.size} verified mappings`);
+      
+      // Debug: Show all stored keys
+      this.logger.addDebugInfo(`🔑 ALL STORED MAPPING KEYS: [${Array.from(this.existingMappings.keys()).join('", "')}""]`);
     }
   }
 
@@ -611,29 +615,37 @@ export class EnhancedStageMapper {
   private findDatabaseMapping(searchText: string): any | null {
     const normalizedSearch = this.normalizeText(searchText);
     this.logger.addDebugInfo(`🔍 DATABASE LOOKUP: Searching for "${searchText}" (normalized: "${normalizedSearch}")`);
+    this.logger.addDebugInfo(`🔍 AVAILABLE KEYS: [${Array.from(this.existingMappings.keys()).slice(0, 5).join('", "')}"...] (showing first 5 of ${this.existingMappings.size})`);
     
-    // Strategy 1: Case-insensitive exact match
-    for (const [mappedText, mapping] of this.existingMappings.entries()) {
-      const normalizedMapped = this.normalizeText(mappedText);
-      
-      if (normalizedSearch === normalizedMapped) {
-        this.logger.addDebugInfo(`✅ EXACT DATABASE MATCH FOUND: "${searchText}" -> "${mappedText}" (confidence: ${mapping.confidence_score})`);
+    // Strategy 1: Direct key lookup (most efficient since keys are already normalized)
+    if (this.existingMappings.has(normalizedSearch)) {
+      const mapping = this.existingMappings.get(normalizedSearch)!;
+      this.logger.addDebugInfo(`✅ EXACT DATABASE MATCH FOUND: "${searchText}" -> "${mapping.excel_text}" (confidence: ${mapping.confidence_score})`);
+      return {
+        ...mapping,
+        confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
+      };
+    }
+
+    // Strategy 2: Fallback - case-insensitive simple match for edge cases
+    const simpleLookup = searchText.toLowerCase().trim();
+    for (const [mappedKey, mapping] of this.existingMappings.entries()) {
+      if (mappedKey === simpleLookup || mapping.excel_text.toLowerCase().trim() === simpleLookup) {
+        this.logger.addDebugInfo(`✅ FALLBACK EXACT MATCH: "${searchText}" -> "${mapping.excel_text}" (confidence: ${mapping.confidence_score})`);
         return {
           ...mapping,
-          confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
+          confidence_score: Math.min(mapping.confidence_score + 5, 100) // Smaller boost for fallback
         };
       }
     }
 
-    // Strategy 2: High-similarity partial match (only for very close matches)
+    // Strategy 3: High-similarity partial match (only for very close matches)
     let bestMatch: any = null;
     let bestScore = 0;
     
-    for (const [mappedText, mapping] of this.existingMappings.entries()) {
-      const normalizedMapped = this.normalizeText(mappedText);
-      
+    for (const [mappedKey, mapping] of this.existingMappings.entries()) {
       // Only consider partial matches with high similarity (75%+)
-      const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
+      const similarity = this.calculateSimilarity(normalizedSearch, mappedKey);
       if (similarity >= 0.75) {
         const score = similarity * mapping.confidence_score;
         
