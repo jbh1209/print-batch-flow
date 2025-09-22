@@ -17,6 +17,8 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 export const ProductionManagerView = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('due_date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs, invalidateCache } = useAccessibleJobs({
     permissionType: 'manage',
     statusFilter
@@ -50,19 +52,48 @@ export const ProductionManagerView = () => {
     }));
   }, [jobs]);
 
-  // Filter jobs based on search query
+  // Filter and sort jobs based on search query and sort criteria
   const filteredJobs = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return normalizedJobs;
+    let filtered = normalizedJobs;
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(job => 
+        job.reference?.toLowerCase().includes(query) ||
+        job.customer?.toLowerCase().includes(query) ||
+        job.wo_no?.toLowerCase().includes(query)
+      );
     }
     
-    const query = searchQuery.toLowerCase();
-    return normalizedJobs.filter(job => 
-      job.reference?.toLowerCase().includes(query) ||
-      job.customer?.toLowerCase().includes(query) ||
-      job.wo_no?.toLowerCase().includes(query)
-    );
-  }, [normalizedJobs, searchQuery]);
+    // Apply sorting
+    return [...filtered].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortBy) {
+        case 'wo_no':
+          aValue = a.wo_no || '';
+          bValue = b.wo_no || '';
+          break;
+        case 'due_date':
+          aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
+          bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // Handle numeric sorting (dates)
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      // Handle string sorting (work order numbers)
+      const comparison = String(aValue).localeCompare(String(bValue));
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [normalizedJobs, searchQuery, sortBy, sortOrder]);
 
   // Count jobs in batch processing
   const batchProcessingJobs = React.useMemo(() => {
@@ -185,6 +216,10 @@ export const ProductionManagerView = () => {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         filteredJobCount={filteredJobs.length}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
       />
 
       {/* Production Statistics */}
