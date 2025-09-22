@@ -323,7 +323,7 @@ export class EnhancedStageMapper {
    * Map paper specification using existing mappings
    */
   private mapPaperSpecification(groupName: string, description: string): string {
-    const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    const searchText = this.normalizeText(this.buildSearchText(groupName, description));
     
     // Check for existing paper mappings
     const paperMapping = this.findPaperMapping(searchText);
@@ -339,12 +339,13 @@ export class EnhancedStageMapper {
    * Find paper mapping in existing database
    */
   private findPaperMapping(searchText: string): string | null {
+    const normalized = this.normalizeText(searchText);
     // Check paper-specific mappings
     for (const [mappedText, mapping] of this.existingMappings.entries()) {
       if (mapping.mapping_type === 'paper_specification' || 
           mapping.paper_type_specification_id || 
           mapping.paper_weight_specification_id) {
-        if (searchText.includes(mappedText) || mappedText.includes(searchText)) {
+        if (normalized.includes(mappedText) || mappedText.includes(normalized)) {
           // Get the display name from mapped specifications
           return this.getPaperSpecificationDisplay(mapping);
         }
@@ -357,27 +358,32 @@ export class EnhancedStageMapper {
    * Get proper display name for paper specification from mapping
    */
   private getPaperSpecificationDisplay(mapping: any): string {
-    const parts: string[] = [];
+    let typeDisplay: string | undefined;
+    let weightDisplay: string | undefined;
     
     // Look up actual specification names from database
     if (mapping.paper_type_specification_id) {
       const typeSpec = this.specifications.find(s => s.id === mapping.paper_type_specification_id);
       if (typeSpec) {
-        parts.push(typeSpec.display_name || typeSpec.name);
+        typeDisplay = typeSpec.display_name || typeSpec.name;
       }
     }
     
     if (mapping.paper_weight_specification_id) {
       const weightSpec = this.specifications.find(s => s.id === mapping.paper_weight_specification_id);
       if (weightSpec) {
-        parts.push(weightSpec.display_name || weightSpec.name);
+        weightDisplay = weightSpec.display_name || weightSpec.name;
       }
     }
     
-    // Return combined display name if we found specifications
-    if (parts.length > 0) {
-      return parts.join(' ');
+    // Preferred display: "Type + Weight" (e.g., "FBB + 230gsm")
+    if (typeDisplay && weightDisplay) {
+      return `${typeDisplay} + ${weightDisplay}`;
     }
+    
+    // If only one is present, return it
+    if (typeDisplay) return typeDisplay;
+    if (weightDisplay) return weightDisplay;
     
     // Fallback to raw text if no specifications found
     return mapping.excel_text || '';
