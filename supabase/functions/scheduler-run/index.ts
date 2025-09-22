@@ -120,12 +120,12 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed_v2', {
+      const { data, error } = await supabase.rpc('scheduler_truly_sequential_v2', {
         p_start_from: startTime
       });
 
       if (error) {
-        console.error('Error calling scheduler_reschedule_all_sequential_fixed_v2:', error);
+        console.error('Error calling scheduler_truly_sequential_v2:', error);
         throw error;
       }
 
