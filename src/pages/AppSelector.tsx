@@ -83,7 +83,7 @@ const AppSelector = () => {
             <CardContent className="text-center">
               <ul className="text-sm text-gray-600 mb-6 space-y-2">
                 <li>• Manage printing batches and jobs</li>
-                <li>• Business cards, flyers, and more</li>
+                <li>Open Batchflow</li>
                 <li>• Batch optimization and scheduling</li>
                 <li>• PDF generation and management</li>
               </ul>
