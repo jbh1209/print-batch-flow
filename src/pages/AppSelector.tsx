@@ -6,11 +6,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ProofApprovalFixer } from "@/components/utils/ProofApprovalFixer";
-
 const AppSelector = () => {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading
+  } = useAuth();
   const navigate = useNavigate();
-
   useEffect(() => {
     // Redirect to auth if not logged in
     if (!loading && !user) {
@@ -20,30 +21,24 @@ const AppSelector = () => {
 
   // Show loading while checking auth
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
+    return <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
           <LoadingSpinner />
           <p className="text-gray-600">Loading your workspace...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
 
   // Don't render anything if redirecting to auth
   if (!user) {
     return null;
   }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-8">
+  return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-8">
       <div className="max-w-4xl w-full px-6">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to Your Workspace</h1>
           <p className="text-xl text-gray-600 mb-2">Choose your application to get started</p>
-          {user?.email && (
-            <p className="text-sm text-gray-500">Logged in as {user.email}</p>
-          )}
+          {user?.email && <p className="text-sm text-gray-500">Logged in as {user.email}</p>}
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
@@ -80,7 +75,7 @@ const AppSelector = () => {
               <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                 <Package className="h-10 w-10 text-blue-600" />
               </div>
-              <CardTitle className="text-2xl text-gray-900">Printstream</CardTitle>
+              <CardTitle className="text-2xl text-gray-900">BatchFlow</CardTitle>
               <CardDescription className="text-gray-600">
                 Printing batch management and production workflows
               </CardDescription>
@@ -134,8 +129,6 @@ const AppSelector = () => {
           <ProofApprovalFixer />
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default AppSelector;
