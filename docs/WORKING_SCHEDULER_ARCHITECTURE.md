@@ -1,11 +1,13 @@
 # Working Scheduler Architecture Documentation
 
-**CRITICAL: This documents the WORKING configuration as of commit ecce872**
+**CRITICAL: This documents the WORKING configuration - UPDATED for Parallel-Aware Scheduler**
 **DO NOT MODIFY WITHOUT EXTREME CAUTION**
 
 ## Overview
 
-The current working scheduler uses a **Resource-Fill Optimization** strategy implemented entirely in SQL functions. This approach has proven stable and performant.
+The current working scheduler uses a **Parallel-Aware Sequential Scheduling** strategy implemented entirely in SQL functions. This approach handles convergence scenarios properly and has proven stable and performant.
+
+**NIGHTLY AUTOMATION**: The system now runs `scheduler_reschedule_all_parallel_aware()` automatically at 3 AM daily via cron job `nightly-reschedule-consolidated`.
 
 ## System Entry Points
 
@@ -16,24 +18,40 @@ The current working scheduler uses a **Resource-Fill Optimization** strategy imp
 
 ### 2. Database Entry Point
 - **Function**: `simple_scheduler_wrapper(p_mode text)`
-- **Purpose**: Main coordinator function
+- **Purpose**: Main coordinator function  
 - **Key Behavior**: Routes to `scheduler_resource_fill_optimized()` for all modes
+
+### 3. Nightly Automation (NEW)
+- **Cron Job**: `nightly-reschedule-consolidated`
+- **Schedule**: 3:00 AM daily (`0 3 * * *`)
+- **Function**: `scheduler_reschedule_all_parallel_aware()`
+- **Purpose**: Automatically reschedules all pending stages with convergence handling
 
 ## Core Scheduling Algorithm
 
-### Primary Function: `scheduler_resource_fill_optimized()`
+### Primary Functions
 
+#### Manual UI Scheduling: `scheduler_resource_fill_optimized()`
 **Strategy**: Resource-availability-first scheduling
 - Maintains resource availability tracking
 - Uses temporary table `_stage_tails` for state management
 - Processes jobs in FIFO order by `proof_approved_at`
 - Places duration using `place_duration_sql()`
 
+#### Nightly Automated Scheduling: `scheduler_reschedule_all_parallel_aware()`
+**Strategy**: Parallel-aware sequential scheduling with convergence handling
+- **Layer-Based Processing**: Handles stage dependencies properly
+- **Part Convergence**: Manages 'cover', 'text', and 'both' part assignments
+- **Barrier Tracking**: Persistent job and part-specific barriers across layers
+- **Completion Time Integration**: Uses ACTUAL completion times from completed work
+
 **Key Features**:
 1. **Single SQL Transaction**: All scheduling happens atomically
 2. **Resource Tracking**: Maintains `_stage_tails` table for stage availability
 3. **Working Day Awareness**: Uses `is_working_day()` and `next_working_start()`
-4. **Proof Approval Filtering**: Only schedules approved jobs
+4. **Proof Approval Filtering**: Only schedules jobs with `proof_approved_at`
+5. **Convergence Logic**: 'both' stages wait for ALL prerequisite parts to complete
+6. **Final Synchronization**: Ensures JSI times match actual STS slot times
 
 ## Critical Dependencies
 
@@ -64,18 +82,28 @@ The current working scheduler uses a **Resource-Fill Optimization** strategy imp
 
 ## Success Metrics (Current Working State)
 
-- **Total Scheduled Stages**: 323
+### Manual Scheduling
 - **Function Call**: `simple_scheduler_wrapper('reschedule_all')`
 - **Response Format**: `{scheduled_count: N, wrote_slots: N, success: true}`
 - **Execution Time**: < 30 seconds (no statement timeout)
 
+### Nightly Automated Scheduling  
+- **Function Call**: `scheduler_reschedule_all_parallel_aware()`
+- **Response Format**: `{wrote_slots: N, updated_jsi: N, violations: []}`
+- **Schedule**: Daily at 3:00 AM
+- **Convergence**: Zero violations achieved with proper part handling
+- **Execution Time**: < 60 seconds (handles more complex convergence logic)
+
 ## CRITICAL: What NOT to Change
 
 1. **Never modify** `scheduler_resource_fill_optimized()` without full system backup
-2. **Never change** the `simple_scheduler_wrapper` routing logic
-3. **Never alter** the `_stage_tails` temporary table structure
-4. **Never modify** `place_duration_sql()` time slot logic
-5. **Never change** the FIFO ordering by `proof_approved_at`
+2. **Never modify** `scheduler_reschedule_all_parallel_aware()` without full system backup  
+3. **Never change** the `simple_scheduler_wrapper` routing logic
+4. **Never alter** the `_stage_tails` temporary table structure
+5. **Never modify** `place_duration_sql()` time slot logic
+6. **Never change** the FIFO ordering by `proof_approved_at`
+7. **Never modify** the nightly cron job `nightly-reschedule-consolidated` without testing
+8. **Never change** the convergence logic for 'both' part assignments
 
 ## Previous Failed Approaches (DO NOT RETRY)
 
@@ -92,5 +120,6 @@ The current working scheduler uses a **Resource-Fill Optimization** strategy imp
 - **Data Validation**: Verify scheduled counts after changes
 
 ---
-**Last Updated**: Post-restoration from commit ecce872
+**Last Updated**: Post-nightly automation consolidation with `scheduler_reschedule_all_parallel_aware()`
+**Nightly Cron**: `nightly-reschedule-consolidated` at 3:00 AM daily
 **Status**: WORKING - DO NOT MODIFY WITHOUT EXTREME CAUTION
