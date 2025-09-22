@@ -12,11 +12,11 @@ export function useSequentialScheduler() {
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Call the working sequential scheduler v2
-      const { data, error } = await supabase.rpc('scheduler_truly_sequential_v2');
+      // Call the working sequential scheduler with zero violations
+      const { data, error } = await supabase.rpc('scheduler_completely_sequential');
       
       if (error) {
-        console.error('Error calling scheduler_truly_sequential_v2:', error);
+        console.error('Error calling scheduler_completely_sequential:', error);
         toast.error('Failed to generate schedule');
         return;
       }
