@@ -15,6 +15,8 @@ import {
   Play,
   Pause
 } from "lucide-react";
+import { format } from "date-fns";
+import { TrafficLightIndicator } from "./production/TrafficLightIndicator";
 import { BatchStageIndicator } from "./batch/BatchStageIndicator";
 import { ConditionalStageIndicator } from "./batch/ConditionalStageIndicator";
 import { BatchContextIndicator } from "./BatchAwareJobCard";
@@ -130,13 +132,28 @@ export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
           {job.due_date && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-gray-400" />
-              <span className={`${
-                isOverdue ? 'text-red-600 font-medium' : 
-                isDueSoon ? 'text-orange-600 font-medium' : 
-                'text-gray-600'
-              }`}>
-                Due: {new Date(job.due_date).toLocaleDateString()}
-              </span>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <TrafficLightIndicator 
+                    dueDate={job.due_date}
+                    originalCommittedDueDate={job.original_committed_due_date}
+                    showDetailed={false}
+                  />
+                  <span className={`${
+                    isOverdue ? 'text-red-600 font-medium' : 
+                    isDueSoon ? 'text-orange-600 font-medium' : 
+                    'text-gray-600'
+                  }`}>
+                    Due: {format(new Date(job.due_date), "MMM dd, yyyy")}
+                  </span>
+                </div>
+                {job.original_committed_due_date && job.due_date && 
+                 new Date(job.due_date) > new Date(job.original_committed_due_date) && (
+                  <span className="text-xs text-amber-600 ml-5">
+                    Original: {format(new Date(job.original_committed_due_date), "MMM dd, yyyy")}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

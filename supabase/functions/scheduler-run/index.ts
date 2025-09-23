@@ -183,45 +183,65 @@ async function schedule(supabase: any, req: ScheduleRequest) {
         throw error;
       }
 
-      // The advanced scheduler returns an array with one result object
-      const result = Array.isArray(data) ? data[0] : data;
-      
-      // ENHANCED: Dual due date system - auto-trigger calculation after full reschedule
-      // Fixed trigger condition: check commit flag, not updated_jsi count
-      if (req.commit) {
+      // ENHANCED: Always trigger due date calculation for robust dual date system
+      if (req.onlyJobIds && req.onlyJobIds.length > 0) {
+        console.log(`🎯 Triggering due date calculation for ${req.onlyJobIds.length} specific jobs with dual date mode`);
+        
         try {
-          console.log('Full reschedule completed - triggering dual due date calculation for all proof-approved jobs');
-          
-          // Get ALL proof-approved jobs (not just recently scheduled ones)
-          const { data: proofApprovedJobs, error: jobQueryError } = await supabase
-            .from('production_jobs')
-            .select('id, original_committed_due_date')
-            .not('proof_approved_at', 'is', null);
-          
-          if (jobQueryError) {
-            console.error('Failed to get proof-approved job IDs:', jobQueryError);
-          } else if (proofApprovedJobs && proofApprovedJobs.length > 0) {
-            const jobIds = proofApprovedJobs.map(j => j.id);
-            console.log(`Found ${jobIds.length} proof-approved jobs for dual due date calculation`);
-            
-            const { error: dueDateError } = await supabase.functions.invoke('calculate-due-dates', {
-              body: {
-                jobIds: jobIds,
-                tableName: 'production_jobs',
-                priority: 'normal',
-                dualDateMode: true  // Enable dual date handling
-              }
-            });
-            
-            if (dueDateError) {
-              console.error('Dual due date calculation failed (non-fatal):', dueDateError);
-            } else {
-              console.log('Dual due date calculation completed successfully');
+          const dueDateResult = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: req.onlyJobIds,
+              tableName: 'production_jobs',
+              priority: 'high',
+              includeTimingCalculation: true,
+              dualDateMode: true,  // CRITICAL: Enable dual date tracking
+              forceOriginalDateUpdate: true  // Force setting original date for new jobs
             }
+          });
+          
+          if (dueDateResult.error) {
+            console.error('⚠️ Due date calculation failed:', dueDateResult.error);
+          } else {
+            console.log('✅ Due date calculation completed:', dueDateResult.data);
           }
-        } catch (e) {
-          console.error('Dual due date calculation error (non-fatal):', e);
+        } catch (error) {
+          console.error('⚠️ Due date calculation error:', error);
         }
+      }
+
+      // ALWAYS trigger due date calculation for jobs that need original_committed_due_date
+      console.log('🎯 Ensuring all proof-approved jobs have original_committed_due_date set');
+      
+      try {
+        const { data: jobsNeedingOriginalDate } = await supabase
+          .from('production_jobs')
+          .select('id')
+          .not('proof_approved_at', 'is', null)
+          .is('original_committed_due_date', null);
+
+        if (jobsNeedingOriginalDate && jobsNeedingOriginalDate.length > 0) {
+          const jobIds = jobsNeedingOriginalDate.map(job => job.id);
+          console.log(`🔄 Setting original_committed_due_date for ${jobIds.length} jobs`);
+          
+          const dueDateResult = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: jobIds,
+              tableName: 'production_jobs',
+              priority: 'high',
+              includeTimingCalculation: true,
+              dualDateMode: true,
+              forceOriginalDateUpdate: true  // Force setting original date
+            }
+          });
+          
+          if (dueDateResult.error) {
+            console.error('⚠️ Original date setting failed:', dueDateResult.error);
+          } else {
+            console.log('✅ Original dates set successfully:', dueDateResult.data);
+          }
+        }
+      } catch (error) {
+        console.error('⚠️ Error checking for jobs needing original dates:', error);
       }
       
       return {

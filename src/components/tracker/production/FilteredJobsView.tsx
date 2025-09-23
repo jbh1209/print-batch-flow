@@ -77,7 +77,11 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
           >
             {/* Due / traffic light */}
             <div className="flex items-center justify-center" style={{ width: 26 }}>
-              <TrafficLightIndicator dueDate={job.due_date} />
+              <TrafficLightIndicator 
+                dueDate={job.due_date} 
+                originalCommittedDueDate={job.original_committed_due_date}
+                showDetailed={false}
+              />
             </div>
             
             {/* Job info */}

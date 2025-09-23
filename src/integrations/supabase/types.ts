@@ -3705,6 +3705,7 @@ export type Database = {
           is_in_batch_processing: boolean
           job_id: string
           manual_due_date: string
+          original_committed_due_date: string
           proof_emailed_at: string
           qty: number
           reference: string
