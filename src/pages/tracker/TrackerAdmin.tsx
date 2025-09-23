@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet, Clock } from "lucide-react";
+import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet } from "lucide-react";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
@@ -13,11 +13,10 @@ import PublicHolidaysManagement from "@/components/tracker/admin/PublicHolidaysM
 import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecificationsManagement";
 import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
-import { BulkJobRecalculation } from "@/components/tracker/BulkJobRecalculation";
-import { BulkTimingRecalculation } from "@/components/tracker/BulkTimingRecalculation";
+import { PremiumUserManagement } from "@/components/users/PremiumUserManagement";
 
 export default function TrackerAdmin() {
-  const [activeTab, setActiveTab] = useState("workflow-diagnostics");
+  const [activeTab, setActiveTab] = useState("users");
 
   return (
     <div className="p-6">
@@ -30,9 +29,9 @@ export default function TrackerAdmin() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-11">
-          <TabsTrigger value="job-scheduling" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Job Scheduling
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Users
           </TabsTrigger>
           <TabsTrigger value="excel-mapping" className="flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4" />
@@ -76,11 +75,8 @@ export default function TrackerAdmin() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="job-scheduling">
-          <div className="space-y-6">
-            <BulkJobRecalculation />
-            <BulkTimingRecalculation />
-          </div>
+        <TabsContent value="users">
+          <PremiumUserManagement />
         </TabsContent>
 
         <TabsContent value="excel-mapping">
