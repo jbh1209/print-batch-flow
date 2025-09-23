@@ -15,6 +15,7 @@ export interface AccessibleJob {
   customer: string;
   status: string;
   due_date: string;
+  original_committed_due_date?: string | null;
   reference: string;
   category_id?: string;
   category_name: string;
