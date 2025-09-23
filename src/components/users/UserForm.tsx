@@ -42,6 +42,7 @@ const createUserSchema = z.object({
 });
 
 const editUserSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   role: z.string().default("user"),
   groups: z.array(z.string()).optional()
@@ -157,21 +158,35 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
           )}
         />
 
-        {!isEditing && (
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input placeholder="user@example.com" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Email
+                {isEditing && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (Changing this will affect login credentials)
+                  </span>
+                )}
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="user@example.com" 
+                  type="email"
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+              {isEditing && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ User will need to use the new email address to sign in
+                </p>
+              )}
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

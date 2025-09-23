@@ -106,6 +106,23 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   try {
     console.log('🔄 Updating user profile for:', userId, userData);
 
+    // Update email if provided and different
+    if (userData.email) {
+      console.log('🔄 Updating user email via admin function...');
+      const { data, error } = await supabase.functions.invoke('update-user-email-admin', {
+        body: {
+          userId: userId,
+          newEmail: userData.email
+        }
+      });
+
+      if (error) {
+        console.error('Error updating email:', error);
+        throw new Error(`Failed to update email: ${error.message}`);
+      }
+      console.log('✅ Email updated successfully');
+    }
+
     // Update profile if full_name provided
     if (userData.full_name !== undefined) {
       const { error: profileError } = await supabase
