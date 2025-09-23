@@ -253,18 +253,49 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     return hasExistingWorkflow ? "Update Custom Workflow" : "Initialize Custom Workflow";
   };
 
-  const handleStageToggle = (stage: any, checked: boolean) => {
+  const handleStageToggle = async (stage: any, checked: boolean) => {
     if (checked) {
+      // Try to find an existing stage specification for auto-configuration
+      let stageSpecId = null;
+      let estimatedDuration = null;
+      
+      try {
+        const { data: specifications } = await supabase
+          .from('stage_specifications')
+          .select('id, running_speed_per_hour, make_ready_time_minutes, speed_unit')
+          .eq('production_stage_id', stage.id)
+          .eq('is_active', true)
+          .limit(1);
+
+        if (specifications && specifications.length > 0) {
+          const spec = specifications[0];
+          stageSpecId = spec.id;
+          
+          // Calculate estimated duration based on job quantity and specification
+          if (job?.qty && spec.running_speed_per_hour) {
+            const makeReadyTime = spec.make_ready_time_minutes || 0;
+            const runningTime = spec.speed_unit === 'items_per_hour' 
+              ? (job.qty * 60) / spec.running_speed_per_hour
+              : spec.speed_unit === 'items_per_minute'
+                ? job.qty / spec.running_speed_per_hour
+                : 60; // Default fallback
+            estimatedDuration = Math.round(makeReadyTime + runningTime);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch stage specification for auto-configuration:', error);
+      }
+
       const newStage: SelectedStage = {
         id: stage.id,
         name: stage.name,
         color: stage.color,
         order: selectedStages.length + 1,
-        // Initialize with job quantity as default
+        // Enhanced defaults with auto-configuration
         quantity: job?.qty || null,
-        estimatedDurationMinutes: null,
-        partAssignment: null,
-        stageSpecificationId: null
+        estimatedDurationMinutes: estimatedDuration,
+        partAssignment: 'both', // Default to 'both' for better integration
+        stageSpecificationId: stageSpecId
       };
       setSelectedStages(prev => [...prev, newStage]);
     } else {
@@ -362,6 +393,30 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       dueDate.setDate(today.getDate() + manualSlaDays);
       setManualDueDate(dueDate.toISOString().split('T')[0]);
     }
+  };
+
+  const validateWorkflowConfiguration = () => {
+    const warnings: string[] = [];
+    const unconfiguredStages = selectedStages.filter(stage => {
+      const config = getStageConfigurationStatus(stage);
+      return config.configured < config.total; // Use the existing structure
+    });
+
+    if (unconfiguredStages.length > 0) {
+      warnings.push(`${unconfiguredStages.length} stage(s) need configuration: ${unconfiguredStages.map(s => s.name).join(', ')}`);
+    }
+
+    const stagesWithoutQuantity = selectedStages.filter(s => !getStageConfigurationStatus(s).hasQuantity);
+    if (stagesWithoutQuantity.length > 0) {
+      warnings.push(`${stagesWithoutQuantity.length} stage(s) missing quantity`);
+    }
+
+    const stagesWithoutDuration = selectedStages.filter(s => !getStageConfigurationStatus(s).hasDuration);
+    if (stagesWithoutDuration.length > 0) {
+      warnings.push(`${stagesWithoutDuration.length} stage(s) missing duration estimates`);
+    }
+
+    return warnings;
   };
 
   const handleInitializeCustomWorkflow = async () => {
@@ -865,6 +920,29 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         </div>
 
         <DialogFooter className="flex-col space-y-3">
+          {/* Configuration validation warnings */}
+          {selectedStages.length > 0 && (() => {
+            const warnings = validateWorkflowConfiguration();
+            return warnings.length > 0 ? (
+              <div className="w-full p-3 bg-orange-50 border border-orange-200 rounded-md">
+                <div className="flex items-start space-x-2">
+                  <Settings className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-orange-800 mb-1">Configuration Recommendations:</p>
+                    <ul className="text-orange-700 space-y-1">
+                      {warnings.map((warning, index) => (
+                        <li key={index} className="text-xs">• {warning}</li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-orange-600 mt-2">
+                      Click the ⚙️ configure button next to any stage to set up quantity, duration, and specifications.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null;
+          })()}
+
           {/* Schedule Management Controls */}
           {showScheduleControls && scheduleImpact && (
             <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg">
