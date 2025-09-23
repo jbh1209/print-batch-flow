@@ -120,12 +120,12 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       
       const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
       
-      const { data, error } = await supabase.rpc('scheduler_completely_sequential', {
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware', {
         p_start_from: startTime
       });
 
       if (error) {
-        console.error('Error calling scheduler_completely_sequential:', error);
+        console.error('Error calling scheduler_reschedule_all_parallel_aware:', error);
         throw error;
       }
 
@@ -151,11 +151,15 @@ serve((req) =>
     });
 
     const schedulerPromise = (async () => {
-      if (req.method !== "POST") {
+      if (req.method === 'GET') {
         if (new URL(req.url).searchParams.get("ping") === "1") {
           return json(req, 200, { ok: true, pong: true, now: new Date().toISOString() });
         }
-        return json(req, 405, { ok: false, error: "Method Not Allowed" });
+        return json(req, 200, { message: 'Scheduler service is running', timestamp: new Date().toISOString() });
+      }
+      
+      if (req.method !== "POST") {
+        return json(req, 405, { ok: false, error: "Method Not Allowed. Use POST for scheduling or GET for health check." });
       }
 
       const body = (await req.json().catch(() => ({}))) as ScheduleRequest;

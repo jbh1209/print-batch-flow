@@ -45,7 +45,9 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     const baseTime = startFrom || getFactoryBaseTime();
     console.log('🔄 Base scheduling time:', baseTime);
     
-    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware' as any, {
+      p_start_from: baseTime
+    });
 
     if (error) {
       console.error('Reschedule error:', error);
