@@ -125,8 +125,8 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       const { data: eligibleJobs, error: jobsError } = await supabase
         .from('production_jobs')
         .select('id')
-        .eq('job_status', 'approved')
-        .is('batch_id', null);
+        .not('proof_approved_at', 'is', null)
+        .neq('status', 'Completed');
 
       if (jobsError) {
         console.error('Error fetching eligible jobs:', jobsError);
