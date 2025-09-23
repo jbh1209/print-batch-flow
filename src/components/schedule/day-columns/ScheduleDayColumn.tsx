@@ -12,6 +12,7 @@ import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleRea
 import { supabase } from "@/integrations/supabase/client";
 import { AutoReorderConfirmDialog } from "../dialogs/AutoReorderConfirmDialog";
 import { groupStagesByPaper, groupStagesByLamination, groupStagesByPaperAndSize, isPrintingStage, isLaminatingStage, isHP12000Stage, type GroupPreview } from "@/utils/schedule/groupingUtils";
+import { applyCustomGroupOrder } from "@/utils/schedule/groupReorderUtils";
 import { toast } from "sonner";
 
 interface ScheduleDayColumnProps {
@@ -157,7 +158,6 @@ export const ScheduleDayColumn: React.FC<ScheduleDayColumnProps> = ({
 
       if (customGroupOrder) {
         // Use custom group order from dialog
-        const { applyCustomGroupOrder } = await import('@/utils/schedule/groupReorderUtils');
         
         if (pendingGroupingType === 'lamination') {
           // Need job specs for lamination grouping
