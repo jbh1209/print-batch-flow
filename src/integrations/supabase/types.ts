@@ -2826,6 +2826,27 @@ export type Database = {
       }
     }
     Views: {
+      shift_schedules_norm: {
+        Row: {
+          day_of_week: number | null
+          end_time: string | null
+          is_working_day: boolean | null
+          start_time: string | null
+        }
+        Insert: {
+          day_of_week?: number | null
+          end_time?: string | null
+          is_working_day?: boolean | null
+          start_time?: string | null
+        }
+        Update: {
+          day_of_week?: number | null
+          end_time?: string | null
+          is_working_day?: boolean | null
+          start_time?: string | null
+        }
+        Relationships: []
+      }
       v_job_stage_windows: {
         Row: {
           first_slot: string | null
