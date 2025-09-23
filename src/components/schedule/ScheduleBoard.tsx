@@ -8,7 +8,9 @@ import { ScheduleProductionSidebar } from "./sidebar/ScheduleProductionSidebar";
 import { ScheduleWorkflowHeader } from "./header/ScheduleWorkflowHeader";
 import { ScheduleDayColumn } from "./day-columns/ScheduleDayColumn";
 import { WeekNavigation } from "./navigation/WeekNavigation";
+import { JobDiagnosticsModal } from "./JobDiagnosticsModal";
 import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleReader";
+import { useJobDiagnostics } from "@/hooks/useJobDiagnostics";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,6 +32,8 @@ export function ScheduleBoard({
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const { isLoading: diagnosticsLoading, diagnostics, getDiagnostics } = useJobDiagnostics();
 
   // Filter schedule days to only show the current week (Monday to Friday)
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday
@@ -46,9 +50,10 @@ export function ScheduleBoard({
     setSelectedStageName(stageName);
   };
 
-  const handleJobClick = (job: ScheduledStageData) => {
-    // TODO: Open job details modal or navigate to job
-    console.log('Job clicked:', job);
+  const handleJobClick = async (job: ScheduledStageData) => {
+    console.log('Job clicked - opening diagnostics:', job);
+    setDiagnosticsOpen(true);
+    await getDiagnostics(job.id);
   };
 
   return (
@@ -112,6 +117,14 @@ export function ScheduleBoard({
           </div>
         </div>
       </div>
+
+      {/* Job Diagnostics Modal */}
+      <JobDiagnosticsModal
+        open={diagnosticsOpen}
+        onOpenChange={setDiagnosticsOpen}
+        diagnostics={diagnostics}
+        isLoading={diagnosticsLoading}
+      />
     </div>
   );
 }

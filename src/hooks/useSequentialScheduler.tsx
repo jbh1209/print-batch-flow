@@ -3,8 +3,9 @@
  */
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { rescheduleAll, scheduleJobs } from "@/utils/scheduler";
 
 export function useSequentialScheduler() {
   const [isLoading, setIsLoading] = useState(false);
@@ -12,26 +13,14 @@ export function useSequentialScheduler() {
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Call the working sequential scheduler with zero violations
-      const { data, error } = await supabase.rpc('scheduler_completely_sequential');
+      const result = await rescheduleAll();
+      if (!result) return;
       
-      if (error) {
-        console.error('Error calling scheduler_completely_sequential:', error);
-        toast.error('Failed to generate schedule');
-        return;
-      }
-      
-      const result = (data as { wrote_slots: number; updated_jsi: number; violations: any }[] | null)?.[0];
-      
-      if (result) {
-        const violationCount = Array.isArray(result.violations) ? result.violations.length : 0;
-        if (violationCount === 0) {
-          toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 convergence violations!`);
-        } else {
-          toast.warning(`Schedule generated with ${violationCount} violations: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
-        }
+      const violationCount = result.violations.length;
+      if (violationCount === 0) {
+        toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 precedence issues!`);
       } else {
-        toast.success('Schedule generated successfully');
+        toast.warning(`Schedule generated with ${violationCount} precedence info items: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
       }
     } catch (error) {
       console.error('Error generating schedule:', error);
@@ -44,20 +33,10 @@ export function useSequentialScheduler() {
   const appendJobs = useCallback(async (jobIds: string[]) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
-        p_job_ids: jobIds,
-        p_start_from: null,
-        p_only_if_unset: true
-      });
+      const result = await scheduleJobs(jobIds, false);
+      if (!result) return;
       
-      if (error) {
-        console.error('Error appending jobs:', error);
-        toast.error('Failed to schedule jobs');
-        return;
-      }
-      
-      const result = (data as { wrote_slots: number; updated_jsi: number }[] | null)?.[0];
-      toast.success(`Successfully scheduled ${result?.updated_jsi || 0} stages for ${jobIds.length} jobs`);
+      toast.success(`Successfully scheduled ${result.updated_jsi} stages for ${jobIds.length} jobs`);
     } catch (error) {
       console.error('Error appending jobs:', error);
       toast.error('Failed to schedule jobs');
@@ -107,26 +86,11 @@ export function useSequentialScheduler() {
     try {
       console.log('🔄 Rescheduling specific jobs:', jobIds);
       
-      const { data, error } = await supabase.rpc('scheduler_append_jobs', {
-        p_job_ids: jobIds,
-        p_start_from: null,
-        p_only_if_unset: false // Force reschedule even if already scheduled
-      });
+      const result = await scheduleJobs(jobIds, true); // Force reschedule
+      if (!result) return null;
       
-      if (error) {
-        console.error('❌ Error rescheduling jobs:', error);
-        toast.error(`Failed to reschedule jobs: ${error.message}`);
-        return null;
-      }
-
-      const result = (data as { wrote_slots: number; updated_jsi: number }[] | null)?.[0];
-      
-      if (result) {
-        toast.success(`✅ Rescheduled ${jobIds.length} job(s): ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
-        console.log('✅ Job reschedule completed:', result);
-      } else {
-        toast.success(`Rescheduled ${jobIds.length} job(s) successfully`);
-      }
+      toast.success(`✅ Rescheduled ${jobIds.length} job(s): ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
+      console.log('✅ Job reschedule completed:', result);
       
       return result;
     } catch (err) {
