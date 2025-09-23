@@ -3374,6 +3374,7 @@ export type Database = {
         Returns: {
           cleared_instances: number
           cleared_slots: number
+          reset_overdue_stages: number
         }[]
       }
       consolidate_excel_mappings: {
