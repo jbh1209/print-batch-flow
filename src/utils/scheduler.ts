@@ -35,18 +35,23 @@ function getFactoryBaseTime(): string {
 }
 
 /**
- * Main reschedule function - uses direct parallel-aware scheduler
+ * Main reschedule function - routes through edge function to avoid DB timeouts
  */
 export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting PARALLEL-AWARE reschedule...');
+    console.log('🔄 Starting reschedule via edge function...');
     
-    // Use direct parallel-aware function with proper start time
     const baseTime = startFrom || getFactoryBaseTime();
     console.log('🔄 Base scheduling time:', baseTime);
     
-    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware' as any, {
-      p_start_from: baseTime
+    // Route through edge function to avoid database timeout issues
+    const { data, error } = await supabase.functions.invoke('scheduler-run', {
+      body: {
+        commit: true,
+        proposed: false,
+        onlyIfUnset: false,
+        startFrom: baseTime
+      }
     });
 
     if (error) {
@@ -55,14 +60,14 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
       return null;
     }
 
-    const result = (data as any)?.[0] || {};
+    const result = data || {};
     const wroteSlots = result?.wrote_slots ?? 0;
     const updatedJSI = result?.updated_jsi ?? 0;
     
-    // Handle violations array from parallel-aware scheduler
+    // Handle violations array
     const violations = Array.isArray(result?.violations) ? result.violations : [];
 
-    console.log('🔄 PARALLEL-AWARE reschedule completed:', { 
+    console.log('🔄 Reschedule completed via edge function:', { 
       wroteSlots, 
       updatedJSI, 
       violations: violations.length 
