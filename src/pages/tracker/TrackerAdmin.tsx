@@ -14,6 +14,7 @@ import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecifica
 import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import { PremiumUserManagement } from "@/components/users/PremiumUserManagement";
+import { UserManagementProvider } from "@/contexts/UserManagementContext";
 
 export default function TrackerAdmin() {
   const [activeTab, setActiveTab] = useState("users");
@@ -76,7 +77,9 @@ export default function TrackerAdmin() {
         </TabsList>
 
         <TabsContent value="users">
-          <PremiumUserManagement />
+          <UserManagementProvider>
+            <PremiumUserManagement />
+          </UserManagementProvider>
         </TabsContent>
 
         <TabsContent value="excel-mapping">
