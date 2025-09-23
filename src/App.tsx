@@ -237,6 +237,11 @@ function App() {
                     <ExcelMapping />
                   </ProtectedRoute>
                 } />
+                <Route path="/admin/users" element={
+                  <ProtectedRoute>
+                    <Users />
+                  </ProtectedRoute>
+                } />
                 {/* Legacy test routes removed */}
                 {/* Removed scheduler routes */}
 
