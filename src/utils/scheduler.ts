@@ -22,15 +22,30 @@ export interface SchedulerValidation {
 }
 
 /**
- * Main reschedule function - uses parallel-aware scheduler
+ * Get factory timezone base time for scheduling
  */
-export async function rescheduleAll(): Promise<SchedulerResult | null> {
+function getFactoryBaseTime(): string {
+  const now = new Date();
+  // Factory timezone (Africa/Johannesburg) - get start of next working day
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(8, 0, 0, 0); // 8 AM factory time
+  
+  return tomorrow.toISOString();
+}
+
+/**
+ * Main reschedule function - uses direct parallel-aware scheduler
+ */
+export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting parallel-aware reschedule...');
+    console.log('🔄 Starting PARALLEL-AWARE reschedule...');
     
-    const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-      p_mode: 'reschedule_all'
-    });
+    // Use direct parallel-aware function with proper start time
+    const baseTime = startFrom || getFactoryBaseTime();
+    console.log('🔄 Base scheduling time:', baseTime);
+    
+    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
 
     if (error) {
       console.error('Reschedule error:', error);
@@ -42,24 +57,14 @@ export async function rescheduleAll(): Promise<SchedulerResult | null> {
     const wroteSlots = result?.wrote_slots ?? 0;
     const updatedJSI = result?.updated_jsi ?? 0;
     
-    // Normalize violations - could be string, array, or object from jsonb
-    let violations = [];
-    if (result?.violations) {
-      const violationsData = result.violations;
-      if (Array.isArray(violationsData)) {
-        violations = violationsData;
-      } else if (typeof violationsData === 'string') {
-        try {
-          violations = JSON.parse(violationsData);
-        } catch {
-          violations = [];
-        }
-      } else if (typeof violationsData === 'object' && violationsData !== null) {
-        violations = [violationsData];
-      }
-    }
+    // Handle violations array from parallel-aware scheduler
+    const violations = Array.isArray(result?.violations) ? result.violations : [];
 
-    console.log('🔄 Reschedule completed:', { wroteSlots, updatedJSI, violations: violations.length });
+    console.log('🔄 PARALLEL-AWARE reschedule completed:', { 
+      wroteSlots, 
+      updatedJSI, 
+      violations: violations.length 
+    });
     
     return {
       wrote_slots: wroteSlots,

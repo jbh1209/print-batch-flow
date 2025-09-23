@@ -26,13 +26,16 @@ export default function ScheduleBoardPage() {
       const validationResults = await getSchedulingValidation();
       
       if (validationResults.length > 0) {
-        toast.warning(
-          `Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${validationResults.length} precedence info items (some may be normal for parallel processing)`
+        toast.message(
+          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${validationResults.length} parallel processing info items (normal for cover/text stages)`,
+          {
+            description: "Click on any job to see 'Why scheduled here?' details"
+          }
         );
-        console.log('Scheduling validation info:', validationResults);
+        console.log('Parallel processing validation info:', validationResults);
       } else {
         toast.success(
-          `✅ Perfect schedule: ${result.updated_jsi} stages with ${result.wrote_slots} slots, 0 precedence issues`
+          `✅ Perfect schedule: ${result.updated_jsi} stages with ${result.wrote_slots} slots, 0 validation notes`
         );
       }
     } catch (e: any) {

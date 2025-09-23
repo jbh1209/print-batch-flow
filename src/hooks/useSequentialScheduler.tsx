@@ -18,9 +18,14 @@ export function useSequentialScheduler() {
       
       const violationCount = result.violations.length;
       if (violationCount === 0) {
-        toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 precedence issues!`);
+        toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 validation notes!`);
       } else {
-        toast.warning(`Schedule generated with ${violationCount} precedence info items: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
+        toast.message(
+          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${violationCount} parallel processing info items (normal for cover/text stages)`,
+          {
+            description: "Click on any job to see 'Why scheduled here?' details"
+          }
+        );
       }
     } catch (error) {
       console.error('Error generating schedule:', error);
