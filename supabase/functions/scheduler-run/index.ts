@@ -245,10 +245,10 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       }
       
       return {
-        wroteSlots: result?.wrote_slots || 0,
-        updatedJSI: result?.updated_jsi || 0,
+        wroteSlots: data?.wrote_slots || 0,
+        updatedJSI: data?.updated_jsi || 0,
         dryRun: !req.commit,
-        violations: result?.violations || []
+        violations: data?.violations || []
       };
     }
     
