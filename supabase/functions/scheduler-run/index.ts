@@ -107,15 +107,17 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 
       const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
       
-      // Auto-trigger due date calculation for scheduled jobs
+      // ENHANCED: Auto-trigger due date calculation for scheduled jobs  
+      // For specific jobs, only update current due_date, preserve original_committed_due_date
       if (req.commit && req.onlyJobIds && req.onlyJobIds.length > 0) {
         try {
-          console.log(`Triggering due date calculation for ${req.onlyJobIds.length} jobs...`);
+          console.log(`Triggering due date calculation for ${req.onlyJobIds.length} specific jobs...`);
           const { error: dueDateError } = await supabase.functions.invoke('calculate-due-dates', {
             body: {
               jobIds: req.onlyJobIds,
               tableName: 'production_jobs',
-              priority: 'normal'
+              priority: 'high',
+              dualDateMode: false  // Only update current due_date
             }
           });
           
@@ -184,41 +186,41 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       // The advanced scheduler returns an array with one result object
       const result = Array.isArray(data) ? data[0] : data;
       
-      // Auto-trigger due date calculation for all scheduled jobs after full reschedule
-      if (req.commit && result?.updated_jsi > 0) {
+      // ENHANCED: Dual due date system - auto-trigger calculation after full reschedule
+      // Fixed trigger condition: check commit flag, not updated_jsi count
+      if (req.commit) {
         try {
-          console.log('Triggering due date calculation for all recently scheduled jobs...');
+          console.log('Full reschedule completed - triggering dual due date calculation for all proof-approved jobs');
           
-          // Get list of job IDs that were just scheduled
-          const { data: scheduledJobs, error: jobQueryError } = await supabase
-            .from('job_stage_instances')
-            .select('job_id')
-            .eq('job_table_name', 'production_jobs')
-            .eq('schedule_status', 'scheduled')
-            .not('scheduled_start_at', 'is', null);
+          // Get ALL proof-approved jobs (not just recently scheduled ones)
+          const { data: proofApprovedJobs, error: jobQueryError } = await supabase
+            .from('production_jobs')
+            .select('id, original_committed_due_date')
+            .not('proof_approved_at', 'is', null);
           
           if (jobQueryError) {
-            console.error('Failed to get scheduled job IDs:', jobQueryError);
-          } else if (scheduledJobs && scheduledJobs.length > 0) {
-            const jobIds = [...new Set(scheduledJobs.map(j => j.job_id))]; // Remove duplicates
-            console.log(`Found ${jobIds.length} jobs to update due dates for`);
+            console.error('Failed to get proof-approved job IDs:', jobQueryError);
+          } else if (proofApprovedJobs && proofApprovedJobs.length > 0) {
+            const jobIds = proofApprovedJobs.map(j => j.id);
+            console.log(`Found ${jobIds.length} proof-approved jobs for dual due date calculation`);
             
             const { error: dueDateError } = await supabase.functions.invoke('calculate-due-dates', {
               body: {
                 jobIds: jobIds,
                 tableName: 'production_jobs',
-                priority: 'normal'
+                priority: 'normal',
+                dualDateMode: true  // Enable dual date handling
               }
             });
             
             if (dueDateError) {
-              console.error('Due date calculation failed (non-fatal):', dueDateError);
+              console.error('Dual due date calculation failed (non-fatal):', dueDateError);
             } else {
-              console.log('Due dates updated successfully for all scheduled jobs');
+              console.log('Dual due date calculation completed successfully');
             }
           }
         } catch (e) {
-          console.error('Due date calculation error (non-fatal):', e);
+          console.error('Dual due date calculation error (non-fatal):', e);
         }
       }
       

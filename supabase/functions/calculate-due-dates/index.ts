@@ -12,6 +12,7 @@ interface JobProcessingRequest {
   includeTimingCalculation?: boolean;
   includeQRCodeGeneration?: boolean;
   userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
+  dualDateMode?: boolean;  // NEW: Enable dual due date handling
 }
 
 interface JobTimelineStage {
@@ -261,6 +262,7 @@ async function processJobBatch(
     includeTimingCalculation?: boolean;
     includeQRCodeGeneration?: boolean;
     userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>;
+    dualDateMode?: boolean;  // NEW: Enable dual due date handling
   } = {}
 ) {
   const results = {
@@ -328,17 +330,26 @@ async function processJobBatch(
     
     results.processed = jobIds.length;
     
-    // Calculate due dates for all jobs (batch operation)
+    // ENHANCED: Dual due date system calculation (batch operation)
     try {
       const timelines = await calculateJobTimelineBatch(supabase, jobIds, tableName);
       
       if (timelines.length > 0) {
+        // First, get current job data to check for existing original_committed_due_date
+        const { data: currentJobs } = await supabase
+          .from(tableName)
+          .select('id, original_committed_due_date')
+          .in('id', jobIds);
+        
+        const currentJobsMap = new Map(currentJobs?.map(j => [j.id, j]) || []);
+        
         const updates = timelines.map(timeline => {
           const lastStage = timeline.stages[timeline.stages.length - 1];
           const internalCompletionDate = lastStage?.estimatedCompletionDate || new Date();
           const dueDateWithBuffer = addWorkingDays(internalCompletionDate, 1);
+          const currentJob = currentJobsMap.get(timeline.jobId);
           
-          return {
+          const baseUpdate = {
             id: timeline.jobId,
             internal_completion_date: internalCompletionDate.toISOString().split('T')[0],
             due_date: dueDateWithBuffer.toISOString().split('T')[0],
@@ -346,6 +357,25 @@ async function processJobBatch(
             due_date_warning_level: 'green',
             last_due_date_check: new Date().toISOString()
           };
+          
+          // DUAL DATE MODE LOGIC
+          if (options.dualDateMode) {
+            // In dual date mode: set original_committed_due_date if it's the first time
+            if (!currentJob?.original_committed_due_date) {
+              console.log(`🆕 Setting original committed due date for job ${timeline.jobId}: ${dueDateWithBuffer.toISOString().split('T')[0]}`);
+              return {
+                ...baseUpdate,
+                original_committed_due_date: dueDateWithBuffer.toISOString().split('T')[0]
+              };
+            } else {
+              console.log(`📅 Updating current due date for job ${timeline.jobId}, preserving original: ${currentJob.original_committed_due_date}`);
+              return baseUpdate; // Only update current due_date, preserve original
+            }
+          } else {
+            // Standard mode: only update current due_date
+            console.log(`🔄 Standard due date update for job ${timeline.jobId}`);
+            return baseUpdate;
+          }
         });
         
         const { error: updateError } = await supabase
@@ -354,6 +384,7 @@ async function processJobBatch(
         
         if (!updateError) {
           results.dueDatesCalculated = timelines.length;
+          console.log(`✅ ${options.dualDateMode ? 'Dual' : 'Standard'} due date calculation completed for ${timelines.length} jobs`);
         } else {
           results.errors.push(`Due date update error: ${updateError.message}`);
         }
@@ -395,7 +426,8 @@ Deno.serve(async (req) => {
       includeWorkflowInitialization = false,
       includeTimingCalculation = false,
       includeQRCodeGeneration = false,
-      userApprovedMappings = []
+      userApprovedMappings = [],
+      dualDateMode = false  // NEW: Default to standard mode
     }: JobProcessingRequest = await req.json();
 
     if (!jobIds || jobIds.length === 0) {
@@ -418,7 +450,8 @@ Deno.serve(async (req) => {
         includeWorkflowInitialization,
         includeTimingCalculation,
         includeQRCodeGeneration,
-        userApprovedMappings
+        userApprovedMappings,
+        dualDateMode  // NEW: Pass dual date mode to batch processor
       });
       results.push(result);
       
