@@ -115,25 +115,82 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       };
       
     } else {
-      // Reschedule all jobs
-      console.log("Rescheduling all pending jobs");
+      // Reschedule all jobs using chunked processing to avoid timeouts
+      console.log("Rescheduling all pending jobs with chunked processing");
       
-      // Call the zero-argument version of the parallel-aware scheduler
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+      const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
+      const pageSize = req.pageSize || 25; // Default chunk size
+      
+      // First, discover all eligible jobs that need scheduling
+      const { data: eligibleJobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id')
+        .eq('job_status', 'approved')
+        .is('batch_id', null);
 
-      if (error) {
-        console.error('Error calling scheduler_reschedule_all_parallel_aware:', error);
-        throw error;
+      if (jobsError) {
+        console.error('Error fetching eligible jobs:', jobsError);
+        throw jobsError;
       }
 
-      // Normalize array result to single object like the other branch
-      const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+      if (!eligibleJobs || eligibleJobs.length === 0) {
+        console.log('No eligible jobs found for scheduling');
+        return {
+          wroteSlots: 0,
+          updatedJSI: 0,
+          dryRun: !req.commit,
+          violations: []
+        };
+      }
+
+      const jobIds = eligibleJobs.map(job => job.id);
+      console.log(`Found ${jobIds.length} eligible jobs, processing in chunks of ${pageSize}`);
+
+      // Process jobs in chunks to avoid timeouts
+      let totalWroteSlots = 0;
+      let totalUpdatedJSI = 0;
+      let allViolations: any[] = [];
+
+      for (let i = 0; i < jobIds.length; i += pageSize) {
+        const chunk = jobIds.slice(i, i + pageSize);
+        console.log(`Processing chunk ${Math.floor(i / pageSize) + 1}/${Math.ceil(jobIds.length / pageSize)} with ${chunk.length} jobs`);
+
+        try {
+          const { data: chunkResult, error: chunkError } = await supabase.rpc('scheduler_append_jobs', {
+            p_job_ids: chunk,
+            p_start_from: startTime,
+            p_only_if_unset: !!req.onlyIfUnset
+          });
+
+          if (chunkError) {
+            console.error(`Error processing chunk starting at index ${i}:`, chunkError);
+            throw chunkError;
+          }
+
+          const result = Array.isArray(chunkResult) && chunkResult.length > 0 ? chunkResult[0] : chunkResult;
+          
+          totalWroteSlots += result?.wrote_slots || 0;
+          totalUpdatedJSI += result?.updated_jsi || 0;
+          
+          if (result?.violations && Array.isArray(result.violations)) {
+            allViolations.push(...result.violations);
+          }
+
+          console.log(`Chunk completed: wrote ${result?.wrote_slots || 0} slots, updated ${result?.updated_jsi || 0} JSI`);
+          
+        } catch (chunkError) {
+          console.error(`Failed processing chunk starting at index ${i}:`, chunkError);
+          // Continue with next chunk rather than failing entirely
+        }
+      }
+
+      console.log(`Chunked processing complete: total wrote ${totalWroteSlots} slots, updated ${totalUpdatedJSI} JSI, ${allViolations.length} violations`);
 
       return {
-        wroteSlots: result?.wrote_slots || 0,
-        updatedJSI: result?.updated_jsi || 0,
+        wroteSlots: totalWroteSlots,
+        updatedJSI: totalUpdatedJSI,
         dryRun: !req.commit,
-        violations: result?.violations || []
+        violations: allViolations
       };
     }
     
