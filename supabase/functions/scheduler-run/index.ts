@@ -118,22 +118,22 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       // Reschedule all jobs
       console.log("Rescheduling all pending jobs");
       
-      const startTime = req.startFrom ? new Date(req.startFrom).toISOString() : null;
-      
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware', {
-        p_start_from: startTime
-      });
+      // Call the zero-argument version of the parallel-aware scheduler
+      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
 
       if (error) {
         console.error('Error calling scheduler_reschedule_all_parallel_aware:', error);
         throw error;
       }
 
+      // Normalize array result to single object like the other branch
+      const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+
       return {
-        wroteSlots: data?.wrote_slots || 0,
-        updatedJSI: data?.updated_jsi || 0,
+        wroteSlots: result?.wrote_slots || 0,
+        updatedJSI: result?.updated_jsi || 0,
         dryRun: !req.commit,
-        violations: data?.violations || []
+        violations: result?.violations || []
       };
     }
     

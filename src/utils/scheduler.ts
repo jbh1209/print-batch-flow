@@ -61,8 +61,9 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     }
 
     const result = data || {};
-    const wroteSlots = result?.wrote_slots ?? 0;
-    const updatedJSI = result?.updated_jsi ?? 0;
+    // Handle both camelCase (from edge function) and snake_case (from direct RPC) responses
+    const wroteSlots = result?.wroteSlots ?? result?.wrote_slots ?? 0;
+    const updatedJSI = result?.updatedJSI ?? result?.updated_jsi ?? 0;
     
     // Handle violations array
     const violations = Array.isArray(result?.violations) ? result.violations : [];
