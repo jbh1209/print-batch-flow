@@ -107,6 +107,28 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 
       const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
       
+      // Auto-trigger due date calculation for scheduled jobs
+      if (req.commit && req.onlyJobIds && req.onlyJobIds.length > 0) {
+        try {
+          console.log(`Triggering due date calculation for ${req.onlyJobIds.length} jobs...`);
+          const { error: dueDateError } = await supabase.functions.invoke('calculate-due-dates', {
+            body: {
+              jobIds: req.onlyJobIds,
+              tableName: 'production_jobs',
+              priority: 'normal'
+            }
+          });
+          
+          if (dueDateError) {
+            console.error('Due date calculation failed (non-fatal):', dueDateError);
+          } else {
+            console.log('Due dates updated successfully');
+          }
+        } catch (e) {
+          console.error('Due date calculation error (non-fatal):', e);
+        }
+      }
+      
       return {
         wroteSlots: result?.wrote_slots || 0,
         updatedJSI: result?.updated_jsi || 0,
@@ -161,6 +183,44 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 
       // The advanced scheduler returns an array with one result object
       const result = Array.isArray(data) ? data[0] : data;
+      
+      // Auto-trigger due date calculation for all scheduled jobs after full reschedule
+      if (req.commit && result?.updated_jsi > 0) {
+        try {
+          console.log('Triggering due date calculation for all recently scheduled jobs...');
+          
+          // Get list of job IDs that were just scheduled
+          const { data: scheduledJobs, error: jobQueryError } = await supabase
+            .from('job_stage_instances')
+            .select('job_id')
+            .eq('job_table_name', 'production_jobs')
+            .eq('schedule_status', 'scheduled')
+            .not('scheduled_start_at', 'is', null);
+          
+          if (jobQueryError) {
+            console.error('Failed to get scheduled job IDs:', jobQueryError);
+          } else if (scheduledJobs && scheduledJobs.length > 0) {
+            const jobIds = [...new Set(scheduledJobs.map(j => j.job_id))]; // Remove duplicates
+            console.log(`Found ${jobIds.length} jobs to update due dates for`);
+            
+            const { error: dueDateError } = await supabase.functions.invoke('calculate-due-dates', {
+              body: {
+                jobIds: jobIds,
+                tableName: 'production_jobs',
+                priority: 'normal'
+              }
+            });
+            
+            if (dueDateError) {
+              console.error('Due date calculation failed (non-fatal):', dueDateError);
+            } else {
+              console.log('Due dates updated successfully for all scheduled jobs');
+            }
+          }
+        } catch (e) {
+          console.error('Due date calculation error (non-fatal):', e);
+        }
+      }
       
       return {
         wroteSlots: result?.wrote_slots || 0,
