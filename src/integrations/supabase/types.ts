@@ -4122,7 +4122,7 @@ export type Database = {
         }[]
       }
       simple_scheduler_wrapper: {
-        Args: { p_mode?: string }
+        Args: { p_mode: string }
         Returns: Json
       }
       split_batch_at_packaging: {
