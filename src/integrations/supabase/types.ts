@@ -1641,7 +1641,6 @@ export type Database = {
           manual_due_date: string | null
           manual_sla_days: number | null
           operation_quantities: Json | null
-          original_committed_due_date: string | null
           paper_specifications: Json | null
           prepress_specifications: Json | null
           printing_specifications: Json | null
@@ -1695,7 +1694,6 @@ export type Database = {
           manual_due_date?: string | null
           manual_sla_days?: number | null
           operation_quantities?: Json | null
-          original_committed_due_date?: string | null
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
@@ -1749,7 +1747,6 @@ export type Database = {
           manual_due_date?: string | null
           manual_sla_days?: number | null
           operation_quantities?: Json | null
-          original_committed_due_date?: string | null
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
@@ -2829,27 +2826,6 @@ export type Database = {
       }
     }
     Views: {
-      shift_schedules_norm: {
-        Row: {
-          day_of_week: number | null
-          end_time: string | null
-          is_working_day: boolean | null
-          start_time: string | null
-        }
-        Insert: {
-          day_of_week?: number | null
-          end_time?: string | null
-          is_working_day?: boolean | null
-          start_time?: string | null
-        }
-        Update: {
-          day_of_week?: number | null
-          end_time?: string | null
-          is_working_day?: boolean | null
-          start_time?: string | null
-        }
-        Relationships: []
-      }
       v_job_stage_windows: {
         Row: {
           first_slot: string | null
@@ -3377,7 +3353,6 @@ export type Database = {
         Returns: {
           cleared_instances: number
           cleared_slots: number
-          reset_overdue_stages: number
         }[]
       }
       consolidate_excel_mappings: {
@@ -3705,7 +3680,6 @@ export type Database = {
           is_in_batch_processing: boolean
           job_id: string
           manual_due_date: string
-          original_committed_due_date: string
           proof_emailed_at: string
           qty: number
           reference: string
