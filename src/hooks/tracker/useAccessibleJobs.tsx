@@ -144,6 +144,7 @@ export const useAccessibleJobs = ({
         customer: job.customer || 'Unknown',
         status: job.status || 'Unknown',
         due_date: job.due_date || '',
+        original_committed_due_date: (job as any).original_committed_due_date || null,
         reference: job.reference || '',
         category_id: job.category_id || '',
         category_name: job.category_name || 'No Category',

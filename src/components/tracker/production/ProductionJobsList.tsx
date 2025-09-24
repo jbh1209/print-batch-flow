@@ -18,6 +18,7 @@ import {
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { ProofStatusIndicator } from "../factory/ProofStatusIndicator";
+import { EnhancedDueDateDisplay } from "./EnhancedDueDateDisplay";
 import { getStageContextForJob, canStartContextStage, canCompleteContextStage } from "@/utils/stageContextUtils";
 import { cn } from "@/lib/utils";
 
@@ -149,18 +150,12 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
 
               {/* Due Date */}
               <div className="col-span-1">
-                {job.due_date && (
-                  <div className="flex items-center gap-1 text-sm">
-                    <Calendar className="h-3 w-3 text-gray-400" />
-                    <span className={
-                      isOverdue ? 'text-red-600 font-medium' : 
-                      isDueSoon ? 'text-orange-600 font-medium' : 
-                      'text-gray-600'
-                    }>
-                      {new Date(job.due_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
+                <EnhancedDueDateDisplay 
+                  job={job} 
+                  showTrafficLight={true} 
+                  variant="compact"
+                  className="text-sm"
+                />
               </div>
 
               {/* Quantity */}

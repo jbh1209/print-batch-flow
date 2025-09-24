@@ -30,6 +30,7 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { RealTimeStageTimingDisplay } from "@/components/tracker/RealTimeStageTimingDisplay";
+import { EnhancedDueDateDisplay } from "../production/EnhancedDueDateDisplay";
 
 interface MasterOrderModalProps {
   isOpen: boolean;
@@ -107,6 +108,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
         category_name: jobData.categories?.name || 'No Category',
         category_color: jobData.categories?.color || '#6B7280',
         due_date: jobData.due_date,
+        original_committed_due_date: jobData.original_committed_due_date,
         status: jobData.status
       };
 
@@ -283,10 +285,12 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Due Date</label>
-                <p className="font-medium flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'N/A'}
-                </p>
+                <EnhancedDueDateDisplay 
+                  job={job} 
+                  showTrafficLight={true} 
+                  variant="detailed"
+                  className="font-medium"
+                />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Quantity</label>

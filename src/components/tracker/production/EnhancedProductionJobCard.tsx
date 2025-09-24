@@ -24,6 +24,7 @@ import { PartAssignmentIndicator } from "../common/PartAssignmentIndicator";
 import { StageProgressIndicator } from "../common/StageProgressIndicator";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { ProofStatusIndicator } from "../factory/ProofStatusIndicator";
+import { EnhancedDueDateDisplay } from "./EnhancedDueDateDisplay";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import { getStageContextForJob, canStartContextStage, canCompleteContextStage } from "@/utils/stageContextUtils";
 import { cn } from "@/lib/utils";
@@ -142,18 +143,12 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
                 <span className="truncate">{job.customer || 'Unknown Customer'}</span>
               </div>
               
-              {job.due_date && (
-                <div className="flex items-center gap-1 text-sm">
-                  <Calendar className="h-3 w-3 text-gray-400" />
-                  <span className={
-                    isOverdue ? 'text-red-600 font-medium' : 
-                    isDueSoon ? 'text-orange-600 font-medium' : 
-                    'text-gray-600'
-                  }>
-                    {new Date(job.due_date).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
+              <EnhancedDueDateDisplay 
+                job={job} 
+                showTrafficLight={true} 
+                variant="compact"
+                className="text-sm"
+              />
               
               {job.qty && (
                 <div className="flex items-center gap-1 text-sm">
