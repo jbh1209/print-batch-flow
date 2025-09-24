@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cleanupAuthState } from '@/utils/authCleanup';
+import companyLogo from '@/assets/company-logo.png';
 const Auth = () => {
   const navigate = useNavigate();
   const {
@@ -81,6 +82,13 @@ const Auth = () => {
       <div className="w-full max-w-md px-4 relative z-10">
         <Card className="backdrop-blur-sm bg-white/90 shadow-2xl">
           <CardHeader>
+            <div className="flex justify-center mb-4">
+              <img 
+                src={companyLogo} 
+                alt="Company Logo" 
+                className="h-12 w-auto object-contain"
+              />
+            </div>
             <CardTitle className="text-2xl font-bold text-center text-gray-800">Printstream Login</CardTitle>
             <CardDescription className="text-center">Enter your credentials to access your printing workflow</CardDescription>
           </CardHeader>
