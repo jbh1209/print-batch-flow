@@ -139,8 +139,8 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       };
       
     } else {
-      // For reschedule all, use the parallel-aware scheduler
-      console.log("Using parallel-aware scheduler for reschedule all...");
+      // For reschedule all, use the PROVEN WORKING scheduler from Monday morning
+      console.log("Using proven working scheduler: simple_scheduler_wrapper -> scheduler_resource_fill_optimized");
       
       if (req.wipeAll) {
         console.log('Wiping all existing schedule data...');
@@ -173,30 +173,20 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 
       console.log(`Using start time: ${startTime}`);
 
-      // Prefer strictly sequential scheduler; safe fallback to parallel-aware if unavailable
-      let resultData: any = null;
-      let schedulerError: any = null;
-      try {
-        const res1 = await supabase.rpc('scheduler_truly_sequential_v2', {
-          p_start_from: startTime
-        });
-        if (res1.error) throw res1.error;
-        // Normalize possible single-row return shape
-        resultData = Array.isArray(res1.data) && res1.data.length > 0 ? res1.data[0] : res1.data;
-        console.log('Used scheduler_truly_sequential_v2 successfully');
-      } catch (e) {
-        console.warn('scheduler_truly_sequential_v2 failed, falling back to scheduler_reschedule_all_sequential_fixed_v2:', (e as any)?.message ?? e);
-        const res2 = await supabase.rpc('scheduler_reschedule_all_sequential_fixed_v2', {
-          p_start_from: startTime
-        });
-        schedulerError = res2.error;
-        resultData = Array.isArray(res2.data) && res2.data.length > 0 ? res2.data[0] : res2.data;
+      // Use proven working scheduler: simple_scheduler_wrapper -> scheduler_resource_fill_optimized
+      console.log('Calling proven working scheduler: simple_scheduler_wrapper');
+      
+      const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
+        p_mode: 'reschedule_all'
+      });
+
+      if (error) {
+        console.error('Error calling simple_scheduler_wrapper:', error);
+        throw error;
       }
 
-      if (schedulerError) {
-        console.error('Error calling scheduler function:', schedulerError);
-        throw schedulerError;
-      }
+      // Handle response from working scheduler (returns different format)
+      const resultData = Array.isArray(data) && data.length > 0 ? data[0] : data;
 
       // ENHANCED: Always trigger due date calculation for robust dual date system
       if (req.onlyJobIds && req.onlyJobIds.length > 0) {
@@ -260,8 +250,10 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       }
       
       return {
-        wroteSlots: resultData?.wrote_slots || 0,
-        updatedJSI: resultData?.updated_jsi || 0,
+        wroteSlots: resultData?.wrote_slots || resultData?.scheduled_count || 0,
+        updatedJSI: resultData?.updated_jsi || resultData?.scheduled_count || 0,
+        scheduledCount: resultData?.scheduled_count || 0,
+        success: resultData?.success || false,
         dryRun: !req.commit,
         violations: resultData?.violations || []
       };
