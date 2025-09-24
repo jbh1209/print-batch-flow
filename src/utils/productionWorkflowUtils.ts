@@ -93,6 +93,12 @@ export const getJobWorkflowStages = (
     s.status === 'completed'
   );
   
+  // Always include pending/active PROOF stages regardless of phase logic
+  const proofStages = pendingStages.filter(stage => 
+    stage.production_stages?.name?.toLowerCase().includes('proof') ||
+    stage.stage_name?.toLowerCase().includes('proof')
+  );
+  
   // PHASE LOGIC: Only return stages from ONE phase at a time
   
   // PHASE 1: Sequential stages BEFORE parallel work (must complete first)
@@ -106,7 +112,10 @@ export const getJobWorkflowStages = (
       const minNextOrder = Math.min(...nextSequentialStages.map(s => s.stage_order));
       const nextStages = nextSequentialStages.filter(s => s.stage_order === minNextOrder);
       
-      return nextStages.map(stage => ({
+      // Combine next sequential stages with proof stages
+      const combinedStages = [...nextStages, ...proofStages];
+      
+      return combinedStages.map(stage => ({
         stage_id: stage.unique_stage_key || stage.production_stage_id,
         stage_name: stage.production_stages?.name || stage.stage_name,
         stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
@@ -152,6 +161,9 @@ export const getJobWorkflowStages = (
       }
     });
     
+    // Always include proof stages in parallel phase too
+    availableStages.push(...proofStages);
+    
     return availableStages.map(stage => ({
       stage_id: stage.unique_stage_key || stage.production_stage_id,
       stage_name: stage.production_stages?.name || stage.stage_name,
@@ -168,7 +180,10 @@ export const getJobWorkflowStages = (
     const minOrder = Math.min(...pendingStages.map(s => s.stage_order));
     const firstStages = pendingStages.filter(s => s.stage_order === minOrder);
     
-    return firstStages.map(stage => ({
+    // Always include proof stages in fallback too
+    const combinedStages = [...firstStages, ...proofStages];
+    
+    return combinedStages.map(stage => ({
       stage_id: stage.unique_stage_key || stage.production_stage_id,
       stage_name: stage.production_stages?.name || stage.stage_name,
       stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
