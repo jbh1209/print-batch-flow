@@ -173,14 +173,29 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 
       console.log(`Using start time: ${startTime}`);
 
-      // Call the parallel-aware scheduler
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_sequential_fixed_v2', {
-        p_start_from: startTime
-      });
+      // Prefer strictly sequential scheduler; safe fallback to parallel-aware if unavailable
+      let resultData: any = null;
+      let schedulerError: any = null;
+      try {
+        const res1 = await supabase.rpc('scheduler_truly_sequential_v2', {
+          p_start_from: startTime
+        });
+        if (res1.error) throw res1.error;
+        // Normalize possible single-row return shape
+        resultData = Array.isArray(res1.data) && res1.data.length > 0 ? res1.data[0] : res1.data;
+        console.log('Used scheduler_truly_sequential_v2 successfully');
+      } catch (e) {
+        console.warn('scheduler_truly_sequential_v2 failed, falling back to scheduler_reschedule_all_sequential_fixed_v2:', (e as any)?.message ?? e);
+        const res2 = await supabase.rpc('scheduler_reschedule_all_sequential_fixed_v2', {
+          p_start_from: startTime
+        });
+        schedulerError = res2.error;
+        resultData = Array.isArray(res2.data) && res2.data.length > 0 ? res2.data[0] : res2.data;
+      }
 
-      if (error) {
-        console.error('Error calling parallel-aware scheduler:', error);
-        throw error;
+      if (schedulerError) {
+        console.error('Error calling scheduler function:', schedulerError);
+        throw schedulerError;
       }
 
       // ENHANCED: Always trigger due date calculation for robust dual date system
@@ -245,10 +260,10 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       }
       
       return {
-        wroteSlots: data?.wrote_slots || 0,
-        updatedJSI: data?.updated_jsi || 0,
+        wroteSlots: resultData?.wrote_slots || 0,
+        updatedJSI: resultData?.updated_jsi || 0,
         dryRun: !req.commit,
-        violations: data?.violations || []
+        violations: resultData?.violations || []
       };
     }
     
