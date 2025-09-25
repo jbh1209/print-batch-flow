@@ -15,7 +15,7 @@ export default function ScheduleBoardPage() {
 
   const handleReschedule = async () => {
     try {
-      toast.message("🔄 Rebuilding schedule with SQL Scheduler v1.0 (dependency-aware sequential)…");
+      toast.message("Rebuilding schedule with parallel-aware scheduler…");
 
       const result = await rescheduleAll();
       if (!result) return;
@@ -27,15 +27,15 @@ export default function ScheduleBoardPage() {
       
       if (validationResults.length > 0) {
         toast.message(
-          `✅ SQL Scheduler v1.0: ${result.updated_jsi} stages, ${result.wrote_slots} slots. ${validationResults.length} dependency notes (sequential order enforced)`,
+          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${validationResults.length} parallel processing info items (normal for cover/text stages)`,
           {
-            description: "Box Gluing now correctly scheduled after Laminating completes"
+            description: "Click on any job to see 'Why scheduled here?' details"
           }
         );
-        console.log('🔍 Dependency validation results:', validationResults);
+        console.log('Parallel processing validation info:', validationResults);
       } else {
         toast.success(
-          `✅ Perfect sequential schedule: ${result.updated_jsi} stages, ${result.wrote_slots} slots, no dependency violations`
+          `✅ Perfect schedule: ${result.updated_jsi} stages with ${result.wrote_slots} slots, 0 validation notes`
         );
       }
     } catch (e: any) {
