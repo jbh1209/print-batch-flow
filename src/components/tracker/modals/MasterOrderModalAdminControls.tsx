@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Play, 
   CheckCircle, 
   RotateCcw,
   Clock,
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from "lucide-react";
 import { JobStageInstance } from "@/hooks/tracker/useJobStageInstances";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { useHP12000Stages } from "@/hooks/tracker/useHP12000Stages";
 import { toast } from "sonner";
 
 interface MasterOrderModalAdminControlsProps {
@@ -28,6 +31,9 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
   const [notes, setNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { startStage, completeStage } = useStageActions();
+  
+  // HP12000 paper size management
+  const { paperSizes, hp12000Stages, updateStagePaperSize, refreshStages } = useHP12000Stages(stage.job_id);
 
   const handleStartStage = async () => {
     setIsProcessing(true);
@@ -123,6 +129,28 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handlePaperSizeChange = async (stageInstanceId: string, paperSizeId: string) => {
+    setIsProcessing(true);
+    try {
+      const success = await updateStagePaperSize(stageInstanceId, paperSizeId);
+      if (success) {
+        await refreshStages();
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Error updating paper size:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getPaperSizeColor = (paperSizeName: string | null) => {
+    if (!paperSizeName) return 'bg-gray-100 text-gray-600';
+    if (paperSizeName.toLowerCase().includes('large')) return 'bg-blue-100 text-blue-800';
+    if (paperSizeName.toLowerCase().includes('small')) return 'bg-orange-100 text-orange-800';
+    return 'bg-gray-100 text-gray-600';
   };
 
   const getStatusIcon = (status: string) => {
@@ -273,6 +301,72 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
           </p>
         )}
       </div>
+
+      {/* HP12000 Paper Size Allocation */}
+      {hp12000Stages.length > 0 && (
+        <div className="border-t pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Settings className="h-4 w-4 text-blue-500" />
+            <span className="text-sm font-medium text-blue-700">HP12000 Paper Size Allocation</span>
+          </div>
+          
+          <div className="space-y-3">
+            {hp12000Stages.map((hp12000Stage) => (
+              <div key={hp12000Stage.stage_instance_id} className="flex items-center justify-between p-3 bg-white rounded border">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{hp12000Stage.stage_name}</span>
+                    {hp12000Stage.part_assignment && hp12000Stage.part_assignment !== 'both' && (
+                      <Badge variant="outline" className="text-xs">
+                        {hp12000Stage.part_assignment}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-500">Current:</span>
+                    {hp12000Stage.paper_size_name ? (
+                      <Badge className={getPaperSizeColor(hp12000Stage.paper_size_name)}>
+                        {hp12000Stage.paper_size_name}
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-red-100 text-red-800">Not Assigned</Badge>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="w-32">
+                  <Select
+                    value={hp12000Stage.paper_size_id || ""}
+                    onValueChange={(value) => handlePaperSizeChange(hp12000Stage.stage_instance_id, value)}
+                    disabled={isProcessing}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paperSizes.map((paperSize) => (
+                        <SelectItem key={paperSize.id} value={paperSize.id}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              paperSize.name.toLowerCase().includes('large') ? 'bg-blue-500' :
+                              paperSize.name.toLowerCase().includes('small') ? 'bg-orange-500' : 'bg-gray-400'
+                            }`} />
+                            {paperSize.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <p className="text-xs text-gray-600 mt-2">
+            Changes to paper size allocation will update the schedule and affect production planning.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
