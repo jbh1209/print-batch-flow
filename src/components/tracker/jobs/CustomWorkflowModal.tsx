@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { StageInstanceEditModal } from "./StageInstanceEditModal";
 import { useSequentialScheduler } from "@/hooks/useSequentialScheduler";
 import { useScheduleInvalidation } from "@/hooks/tracker/useScheduleInvalidation";
+import { useCustomWorkflowTiming } from "@/hooks/tracker/useCustomWorkflowTiming";
 
 interface CustomWorkflowModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
 }) => {
   const { stages, isLoading } = useProductionStages();
   const { rescheduleJobs, isLoading: isRescheduling } = useSequentialScheduler();
+  const { calculateFallbackDuration } = useCustomWorkflowTiming();
   const { 
     invalidateJobSchedule, 
     detectScheduleImpact, 
@@ -293,7 +295,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         order: selectedStages.length + 1,
         // Enhanced defaults with auto-configuration
         quantity: job?.qty || null,
-        estimatedDurationMinutes: estimatedDuration,
+        estimatedDurationMinutes: estimatedDuration || 60, // CRITICAL: Fallback to 60 minutes if no calculation possible
         partAssignment: 'both', // Default to 'both' for better integration
         stageSpecificationId: stageSpecId
       };
@@ -582,9 +584,9 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           status: 'pending',
           started_at: null,
           started_by: null,
-          // Include stage configuration data
+          // Include stage configuration data with fallback calculations
           quantity: stage.quantity || job?.qty || null,
-          estimated_duration_minutes: stage.estimatedDurationMinutes || null,
+          estimated_duration_minutes: stage.estimatedDurationMinutes || await calculateFallbackDuration(stage.id, job?.qty || 1000),
           part_assignment: stage.partAssignment || null,
           stage_specification_id: stage.stageSpecificationId || null
         });
