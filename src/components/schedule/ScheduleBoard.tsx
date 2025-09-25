@@ -60,6 +60,14 @@ export function ScheduleBoard({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b bg-background p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+            SQL Scheduler v1.0 (Protected)
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Sequential dependency-aware scheduling with FIFO ordering
+          </div>
+        </div>
         <ScheduleWorkflowHeader
           scheduleDays={weekScheduleDays}
           selectedStageName={selectedStageName}

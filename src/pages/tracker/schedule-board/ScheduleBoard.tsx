@@ -1,5 +1,6 @@
 // tracker/schedule-board/ScheduleBoard.tsx
 import React, { useEffect, useState } from 'react';
+import { supabase } from "@/integrations/supabase/client";
 
 type Update = { id: string; start_at: string; end_at: string; minutes: number };
 type ApiResponse = { ok: boolean; scheduled: number; applied?: any; updates: Update[] };
@@ -15,14 +16,36 @@ export default function ScheduleBoard() {
   const run = async () => {
     setLoading(true); setError(null);
     try {
-      const q = new URLSearchParams({ commit: String(commit), proposed: String(proposed), onlyIfUnset: String(onlyUnset) }).toString();
-      const resp = await fetch('/api/scheduler/run?' + q);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json?.error || 'Failed');
-      setData(json);
-    } catch (e:any) {
+      console.log('🔄 Using SQL Scheduler v1.0 via edge function...');
+      
+      // Use the protected SQL scheduler v1.0 instead of the old JavaScript scheduler
+      const { data: result, error: edgeError } = await supabase.functions.invoke('scheduler-run', {
+        body: {
+          commit,
+          proposed,
+          onlyIfUnset: onlyUnset,
+        }
+      });
+
+      if (edgeError) throw new Error(edgeError.message);
+      
+      console.log('✅ SQL Scheduler v1.0 completed:', result);
+      
+      // Transform edge function response to match expected format
+      const transformedData = {
+        ok: true,
+        scheduled: result?.updated_jsi || 0,
+        applied: { updated: result?.wrote_slots || 0 },
+        updates: result?.updates || []
+      };
+      
+      setData(transformedData);
+    } catch (e: any) {
+      console.error('❌ SQL Scheduler v1.0 failed:', e);
       setError(e.message);
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { /* initial dry-run preview */ setCommit(false); setProposed(true); setOnlyUnset(true); }, []);
@@ -30,7 +53,17 @@ export default function ScheduleBoard() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Production Schedule</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Production Schedule</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+              SQL Scheduler v1.0 (Protected)
+            </div>
+            <div className="text-xs text-gray-500">
+              Uses sequential dependency-aware scheduling
+            </div>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={commit} onChange={e=>setCommit(e.target.checked)} /> Commit</label>
           <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={proposed} onChange={e=>setProposed(e.target.checked)} /> As proposed</label>
