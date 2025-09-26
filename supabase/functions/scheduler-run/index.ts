@@ -267,12 +267,12 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 
 // HTTP Handler
 serve((req) => {
-  return withCors(req, async () => {
-    const timeoutPromise = new Promise((_, reject) => {
+  return withCors(req, async (): Promise<Response> => {
+    const timeoutPromise: Promise<Response> = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Request timeout after 5 minutes")), 5 * 60 * 1000);
     });
 
-    const schedulerPromise = (async () => {
+    const schedulerPromise: Promise<Response> = (async () => {
       if (req.method === 'GET') {
         if (new URL(req.url).searchParams.get("ping") === "1") {
           return json(req, 200, { ok: true, pong: true, now: new Date().toISOString() });

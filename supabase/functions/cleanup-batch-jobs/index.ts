@@ -41,103 +41,104 @@ serve(async (req) => {
     const processedBatches = []
     const errors = []
     
-    // Process each batch
-    for (const batch of oldBatches || []) {
-      try {
-        console.log(`Processing batch ${batch.id} (${batch.name})`)
+  // Process each batch
+  for (const batch of oldBatches || []) {
+    let jobTable: string | null = null;
+    
+    try {
+      console.log(`Processing batch ${batch.id} (${batch.name})`)
+      
+      // 1. Check if this batch already has a stored overview PDF
+      const { data: batchData } = await supabase
+        .from("batches")
+        .select("overview_pdf_url")
+        .eq("id", batch.id)
+        .single()
         
-        // 1. Check if this batch already has a stored overview PDF
-        const { data: batchData } = await supabase
-          .from("batches")
-          .select("overview_pdf_url")
-          .eq("id", batch.id)
-          .single()
+      if (!batchData?.overview_pdf_url) {
+        // If no overview PDF exists yet, we need to find all jobs in this batch and generate one
+        console.log(`Batch ${batch.id} has no overview PDF, generating one`)
+        
+        // Collect all job tables we need to check
+        const jobTables = [
+          "business_card_jobs", 
+          "flyer_jobs", 
+          "sleeve_jobs", 
+          "postcard_jobs", 
+          "poster_jobs", 
+          "box_jobs", 
+          "sticker_jobs", 
+          "cover_jobs"
+        ]
+        
+        // Find which table contains jobs for this batch
+        let batchJobs = null
+        
+        for (const table of jobTables) {
+          const { data: jobs } = await supabase
+            .from(table)
+            .select("*")
+            .eq("batch_id", batch.id)
+            .limit(1)
           
-        if (!batchData?.overview_pdf_url) {
-          // If no overview PDF exists yet, we need to find all jobs in this batch and generate one
-          console.log(`Batch ${batch.id} has no overview PDF, generating one`)
-          
-          // Collect all job tables we need to check
-          const jobTables = [
-            "business_card_jobs", 
-            "flyer_jobs", 
-            "sleeve_jobs", 
-            "postcard_jobs", 
-            "poster_jobs", 
-            "box_jobs", 
-            "sticker_jobs", 
-            "cover_jobs"
-          ]
-          
-          // Find which table contains jobs for this batch
-          let batchJobs = null
-          let jobTable = null
-          
-          for (const table of jobTables) {
-            const { data: jobs } = await supabase
+          if (jobs && jobs.length > 0) {
+            jobTable = table
+            // Now fetch all jobs for this batch from the identified table
+            const { data: allJobs } = await supabase
               .from(table)
               .select("*")
               .eq("batch_id", batch.id)
-              .limit(1)
             
-            if (jobs && jobs.length > 0) {
-              jobTable = table
-              // Now fetch all jobs for this batch from the identified table
-              const { data: allJobs } = await supabase
-                .from(table)
-                .select("*")
-                .eq("batch_id", batch.id)
-              
-              batchJobs = allJobs
-              break
-            }
+            batchJobs = allJobs
+            break
           }
-          
-          if (!batchJobs || batchJobs.length === 0) {
-            console.log(`No jobs found for batch ${batch.id}`)
-            continue
-          }
-          
-          console.log(`Found ${batchJobs.length} jobs in table ${jobTable} for batch ${batch.id}`)
-          
-          // 2. Generate overview PDF (fetch batch data from frontend via POST to endpoint)
-          // This is a placeholder for the overview PDF generation
-          // We would normally call the PDF generation function here
-          console.log(`Batch ${batch.id} would have overview PDF generated and stored`)
-          
-          // For now, we'll just set a flag indicating this batch needs attention
-          await supabase
-            .from("batches")
-            .update({ 
-              needs_overview_pdf: true 
-            })
-            .eq("id", batch.id)
-          
-          processedBatches.push(batch.id)
-        } else {
-          console.log(`Batch ${batch.id} already has an overview PDF: ${batchData.overview_pdf_url}`)
         }
         
-        // 3. Delete individual job PDFs from storage (if they exist)
-        // This would require identifying which storage bucket contains the PDFs
-        // and then removing them
-        console.log(`Would delete job PDFs for batch ${batch.id}`)
-        
-        // 4. Delete job records but keep batch record
-        if (jobTable) {
-          await supabase
-            .from(jobTable)
-            .update({ pdf_url: null, status: "archived" })
-            .eq("batch_id", batch.id)
-          
-          console.log(`Marked jobs as archived for batch ${batch.id}`)
+        if (!batchJobs || batchJobs.length === 0) {
+          console.log(`No jobs found for batch ${batch.id}`)
+          continue
         }
         
-      } catch (err) {
-        console.error(`Error processing batch ${batch.id}:`, err)
-        errors.push({ batchId: batch.id, error: err instanceof Error ? err.message : String(err) })
+        console.log(`Found ${batchJobs.length} jobs in table ${jobTable} for batch ${batch.id}`)
+        
+        // 2. Generate overview PDF (fetch batch data from frontend via POST to endpoint)
+        // This is a placeholder for the overview PDF generation
+        // We would normally call the PDF generation function here
+        console.log(`Batch ${batch.id} would have overview PDF generated and stored`)
+        
+        // For now, we'll just set a flag indicating this batch needs attention
+        await supabase
+          .from("batches")
+          .update({ 
+            needs_overview_pdf: true 
+          })
+          .eq("id", batch.id)
+        
+        processedBatches.push(batch.id)
+      } else {
+        console.log(`Batch ${batch.id} already has an overview PDF: ${batchData.overview_pdf_url}`)
       }
+      
+      // 3. Delete individual job PDFs from storage (if they exist)
+      // This would require identifying which storage bucket contains the PDFs
+      // and then removing them
+      console.log(`Would delete job PDFs for batch ${batch.id}`)
+      
+      // 4. Delete job records but keep batch record
+      if (jobTable) {
+        await supabase
+          .from(jobTable)
+          .update({ pdf_url: null, status: "archived" })
+          .eq("batch_id", batch.id)
+        
+        console.log(`Marked jobs as archived for batch ${batch.id}`)
+      }
+      
+    } catch (err) {
+      console.error(`Error processing batch ${batch.id}:`, err)
+      errors.push({ batchId: batch.id, error: err instanceof Error ? err.message : String(err) })
     }
+  }
     
     // Return the results
     return new Response(

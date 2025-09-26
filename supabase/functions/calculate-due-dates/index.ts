@@ -94,7 +94,7 @@ async function getStageWorkloadsBatch(supabase: any, stageIds: string[]) {
 
   // Process the batch results
   for (const workload of workloadData || []) {
-    const capacity = capacities?.find(c => c.production_stage_id === workload.stage_id);
+    const capacity = capacities?.find((c: any) => c.production_stage_id === workload.stage_id);
     if (capacity) {
       const dailyCapacity = capacity.daily_capacity_hours * (capacity.efficiency_factor || 0.85);
       const queueDaysToProcess = workload.total_pending_hours / dailyCapacity;
@@ -267,7 +267,7 @@ async function processJobBatch(
 ) {
   const results = {
     success: true,
-    errors: [],
+    errors: [] as string[],
     processed: 0,
     workflowsInitialized: 0,
     timingsCalculated: 0,
@@ -347,7 +347,7 @@ async function processJobBatch(
           const lastStage = timeline.stages[timeline.stages.length - 1];
           const internalCompletionDate = lastStage?.estimatedCompletionDate || new Date();
           const dueDateWithBuffer = addWorkingDays(internalCompletionDate, 1);
-          const currentJob = currentJobsMap.get(timeline.jobId);
+          const currentJob = currentJobsMap.get(timeline.jobId) as any;
           
           const baseUpdate = {
             id: timeline.jobId,
