@@ -188,29 +188,29 @@ Deno.serve(async (req: Request) => {
 
   // Parse body safely
   const rawText = await req.text();
-  const body = safeJson<ScheduleRequest>(rawText) ?? {};
+  const bodyAny = safeJson<any>(rawText) ?? {};
 
   // Hard requirement
-  if (!("commit" in body)) {
+  if (!("commit" in bodyAny)) {
     return badRequest("Body must include { commit: boolean, ... }");
   }
 
-  // Sanitize inputs
-  const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
+  // Sanitize inputs  
+  const onlyJobIds = sanitizeOnlyIds(bodyAny.onlyJobIds);
   const startFrom =
-    typeof body.startFrom === "string" && body.startFrom.trim().length
-      ? body.startFrom.trim()
+    typeof bodyAny.startFrom === "string" && bodyAny.startFrom.trim().length
+      ? bodyAny.startFrom.trim()
       : calculateStartFrom(); // CRITICAL FIX: Auto-calculate proper start time
 
   // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
-    commit: !!body.commit,
-    proposed: !!body.proposed,
-    onlyIfUnset: !!body.onlyIfUnset,
-    nuclear: !!(body.nuclear || body.wipeAll),
+    commit: !!bodyAny.commit,
+    proposed: !!bodyAny.proposed,
+    onlyIfUnset: !!bodyAny.onlyIfUnset,
+    nuclear: !!(bodyAny.nuclear || bodyAny.wipeAll),
     startFrom,
-    onlyJobIds,
+    onlyJobIds: onlyJobIds || null,
   };
 
   // Supabase client (service key, runs server-side)

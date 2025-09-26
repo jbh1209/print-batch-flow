@@ -135,7 +135,7 @@ serve(async (req) => {
         
       } catch (err) {
         console.error(`Error processing batch ${batch.id}:`, err)
-        errors.push({ batchId: batch.id, error: err.message })
+        errors.push({ batchId: batch.id, error: err instanceof Error ? err.message : String(err) })
       }
     }
     
@@ -156,7 +156,7 @@ serve(async (req) => {
     console.error("Error in cleanup-batch-jobs function:", error)
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 

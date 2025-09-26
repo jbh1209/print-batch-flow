@@ -79,7 +79,7 @@ async function healthCheck(supabase: any): Promise<void> {
     console.log("Database connectivity check passed");
   } catch (e) {
     console.error("Health check failed:", e);
-    throw new Error(`Database connectivity failed: ${e.message}`);
+    throw new Error(`Database connectivity failed: ${(e as Error).message}`);
   }
 }
 // Core scheduling function that routes to database scheduler
@@ -225,7 +225,7 @@ async function schedule(supabase: any, req: ScheduleRequest) {
           .is('original_committed_due_date', null);
 
         if (jobsNeedingOriginalDate && jobsNeedingOriginalDate.length > 0) {
-          const jobIds = jobsNeedingOriginalDate.map(job => job.id);
+          const jobIds = jobsNeedingOriginalDate.map((job: any) => job.id);
           console.log(`🔄 Setting original_committed_due_date for ${jobIds.length} jobs`);
           
           const dueDateResult = await supabase.functions.invoke('calculate-due-dates', {
@@ -266,8 +266,8 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 }
 
 // HTTP Handler
-serve((req) =>
-  withCors(req, async () => {
+serve((req) => {
+  return withCors(req, async () => {
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Request timeout after 5 minutes")), 5 * 60 * 1000);
     });
@@ -315,5 +315,5 @@ serve((req) =>
     })();
 
     return Promise.race([schedulerPromise, timeoutPromise]);
-  })
-);
+  });
+});
