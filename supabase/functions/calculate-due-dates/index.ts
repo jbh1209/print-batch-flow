@@ -151,7 +151,7 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
   }, []) || [];
 
   // Get unique stage IDs and fetch their workloads in batch
-  const stageIds = [...new Set(deduplicatedStages.map(si => si.production_stage_id) || [])];
+  const stageIds = [...new Set(deduplicatedStages.map((si: any) => si.production_stage_id) || [])] as string[];
   const stageWorkloads = await getStageWorkloadsBatch(supabase, stageIds);
   
   console.log(`🔄 Retrieved workload data for ${stageWorkloads.size} stages`);
@@ -166,7 +166,7 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
   const timelines: JobTimeline[] = [];
   
   for (const jobId of jobIds) {
-    const jobStages = deduplicatedStages.filter(si => si.job_id === jobId) || [];
+    const jobStages = deduplicatedStages.filter((si: any) => si.job_id === jobId) || [];
     const stages: JobTimelineStage[] = [];
     let currentDate = new Date();
     let bottleneckStage: string | null = null;
@@ -309,7 +309,7 @@ async function processJobBatch(
         .in('id', jobIds);
         
       if (jobs && jobs.length > 0) {
-        const qrUpdates = jobs.map(job => ({
+        const qrUpdates = jobs.map((job: any) => ({
           id: job.id,
           qr_code_data: JSON.stringify({
             job_id: job.id,
@@ -341,7 +341,7 @@ async function processJobBatch(
           .select('id, original_committed_due_date')
           .in('id', jobIds);
         
-        const currentJobsMap = new Map(currentJobs?.map(j => [j.id, j]) || []);
+        const currentJobsMap = new Map(currentJobs?.map((j: any) => [j.id, j]) || []);
         
         const updates = timelines.map(timeline => {
           const lastStage = timeline.stages[timeline.stages.length - 1];
@@ -497,7 +497,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in calculate-due-dates function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
