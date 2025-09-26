@@ -83,6 +83,33 @@ function serverError(msg: string, extra?: unknown) {
 }
 
 // ---------- Database-centric scheduler ----------
+function calculateStartFrom(): string | undefined {
+  const now = new Date();
+  
+  // Get current time in SA timezone (UTC+2)
+  const saOffset = 2 * 60; // SA is UTC+2
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const saTime = new Date(utc + (saOffset * 60000));
+  
+  // If it's after 17:00 SA time or weekend, move to next working day at 08:00
+  if (saTime.getHours() >= 17 || saTime.getDay() === 0 || saTime.getDay() === 6) {
+    const nextDay = new Date(saTime);
+    nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setHours(8, 0, 0, 0);
+    
+    // Skip weekends
+    while (nextDay.getDay() === 0 || nextDay.getDay() === 6) {
+      nextDay.setDate(nextDay.getDate() + 1);
+    }
+    
+    // Convert back to UTC for ISO string
+    const utcNext = nextDay.getTime() - (saOffset * 60000);
+    return new Date(utcNext).toISOString();
+  }
+  
+  return undefined; // Use current time
+}
+
 async function runRealScheduler(
   sb: SupabaseClient,
   payload: Required<Pick<ScheduleRequest,
@@ -122,23 +149,24 @@ async function runRealScheduler(
       };
       
     } else {
-      // Full reschedule all using STANDARDIZED scheduler_resource_fill_optimized
-      console.log('📅 Running full reschedule using scheduler_resource_fill_optimized...');
+      // CRITICAL FIX: Use wrapper function instead of direct call for consistency
+      console.log('📅 Running full reschedule using simple_scheduler_wrapper...');
       
-      const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
+      const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
+        p_mode: 'reschedule_all'
+      });
 
       if (error) {
         console.error('❌ Reschedule error:', error);
         throw error;
       }
 
-      const result = data[0];
-      console.log(`✅ Reschedule complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
+      console.log(`✅ Reschedule complete via wrapper:`, data);
       
       return {
-        jobs_considered: result.updated_jsi, // Best approximation
-        scheduled: result.updated_jsi,
-        applied: { updated: result.updated_jsi }
+        jobs_considered: data.scheduled_count || 0,
+        scheduled: data.scheduled_count || 0,
+        applied: { updated: data.scheduled_count || 0 }
       };
     }
   } catch (error) {
@@ -172,7 +200,7 @@ Deno.serve(async (req: Request) => {
   const startFrom =
     typeof body.startFrom === "string" && body.startFrom.trim().length
       ? body.startFrom.trim()
-      : undefined;
+      : calculateStartFrom(); // CRITICAL FIX: Auto-calculate proper start time
 
   // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
