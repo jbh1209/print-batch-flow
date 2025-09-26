@@ -4065,7 +4065,7 @@ export type Database = {
         }[]
       }
       scheduler_reschedule_all_sequential_fixed: {
-        Args: { p_start_from?: string }
+        Args: { start_from_time: string }
         Returns: {
           updated_jsi: number
           violations: Json
