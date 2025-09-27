@@ -4065,7 +4065,7 @@ export type Database = {
         }[]
       }
       scheduler_reschedule_all_sequential_fixed: {
-        Args: { start_from_time: string }
+        Args: { p_start_from?: string }
         Returns: {
           updated_jsi: number
           violations: Json
@@ -4096,10 +4096,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      scheduler_wrapper_smoke_test: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
       set_user_role: {
         Args: { new_role: string; target_user_id: string }
         Returns: boolean
@@ -4126,7 +4122,7 @@ export type Database = {
         }[]
       }
       simple_scheduler_wrapper: {
-        Args: { p_mode?: string }
+        Args: { p_mode: string }
         Returns: Json
       }
       split_batch_at_packaging: {

@@ -83,33 +83,6 @@ function serverError(msg: string, extra?: unknown) {
 }
 
 // ---------- Database-centric scheduler ----------
-function calculateStartFrom(): string | undefined {
-  const now = new Date();
-  
-  // Get current time in SA timezone (UTC+2)
-  const saOffset = 2 * 60; // SA is UTC+2
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const saTime = new Date(utc + (saOffset * 60000));
-  
-  // If it's after 17:00 SA time or weekend, move to next working day at 08:00
-  if (saTime.getHours() >= 17 || saTime.getDay() === 0 || saTime.getDay() === 6) {
-    const nextDay = new Date(saTime);
-    nextDay.setDate(nextDay.getDate() + 1);
-    nextDay.setHours(8, 0, 0, 0);
-    
-    // Skip weekends
-    while (nextDay.getDay() === 0 || nextDay.getDay() === 6) {
-      nextDay.setDate(nextDay.getDate() + 1);
-    }
-    
-    // Convert back to UTC for ISO string
-    const utcNext = nextDay.getTime() - (saOffset * 60000);
-    return new Date(utcNext).toISOString();
-  }
-  
-  return undefined; // Use current time
-}
-
 async function runRealScheduler(
   sb: SupabaseClient,
   payload: Required<Pick<ScheduleRequest,
@@ -149,24 +122,23 @@ async function runRealScheduler(
       };
       
     } else {
-      // CRITICAL FIX: Use wrapper function instead of direct call for consistency
-      console.log('📅 Running full reschedule using simple_scheduler_wrapper...');
+      // Full reschedule all using STANDARDIZED scheduler_resource_fill_optimized
+      console.log('📅 Running full reschedule using scheduler_resource_fill_optimized...');
       
-      const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-        p_mode: 'reschedule_all'
-      });
+      const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
 
       if (error) {
         console.error('❌ Reschedule error:', error);
         throw error;
       }
 
-      console.log(`✅ Reschedule complete via wrapper:`, data);
+      const result = data[0];
+      console.log(`✅ Reschedule complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
       
       return {
-        jobs_considered: data.scheduled_count || 0,
-        scheduled: data.scheduled_count || 0,
-        applied: { updated: data.scheduled_count || 0 }
+        jobs_considered: result.updated_jsi, // Best approximation
+        scheduled: result.updated_jsi,
+        applied: { updated: result.updated_jsi }
       };
     }
   } catch (error) {
@@ -188,29 +160,29 @@ Deno.serve(async (req: Request) => {
 
   // Parse body safely
   const rawText = await req.text();
-  const bodyAny = safeJson<any>(rawText) ?? {};
+  const body = safeJson<ScheduleRequest>(rawText) ?? {};
 
   // Hard requirement
-  if (!("commit" in bodyAny)) {
+  if (!("commit" in body)) {
     return badRequest("Body must include { commit: boolean, ... }");
   }
 
-  // Sanitize inputs  
-  const onlyJobIds = sanitizeOnlyIds(bodyAny.onlyJobIds);
+  // Sanitize inputs
+  const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
   const startFrom =
-    typeof bodyAny.startFrom === "string" && bodyAny.startFrom.trim().length
-      ? bodyAny.startFrom.trim()
-      : calculateStartFrom(); // CRITICAL FIX: Auto-calculate proper start time
+    typeof body.startFrom === "string" && body.startFrom.trim().length
+      ? body.startFrom.trim()
+      : undefined;
 
   // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
-    commit: !!bodyAny.commit,
-    proposed: !!bodyAny.proposed,
-    onlyIfUnset: !!bodyAny.onlyIfUnset,
-    nuclear: !!(bodyAny.nuclear || bodyAny.wipeAll),
+    commit: !!body.commit,
+    proposed: !!body.proposed,
+    onlyIfUnset: !!body.onlyIfUnset,
+    nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
-    onlyJobIds: onlyJobIds || null,
+    onlyJobIds,
   };
 
   // Supabase client (service key, runs server-side)

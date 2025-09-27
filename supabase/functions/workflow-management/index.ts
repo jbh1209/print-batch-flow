@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Workflow management error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -268,7 +268,7 @@ async function handleValidateWorkflow(req: Request, supabase: any) {
   const validationIssues: string[] = [];
   const warnings: string[] = [];
 
-  stageData?.forEach((stage: any) => {
+  stageData?.forEach(stage => {
     if (stage.configuration_completeness_score === 0) {
       validationIssues.push(`Stage "${stage.production_stages.name}" has no configuration`);
     } else if (stage.configuration_completeness_score < 100) {
@@ -352,7 +352,7 @@ async function handleCalculateDurations(req: Request, supabase: any) {
     );
   }
 
-  const calculations = stages?.map((stage: any) => {
+  const calculations = stages?.map(stage => {
     let estimatedDurationMinutes = null;
     
     if (stage.stage_specifications && stage.quantity) {
@@ -387,8 +387,8 @@ async function handleCalculateDurations(req: Request, supabase: any) {
 
   // Update stages with calculated durations
   const updatePromises = calculations
-    .filter((calc: any) => calc.estimatedDurationMinutes !== null)
-    .map((calc: any) =>
+    .filter(calc => calc.estimatedDurationMinutes !== null)
+    .map(calc => 
       supabase
         .from('job_stage_instances')
         .update({ estimated_duration_minutes: calc.estimatedDurationMinutes })

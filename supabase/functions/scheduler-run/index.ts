@@ -79,32 +79,12 @@ async function healthCheck(supabase: any): Promise<void> {
     console.log("Database connectivity check passed");
   } catch (e) {
     console.error("Health check failed:", e);
-    throw new Error(`Database connectivity failed: ${(e as Error).message}`);
+    throw new Error(`Database connectivity failed: ${e.message}`);
   }
 }
 // Core scheduling function that routes to database scheduler
 async function schedule(supabase: any, req: ScheduleRequest) {
   console.log("Starting scheduler with request:", req);
-
-  // SMOKE TEST MODE: Test JSON pipeline end-to-end
-  if (req.onlyJobIds && req.onlyJobIds.length === 1 && req.onlyJobIds[0] === 'smoke') {
-    console.log("Running smoke test to validate JSON pipeline...");
-    const { data, error } = await supabase.rpc('scheduler_wrapper_smoke_test');
-    
-    if (error) {
-      console.error('Smoke test failed:', error);
-      throw new Error(`Smoke test failure: ${error.message}`);
-    }
-    
-    console.log('Smoke test passed:', data);
-    return {
-      wroteSlots: 0,
-      updatedJSI: 0,
-      smokeTest: true,
-      smokeResult: data,
-      dryRun: true
-    };
-  }
 
   try {
     // Determine which scheduler function to call based on request type
@@ -201,15 +181,8 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       });
 
       if (error) {
-        console.error('DETAILED Error calling simple_scheduler_wrapper:', {
-          error,
-          code: error?.code,
-          message: error?.message,
-          details: error?.details,
-          hint: error?.hint,
-          rawError: JSON.stringify(error, null, 2)
-        });
-        throw new Error(`Database scheduler failed: ${error.code || 'UNKNOWN'} - ${error.message || 'No message'}`);
+        console.error('Error calling simple_scheduler_wrapper:', error);
+        throw error;
       }
 
       // Handle response from working scheduler (returns different format)
@@ -252,7 +225,7 @@ async function schedule(supabase: any, req: ScheduleRequest) {
           .is('original_committed_due_date', null);
 
         if (jobsNeedingOriginalDate && jobsNeedingOriginalDate.length > 0) {
-          const jobIds = jobsNeedingOriginalDate.map((job: any) => job.id);
+          const jobIds = jobsNeedingOriginalDate.map(job => job.id);
           console.log(`🔄 Setting original_committed_due_date for ${jobIds.length} jobs`);
           
           const dueDateResult = await supabase.functions.invoke('calculate-due-dates', {
@@ -293,13 +266,13 @@ async function schedule(supabase: any, req: ScheduleRequest) {
 }
 
 // HTTP Handler
-serve((req) => {
-  return withCors(req, async (): Promise<Response> => {
-    const timeoutPromise: Promise<Response> = new Promise((_, reject) => {
+serve((req) =>
+  withCors(req, async () => {
+    const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error("Request timeout after 5 minutes")), 5 * 60 * 1000);
     });
 
-    const schedulerPromise: Promise<Response> = (async () => {
+    const schedulerPromise = (async () => {
       if (req.method === 'GET') {
         if (new URL(req.url).searchParams.get("ping") === "1") {
           return json(req, 200, { ok: true, pong: true, now: new Date().toISOString() });
@@ -342,5 +315,5 @@ serve((req) => {
     })();
 
     return Promise.race([schedulerPromise, timeoutPromise]);
-  });
-});
+  })
+);

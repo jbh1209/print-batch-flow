@@ -55,13 +55,8 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     });
 
     if (error) {
-      console.error('DETAILED Reschedule error:', {
-        error,
-        message: error.message,
-        status: error.status,
-        rawError: JSON.stringify(error, null, 2)
-      });
-      toast.error(`Reschedule failed: ${error.message || 'Unknown error'} (${error.status || 'No status'})`);
+      console.error('Reschedule error:', error);
+      toast.error(`Reschedule failed: ${error.message}`);
       return null;
     }
 
