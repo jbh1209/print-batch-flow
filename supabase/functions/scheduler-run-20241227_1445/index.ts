@@ -57,38 +57,90 @@ const schedule = async (supabase: any, req: ScheduleRequest): Promise<ScheduleRe
 
   let result;
   
-  if (normalized.onlyJobIds && normalized.onlyJobIds.length > 0) {
-    // Append specific jobs using new parallel parts scheduler
-    console.log(`🔄 SCHEDULER VERSION 20241227_1445: Appending ${normalized.onlyJobIds.length} specific jobs`);
-    
-    const { data, error } = await supabase.rpc('scheduler_append_jobs_20241227_1445', {
-      p_job_ids: normalized.onlyJobIds,
-      p_start_from: normalized.startFrom || null,
-      p_only_if_unset: normalized.onlyIfUnset
-    });
+  try {
+    if (normalized.onlyJobIds && normalized.onlyJobIds.length > 0) {
+      // Append specific jobs using new parallel parts scheduler
+      console.log(`🔄 SCHEDULER VERSION 20241227_1445: Appending ${normalized.onlyJobIds.length} specific jobs`);
+      
+      const { data, error } = await supabase.rpc('scheduler_append_jobs_20241227_1445', {
+        p_job_ids: normalized.onlyJobIds,
+        p_start_from: normalized.startFrom || null,
+        p_only_if_unset: normalized.onlyIfUnset
+      });
 
-    if (error) {
-      console.error('SCHEDULER VERSION 20241227_1445 append error:', error);
-      throw error;
+      if (error) {
+        console.error('SCHEDULER VERSION 20241227_1445 append error:', error);
+        
+        // Handle database errors gracefully
+        if (error.code === 'P0001') {
+          return {
+            ok: false,
+            request: normalized,
+            scheduled_count: 0,
+            wrote_slots: 0,
+            success: false,
+            mode: 'parallel_parts',
+            version: '20241227_1445',
+            error: error.message,
+            errorCode: 'LUNCH_BREAK_OVERLAP'
+          };
+        }
+        throw error;
+      }
+
+      result = data?.[0] || {};
+      console.log(`✅ SCHEDULER VERSION 20241227_1445: Append completed:`, result);
+    } else {
+      // Full reschedule using new parallel parts scheduler
+      console.log(`🔄 SCHEDULER VERSION 20241227_1445: Full reschedule with parallel parts logic, startFrom: ${normalized.startFrom}`);
+      
+      const { data, error } = await supabase.rpc('simple_scheduler_wrapper_20241227_1445', {
+        p_mode: 'reschedule_all',
+        p_start_from: normalized.startFrom || null
+      });
+
+      if (error) {
+        console.error('SCHEDULER VERSION 20241227_1445 reschedule error:', error);
+        
+        // Handle database errors gracefully
+        if (error.code === 'P0001') {
+          return {
+            ok: false,
+            request: normalized,
+            scheduled_count: 0,
+            wrote_slots: 0,
+            success: false,
+            mode: 'parallel_parts',
+            version: '20241227_1445',
+            error: error.message,
+            errorCode: 'LUNCH_BREAK_OVERLAP'
+          };
+        }
+        throw error;
+      }
+
+      result = data?.[0] || {};
+      console.log(`✅ SCHEDULER VERSION 20241227_1445: Reschedule completed:`, result);
     }
-
-    result = data?.[0] || {};
-    console.log(`✅ SCHEDULER VERSION 20241227_1445: Append completed:`, result);
-  } else {
-    // Full reschedule using new parallel parts scheduler
-    console.log(`🔄 SCHEDULER VERSION 20241227_1445: Full reschedule with parallel parts logic`);
+  } catch (dbError: any) {
+    console.error('SCHEDULER VERSION 20241227_1445 database exception:', dbError);
     
-    const { data, error } = await supabase.rpc('simple_scheduler_wrapper_20241227_1445', {
-      p_mode: 'reschedule_all'
-    });
-
-    if (error) {
-      console.error('SCHEDULER VERSION 20241227_1445 reschedule error:', error);
-      throw error;
+    // Handle specific database errors
+    if (dbError.code === 'P0001' || dbError.message?.includes('overlaps lunch break')) {
+      return {
+        ok: false,
+        request: normalized,
+        scheduled_count: 0,
+        wrote_slots: 0,
+        success: false,
+        mode: 'parallel_parts',
+        version: '20241227_1445',
+        error: dbError.message || 'Time slot overlaps lunch break (12:00-12:30)',
+        errorCode: 'LUNCH_BREAK_OVERLAP'
+      };
     }
-
-    result = data?.[0] || {};
-    console.log(`✅ SCHEDULER VERSION 20241227_1445: Reschedule completed:`, result);
+    
+    throw dbError;
   }
 
   return {

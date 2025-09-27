@@ -63,6 +63,19 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     }
 
     const result = data || {};
+    
+    // Handle structured error responses from edge function
+    if (result.ok === false) {
+      console.error('SCHEDULER VERSION 20241227_1445 structured error:', result);
+      
+      if (result.errorCode === 'LUNCH_BREAK_OVERLAP') {
+        toast.error(`⚠️ Scheduling conflict: ${result.error || 'Time slots overlap lunch break (12:00-12:30)'}`);
+      } else {
+        toast.error(`Scheduling error: ${result.error || 'Unknown scheduling issue'}`);
+      }
+      return null;
+    }
+
     const wroteSlots = result?.wrote_slots ?? 0;
     const updatedJSI = result?.scheduled_count ?? 0;
     const violations = Array.isArray(result?.violations) ? result.violations : [];
