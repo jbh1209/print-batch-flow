@@ -3,7 +3,7 @@ import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { useScheduleReader } from "@/hooks/useScheduleReader";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { toast } from "sonner";
-import { rescheduleAll, getSchedulingValidation } from "@/utils/scheduler";
+import { rescheduleAll, getSchedulingValidation } from "@/utils/scheduler-20241227_1445";
 
 export default function ScheduleBoardPage() {
   const { scheduleDays, isLoading, fetchSchedule } = useScheduleReader();
@@ -15,7 +15,7 @@ export default function ScheduleBoardPage() {
 
   const handleReschedule = async () => {
     try {
-      toast.message("Rebuilding schedule with parallel-aware scheduler…");
+      toast.message("🔄 Rebuilding schedule with PARALLEL PARTS scheduler v20241227_1445…");
 
       const result = await rescheduleAll();
       if (!result) return;
@@ -27,15 +27,15 @@ export default function ScheduleBoardPage() {
       
       if (validationResults.length > 0) {
         toast.message(
-          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${validationResults.length} parallel processing info items (normal for cover/text stages)`,
+          `✅ PARALLEL PARTS v20241227_1445: Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${validationResults.length} validation items`,
           {
-            description: "Click on any job to see 'Why scheduled here?' details"
+            description: "Cover/Text stages now run in parallel! Check job D426511 for proper parallel processing."
           }
         );
         console.log('Parallel processing validation info:', validationResults);
       } else {
         toast.success(
-          `✅ Perfect schedule: ${result.updated_jsi} stages with ${result.wrote_slots} slots, 0 validation notes`
+          `✅ PERFECT PARALLEL SCHEDULE v20241227_1445: ${result.updated_jsi} stages with ${result.wrote_slots} slots, 0 validation notes`
         );
       }
     } catch (e: any) {
