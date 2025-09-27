@@ -4037,11 +4037,13 @@ export type Database = {
         }[]
       }
       scheduler_append_jobs_20241227_1445: {
-        Args: {
-          p_job_ids?: string[]
-          p_only_if_unset?: boolean
-          p_start_from?: string
-        }
+        Args:
+          | { p_job_ids: string[]; p_start_from?: string }
+          | {
+              p_job_ids?: string[]
+              p_only_if_unset?: boolean
+              p_start_from?: string
+            }
         Returns: {
           mode: string
           scheduled_count: number
@@ -4155,7 +4157,10 @@ export type Database = {
         }[]
       }
       simple_scheduler_wrapper_20241227_1445: {
-        Args: { p_mode?: string } | { p_mode?: string; p_start_from?: string }
+        Args:
+          | { p_job_ids?: string[]; p_mode?: string; p_start_from?: string }
+          | { p_mode?: string }
+          | { p_mode?: string; p_start_from?: string }
         Returns: {
           mode: string
           scheduled_count: number
