@@ -4071,7 +4071,7 @@ export type Database = {
         }[]
       }
       scheduler_reschedule_all_parallel_parts_20241227_1445: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { p_start_from?: string }
         Returns: {
           mode: string
           scheduled_count: number
@@ -4155,7 +4155,7 @@ export type Database = {
         }[]
       }
       simple_scheduler_wrapper_20241227_1445: {
-        Args: { p_mode?: string }
+        Args: { p_mode?: string } | { p_mode?: string; p_start_from?: string }
         Returns: {
           mode: string
           scheduled_count: number
