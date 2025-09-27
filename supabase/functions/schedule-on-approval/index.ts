@@ -11,7 +11,9 @@ function corsOk() {
   return new Response("ok", { status: 200, headers: CORS_HEADERS });
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+
+serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return corsOk();
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ ok: false, message: "Method not allowed" }), {
@@ -43,7 +45,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   } catch (err) {
     console.error("schedule-on-approval proxy error:", err);
-    return new Response(JSON.stringify({ ok: false, message: err?.message ?? "proxy error" }), {
+    return new Response(JSON.stringify({ ok: false, message: (err as any)?.message ?? "proxy error" }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });

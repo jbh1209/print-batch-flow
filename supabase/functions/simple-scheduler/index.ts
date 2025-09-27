@@ -158,9 +158,9 @@ Deno.serve(async (req: Request) => {
     return badRequest("POST only");
   }
 
-  // Parse body safely
+  // Parse body safely  
   const rawText = await req.text();
-  const body = safeJson<ScheduleRequest>(rawText) ?? {};
+  const body = safeJson<ScheduleRequest>(rawText) ?? {} as ScheduleRequest;
 
   // Hard requirement
   if (!("commit" in body)) {
@@ -168,10 +168,10 @@ Deno.serve(async (req: Request) => {
   }
 
   // Sanitize inputs
-  const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
+  const onlyJobIds = sanitizeOnlyIds((body as any).onlyJobIds);
   const startFrom =
-    typeof body.startFrom === "string" && body.startFrom.trim().length
-      ? body.startFrom.trim()
+    typeof (body as any).startFrom === "string" && (body as any).startFrom.trim().length
+      ? (body as any).startFrom.trim()
       : undefined;
 
   // Build sanitized payload (fill defaults)
@@ -181,8 +181,8 @@ Deno.serve(async (req: Request) => {
     proposed: !!body.proposed,
     onlyIfUnset: !!body.onlyIfUnset,
     nuclear: !!(body.nuclear || body.wipeAll),
-    startFrom,
-    onlyJobIds,
+    startFrom: startFrom || null,
+    onlyJobIds: onlyJobIds || null,
   };
 
   // Supabase client (service key, runs server-side)
