@@ -157,7 +157,6 @@ serve(async (req) => {
 
     return json(200, {
       ok: true,
-      version: "20241227_1438",
       request: normalized,
       ...result,
     });
