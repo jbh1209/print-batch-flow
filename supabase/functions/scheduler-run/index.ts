@@ -86,6 +86,26 @@ async function healthCheck(supabase: any): Promise<void> {
 async function schedule(supabase: any, req: ScheduleRequest) {
   console.log("Starting scheduler with request:", req);
 
+  // SMOKE TEST MODE: Test JSON pipeline end-to-end
+  if (req.onlyJobIds && req.onlyJobIds.length === 1 && req.onlyJobIds[0] === 'smoke') {
+    console.log("Running smoke test to validate JSON pipeline...");
+    const { data, error } = await supabase.rpc('scheduler_wrapper_smoke_test');
+    
+    if (error) {
+      console.error('Smoke test failed:', error);
+      throw new Error(`Smoke test failure: ${error.message}`);
+    }
+    
+    console.log('Smoke test passed:', data);
+    return {
+      wroteSlots: 0,
+      updatedJSI: 0,
+      smokeTest: true,
+      smokeResult: data,
+      dryRun: true
+    };
+  }
+
   try {
     // Determine which scheduler function to call based on request type
     if (req.onlyJobIds && req.onlyJobIds.length > 0) {
@@ -181,8 +201,15 @@ async function schedule(supabase: any, req: ScheduleRequest) {
       });
 
       if (error) {
-        console.error('Error calling simple_scheduler_wrapper:', error);
-        throw error;
+        console.error('DETAILED Error calling simple_scheduler_wrapper:', {
+          error,
+          code: error?.code,
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          rawError: JSON.stringify(error, null, 2)
+        });
+        throw new Error(`Database scheduler failed: ${error.code || 'UNKNOWN'} - ${error.message || 'No message'}`);
       }
 
       // Handle response from working scheduler (returns different format)

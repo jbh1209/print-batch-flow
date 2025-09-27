@@ -4096,6 +4096,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      scheduler_wrapper_smoke_test: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       set_user_role: {
         Args: { new_role: string; target_user_id: string }
         Returns: boolean
