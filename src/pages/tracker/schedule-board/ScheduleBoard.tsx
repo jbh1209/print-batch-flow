@@ -1,5 +1,7 @@
 // tracker/schedule-board/ScheduleBoard.tsx
 import React, { useEffect, useState } from 'react';
+import { supabase } from "@/integrations/supabase/client";
+import { getSchedulingValidation } from "@/utils/scheduler";
 
 type Update = { id: string; start_at: string; end_at: string; minutes: number };
 type ApiResponse = { ok: boolean; scheduled: number; applied?: any; updates: Update[] };
@@ -11,17 +13,31 @@ export default function ScheduleBoard() {
   const [commit, setCommit] = useState(true);
   const [proposed, setProposed] = useState(true);
   const [onlyUnset, setOnlyUnset] = useState(true);
+  const [violations, setViolations] = useState<any[]>([]);
 
   const run = async () => {
     setLoading(true); setError(null);
     try {
-      const q = new URLSearchParams({ commit: String(commit), proposed: String(proposed), onlyIfUnset: String(onlyUnset) }).toString();
-      const resp = await fetch('/api/scheduler/run?' + q);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json?.error || 'Failed');
-      setData(json);
-    } catch (e:any) {
-      setError(e.message);
+      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+        body: { commit, proposed, onlyIfUnset: onlyUnset }
+      });
+      if (error) throw error;
+
+      const scheduled = Number((data as any)?.scheduled ?? (data as any)?.scheduled_count ?? (data as any)?.applied?.updated ?? 0);
+      const appliedUpdated = Number((data as any)?.applied?.updated ?? scheduled);
+
+      const normalized: ApiResponse = {
+        ok: true,
+        scheduled,
+        applied: { updated: appliedUpdated },
+        updates: []
+      };
+      setData(normalized);
+
+      const v = await getSchedulingValidation();
+      setViolations(Array.isArray(v) ? v : []);
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
     } finally { setLoading(false); }
   };
 
@@ -40,6 +56,9 @@ export default function ScheduleBoard() {
       </div>
       {error && <div className="text-red-600">{error}</div>}
       {data && <UpdatesTable data={data} />}
+      {violations.length > 0 && (
+        <div className="text-sm text-yellow-700">Validation notes: {violations.length} (see console for details)</div>
+      )}
       <p className="text-xs text-gray-500">Tip: start in dry-run (Commit unchecked). When happy, tick Commit. \"As proposed\" writes schedule_status='proposed' instead of 'scheduled'.</p>
     </div>
   );
