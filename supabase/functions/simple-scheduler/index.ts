@@ -88,7 +88,7 @@ async function runRealScheduler(
   payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running STANDARDIZED database scheduler with payload:', payload);
+  console.log('🚀 Running RESTORED database scheduler with payload:', payload);
   
   // Only proceed if commit is true (dry run protection)
   if (!payload.commit) {
@@ -97,50 +97,26 @@ async function runRealScheduler(
   }
 
   try {
-    if (payload.onlyJobIds && payload.onlyJobIds.length > 0) {
-      // Append specific jobs to schedule using STANDARDIZED function
-      console.log(`📋 Scheduling specific jobs: ${payload.onlyJobIds.length} jobs`);
-      
-      const { data, error } = await sb.rpc('scheduler_append_jobs', {
-        p_job_ids: payload.onlyJobIds,
-        p_start_from: payload.startFrom || null,
-        p_only_if_unset: payload.onlyIfUnset
-      });
+    // Call the working simple_scheduler_wrapper function that exists in restored DB
+    console.log('📅 Running scheduler using simple_scheduler_wrapper...');
+    
+    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
+      p_mode: 'reschedule_all'
+    });
 
-      if (error) {
-        console.error('❌ Append jobs error:', error);
-        throw error;
-      }
-
-      const result = data[0];
-      console.log(`✅ Append complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
-      
-      return {
-        jobs_considered: payload.onlyJobIds.length,
-        scheduled: result.updated_jsi,
-        applied: { updated: result.updated_jsi }
-      };
-      
-    } else {
-      // Full reschedule all using STANDARDIZED scheduler_resource_fill_optimized
-      console.log('📅 Running full reschedule using scheduler_resource_fill_optimized...');
-      
-      const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
-
-      if (error) {
-        console.error('❌ Reschedule error:', error);
-        throw error;
-      }
-
-      const result = data[0];
-      console.log(`✅ Reschedule complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
-      
-      return {
-        jobs_considered: result.updated_jsi, // Best approximation
-        scheduled: result.updated_jsi,
-        applied: { updated: result.updated_jsi }
-      };
+    if (error) {
+      console.error('❌ Scheduler error:', error);
+      throw error;
     }
+
+    const result = data[0];
+    console.log(`✅ Scheduler complete: ${result.scheduled_count} stages scheduled, ${result.wrote_slots} slots created`);
+    
+    return {
+      jobs_considered: result.scheduled_count || 0,
+      scheduled: result.scheduled_count || 0,
+      applied: { updated: result.scheduled_count || 0 }
+    };
   } catch (error) {
     console.error('💥 Scheduler execution failed:', error);
     throw error;
