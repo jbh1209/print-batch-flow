@@ -24,6 +24,7 @@ type ScheduleRequest = {
   startFrom?: string | null;// floor start time (ISO)
   onlyJobIds?: UUID[];      // schedule for these jobs only
   pageSize?: number;        // (compatibility)
+  resetActiveOverdue?: boolean; // NEW: reset overdue active stages before scheduling
 };
 
 // ---------- CORS ----------
@@ -68,6 +69,18 @@ async function schedule(supabase: any, req: ScheduleRequest) {
   console.log('=== SCHEDULER RUN V1.0 ===');
   console.log('Request:', req);
 
+  // STEP 1: Optional reset of overdue active stages before scheduling
+  if (req.resetActiveOverdue) {
+    console.log('=== RESETTING OVERDUE ACTIVE STAGES ===');
+    const { data: resetData, error: resetError } = await supabase.rpc('reset_overdue_active_instances');
+    
+    if (resetError) {
+      console.error('Failed to reset overdue active stages:', resetError);
+    } else {
+      console.log('Reset results:', resetData);
+    }
+  }
+
   // Special case: specific job IDs with append scheduling
   if (req.onlyJobIds && req.onlyJobIds.length > 0) {
     console.log('=== APPEND MODE: Scheduling specific job IDs ===');
@@ -109,7 +122,7 @@ async function schedule(supabase: any, req: ScheduleRequest) {
     }
   }
 
-  // Call Version 1.0 scheduler wrapper (routes reschedule_all to sequential_fixed)
+  // Call Version 1.0 scheduler wrapper (routes reschedule_all to sequential_fixed) - NOW FIXED!
   console.log('Calling Version 1.0 scheduler: simple_scheduler_wrapper(reschedule_all)');
   const { data: wrapperResult, error: wrapperError } = await supabase
     .rpc('simple_scheduler_wrapper', { p_mode: 'reschedule_all' });
@@ -164,7 +177,8 @@ serve(withCors(async (req: Request) => {
       wipeAll: body.wipeAll ?? false,
       startFrom: body.startFrom || null,
       onlyJobIds: body.onlyJobIds || [],
-      pageSize: body.pageSize || 100
+      pageSize: body.pageSize || 100,
+      resetActiveOverdue: body.resetActiveOverdue ?? false
     };
 
     // Execute scheduling with timeout
