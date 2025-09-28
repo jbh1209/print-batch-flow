@@ -82,6 +82,12 @@ function serverError(msg: string, extra?: unknown) {
   return json({ ok: false, error: msg } satisfies ErrorResult, 500);
 }
 
+// Small helper to normalize RPC results (array or object)
+function firstRow<T = any>(data: any): T {
+  if (Array.isArray(data)) return (data[0] ?? {}) as T;
+  return (data ?? {}) as T;
+}
+
 // ---------- Database-centric scheduler ----------
 async function runRealScheduler(
   sb: SupabaseClient,
@@ -112,33 +118,40 @@ async function runRealScheduler(
         throw error;
       }
 
-      const result = data[0];
-      console.log(`✅ Append complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
+      const row = firstRow(data);
+      const updated = Number((row as any)?.updated_jsi ?? (row as any)?.scheduled_count ?? (row as any)?.updated ?? 0);
+      const wrote = Number((row as any)?.wrote_slots ?? 0);
+
+      console.log(`✅ Append complete: ${updated} stages updated, ${wrote} slots created`, { raw: row });
       
       return {
         jobs_considered: payload.onlyJobIds.length,
-        scheduled: result.updated_jsi,
-        applied: { updated: result.updated_jsi }
+        scheduled: updated,
+        applied: { updated }
       };
       
     } else {
       // Full reschedule all using STANDARDIZED scheduler_resource_fill_optimized
       console.log('📅 Running full reschedule using scheduler_resource_fill_optimized...');
       
-      const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
+      const { data, error } = await sb.rpc('simple_scheduler_wrapper', { p_mode: 'reschedule_all' });
 
       if (error) {
-        console.error('❌ Reschedule error:', error);
+        console.error('❌ Reschedule error (wrapper):', error);
         throw error;
       }
 
-      const result = data[0];
-      console.log(`✅ Reschedule complete: ${result.updated_jsi} stages updated, ${result.wrote_slots} slots created`);
+      const row = firstRow(data);
+      // simple_scheduler_wrapper returns { scheduled_count, wrote_slots, success }
+      const scheduledCount = Number((row as any)?.scheduled_count ?? (row as any)?.updated_jsi ?? (row as any)?.updated ?? 0);
+      const wrote = Number((row as any)?.wrote_slots ?? 0);
+
+      console.log(`✅ Reschedule complete (wrapper): ${scheduledCount} stages updated, ${wrote} slots created`, { raw: row });
       
       return {
-        jobs_considered: result.updated_jsi, // Best approximation
-        scheduled: result.updated_jsi,
-        applied: { updated: result.updated_jsi }
+        jobs_considered: scheduledCount, // Best approximation
+        scheduled: scheduledCount,
+        applied: { updated: scheduledCount }
       };
     }
   } catch (error) {
@@ -169,10 +182,14 @@ Deno.serve(async (req: Request) => {
 
   // Sanitize inputs
   const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
-  const startFrom =
-    typeof body.startFrom === "string" && body.startFrom.trim().length
-      ? body.startFrom.trim()
-      : undefined;
+  // Accept startFrom or baseStart from UI
+  const startFromRaw =
+    typeof (body as any).startFrom === "string" && (body as any).startFrom.trim().length
+      ? (body as any).startFrom.trim()
+      : (typeof (body as any).baseStart === "string" && (body as any).baseStart.trim().length
+          ? (body as any).baseStart.trim()
+          : undefined);
+  const startFrom = startFromRaw;
 
   // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
