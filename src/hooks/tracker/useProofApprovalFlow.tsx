@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-// Removed scheduler service
+import { scheduleJobs } from "@/utils/scheduler";
 import { toast } from "sonner";
 
 /**
@@ -15,22 +15,16 @@ export const useProofApprovalFlow = () => {
     try {
       console.log(`🎯 Triggering scheduling for job ${jobId} after proof approval`);
       
-      // Call simple-scheduler to append the approved job to existing schedule
-      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
-        body: {
-          commit: true,
-          onlyIfUnset: true,
-          onlyJobIds: [jobId]
-        }
-      });
+      // Use the working scheduleJobs utility that calls scheduler_append_jobs RPC
+      const result = await scheduleJobs([jobId], false);
 
-      if (error) {
-        console.error('Error triggering scheduler:', error);
+      if (!result) {
+        console.error('Error triggering scheduler: No result returned');
         toast.error('Failed to schedule job after proof approval');
         return false;
       }
 
-      console.log(`✅ Job scheduled successfully:`, data);
+      console.log(`✅ Job scheduled successfully:`, result);
       toast.success('Job added to production schedule');
       return true;
 
