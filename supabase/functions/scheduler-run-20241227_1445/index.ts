@@ -5,8 +5,8 @@
  * PARALLEL PART ASSIGNMENT LOGIC FOR COVER/TEXT PROCESSING
  */
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "../_shared/cors.ts";
 
 interface ScheduleRequest {
@@ -24,6 +24,8 @@ interface ScheduleResponse {
   success: boolean;
   mode: string;
   version: string;
+  error?: string;
+  errorCode?: string;
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;

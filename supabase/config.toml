@@ -41,3 +41,7 @@ verify_jwt = false
 # Production scheduler engine - routes to DB functions safely
 [functions.scheduler-run]
 verify_jwt = false
+
+# Versioned parallel parts scheduler
+[functions.scheduler-run-20241227_1445]
+verify_jwt = false
