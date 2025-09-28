@@ -47,14 +47,31 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     const baseTime = startFrom || getFactoryBaseTime();
     console.log('🔄 SCHEDULER VERSION 20241227_1445: Base scheduling time:', baseTime);
     
-    // VERSION 20241227_1445: Route to parallel parts scheduler
-    const { data, error } = await supabase.functions.invoke('scheduler-run-20241227_1445', {
-      body: {
-        commit: true,
-        onlyIfUnset: false,
-        startFrom: baseTime
-      }
-    });
+    // VERSION 20241227_1445: Route to parallel parts scheduler with fallback
+    let data, error;
+    
+    try {
+      const result = await supabase.functions.invoke('scheduler-run-20241227_1445', {
+        body: {
+          commit: true,
+          onlyIfUnset: false,
+          startFrom: baseTime
+        }
+      });
+      data = result.data;
+      error = result.error;
+    } catch (versionedError) {
+      console.warn('Versioned scheduler failed, falling back to stable scheduler-run:', versionedError);
+      const result = await supabase.functions.invoke('scheduler-run', {
+        body: {
+          commit: true,
+          onlyIfUnset: false,
+          startFrom: baseTime
+        }
+      });
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
       console.error('SCHEDULER VERSION 20241227_1445 reschedule error:', error);
@@ -125,13 +142,31 @@ export async function scheduleJobs(jobIds: string[], forceReschedule = false): P
   try {
     console.log('🔄 SCHEDULER VERSION 20241227_1445: Scheduling specific jobs with parallel parts logic...');
     
-    const { data, error } = await supabase.functions.invoke('scheduler-run-20241227_1445', {
-      body: {
-        commit: true,
-        onlyIfUnset: !forceReschedule,
-        onlyJobIds: jobIds
-      }
-    });
+    // Try versioned scheduler with fallback to stable
+    let data, error;
+    
+    try {
+      const result = await supabase.functions.invoke('scheduler-run-20241227_1445', {
+        body: {
+          commit: true,
+          onlyIfUnset: !forceReschedule,
+          onlyJobIds: jobIds
+        }
+      });
+      data = result.data;
+      error = result.error;
+    } catch (versionedError) {
+      console.warn('Versioned scheduler failed, falling back to stable scheduler-run:', versionedError);
+      const result = await supabase.functions.invoke('scheduler-run', {
+        body: {
+          commit: true,
+          onlyIfUnset: !forceReschedule,
+          onlyJobIds: jobIds
+        }
+      });
+      data = result.data;
+      error = result.error;
+    }
     
     if (error) {
       console.error('Error scheduling jobs:', error);
