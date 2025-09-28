@@ -94,66 +94,283 @@ async function runRealScheduler(
   payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running STANDARDIZED database scheduler with payload:', payload);
-  
-  // Only proceed if commit is true (dry run protection)
-  if (!payload.commit) {
-    console.log('⚠️ Dry run mode - no actual scheduling performed');
-    return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
+  console.log('🚀 Running TS parallel-aware scheduler with payload:', payload);
+
+  // ---- Types local to the scheduler ----
+  type Shift = { id: string; day_of_week: number; shift_start_time: string; shift_end_time: string; is_working_day: boolean };
+  type Holiday = { date: string; name?: string };
+  type StageInput = {
+    id: string;                 // stage_instance_id
+    job_id: string;
+    job_table: string;          // 'production_jobs'
+    status: string;
+    stage_name: string;
+    stage_group?: string | null;
+    stage_order: number;
+    setup_minutes?: number | null;
+    estimated_minutes?: number | null;
+    scheduled_start_at?: string | null;
+    scheduled_end_at?: string | null;
+    scheduled_minutes?: number | null;
+    schedule_status?: string | null;
+    production_stage_id: string;
+    part_assignment?: string | null; // 'covers' | 'text' | 'both' | null
+    category_id?: string | null;
+  };
+  type JobInput = {
+    job_id: string;
+    wo_number?: string;
+    customer_name?: string;
+    quantity?: number;
+    due_date?: string | null;
+    proof_approved_at?: string | null;
+    estimated_run_minutes?: number;
+    stages: StageInput[];
+  };
+  type ExportPayload = {
+    meta: any;
+    shifts: Shift[];
+    holidays: Holiday[];
+    routes: any[];
+    jobs: JobInput[];
+  };
+
+  function isExportPayload(v: any): v is ExportPayload {
+    return v && Array.isArray(v.jobs) && Array.isArray(v.shifts) && Array.isArray(v.holidays);
   }
 
-  try {
-    if (payload.onlyJobIds && payload.onlyJobIds.length > 0) {
-      // Append specific jobs to schedule using STANDARDIZED function
-      console.log(`📋 Scheduling specific jobs: ${payload.onlyJobIds.length} jobs`);
-      
-      const { data, error } = await sb.rpc('scheduler_append_jobs', {
-        p_job_ids: payload.onlyJobIds,
-        p_start_from: payload.startFrom || null,
-        p_only_if_unset: payload.onlyIfUnset
-      });
-
-      if (error) {
-        console.error('❌ Append jobs error:', error);
-        throw error;
-      }
-
-      const row = firstRow(data);
-      const updated = Number((row as any)?.updated_jsi ?? (row as any)?.scheduled_count ?? (row as any)?.updated ?? 0);
-      const wrote = Number((row as any)?.wrote_slots ?? 0);
-
-      console.log(`✅ Append complete: ${updated} stages updated, ${wrote} slots created`, { raw: row });
-      
-      return {
-        jobs_considered: payload.onlyJobIds.length,
-        scheduled: updated,
-        applied: { updated }
-      };
-      
-    } else {
-      // Full reschedule all using STANDARDIZED scheduler_resource_fill_optimized
-      console.log('📅 Running full reschedule using scheduler_resource_fill_optimized...');
-      
-      const { data, error } = await sb.rpc('simple_scheduler_wrapper', { p_mode: 'reschedule_all' });
-
-      if (error) {
-        console.error('❌ Reschedule error (wrapper):', error);
-        throw error;
-      }
-
-      const row = firstRow(data);
-      // simple_scheduler_wrapper returns { scheduled_count, wrote_slots, success }
-      const scheduledCount = Number((row as any)?.scheduled_count ?? (row as any)?.updated_jsi ?? (row as any)?.updated ?? 0);
-      const wrote = Number((row as any)?.wrote_slots ?? 0);
-
-      console.log(`✅ Reschedule complete (wrapper): ${scheduledCount} stages updated, ${wrote} slots created`, { raw: row });
-      
-      return {
-        jobs_considered: scheduledCount, // Best approximation
-        scheduled: scheduledCount,
-        applied: { updated: scheduledCount }
-      };
+  // ---- Time helpers (UTC-based) ----
+  const shiftsByDOW = new Map<number, Shift[]>();
+  function buildShiftIndex(shifts: Shift[]) {
+    shiftsByDOW.clear();
+    for (const s of shifts) {
+      const arr = shiftsByDOW.get(s.day_of_week) || [];
+      arr.push(s);
+      shiftsByDOW.set(s.day_of_week, arr);
     }
+  }
+
+  const holidaySet = new Set<string>();
+  function buildHolidayIndex(holidays: Holiday[]) {
+    holidaySet.clear();
+    for (const h of holidays) holidaySet.add(String(h.date));
+  }
+
+  function ymd(d: Date) { return d.toISOString().slice(0,10); }
+
+  function parseTimeOnDate(d: Date, timeHHMMSS: string): Date {
+    // time like '08:00:00'
+    const [hh, mm, ss] = timeHHMMSS.split(':').map((x) => parseInt(x, 10));
+    const dt = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hh || 0, mm || 0, ss || 0));
+    return dt;
+  }
+
+  function getShiftWindow(date: Date): { start: Date; end: Date } | null {
+    const dow = date.getUTCDay();
+    const shifts = shiftsByDOW.get(dow) || [];
+    // choose the first working shift for the day
+    const s = shifts.find((x) => x.is_working_day);
+    if (!s) return null;
+    return { start: parseTimeOnDate(date, s.shift_start_time), end: parseTimeOnDate(date, s.shift_end_time) };
+  }
+
+  function isWorkingDay(date: Date): boolean {
+    const win = getShiftWindow(date);
+    if (!win) return false;
+    if (holidaySet.has(ymd(date))) return false;
+    return true;
+  }
+
+  function nextDate(date: Date): Date {
+    const n = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+    return n;
+  }
+
+  function alignToNextWorkStart(ts: Date): Date {
+    let d = new Date(ts);
+    for (let i = 0; i < 14; i++) { // hard stop after 2 weeks
+      const win = getShiftWindow(d);
+      if (!win || !isWorkingDay(d)) {
+        d = nextDate(d);
+        continue;
+      }
+      if (d < win.start) return new Date(win.start);
+      if (d >= win.end) { d = nextDate(d); continue; }
+      return d; // within working window
+    }
+    return d;
+  }
+
+  function addWorkMinutes(start: Date, minutes: number): Date {
+    let remaining = Math.max(0, Math.floor(minutes));
+    let cursor = alignToNextWorkStart(start);
+    for (let i = 0; i < 60 && remaining > 0; i++) { // cap iterations for safety
+      const win = getShiftWindow(cursor);
+      if (!win || !isWorkingDay(cursor)) { cursor = nextDate(cursor); continue; }
+      const available = Math.floor((win.end.getTime() - cursor.getTime()) / 60000);
+      if (available <= 0) { cursor = nextDate(cursor); continue; }
+      if (remaining <= available) {
+        return new Date(cursor.getTime() + remaining * 60000);
+      }
+      remaining -= available;
+      cursor = nextDate(cursor); // move to next day start (alignToNextWorkStart will be applied on next loop)
+      cursor = alignToNextWorkStart(cursor);
+    }
+    return cursor;
+  }
+
+  function toDateOr(dateStr?: string | null): Date | null {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // ---- Optional wipe when nuclear ----
+  if (payload.nuclear) {
+    try {
+      console.log('🧨 Nuclear requested – clearing non-completed scheduling data...');
+      const { error: wipeErr } = await sb.rpc('clear_non_completed_scheduling_data');
+      if (wipeErr) console.warn('⚠️ Wipe error (continuing):', wipeErr);
+    } catch (e) {
+      console.warn('⚠️ Wipe threw (continuing):', e);
+    }
+  }
+
+  // Special path: append/specific jobs still via RPC (keeps identical behavior)
+  if (payload.onlyJobIds && payload.onlyJobIds.length > 0) {
+    console.log(`📋 Scheduling specific jobs via RPC: ${payload.onlyJobIds.length} jobs`);
+    const { data, error } = await sb.rpc('scheduler_append_jobs', {
+      p_job_ids: payload.onlyJobIds,
+      p_start_from: payload.startFrom || null,
+      p_only_if_unset: payload.onlyIfUnset,
+    });
+    if (error) throw error;
+    const row = firstRow(data);
+    const updated = Number((row as any)?.updated_jsi ?? (row as any)?.scheduled_count ?? (row as any)?.updated ?? 0);
+    return { jobs_considered: payload.onlyJobIds.length, scheduled: updated, applied: { updated } };
+  }
+
+  // ---- Main TS scheduler path ----
+  try {
+    const { data: raw, error: expErr } = await sb.rpc('export_scheduler_input');
+    if (expErr) {
+      console.error('❌ export_scheduler_input error:', expErr);
+      throw expErr;
+    }
+    const exp: any = raw;
+    const payloadJson: ExportPayload | undefined = (typeof exp === 'object' ? exp : undefined) as any;
+    if (!isExportPayload(payloadJson)) {
+      console.error('❌ Invalid export payload shape:', payloadJson);
+      throw new Error('Invalid export payload shape');
+    }
+
+    buildShiftIndex(payloadJson.shifts || []);
+    buildHolidayIndex(payloadJson.holidays || []);
+
+    const baseStart = toDateOr(payload.startFrom) || new Date();
+    const globalBase = alignToNextWorkStart(baseStart);
+
+    // resource tails per stage_group
+    const resourceTail = new Map<string, Date>();
+
+    // Filter jobs if onlyJobIds provided (we're in full path; but keep safety)
+    const targetJobIds = new Set<string>((payload.onlyJobIds || []) as any);
+    const jobs = (payloadJson.jobs || []).filter(j => !targetJobIds.size || targetJobIds.has(j.job_id));
+
+    type BranchFinish = { covers: Date; text: Date };
+    const branchFinishByJob = new Map<string, BranchFinish>();
+
+    let scheduled = 0;
+    let wroteSlots = 0;
+    let considered = 0;
+
+    // Iterate jobs FIFO by proof_approved_at then by stage_order
+    jobs.sort((a, b) => {
+      const ap = toDateOr(a.proof_approved_at)?.getTime() || 0;
+      const bp = toDateOr(b.proof_approved_at)?.getTime() || 0;
+      if (ap !== bp) return ap - bp;
+      return a.job_id.localeCompare(b.job_id);
+    });
+
+    for (const job of jobs) {
+      const jobApproved = toDateOr(job.proof_approved_at);
+      const jobBaseStart = alignToNextWorkStart(new Date(Math.max(globalBase.getTime(), (jobApproved?.getTime() || 0))));
+
+      const bf: BranchFinish = { covers: jobBaseStart, text: jobBaseStart };
+      branchFinishByJob.set(job.job_id, bf);
+
+      // sort stages by stage_order asc
+      const stages = (job.stages || []).slice().sort((s1, s2) => (s1.stage_order - s2.stage_order));
+
+      for (const s of stages) {
+        // onlyIfUnset: skip already scheduled
+        if (payload.onlyIfUnset && (s.scheduled_start_at || s.scheduled_end_at)) {
+          continue;
+        }
+
+        // Compute duration
+        const setup = Number(s.setup_minutes ?? 0) || 0;
+        const est = Number(s.scheduled_minutes ?? s.estimated_minutes ?? 0) || 0;
+        const duration = Math.max(5, setup + est);
+
+        // Stage group resource tail key
+        const sg = (s.stage_group || 'default').toString().toLowerCase();
+
+        // Dependency: branch convergence
+        const part = (s.part_assignment || '').toString().toLowerCase();
+        let depTime = jobBaseStart;
+        if (part === 'covers') depTime = bf.covers;
+        else if (part === 'text') depTime = bf.text;
+        else if (part === 'both') depTime = new Date(Math.max(bf.covers.getTime(), bf.text.getTime()));
+
+        const rTail = resourceTail.get(sg) || jobBaseStart;
+        const start0 = new Date(Math.max(jobBaseStart.getTime(), depTime.getTime(), rTail.getTime()));
+        const start = alignToNextWorkStart(start0);
+        const end = addWorkMinutes(start, duration);
+
+        considered++;
+
+        if (payload.commit) {
+          // Update job_stage_instances
+          const upd = {
+            scheduled_start_at: start.toISOString(),
+            scheduled_end_at: end.toISOString(),
+            scheduled_minutes: duration,
+            schedule_status: payload.proposed ? 'proposed' : 'scheduled',
+            updated_at: new Date().toISOString(),
+          } as any;
+          const { error: uErr } = await sb.from('job_stage_instances').update(upd).eq('id', s.id);
+          if (uErr) console.warn('⚠️ update jsi error:', uErr, s.id);
+          else scheduled++;
+
+          // Insert time slot (best-effort)
+          const slot = {
+            job_id: s.job_id,
+            job_table_name: s.job_table || 'production_jobs',
+            production_stage_id: s.production_stage_id,
+            stage_instance_id: s.id,
+            slot_start_time: start.toISOString(),
+            duration_minutes: duration,
+          } as any;
+          const { error: insErr } = await sb.from('stage_time_slots').insert([slot]);
+          if (insErr) console.warn('⚠️ insert slot error (continuing):', insErr, slot);
+          else wroteSlots++;
+        } else {
+          // Dry run: count theoretical schedule
+          scheduled++;
+          wroteSlots++;
+        }
+
+        // Advance tails
+        resourceTail.set(sg, end);
+        if (part === 'covers') bf.covers = end;
+        else if (part === 'text') bf.text = end;
+        else if (part === 'both') { const m = new Date(Math.max(bf.covers.getTime(), bf.text.getTime(), end.getTime())); bf.covers = m; bf.text = m; }
+      }
+    }
+
+    console.log('✅ TS scheduler complete:', { considered, scheduled, wroteSlots });
+    return { jobs_considered: considered, scheduled, applied: { updated: scheduled } };
   } catch (error) {
     console.error('💥 Scheduler execution failed:', error);
     throw error;
