@@ -44,13 +44,19 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     const baseTime = startFrom || getFactoryBaseTime();
     console.log('🔄 Base scheduling time:', baseTime);
     
+    // Derive date-only boundary for wipe (YYYY-MM-DD)
+    const startFromDate = (baseTime || '').slice(0, 10);
+    
     // Route through edge function to avoid database timeout issues
     const { data, error } = await supabase.functions.invoke('scheduler-run', {
       body: {
         commit: true,
         proposed: false,
         onlyIfUnset: false,
-        startFrom: baseTime
+        // Force a full rebuild from boundary by wiping auto-scheduled slots
+        nuclear: true,
+        wipeAll: true,
+        startFrom: startFromDate
       }
     });
 
