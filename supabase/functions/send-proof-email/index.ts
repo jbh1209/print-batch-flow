@@ -67,12 +67,12 @@ serve(async (req) => {
       `,
     });
 
-    console.log('✅ Proof email sent successfully:', emailResponse.id);
+    console.log('✅ Proof email sent successfully:', (emailResponse as any).id || 'N/A');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        emailId: emailResponse.id 
+        emailId: (emailResponse as any).id || null 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
 
   // Parse body safely
   const rawText = await req.text();
-  const body = safeJson<ScheduleRequest>(rawText) ?? {};
+  const body = safeJson<ScheduleRequest>(rawText) ?? {} as any;
 
   // Hard requirement
   if (!("commit" in body)) {
@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
     onlyIfUnset: !!body.onlyIfUnset,
     nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
-    onlyJobIds,
+    onlyJobIds: onlyJobIds || null,
   };
 
   // Supabase client (service key, runs server-side)

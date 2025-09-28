@@ -55,7 +55,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.error("❌ Auto-schedule-approved error:", err);
     return new Response(JSON.stringify({ 
       ok: false, 
-      message: err?.message ?? "cron scheduler error" 
+      message: err instanceof Error ? err.message : "cron scheduler error" 
     }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
