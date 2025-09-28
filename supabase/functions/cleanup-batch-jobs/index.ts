@@ -43,7 +43,6 @@ serve(async (req) => {
     
     // Process each batch
     for (const batch of oldBatches || []) {
-      let jobTableName: string | null = null; // Declare at function scope
       try {
         console.log(`Processing batch ${batch.id} (${batch.name})`)
         
@@ -72,6 +71,7 @@ serve(async (req) => {
           
           // Find which table contains jobs for this batch
           let batchJobs = null
+          let jobTable = null
           
           for (const table of jobTables) {
             const { data: jobs } = await supabase
@@ -81,7 +81,7 @@ serve(async (req) => {
               .limit(1)
             
             if (jobs && jobs.length > 0) {
-              jobTableName = table
+              jobTable = table
               // Now fetch all jobs for this batch from the identified table
               const { data: allJobs } = await supabase
                 .from(table)
@@ -98,7 +98,7 @@ serve(async (req) => {
             continue
           }
           
-          console.log(`Found ${batchJobs.length} jobs in table ${jobTableName} for batch ${batch.id}`)
+          console.log(`Found ${batchJobs.length} jobs in table ${jobTable} for batch ${batch.id}`)
           
           // 2. Generate overview PDF (fetch batch data from frontend via POST to endpoint)
           // This is a placeholder for the overview PDF generation
@@ -124,9 +124,9 @@ serve(async (req) => {
         console.log(`Would delete job PDFs for batch ${batch.id}`)
         
         // 4. Delete job records but keep batch record
-        if (jobTableName) {
+        if (jobTable) {
           await supabase
-            .from(jobTableName)
+            .from(jobTable)
             .update({ pdf_url: null, status: "archived" })
             .eq("batch_id", batch.id)
           
@@ -135,7 +135,7 @@ serve(async (req) => {
         
       } catch (err) {
         console.error(`Error processing batch ${batch.id}:`, err)
-        errors.push({ batchId: batch.id, error: err instanceof Error ? err.message : String(err) })
+        errors.push({ batchId: batch.id, error: err.message })
       }
     }
     
@@ -156,7 +156,7 @@ serve(async (req) => {
     console.error("Error in cleanup-batch-jobs function:", error)
     
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+      JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 

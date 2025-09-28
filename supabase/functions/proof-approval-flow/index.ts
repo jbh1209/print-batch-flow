@@ -45,26 +45,20 @@ serve(async (req) => {
     console.log('✅ Stage instance updated successfully');
     console.log('✅ Database trigger will automatically sync production_jobs.proof_approved_at');
 
-    // Trigger scheduler via edge function (Sep 24 baseline approach)
+    // Trigger the scheduler directly
     try {
-      console.log('🔄 Triggering scheduler via schedule-on-approval...');
+      console.log('🔄 Triggering scheduler...');
       
-      const schedulerPayload = {
-        commit: true,
-        onlyIfUnset: true,
-        source: "proof_approval"
-      };
-
-      const { data: schedulerData, error: schedulerError } = await supabase.functions
-        .invoke('schedule-on-approval', {
-          body: schedulerPayload
+      const { data: schedulerData, error: schedulerError } = await supabase
+        .rpc('simple_scheduler_wrapper', { 
+          p_mode: 'reschedule_all'
         });
 
       if (schedulerError) {
         console.error('❌ Scheduler error:', schedulerError);
         // Don't fail the whole operation for scheduler issues
       } else {
-        console.log('✅ Scheduler triggered successfully:', schedulerData);
+        console.log('✅ Scheduler completed:', schedulerData);
       }
     } catch (schedulerErr) {
       console.error('❌ Scheduler invocation failed:', schedulerErr);
@@ -90,7 +84,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : String(error) 
+        error: error.message 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

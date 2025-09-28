@@ -123,7 +123,7 @@ serve(async (req) => {
     console.error("Error in generate-batch-overview function:", error)
     
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+      JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 

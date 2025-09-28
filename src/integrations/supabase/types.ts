@@ -3986,13 +3986,6 @@ export type Database = {
           wo_no: string
         }[]
       }
-      reset_overdue_active_instances: {
-        Args: { p_cutoff?: string }
-        Returns: {
-          reset_count: number
-          reset_jobs: Json
-        }[]
-      }
       revoke_user_role: {
         Args: { target_user_id: string }
         Returns: boolean

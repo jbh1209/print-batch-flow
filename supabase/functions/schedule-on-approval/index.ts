@@ -43,7 +43,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   } catch (err) {
     console.error("schedule-on-approval proxy error:", err);
-    return new Response(JSON.stringify({ ok: false, message: err instanceof Error ? err.message : "proxy error" }), {
+    return new Response(JSON.stringify({ ok: false, message: err?.message ?? "proxy error" }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
