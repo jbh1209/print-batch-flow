@@ -108,6 +108,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
         category_name: jobData.categories?.name || 'No Category',
         category_color: jobData.categories?.color || '#6B7280',
         due_date: jobData.due_date,
+        original_committed_due_date: jobData.original_committed_due_date,
         status: jobData.status
       };
 

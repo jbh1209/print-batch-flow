@@ -124,7 +124,6 @@ serve(async (req) => {
         console.log(`Would delete job PDFs for batch ${batch.id}`)
         
         // 4. Delete job records but keep batch record
-        const jobTable = 'production_jobs'; // Define the job table name
         if (jobTable) {
           await supabase
             .from(jobTable)
@@ -136,7 +135,7 @@ serve(async (req) => {
         
       } catch (err) {
         console.error(`Error processing batch ${batch.id}:`, err)
-        errors.push({ batchId: batch.id, error: (err as any).message || 'Unknown error' })
+        errors.push({ batchId: batch.id, error: err.message })
       }
     }
     
@@ -157,7 +156,7 @@ serve(async (req) => {
     console.error("Error in cleanup-batch-jobs function:", error)
     
     return new Response(
-      JSON.stringify({ error: (error as any).message || 'Unknown error' }),
+      JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 

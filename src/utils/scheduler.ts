@@ -35,36 +35,40 @@ function getFactoryBaseTime(): string {
 }
 
 /**
- * Main reschedule function - VERSION 1.0 RESTORATION
+ * Main reschedule function - routes through edge function to avoid DB timeouts
  */
 export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 VERSION 1.0: Starting reschedule via edge function...');
+    console.log('🔄 Starting reschedule via edge function...');
     
     const baseTime = startFrom || getFactoryBaseTime();
-    console.log('🔄 VERSION 1.0: Base scheduling time:', baseTime);
+    console.log('🔄 Base scheduling time:', baseTime);
     
-    // VERSION 1.0: Simple routing to proven scheduler
+    // Route through edge function to avoid database timeout issues
     const { data, error } = await supabase.functions.invoke('scheduler-run', {
       body: {
         commit: true,
+        proposed: false,
         onlyIfUnset: false,
         startFrom: baseTime
       }
     });
 
     if (error) {
-      console.error('VERSION 1.0 Reschedule error:', error);
+      console.error('Reschedule error:', error);
       toast.error(`Reschedule failed: ${error.message}`);
       return null;
     }
 
     const result = data || {};
+    // Handle both camelCase (from edge function) and snake_case (from direct RPC) responses
     const wroteSlots = result?.wroteSlots ?? result?.wrote_slots ?? 0;
     const updatedJSI = result?.updatedJSI ?? result?.updated_jsi ?? 0;
+    
+    // Handle violations array
     const violations = Array.isArray(result?.violations) ? result.violations : [];
 
-    console.log('🔄 VERSION 1.0: Reschedule completed:', { 
+    console.log('🔄 Reschedule completed via edge function:', { 
       wroteSlots, 
       updatedJSI, 
       violations: violations.length 
@@ -76,7 +80,7 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
       violations
     };
   } catch (error) {
-    console.error('VERSION 1.0 Reschedule failed:', error);
+    console.error('Reschedule failed:', error);
     toast.error(`Reschedule failed: ${error}`);
     return null;
   }

@@ -94,7 +94,7 @@ async function getStageWorkloadsBatch(supabase: any, stageIds: string[]) {
 
   // Process the batch results
   for (const workload of workloadData || []) {
-    const capacity = capacities?.find((c: any) => c.production_stage_id === workload.stage_id);
+    const capacity = capacities?.find(c => c.production_stage_id === workload.stage_id);
     if (capacity) {
       const dailyCapacity = capacity.daily_capacity_hours * (capacity.efficiency_factor || 0.85);
       const queueDaysToProcess = workload.total_pending_hours / dailyCapacity;
@@ -151,7 +151,7 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
   }, []) || [];
 
   // Get unique stage IDs and fetch their workloads in batch
-  const stageIds = [...new Set(deduplicatedStages.map((si: any) => si.production_stage_id) || [])] as string[];
+  const stageIds = [...new Set(deduplicatedStages.map(si => si.production_stage_id) || [])];
   const stageWorkloads = await getStageWorkloadsBatch(supabase, stageIds);
   
   console.log(`🔄 Retrieved workload data for ${stageWorkloads.size} stages`);
@@ -166,7 +166,7 @@ async function calculateJobTimelineBatch(supabase: any, jobIds: string[], tableN
   const timelines: JobTimeline[] = [];
   
   for (const jobId of jobIds) {
-    const jobStages = deduplicatedStages.filter((si: any) => si.job_id === jobId) || [];
+    const jobStages = deduplicatedStages.filter(si => si.job_id === jobId) || [];
     const stages: JobTimelineStage[] = [];
     let currentDate = new Date();
     let bottleneckStage: string | null = null;
@@ -295,7 +295,7 @@ async function processJobBatch(
           if (!workflowError) {
             results.workflowsInitialized++;
           } else {
-            (results.errors as string[]).push(`Workflow init failed for ${job.wo_no}: ${(workflowError as any).message}`);
+            results.errors.push(`Workflow init failed for ${job.wo_no}: ${workflowError.message}`);
           }
         }
       }
@@ -309,7 +309,7 @@ async function processJobBatch(
         .in('id', jobIds);
         
       if (jobs && jobs.length > 0) {
-        const qrUpdates = jobs.map((job: any) => ({
+        const qrUpdates = jobs.map(job => ({
           id: job.id,
           qr_code_data: JSON.stringify({
             job_id: job.id,
@@ -341,7 +341,7 @@ async function processJobBatch(
           .select('id, original_committed_due_date')
           .in('id', jobIds);
         
-        const currentJobsMap = new Map(currentJobs?.map((j: any) => [j.id, j]) || []);
+        const currentJobsMap = new Map(currentJobs?.map(j => [j.id, j]) || []);
         
         const updates = timelines.map(timeline => {
           const lastStage = timeline.stages[timeline.stages.length - 1];
@@ -361,14 +361,14 @@ async function processJobBatch(
           // DUAL DATE MODE LOGIC
           if (options.dualDateMode) {
             // In dual date mode: set original_committed_due_date if it's the first time
-            if (!(currentJob as any)?.original_committed_due_date) {
+            if (!currentJob?.original_committed_due_date) {
               console.log(`🆕 Setting original committed due date for job ${timeline.jobId}: ${dueDateWithBuffer.toISOString().split('T')[0]}`);
               return {
                 ...baseUpdate,
                 original_committed_due_date: dueDateWithBuffer.toISOString().split('T')[0]
               };
             } else {
-              console.log(`📅 Updating current due date for job ${timeline.jobId}, preserving original: ${(currentJob as any).original_committed_due_date}`);
+              console.log(`📅 Updating current due date for job ${timeline.jobId}, preserving original: ${currentJob.original_committed_due_date}`);
               return baseUpdate; // Only update current due_date, preserve original
             }
           } else {
@@ -386,12 +386,12 @@ async function processJobBatch(
           results.dueDatesCalculated = timelines.length;
           console.log(`✅ ${options.dualDateMode ? 'Dual' : 'Standard'} due date calculation completed for ${timelines.length} jobs`);
         } else {
-          (results.errors as string[]).push(`Due date update error: ${(updateError as any).message}`);
+          results.errors.push(`Due date update error: ${updateError.message}`);
         }
       }
     } catch (dueDateError) {
       console.error(`❌ Due date calculation failed:`, dueDateError);
-      (results.errors as string[]).push(`Due date calculation: ${dueDateError instanceof Error ? dueDateError.message : String(dueDateError)}`);
+      results.errors.push(`Due date calculation: ${dueDateError instanceof Error ? dueDateError.message : String(dueDateError)}`);
     }
     
     return results;
@@ -497,7 +497,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in calculate-due-dates function:', error);
     return new Response(
-      JSON.stringify({ error: (error as any).message || 'Unknown error' }),
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -4027,26 +4027,12 @@ export type Database = {
       }
       scheduler_append_jobs: {
         Args: {
-          p_job_ids?: string[]
-          p_only_if_unset?: boolean
-          p_start_from?: string
-        }
-        Returns: {
-          updated_jsi: number
-          wrote_slots: number
-        }[]
-      }
-      scheduler_append_jobs_20241227_1445: {
-        Args: {
           p_job_ids: string[]
           p_only_if_unset?: boolean
           p_start_from?: string
         }
         Returns: {
-          mode: string
-          scheduled_count: number
-          success: boolean
-          version: string
+          updated_jsi: number
           wrote_slots: number
         }[]
       }
@@ -4067,16 +4053,6 @@ export type Database = {
         Returns: {
           updated_jsi: number
           violations: string[]
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_parallel_parts_20241227_1445: {
-        Args: { p_start_from?: string }
-        Returns: {
-          mode: string
-          scheduled_count: number
-          success: boolean
-          version: string
           wrote_slots: number
         }[]
       }
@@ -4146,23 +4122,8 @@ export type Database = {
         }[]
       }
       simple_scheduler_wrapper: {
-        Args: { p_mode?: string }
-        Returns: {
-          mode: string
-          scheduled_count: number
-          success: boolean
-          wrote_slots: number
-        }[]
-      }
-      simple_scheduler_wrapper_20241227_1445: {
-        Args: { p_mode?: string; p_start_from?: string }
-        Returns: {
-          mode: string
-          scheduled_count: number
-          success: boolean
-          version: string
-          wrote_slots: number
-        }[]
+        Args: { p_mode: string }
+        Returns: Json
       }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
