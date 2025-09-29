@@ -48,7 +48,7 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     const startFromDate = (baseTime || '').slice(0, 10);
     
     // Route through edge function to avoid database timeout issues
-    const { data, error } = await supabase.functions.invoke('scheduler-run', {
+    const { data, error } = await supabase.functions.invoke('simple-scheduler', {
       body: {
         commit: true,
         proposed: false,
@@ -67,12 +67,12 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     }
 
     const result = data || {};
-    // Handle both camelCase (from edge function) and snake_case (from direct RPC) responses
-    const wroteSlots = result?.wroteSlots ?? result?.wrote_slots ?? 0;
-    const updatedJSI = result?.updatedJSI ?? result?.updated_jsi ?? 0;
+    // Map simple-scheduler response to expected format
+    const wroteSlots = result?.scheduled ?? 0;
+    const updatedJSI = result?.applied?.updated ?? 0;
     
-    // Handle violations array
-    const violations = Array.isArray(result?.violations) ? result.violations : [];
+    // Handle violations array (simple-scheduler doesn't return violations)
+    const violations = [];
 
     console.log('🔄 Reschedule completed via edge function:', { 
       wroteSlots, 

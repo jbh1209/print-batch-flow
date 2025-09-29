@@ -70,7 +70,7 @@ export const fixProofApprovals = async () => {
       console.log('🎯 Triggering scheduler to pick up fixed jobs...');
       
       try {
-        const { data: schedulerData, error: schedulerError } = await supabase.functions.invoke('scheduler-run', {
+        const { data: schedulerData, error: schedulerError } = await supabase.functions.invoke('simple-scheduler', {
           body: {
             commit: true,
             onlyIfUnset: false // Reschedule everything to pick up newly approved jobs
