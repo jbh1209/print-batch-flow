@@ -3,10 +3,10 @@ import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { useScheduleReader } from "@/hooks/useScheduleReader";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { toast } from "sonner";
-import { rescheduleAll, getSchedulingValidation } from "@/utils/scheduler";
+import { getSchedulingValidation } from "@/utils/scheduler";
 
 export default function ScheduleBoardPage() {
-  const { scheduleDays, isLoading, fetchSchedule } = useScheduleReader();
+  const { scheduleDays, isLoading, fetchSchedule, triggerReschedule } = useScheduleReader();
   const { isAdmin } = useUserRole();
 
   const handleRefresh = async () => {
@@ -17,8 +17,8 @@ export default function ScheduleBoardPage() {
     try {
       toast.message("Rebuilding schedule with parallel-aware scheduler…");
 
-      const result = await rescheduleAll();
-      if (!result) return;
+      const ok = await triggerReschedule();
+      if (!ok) return;
 
       await fetchSchedule();
       
@@ -27,16 +27,14 @@ export default function ScheduleBoardPage() {
       
       if (validationResults.length > 0) {
         toast.message(
-          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${validationResults.length} parallel processing info items (normal for cover/text stages)`,
+          `✅ Parallel scheduler ran. ${validationResults.length} precedence notes (normal for cover/text stages)`,
           {
             description: "Click on any job to see 'Why scheduled here?' details"
           }
         );
         console.log('Parallel processing validation info:', validationResults);
       } else {
-        toast.success(
-          `✅ Perfect schedule: ${result.updated_jsi} stages with ${result.wrote_slots} slots, 0 validation notes`
-        );
+        toast.success(`✅ Perfect schedule: 0 validation notes`);
       }
     } catch (e: any) {
       console.error("Reschedule failed:", e);

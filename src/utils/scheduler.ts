@@ -39,25 +39,11 @@ function getFactoryBaseTime(): string {
  */
 export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via edge function...');
-    
-    const baseTime = startFrom || getFactoryBaseTime();
-    console.log('🔄 Base scheduling time:', baseTime);
-    
-    // Derive date-only boundary for wipe (YYYY-MM-DD)
-    const startFromDate = (baseTime || '').slice(0, 10);
-    
-    // Route through edge function to avoid database timeout issues
-    const { data, error } = await supabase.functions.invoke('simple-scheduler', {
-      body: {
-        commit: true,
-        proposed: false,
-        onlyIfUnset: false,
-        // Force a full rebuild from boundary by wiping auto-scheduled slots
-        nuclear: true,
-        wipeAll: true,
-        startFrom: startFromDate
-      }
+    console.log('🔄 Starting reschedule via DB wrapper simple_scheduler_wrapper...');
+
+    // Note: startFrom is not currently used by the wrapper; kept for API compatibility
+    const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
+      p_mode: 'reschedule_all'
     });
 
     if (error) {
@@ -66,24 +52,23 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
       return null;
     }
 
-    const result = data || {};
-    // Map simple-scheduler response to expected format
-    const wroteSlots = result?.scheduled ?? 0;
-    const updatedJSI = result?.applied?.updated ?? 0;
-    
-    // Handle violations array (simple-scheduler doesn't return violations)
-    const violations = [];
+    const result: any = data || {};
+    const wroteSlots = result?.wrote_slots ?? result?.applied?.wrote_slots ?? 0;
+    const updatedJSI = result?.updated_jsi ?? result?.applied?.updated ?? 0;
 
-    console.log('🔄 Reschedule completed via edge function:', { 
-      wroteSlots, 
-      updatedJSI, 
-      violations: violations.length 
+    // Wrapper may or may not return violations
+    const violations = Array.isArray(result?.violations) ? result.violations : [];
+
+    console.log('🔄 Reschedule completed via wrapper:', {
+      wroteSlots,
+      updatedJSI,
+      violations: violations.length,
     });
-    
+
     return {
       wrote_slots: wroteSlots,
       updated_jsi: updatedJSI,
-      violations
+      violations,
     };
   } catch (error) {
     console.error('Reschedule failed:', error);

@@ -70,20 +70,17 @@ export const fixProofApprovals = async () => {
       console.log('🎯 Triggering scheduler to pick up fixed jobs...');
       
       try {
-        const { data: schedulerData, error: schedulerError } = await supabase.functions.invoke('simple-scheduler', {
-          body: {
-            commit: true,
-            onlyIfUnset: false // Reschedule everything to pick up newly approved jobs
-          }
+        const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
+          p_mode: 'reschedule_all'
         });
 
-        if (schedulerError) {
-          console.error('❌ Scheduler error:', schedulerError);
+        if (error) {
+          console.error('❌ Scheduler error:', error);
           toast.error('Jobs fixed but scheduler failed - please run scheduler manually');
           return { fixed: fixedCount, scheduled: false };
         }
 
-        console.log('✅ Scheduler completed:', schedulerData);
+        console.log('✅ Scheduler completed via wrapper:', data);
         toast.success(`Fixed ${fixedCount} jobs and rescheduled successfully`);
         return { fixed: fixedCount, scheduled: true };
         
