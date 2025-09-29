@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
 import { HP12000PaperSizeSelector } from "./HP12000PaperSizeSelector";
 import { useState } from "react";
 
@@ -53,6 +54,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
+  const { completeProofStage } = useProofApprovalFlow();
   const [hp12000ValidationStatus, setHP12000ValidationStatus] = useState<{
     isValid: boolean;
     message?: string;
@@ -155,29 +157,20 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     try {
       console.log(`🎯 Starting proof approval for job ${job.job_id}`);
       
-      // Use proof approval flow hook to handle the complete workflow
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        toast.error('User not authenticated');
+      if (!stageInstance?.id) {
+        toast.error('No stage instance found');
         return;
       }
 
-      // Call the proof approval edge function to handle the complete flow
-      const { data, error } = await supabase.functions.invoke('proof-approval-flow', {
-        body: {
-          jobId: job.job_id,
-          stageInstanceId: stageInstance?.id,
-          userId: userData.user.id
-        }
-      });
+      // Use the existing proof approval flow hook
+      const success = await completeProofStage(job.job_id, stageInstance.id);
 
-      if (error) {
-        console.error('❌ Proof approval flow failed:', error);
+      if (!success) {
         toast.error('Failed to approve proof');
         return;
       }
 
-      console.log('✅ Proof approved and scheduling triggered:', data);
+      console.log('✅ Proof approved and scheduling triggered');
       
       // CRITICAL: Update local stageInstance immediately to prevent loadModalData race condition
       if (stageInstance) {

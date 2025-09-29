@@ -5,6 +5,7 @@ import { Play, CheckCircle, RotateCcw, Mail, ThumbsUp, Upload } from "lucide-rea
 import ProofLinkButton from "./ProofLinkButton";
 import ProofUploadDialog from "./ProofUploadDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
 import { toast } from "sonner";
 
 interface JobModalActionsProps {
@@ -39,6 +40,7 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
   const [showProofUpload, setShowProofUpload] = useState(false);
   const [isMarkingProofEmailed, setIsMarkingProofEmailed] = useState(false);
   const [isMarkingProofApproved, setIsMarkingProofApproved] = useState(false);
+  const { completeProofStage } = useProofApprovalFlow();
 
   if (!currentStage || !canWork) {
     return null;
@@ -81,29 +83,15 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
     try {
       console.log(`🎯 Starting proof approval for job ${jobId}`);
       
-      // Use proof approval flow hook to handle the complete workflow
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        toast.error('User not authenticated');
-        return;
-      }
+      // Use the existing proof approval flow hook
+      const success = await completeProofStage(jobId, currentStage.id);
 
-      // Call the proof approval edge function to handle the complete flow
-      const { data, error } = await supabase.functions.invoke('proof-approval-flow', {
-        body: {
-          jobId: jobId,
-          stageInstanceId: currentStage.id,
-          userId: userData.user.id
-        }
-      });
-
-      if (error) {
-        console.error('❌ Proof approval flow failed:', error);
+      if (!success) {
         toast.error('Failed to approve proof');
         return;
       }
 
-      console.log('✅ Proof approved and scheduling triggered:', data);
+      console.log('✅ Proof approved and scheduling triggered');
       toast.success('Proof approved - job scheduled automatically');
       
       // Refresh to show updated stage
