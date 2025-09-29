@@ -4,7 +4,7 @@
 // - Sanitizes onlyJobIds to avoid "invalid input syntax for type uuid: """
 // - Stubs actual scheduling so you can confirm 200s end-to-end first.
 
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 // ---------- CORS ----------
 const corsHeaders = {
@@ -149,7 +149,7 @@ Deno.serve(async (req: Request) => {
 
   // Parse body safely
   const rawText = await req.text();
-  const body = safeJson<ScheduleRequest>(rawText) ?? {};
+  const body = safeJson<any>(rawText) ?? {};
 
   // Hard requirement
   if (!("commit" in body)) {
@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
     onlyIfUnset: !!body.onlyIfUnset,
     nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
-    onlyJobIds,
+    onlyJobIds: onlyJobIds || null,
   };
 
   // Supabase client (service key, runs server-side)
