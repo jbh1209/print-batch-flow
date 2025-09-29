@@ -88,7 +88,7 @@ async function runRealScheduler(
   payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running RESTORED database scheduler with payload:', payload);
+  console.log('🚀 Running PARALLEL-AWARE scheduler with payload:', payload);
   
   // Only proceed if commit is true (dry run protection)
   if (!payload.commit) {
@@ -97,11 +97,25 @@ async function runRealScheduler(
   }
 
   try {
-    // Call the working simple_scheduler_wrapper function that exists in restored DB
-    console.log('📅 Running scheduler using simple_scheduler_wrapper...');
+    // Clear existing slots if nuclear/wipeAll requested
+    if (payload.nuclear) {
+      console.log('💥 Nuclear mode: clearing existing stage_time_slots...');
+      const { error: clearError } = await sb
+        .from('stage_time_slots')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (clearError) {
+        console.error('❌ Error clearing slots:', clearError);
+        throw clearError;
+      }
+    }
+
+    // Call the parallel-aware scheduler function directly
+    console.log('📅 Running scheduler_reschedule_all_sequential_fixed for parallel processing...');
     
-    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_mode: 'reschedule_all'
+    const { data, error } = await sb.rpc('scheduler_reschedule_all_sequential_fixed', {
+      p_start_boundary: payload.startFrom || new Date().toISOString().slice(0, 10)
     });
 
     if (error) {
@@ -109,16 +123,15 @@ async function runRealScheduler(
       throw error;
     }
 
-    const result = data[0];
-    console.log(`✅ Scheduler complete: ${result.scheduled_count} stages scheduled, ${result.wrote_slots} slots created`);
+    console.log(`✅ Parallel scheduler complete: ${data?.wrote_slots || 0} slots created, ${data?.updated_jsi || 0} stage instances updated`);
     
     return {
-      jobs_considered: result.scheduled_count || 0,
-      scheduled: result.scheduled_count || 0,
-      applied: { updated: result.scheduled_count || 0 }
+      jobs_considered: data?.updated_jsi || 0,
+      scheduled: data?.wrote_slots || 0,
+      applied: { updated: data?.updated_jsi || 0 }
     };
   } catch (error) {
-    console.error('💥 Scheduler execution failed:', error);
+    console.error('💥 Parallel scheduler execution failed:', error);
     throw error;
   }
 }
