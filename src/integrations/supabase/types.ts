@@ -4123,11 +4123,7 @@ export type Database = {
       }
       simple_scheduler_wrapper: {
         Args: { p_mode?: string }
-        Returns: {
-          scheduled_count: number
-          success: boolean
-          wrote_slots: number
-        }[]
+        Returns: Json
       }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
