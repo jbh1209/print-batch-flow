@@ -15,8 +15,9 @@ export const useProofApprovalFlow = () => {
     try {
       console.log(`🎯 Triggering scheduling for job ${jobId} after proof approval`);
       
-      // Use the working scheduleJobs utility that calls scheduler_append_jobs RPC
-      const result = await scheduleJobs([jobId], false);
+      // Force reschedule this specific job to clear any stale scheduling data
+      // This appends to existing schedule tails without disrupting other jobs
+      const result = await scheduleJobs([jobId], true);
 
       if (!result) {
         console.error('Error triggering scheduler: No result returned');
