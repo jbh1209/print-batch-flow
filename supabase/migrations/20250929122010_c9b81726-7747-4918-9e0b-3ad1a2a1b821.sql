@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.scheduler_reschedule_all_parallel_aware();
