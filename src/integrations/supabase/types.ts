@@ -4049,10 +4049,10 @@ export type Database = {
         Returns: number
       }
       scheduler_reschedule_all_parallel_aware: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { p_start_from?: string }
         Returns: {
           updated_jsi: number
-          violations: string[]
+          violations: Json
           wrote_slots: number
         }[]
       }
