@@ -42,9 +42,7 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
     console.log('🔄 Starting reschedule via DB wrapper simple_scheduler_wrapper...');
 
     // Note: startFrom is not currently used by the wrapper; kept for API compatibility
-    const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-      p_mode: 'reschedule_all'
-    });
+    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
 
     if (error) {
       console.error('Reschedule error:', error);
@@ -52,11 +50,12 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
       return null;
     }
 
-    const result: any = data || {};
-    const wroteSlots = result?.wrote_slots ?? result?.applied?.wrote_slots ?? 0;
-    const updatedJSI = result?.updated_jsi ?? result?.applied?.updated ?? 0;
+    const arr: any[] = Array.isArray(data) ? (data as any[]) : [];
+    const result: any = arr[0] || {};
+    const wroteSlots = result?.wrote_slots ?? 0;
+    const updatedJSI = result?.updated_jsi ?? 0;
 
-    // Wrapper may or may not return violations
+    // Parallel-aware RPC returns violations array (may be empty)
     const violations = Array.isArray(result?.violations) ? result.violations : [];
 
     console.log('🔄 Reschedule completed via wrapper:', {

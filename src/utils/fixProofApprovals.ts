@@ -70,9 +70,7 @@ export const fixProofApprovals = async () => {
       console.log('🎯 Triggering scheduler to pick up fixed jobs...');
       
       try {
-        const { data, error } = await supabase.rpc('simple_scheduler_wrapper', {
-          p_mode: 'reschedule_all'
-        });
+        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
 
         if (error) {
           console.error('❌ Scheduler error:', error);
