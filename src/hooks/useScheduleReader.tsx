@@ -451,23 +451,30 @@ export function useScheduleReader() {
     }
   }, []);
 
-  // CRITICAL FIX: Use the correct scheduler wrapper function
+  // Canonical path: UI -> Edge Function -> DB wrapper
   const triggerReschedule = useCallback(async () => {
     try {
-      console.log("🔄 Triggering reschedule via parallel-aware RPC...");
-      const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...");
+      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+        body: {
+          commit: true,
+          proposed: false,
+          onlyIfUnset: false,
+          nuclear: true,
+          wipeAll: true
+        }
+      });
       if (error) {
         console.error("Error triggering reschedule:", error);
         toast.error("Failed to trigger reschedule");
         return false;
       }
-      console.log("✅ Reschedule triggered successfully (parallel-aware):", data);
-      const arr = Array.isArray(data) ? (data as any[]) : [];
-      const result = arr[0] || {};
-      const wroteSlots = result?.wrote_slots ?? 0;
-      const updatedJsi = result?.updated_jsi ?? 0;
+      const result: any = (data as any) || {};
+      const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
+      const updatedJsi = result?.applied?.updated ?? result?.jobs_considered ?? 0;
       const violations = Array.isArray(result?.violations) ? result.violations.length : 0;
-      toast.success(`Rescheduled: ${updatedJsi} stages, ${wroteSlots} slots, ${violations} notes`);
+      console.log("✅ Reschedule complete via edge function:", result);
+      toast.success(`Rescheduled: ${updatedJsi} stages, ${wroteSlots} slots${violations ? `, ${violations} notes` : ''}`);
 
       // Refresh after a moment
       setTimeout(() => {

@@ -39,10 +39,17 @@ function getFactoryBaseTime(): string {
  */
 export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via DB wrapper simple_scheduler_wrapper...');
+    console.log('🔄 Starting reschedule via Edge Function simple-scheduler...');
 
-    // Note: startFrom is not currently used by the wrapper; kept for API compatibility
-    const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+    const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+      body: {
+        commit: true,
+        proposed: false,
+        onlyIfUnset: false,
+        nuclear: true,
+        wipeAll: true
+      }
+    });
 
     if (error) {
       console.error('Reschedule error:', error);
@@ -50,15 +57,13 @@ export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult
       return null;
     }
 
-    const arr: any[] = Array.isArray(data) ? (data as any[]) : [];
-    const result: any = arr[0] || {};
-    const wroteSlots = result?.wrote_slots ?? 0;
-    const updatedJSI = result?.updated_jsi ?? 0;
+    const result: any = (data as any) || {};
+    const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
+    const updatedJSI = result?.applied?.updated ?? result?.jobs_considered ?? 0;
 
-    // Parallel-aware RPC returns violations array (may be empty)
     const violations = Array.isArray(result?.violations) ? result.violations : [];
 
-    console.log('🔄 Reschedule completed via wrapper:', {
+    console.log('🔄 Reschedule completed via Edge Function:', {
       wroteSlots,
       updatedJSI,
       violations: violations.length,

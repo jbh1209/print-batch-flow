@@ -112,10 +112,10 @@ async function runRealScheduler(
     }
 
     // Call the parallel-aware scheduler function directly
-    console.log('📅 Running scheduler_reschedule_all_sequential_fixed for parallel processing...');
+    console.log('📅 Running simple_scheduler_wrapper(reschedule_all)...');
     
-    const { data, error } = await sb.rpc('scheduler_reschedule_all_sequential_fixed', {
-      p_start_boundary: payload.startFrom || new Date().toISOString().slice(0, 10)
+    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
+      p_mode: 'reschedule_all'
     });
 
     if (error) {
@@ -123,12 +123,16 @@ async function runRealScheduler(
       throw error;
     }
 
-    console.log(`✅ Parallel scheduler complete: ${data?.wrote_slots || 0} slots created, ${data?.updated_jsi || 0} stage instances updated`);
+    const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
+    const wroteSlots = core?.wrote_slots ?? core?.applied?.wrote_slots ?? 0;
+    const updatedJsi = core?.updated_jsi ?? core?.applied?.updated ?? 0;
+
+    console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
     
     return {
-      jobs_considered: data?.updated_jsi || 0,
-      scheduled: data?.wrote_slots || 0,
-      applied: { updated: data?.updated_jsi || 0 }
+      jobs_considered: updatedJsi,
+      scheduled: wroteSlots,
+      applied: { updated: updatedJsi }
     };
   } catch (error) {
     console.error('💥 Parallel scheduler execution failed:', error);

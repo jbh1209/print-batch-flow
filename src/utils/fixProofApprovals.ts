@@ -70,7 +70,15 @@ export const fixProofApprovals = async () => {
       console.log('🎯 Triggering scheduler to pick up fixed jobs...');
       
       try {
-        const { data, error } = await supabase.rpc('scheduler_reschedule_all_parallel_aware');
+        const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+          body: {
+            commit: true,
+            proposed: false,
+            onlyIfUnset: false,
+            nuclear: true,
+            wipeAll: true
+          }
+        });
 
         if (error) {
           console.error('❌ Scheduler error:', error);
@@ -78,7 +86,7 @@ export const fixProofApprovals = async () => {
           return { fixed: fixedCount, scheduled: false };
         }
 
-        console.log('✅ Scheduler completed via wrapper:', data);
+        console.log('✅ Scheduler completed via edge function:', data);
         toast.success(`Fixed ${fixedCount} jobs and rescheduled successfully`);
         return { fixed: fixedCount, scheduled: true };
         
