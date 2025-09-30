@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { getDueInfo } from "./getDueInfo";
 import type { DueInfo } from "./StageColumn.types";
+import { AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
 
 interface JobStageCardProps {
   jobStage: any;
@@ -54,19 +56,34 @@ const JobStageCard: React.FC<JobStageCardProps> = ({
   return (
     <div className={`relative rounded-lg shadow-md bg-white min-h-[116px] flex flex-col justify-between ${highlighted ? "ring-2 ring-green-500" : ""}`}>
       {/* Due Date chip at top-right */}
-      <div className="absolute top-2 right-2 z-10">
+      <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-0.5">
         {jobStage.production_job?.due_date && (
-          <span className="px-2 py-1 rounded-full text-[12px] font-semibold text-white shadow"
-            style={{
-              background: dueMeta.color,
-              minWidth: 56,
-              display: 'inline-block',
-              textAlign: 'center',
-            }}
-            title={`Due: ${jobStage.production_job.due_date}`}
-          >
-            {jobStage.production_job.due_date}
-          </span>
+          <>
+            {jobStage.production_job.original_committed_due_date && 
+             new Date(jobStage.production_job.due_date) > new Date(jobStage.production_job.original_committed_due_date) ? (
+              <div className="flex flex-col items-end gap-0.5">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500 text-white text-[12px] font-semibold shadow">
+                  <AlertTriangle className="h-3 w-3" />
+                  <span>{format(new Date(jobStage.production_job.due_date), 'MMM dd')}</span>
+                </div>
+                <span className="text-[10px] text-gray-500 bg-white/90 px-1.5 py-0.5 rounded">
+                  Was: {format(new Date(jobStage.production_job.original_committed_due_date), 'MMM dd')}
+                </span>
+              </div>
+            ) : (
+              <span className="px-2 py-1 rounded-full text-[12px] font-semibold text-white shadow"
+                style={{
+                  background: dueMeta.color,
+                  minWidth: 56,
+                  display: 'inline-block',
+                  textAlign: 'center',
+                }}
+                title={`Due: ${jobStage.production_job.due_date}`}
+              >
+                {format(new Date(jobStage.production_job.due_date), 'MMM dd, yyyy')}
+              </span>
+            )}
+          </>
         )}
       </div>
       {/* Main Content */}
