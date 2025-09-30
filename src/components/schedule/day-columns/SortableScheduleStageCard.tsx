@@ -3,9 +3,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, GripVertical, Lock, AlertTriangle } from "lucide-react";
+import { Clock, GripVertical, Lock } from "lucide-react";
 import type { ScheduledStageData } from "@/hooks/useScheduleReader";
-import { format } from "date-fns";
+import { EnhancedDueDateDisplay } from "@/components/tracker/production/EnhancedDueDateDisplay";
 
 interface SortableScheduleStageCardProps {
   stage: ScheduledStageData;
@@ -133,24 +133,15 @@ export const SortableScheduleStageCard: React.FC<SortableScheduleStageCardProps>
 
         {stage.job_due_date && (
           <div className="mt-2 pt-2 border-t border-border/50">
-            {stage.job_original_committed_due_date && 
-             new Date(stage.job_due_date) > new Date(stage.job_original_committed_due_date) ? (
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3 text-amber-600" />
-                  <span className="text-xs font-medium text-amber-600">
-                    Due: {format(new Date(stage.job_due_date), 'MMM dd')}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Was: {format(new Date(stage.job_original_committed_due_date), 'MMM dd')}
-                </div>
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">
-                Due: {format(new Date(stage.job_due_date), 'MMM dd, yyyy')}
-              </div>
-            )}
+            <EnhancedDueDateDisplay
+              job={{
+                due_date: stage.job_due_date,
+                original_committed_due_date: stage.job_original_committed_due_date,
+                wo_no: stage.job_wo_no
+              }}
+              variant="compact"
+              showTrafficLight={true}
+            />
           </div>
         )}
       </div>
