@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Play, 
   CheckCircle, 
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { JobStageInstance } from "@/hooks/tracker/useJobStageInstances";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { useHP12000Stages } from "@/hooks/tracker/useHP12000Stages";
 import { toast } from "sonner";
 
 interface MasterOrderModalAdminControlsProps {
@@ -28,6 +30,22 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
   const [notes, setNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { startStage, completeStage } = useStageActions();
+
+  // Detect if stage is HP12000
+  const isHP12000Stage = stage.production_stage?.name?.toLowerCase().includes('hp12000') || 
+                         stage.production_stage?.name?.toLowerCase().includes('hp 12000');
+
+  // Use HP12000Stages hook only if this is an HP12000 stage
+  const { 
+    paperSizes, 
+    hp12000Stages, 
+    updateStagePaperSize 
+  } = useHP12000Stages(stage.job_id);
+
+  // Find current stage's HP12000 data
+  const hp12000StageData = hp12000Stages.find(
+    s => s.stage_instance_id === stage.id
+  );
 
   const handleStartStage = async () => {
     setIsProcessing(true);
@@ -194,6 +212,47 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
               <p className="text-gray-700">{stage.notes}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* HP12000 Paper Size Management */}
+      {isHP12000Stage && hp12000StageData && (
+        <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-800">HP12000 Paper Size:</span>
+            {hp12000StageData.paper_size_id ? (
+              <Badge className={hp12000StageData.paper_size_name?.includes('Large') ? 
+                'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}>
+                {hp12000StageData.paper_size_name}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-orange-600">Not Assigned</Badge>
+            )}
+          </div>
+
+          {/* Admin can change paper size */}
+          <div className="space-y-2">
+            <label className="text-xs text-gray-600">Change Paper Size:</label>
+            <Select
+              value={hp12000StageData.paper_size_id || ''}
+              onValueChange={async (value) => {
+                await updateStagePaperSize(stage.id, value);
+                onRefresh();
+              }}
+              disabled={isProcessing}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select paper size" />
+              </SelectTrigger>
+              <SelectContent>
+                {paperSizes.map(paperSize => (
+                  <SelectItem key={paperSize.id} value={paperSize.id}>
+                    {paperSize.name} ({paperSize.dimensions})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
 
