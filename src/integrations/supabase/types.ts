@@ -1641,6 +1641,7 @@ export type Database = {
           manual_due_date: string | null
           manual_sla_days: number | null
           operation_quantities: Json | null
+          original_committed_due_date: string | null
           paper_specifications: Json | null
           prepress_specifications: Json | null
           printing_specifications: Json | null
@@ -1694,6 +1695,7 @@ export type Database = {
           manual_due_date?: string | null
           manual_sla_days?: number | null
           operation_quantities?: Json | null
+          original_committed_due_date?: string | null
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
@@ -1747,6 +1749,7 @@ export type Database = {
           manual_due_date?: string | null
           manual_sla_days?: number | null
           operation_quantities?: Json | null
+          original_committed_due_date?: string | null
           paper_specifications?: Json | null
           prepress_specifications?: Json | null
           printing_specifications?: Json | null
