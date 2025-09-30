@@ -17,7 +17,8 @@ export const useProofLinks = () => {
 
       if (error) {
         console.error('❌ Failed to generate proof link:', error);
-        toast.error('Failed to generate proof link');
+        const errorMsg = error.message || 'Failed to generate proof link';
+        toast.error(errorMsg);
         return null;
       }
 

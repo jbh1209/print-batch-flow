@@ -95,7 +95,7 @@ const ProofViewer = () => {
     setIsSubmitting(true);
     try {
       // Use the current domain for the edge function call
-      const { error } = await supabase.functions.invoke('handle-proof-approval/submit-approval', {
+      const { data, error } = await supabase.functions.invoke('handle-proof-approval/submit-approval', {
         body: {
           token,
           response,
@@ -104,13 +104,18 @@ const ProofViewer = () => {
       });
 
       if (error) {
-        throw error;
+        console.error('Edge function error:', error);
+        const errorMsg = error.message || 'Failed to submit your response';
+        setError(errorMsg);
+        setIsSubmitting(false);
+        return;
       }
 
       setSubmitted(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting response:', err);
-      setError("Failed to submit your response. Please try again.");
+      const errorMsg = err?.message || "Failed to submit your response. Please try again.";
+      setError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

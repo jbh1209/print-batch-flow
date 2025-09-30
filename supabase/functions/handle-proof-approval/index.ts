@@ -160,22 +160,38 @@ serve(async (req) => {
         .eq('id', proofLink.id);
 
       if (response === 'approved') {
-        console.log('✅ Client approved - advancing to next stage');
+        console.log('✅ Client approved - completing proof stage and scheduling');
         
-        // Auto-complete proof stage and advance to printing
-        const { error: advanceError } = await supabase.rpc('advance_job_stage', {
-          p_job_id: proofLink.job_id,
-          p_job_table_name: proofLink.job_table_name,
-          p_current_stage_id: proofLink.job_stage_instances.production_stage_id,
-          p_notes: `Client approved via external link. ${notes ? `Client notes: ${notes}` : ''}`
-        });
+        // Mark proof stage as completed with approval timestamp
+        const { error: completeError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            proof_approved_manually_at: new Date().toISOString(),
+            notes: `Client approved via external link. ${notes ? `Client notes: ${notes}` : ''}`
+          })
+          .eq('id', proofLink.stage_instance_id);
 
-        if (advanceError) {
-          console.error('❌ Failed to advance stage:', advanceError);
+        if (completeError) {
+          console.error('❌ Failed to complete proof stage:', completeError);
           return new Response(
-            JSON.stringify({ error: 'Failed to advance stage after approval' }),
+            JSON.stringify({ error: 'Failed to complete proof stage after approval' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
           );
+        }
+
+        // Append this job to the production schedule (not full reschedule)
+        const { error: scheduleError } = await supabase.rpc('scheduler_append_jobs', {
+          p_job_ids: [proofLink.job_id],
+          p_only_if_unset: true
+        });
+
+        if (scheduleError) {
+          console.error('⚠️ Failed to append to schedule:', scheduleError);
+          // Don't fail the whole operation - proof is still approved
+        } else {
+          console.log('✅ Job appended to production schedule');
         }
       } else if (response === 'changes_needed') {
         console.log('🔄 Client requested changes - sending back to DTP');

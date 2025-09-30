@@ -43,7 +43,7 @@ export const useProofApprovalFlow = () => {
     try {
       console.log(`📋 Completing proof stage for job ${jobId} - NO auto-activation`);
       
-      // Complete the proof stage - database trigger will sync production_jobs.proof_approved_at
+      // Complete the proof stage - database trigger will handle scheduling automatically
       const { error: completeError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -57,15 +57,12 @@ export const useProofApprovalFlow = () => {
       if (completeError) {
         throw completeError;
       }
-
-      // Trigger queue-based due date calculation for scheduling
-      await triggerQueueBasedCalculation(jobId);
       
-      // CRITICAL: DO NOT auto-activate next stage for proof completions
-      // Next stage will remain "pending" for manual factory floor activation
-      console.log(`✅ Proof stage completed for job ${jobId} - next stage remains pending for manual activation`);
+      // CRITICAL: DO NOT manually call scheduler here - let trigger handle it
+      // The trg_schedule_on_proof_approval trigger will append this job to schedule
+      console.log(`✅ Proof stage completed for job ${jobId} - trigger will append to schedule`);
 
-      toast.success('Proof approved - next stage awaits manual factory floor activation');
+      toast.success('Proof approved - job will be appended to production schedule');
       return true;
 
     } catch (error) {
@@ -73,7 +70,7 @@ export const useProofApprovalFlow = () => {
       toast.error('Failed to complete proof stage');
       return false;
     }
-  }, [triggerQueueBasedCalculation]);
+  }, []);
 
   /**
    * Trigger 3 AM recalculation for all jobs
