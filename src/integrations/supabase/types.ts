@@ -3936,6 +3936,10 @@ export type Database = {
           success: boolean
         }[]
       }
+      recalculate_job_due_date_from_schedule: {
+        Args: { p_job_id: string }
+        Returns: undefined
+      }
       remove_job_expedite_status: {
         Args: { p_job_id: string; p_removed_by?: string }
         Returns: boolean
