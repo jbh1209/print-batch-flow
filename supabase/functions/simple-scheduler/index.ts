@@ -115,7 +115,8 @@ async function runRealScheduler(
     console.log('📅 Running simple_scheduler_wrapper(reschedule_all)...');
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_mode: 'reschedule_all'
+      p_mode: 'reschedule_all',
+      p_start_from: sanitizedPayload.startFrom || null
     });
 
     if (error) {
