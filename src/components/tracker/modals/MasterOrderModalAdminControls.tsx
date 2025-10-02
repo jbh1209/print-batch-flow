@@ -16,6 +16,7 @@ import {
 import { JobStageInstance } from "@/hooks/tracker/useJobStageInstances";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 import { useHP12000Stages } from "@/hooks/tracker/useHP12000Stages";
+import { PaperSpecificationEditor } from "./admin/PaperSpecificationEditor";
 import { toast } from "sonner";
 
 interface MasterOrderModalAdminControlsProps {
@@ -34,6 +35,9 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
   // Detect if stage is HP12000
   const isHP12000Stage = stage.production_stage?.name?.toLowerCase().includes('hp12000') || 
                          stage.production_stage?.name?.toLowerCase().includes('hp 12000');
+
+  // Detect if stage is any printing stage
+  const isPrintingStage = stage.production_stage?.name?.toLowerCase().includes('print');
 
   // Use HP12000Stages hook only if this is an HP12000 stage
   const { 
@@ -254,6 +258,16 @@ export const MasterOrderModalAdminControls: React.FC<MasterOrderModalAdminContro
             </Select>
           </div>
         </div>
+      )}
+
+      {/* Paper Specification Management - For ALL Printing Stages */}
+      {isPrintingStage && (
+        <PaperSpecificationEditor
+          jobId={stage.job_id}
+          jobTableName={stage.job_table_name}
+          stageName={stage.production_stage.name}
+          onRefresh={onRefresh}
+        />
       )}
 
       {/* Admin Controls */}
