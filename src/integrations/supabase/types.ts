@@ -1850,6 +1850,7 @@ export type Database = {
       }
       production_stages: {
         Row: {
+          allow_gap_filling: boolean | null
           color: string | null
           created_at: string
           description: string | null
@@ -1866,6 +1867,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_gap_filling?: boolean | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -1882,6 +1884,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_gap_filling?: boolean | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -2040,6 +2043,74 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      schedule_gap_fills: {
+        Row: {
+          created_at: string | null
+          days_saved: number
+          gap_filled_start: string
+          id: string
+          job_id: string
+          minutes_saved: number
+          original_scheduled_start: string
+          production_stage_id: string
+          scheduler_run_type: string
+          stage_instance_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          days_saved: number
+          gap_filled_start: string
+          id?: string
+          job_id: string
+          minutes_saved: number
+          original_scheduled_start: string
+          production_stage_id: string
+          scheduler_run_type: string
+          stage_instance_id: string
+        }
+        Update: {
+          created_at?: string | null
+          days_saved?: number
+          gap_filled_start?: string
+          id?: string
+          job_id?: string
+          minutes_saved?: number
+          original_scheduled_start?: string
+          production_stage_id?: string
+          scheduler_run_type?: string
+          stage_instance_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_gap_fills_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "job_stage_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_gap_fills_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_stage_windows"
+            referencedColumns: ["stage_instance_id"]
+          },
+          {
+            foreignKeyName: "fk_gap_fills_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_schedule_precedence_violations"
+            referencedColumns: ["stage_instance_id"]
+          },
+          {
+            foreignKeyName: "fk_gap_fills_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_scheduler_stages_ready"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scheduler_webhook_log: {
         Row: {
@@ -3425,6 +3496,20 @@ export type Database = {
       export_scheduler_input: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      find_available_gaps: {
+        Args: {
+          p_duration_minutes: number
+          p_fifo_start_time: string
+          p_lookback_days?: number
+          p_stage_id: string
+        }
+        Returns: {
+          days_earlier: number
+          gap_capacity_minutes: number
+          gap_end: string
+          gap_start: string
+        }[]
       }
       fix_category_stage_ordering: {
         Args: { p_category_id: string }
