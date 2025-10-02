@@ -24,6 +24,8 @@ interface ProductionStage {
   running_speed_per_hour?: number;
   make_ready_time_minutes?: number;
   speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item';
+  // Gap-filling optimization
+  allow_gap_filling?: boolean;
 }
 
 interface ProductionStageFormProps {
@@ -49,7 +51,9 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     // Enhanced timing fields
     running_speed_per_hour: stage?.running_speed_per_hour || undefined,
     make_ready_time_minutes: stage?.make_ready_time_minutes || 10,
-    speed_unit: stage?.speed_unit || 'sheets_per_hour'
+    speed_unit: stage?.speed_unit || 'sheets_per_hour',
+    // Gap-filling optimization
+    allow_gap_filling: stage?.allow_gap_filling || false
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -69,7 +73,9 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         // Enhanced timing fields
         running_speed_per_hour: stage.running_speed_per_hour || undefined,
         make_ready_time_minutes: stage.make_ready_time_minutes || 10,
-        speed_unit: stage.speed_unit || 'sheets_per_hour'
+        speed_unit: stage.speed_unit || 'sheets_per_hour',
+        // Gap-filling optimization
+        allow_gap_filling: stage.allow_gap_filling || false
       };
 
       console.log('✅ ProductionStageForm updated formData:', updatedFormData);
@@ -174,19 +180,35 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="supports_parts"
-              checked={formData.supports_parts}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, supports_parts: !!checked }))}
-            />
-            <Label htmlFor="supports_parts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Supports Part-Specific Work
-            </Label>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="supports_parts"
+                checked={formData.supports_parts}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, supports_parts: !!checked }))}
+              />
+              <Label htmlFor="supports_parts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Supports Part-Specific Work
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enable this for stages that can handle part-specific work (cover, text, insert parts)
+            </p>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="allow_gap_filling"
+                checked={formData.allow_gap_filling}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, allow_gap_filling: !!checked }))}
+              />
+              <Label htmlFor="allow_gap_filling" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Allow Gap-Filling Optimization
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enables small stages (&lt;120 mins) to fill schedule gaps earlier than FIFO order (saves days)
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Enable this for stages that can handle part-specific work (cover, text, insert parts)
-          </p>
         </CardContent>
       </Card>
 

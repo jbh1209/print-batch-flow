@@ -17,8 +17,32 @@ export function useSequentialScheduler() {
       if (!result) return;
       
       const violationCount = result.violations.length;
-      if (violationCount === 0) {
+      
+      // Check if there were any gap-filled stages
+      const { data: gapFillData } = await supabase
+        .from('schedule_gap_fills')
+        .select('*')
+        .eq('scheduler_run_type', 'reschedule_all')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      const recentGapFills = (gapFillData || []).filter((gf: any) => {
+        const timeDiff = Date.now() - new Date(gf.created_at).getTime();
+        return timeDiff < 10000; // Within last 10 seconds
+      });
+      
+      const gapFilledCount = recentGapFills.length;
+      const totalDaysSaved = recentGapFills.reduce((sum: number, gf: any) => sum + (gf.days_saved || 0), 0);
+      
+      if (violationCount === 0 && gapFilledCount === 0) {
         toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 validation notes!`);
+      } else if (gapFilledCount > 0) {
+        toast.success(
+          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. 🔀 Gap-filled ${gapFilledCount} stages (saved ${totalDaysSaved.toFixed(1)} days total)!`,
+          {
+            description: violationCount > 0 ? `${violationCount} parallel processing info items (normal for cover/text stages)` : undefined
+          }
+        );
       } else {
         toast.message(
           `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${violationCount} parallel processing info items (normal for cover/text stages)`,

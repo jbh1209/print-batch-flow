@@ -1,7 +1,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ProductionStageActions } from "./ProductionStageActions";
-import { Split, Clock, Gauge, Settings } from "lucide-react";
+import { Split, Clock, Gauge, Settings, ArrowLeftRight } from "lucide-react";
 import { stagingHelpers } from "@/hooks/tracker/stagingSystemUtils";
 import type { ProductionStage } from "@/hooks/tracker/useProductionStages";
 
@@ -47,6 +47,12 @@ export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
               <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
                 <Clock className="h-3 w-3 mr-1" />
                 Timing Enabled
+              </Badge>
+            )}
+            {stage.allow_gap_filling && (
+              <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                <ArrowLeftRight className="h-3 w-3 mr-1" />
+                Gap-Filling Enabled
               </Badge>
             )}
           </div>
