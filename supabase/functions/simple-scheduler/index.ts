@@ -113,14 +113,16 @@ async function runRealScheduler(
 
     // Call the parallel-aware scheduler function directly
     console.log('📅 Running simple_scheduler_wrapper(reschedule_all)...');
+    console.log('🔍 Using startFrom:', payload.startFrom);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
       p_mode: 'reschedule_all',
-      p_start_from: sanitizedPayload.startFrom || null
+      p_start_from: payload.startFrom || null
     });
 
     if (error) {
       console.error('❌ Scheduler error:', error);
+      console.error('❌ Error details:', error.message, error.details, error.hint);
       throw error;
     }
 
