@@ -3950,7 +3950,12 @@ export type Database = {
         Returns: boolean
       }
       jsi_minutes: {
-        Args: { p_estimated: number; p_scheduled: number }
+        Args: {
+          p_completion_percentage?: number
+          p_estimated_duration_minutes: number
+          p_remaining_minutes?: number
+          p_scheduled_minutes: number
+        }
         Returns: number
       }
       list_working_days: {
