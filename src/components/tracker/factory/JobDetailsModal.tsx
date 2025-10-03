@@ -32,6 +32,14 @@ import { PrintSpecsBadge } from "./PrintSpecsBadge";
 import StageHoldDialog from "./StageHoldDialog";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 import { toast } from "sonner";
+
+// Normalize status variants from backend
+const normalizeStatus = (status?: string): 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' => {
+  if (status === 'in_progress') return 'active';
+  if (!status) return 'pending';
+  return status as 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold';
+};
+
 interface JobDetailsModalProps {
   job: ScheduledJobStage | null;
   isOpen: boolean;
@@ -68,19 +76,31 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     }
   };
 
+  const normalizedStatus = normalizeStatus(job.status);
+
   const getStatusColor = () => {
-    if (job.status === 'on_hold') return 'bg-orange-100 text-orange-900 border-orange-300';
-    if (job.status === 'active') return 'bg-green-100 text-green-900 border-green-300';
+    if (normalizedStatus === 'on_hold') return 'bg-orange-100 text-orange-900 border-orange-300';
+    if (normalizedStatus === 'active') return 'bg-green-100 text-green-900 border-green-300';
     if (job.is_ready_now) return 'bg-blue-100 text-blue-900 border-blue-300';
     if (job.is_scheduled_later) return 'bg-yellow-100 text-yellow-900 border-yellow-300';
     if (job.is_waiting_for_dependencies) return 'bg-gray-100 text-gray-900 border-gray-300';
     return 'bg-red-100 text-red-900 border-red-300';
   };
 
-  const canStart = job.status === 'pending' && job.is_ready_now;
-  const canComplete = job.status === 'active' || job.status === 'on_hold';
-  const canHold = job.status === 'active';
-  const canResume = job.status === 'on_hold';
+  const canStart = normalizedStatus === 'pending' && job.is_ready_now;
+  const canComplete = normalizedStatus === 'active' || normalizedStatus === 'on_hold';
+  const canHold = normalizedStatus === 'active';
+  const canResume = normalizedStatus === 'on_hold';
+
+  console.debug('JobDetailsModal status flags', { 
+    jobId: job.id, 
+    rawStatus: job.status, 
+    normalizedStatus, 
+    canStart, 
+    canComplete, 
+    canHold, 
+    canResume 
+  });
 
   const handleHoldStage = async (percentage: number, reason: string) => {
     const success = await holdStage(job.id, percentage, reason);
@@ -122,8 +142,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   <Badge 
                     className={`${getStatusColor()} border px-3 py-1 font-medium`}
                   >
-                    {job.status === 'on_hold' ? 'On Hold' :
-                     job.status === 'active' ? 'Active' : 
+                    {normalizedStatus === 'on_hold' ? 'On Hold' :
+                     normalizedStatus === 'active' ? 'Active' : 
                      job.is_ready_now ? 'Ready Now' :
                      job.is_scheduled_later ? 'Scheduled' :
                      job.is_waiting_for_dependencies ? 'Waiting' : 'Blocked'}
@@ -324,7 +344,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
           {/* Job Actions */}
           <div className="flex gap-3 pt-4 border-t">
-            {job.status === 'on_hold' && (
+            {normalizedStatus === 'on_hold' && (
               <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <Pause className="h-5 w-5 text-orange-600 mt-0.5" />
@@ -388,7 +408,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {job.status === 'on_hold' ? 'Complete Remaining' : 'Scan & Complete Job'}
+                {normalizedStatus === 'on_hold' ? 'Complete Remaining' : 'Scan & Complete Job'}
               </Button>
             )}
 

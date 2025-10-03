@@ -42,6 +42,13 @@ import { supabase } from "@/integrations/supabase/client";
 import StageHoldDialog from "./StageHoldDialog";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 
+// Normalize status variants from backend
+const normalizeStatus = (status?: string): 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' => {
+  if (status === 'in_progress') return 'active';
+  if (!status) return 'pending';
+  return status as 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold';
+};
+
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
   isOpen: boolean;
@@ -142,7 +149,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   };
 
   const getStatusInfo = () => {
-    if (job.status === 'on_hold') {
+    const normalizedStatus = normalizeStatus(job.status);
+    
+    if (normalizedStatus === 'on_hold') {
       return { 
         text: 'On Hold', 
         color: 'bg-orange-100 text-orange-800 border-orange-300',
@@ -153,7 +162,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
         canResume: true
       };
     }
-    if (job.status === 'active') {
+    if (normalizedStatus === 'active') {
       return { 
         text: 'In Progress', 
         color: 'bg-green-100 text-green-800 border-green-300',
@@ -210,6 +219,15 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
   const statusInfo = getStatusInfo();
   const StatusIcon = statusInfo.icon;
+
+  // Debug logging for troubleshooting
+  console.debug('EnhancedJobDetailsModal render', { 
+    jobId: job.id, 
+    rawStatus: job.status, 
+    normalizedStatus: normalizeStatus(job.status),
+    scanCompleted,
+    flags: statusInfo 
+  });
 
   const handleStartJob = async () => {
     if (!onStartJob) return;
@@ -747,7 +765,7 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
         {/* Modal Footer Actions */}
         <div className="flex gap-3 pt-6 border-t">
-          {job.status === 'on_hold' && (
+          {normalizeStatus(job.status) === 'on_hold' && (
             <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
               <div className="flex items-start gap-2">
                 <Pause className="h-5 w-5 text-orange-600 mt-0.5" />
@@ -804,8 +822,8 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
               disabled={isProcessing || stageActionsProcessing}
               className="bg-green-600 hover:bg-green-700"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              {job.status === 'on_hold' ? 'Complete Remaining' : 'Complete Job'}
+               <CheckCircle className="w-4 h-4 mr-2" />
+              {normalizeStatus(job.status) === 'on_hold' ? 'Complete Remaining' : 'Complete Job'}
             </Button>
           )}
 

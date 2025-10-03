@@ -11,7 +11,7 @@ export interface ScheduledJobStage {
   stage_name: string;
   stage_color: string;
   stage_order: number;
-  status: 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold';
+  status: 'pending' | 'active' | 'in_progress' | 'completed' | 'skipped' | 'on_hold';
   queue_position?: number;
   scheduled_start_at?: string;
   scheduled_end_at?: string;
@@ -96,7 +96,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           )
         `)
         .eq('job_table_name', 'production_jobs')
-        .in('status', ['pending', 'active']);
+        .in('status', ['pending', 'active', 'on_hold']);
 
       // Filter by production stage if specified
       if (production_stage_id) {
@@ -166,14 +166,17 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
         const stageData = stage.production_stages;
         const categoryData = jobData?.categories;
 
+        // Normalize status: treat 'in_progress' as 'active'
+        const normalizedStatus = stage.status === 'in_progress' ? 'active' : stage.status;
+
         // Simplified readiness logic - operators can start any pending job
         let is_ready_now = false;
         let is_scheduled_later = false;
         let is_waiting_for_dependencies = false;
 
-        if (stage.status === 'active') {
+        if (normalizedStatus === 'active' || normalizedStatus === 'on_hold') {
           is_ready_now = true;
-        } else if (stage.status === 'pending') {
+        } else if (normalizedStatus === 'pending') {
           if (stage.scheduled_start_at) {
             // All scheduled jobs are considered ready (operators can start anytime)
             is_ready_now = true;
@@ -191,7 +194,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
           stage_name: stageData?.name || 'Unknown Stage',
           stage_color: stageData?.color || '#6B7280',
           stage_order: stage.stage_order,
-          status: stage.status,
+          status: normalizedStatus,
           queue_position: stage.queue_position,
           scheduled_start_at: stage.scheduled_start_at,
           scheduled_end_at: stage.scheduled_end_at,
