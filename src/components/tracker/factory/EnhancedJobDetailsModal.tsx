@@ -39,6 +39,8 @@ import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { PrintSpecsBadge } from "./PrintSpecsBadge";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { supabase } from "@/integrations/supabase/client";
+import StageHoldDialog from "./StageHoldDialog";
+import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 
 interface EnhancedJobDetailsModalProps {
   job: ScheduledJobStage | null;
@@ -69,6 +71,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
     sheet_size?: string;
   }>({});
   const [specsLoading, setSpecsLoading] = useState(false);
+  const [showHoldDialog, setShowHoldDialog] = useState(false);
+  
+  const { holdStage, resumeStage, isProcessing: stageActionsProcessing } = useStageActions();
   
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
@@ -137,13 +142,26 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   };
 
   const getStatusInfo = () => {
+    if (job.status === 'on_hold') {
+      return { 
+        text: 'On Hold', 
+        color: 'bg-orange-100 text-orange-800 border-orange-300',
+        icon: Pause,
+        canComplete: true,
+        canStart: false,
+        canHold: false,
+        canResume: true
+      };
+    }
     if (job.status === 'active') {
       return { 
         text: 'In Progress', 
         color: 'bg-green-100 text-green-800 border-green-300',
         icon: Timer,
         canComplete: true,
-        canStart: false
+        canStart: false,
+        canHold: true,
+        canResume: false
       };
     }
     if (job.is_ready_now) {
@@ -152,7 +170,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
         color: 'bg-blue-100 text-blue-800 border-blue-300',
         icon: Play,
         canComplete: false,
-        canStart: true
+        canStart: true,
+        canHold: false,
+        canResume: false
       };
     }
     if (job.is_scheduled_later) {
@@ -161,7 +181,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
         color: 'bg-yellow-100 text-yellow-800 border-yellow-300',
         icon: Clock,
         canComplete: false,
-        canStart: false
+        canStart: false,
+        canHold: false,
+        canResume: false
       };
     }
     if (job.is_waiting_for_dependencies) {
@@ -170,7 +192,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
         color: 'bg-gray-100 text-gray-800 border-gray-300',
         icon: Pause,
         canComplete: false,
-        canStart: false
+        canStart: false,
+        canHold: false,
+        canResume: false
       };
     }
     return { 
@@ -178,7 +202,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
       color: 'bg-gray-100 text-gray-800 border-gray-300',
       icon: Timer,
       canComplete: false,
-      canStart: false
+      canStart: false,
+      canHold: false,
+      canResume: false
     };
   };
 
@@ -222,6 +248,21 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
       toast.error('Failed to complete job');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleHoldStage = async (percentage: number, reason: string) => {
+    const success = await holdStage(job.id, percentage, reason);
+    if (success) {
+      setShowHoldDialog(false);
+      onClose();
+    }
+  };
+
+  const handleResumeStage = async () => {
+    const success = await resumeStage(job.id);
+    if (success) {
+      onClose();
     }
   };
 
@@ -706,10 +747,27 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
 
         {/* Modal Footer Actions */}
         <div className="flex gap-3 pt-6 border-t">
+          {job.status === 'on_hold' && (
+            <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Pause className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-orange-900">Stage On Hold</p>
+                  <p className="text-xs text-orange-700 mt-1">
+                    {job.completion_percentage}% completed • {job.remaining_minutes} mins remaining
+                  </p>
+                  {job.hold_reason && (
+                    <p className="text-xs text-orange-600 mt-1 italic">"{job.hold_reason}"</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {statusInfo.canStart && (
             <Button
               onClick={handleStartJob}
-              disabled={isProcessing}
+              disabled={isProcessing || stageActionsProcessing}
               className="bg-blue-600 hover:bg-blue-700"
             >
               <Play className="w-4 h-4 mr-2" />
@@ -717,14 +775,37 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
             </Button>
           )}
           
+          {statusInfo.canHold && (
+            <Button
+              onClick={() => setShowHoldDialog(true)}
+              disabled={isProcessing || stageActionsProcessing}
+              variant="outline"
+              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+            >
+              <Pause className="w-4 h-4 mr-2" />
+              Hold Job
+            </Button>
+          )}
+
+          {statusInfo.canResume && (
+            <Button
+              onClick={handleResumeStage}
+              disabled={isProcessing || stageActionsProcessing}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Resume Job
+            </Button>
+          )}
+
           {statusInfo.canComplete && (
             <Button
               onClick={handleCompleteJob}
-              disabled={isProcessing}
+              disabled={isProcessing || stageActionsProcessing}
               className="bg-green-600 hover:bg-green-700"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Complete Job
+              {job.status === 'on_hold' ? 'Complete Remaining' : 'Complete Job'}
             </Button>
           )}
 
@@ -732,6 +813,15 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
             Close
           </Button>
         </div>
+
+        <StageHoldDialog
+          isOpen={showHoldDialog}
+          onClose={() => setShowHoldDialog(false)}
+          onConfirm={handleHoldStage}
+          scheduledMinutes={job.scheduled_minutes || 0}
+          stageName={job.stage_name}
+          isProcessing={stageActionsProcessing}
+        />
       </DialogContent>
     </Dialog>
   );

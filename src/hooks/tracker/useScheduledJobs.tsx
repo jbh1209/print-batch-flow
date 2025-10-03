@@ -11,13 +11,18 @@ export interface ScheduledJobStage {
   stage_name: string;
   stage_color: string;
   stage_order: number;
-  status: 'pending' | 'active' | 'completed' | 'skipped';
+  status: 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold';
   queue_position?: number;
   scheduled_start_at?: string;
   scheduled_end_at?: string;
   scheduled_minutes?: number;
   estimated_duration_minutes?: number;
   schedule_status?: string;
+  // Hold-related fields
+  completion_percentage?: number;
+  remaining_minutes?: number;
+  hold_reason?: string;
+  held_at?: string;
   // Job details
   wo_no: string;
   customer: string;

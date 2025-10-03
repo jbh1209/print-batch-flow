@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +21,17 @@ import {
   Timer,
   QrCode,
   FileText,
-  Printer
+  Printer,
+  Play,
+  Pause
 } from "lucide-react";
 import { format } from "date-fns";
 import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 import { PrintSpecsBadge } from "./PrintSpecsBadge";
+import StageHoldDialog from "./StageHoldDialog";
+import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { toast } from "sonner";
 interface JobDetailsModalProps {
   job: ScheduledJobStage | null;
   isOpen: boolean;
@@ -42,6 +47,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   onStartJob,
   onCompleteJob
 }) => {
+  const [showHoldDialog, setShowHoldDialog] = useState(false);
+  const { holdStage, resumeStage, isProcessing: stageActionsProcessing } = useStageActions();
   const { isLoading: specsLoading, error: specsError, getSize, getPaperType, getPaperWeight, getLamination } = useJobSpecificationDisplay(job?.job_id, job ? 'production_jobs' : undefined);
 
   const sheetSize = getSize();
@@ -62,6 +69,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   const getStatusColor = () => {
+    if (job.status === 'on_hold') return 'bg-orange-100 text-orange-900 border-orange-300';
     if (job.status === 'active') return 'bg-green-100 text-green-900 border-green-300';
     if (job.is_ready_now) return 'bg-blue-100 text-blue-900 border-blue-300';
     if (job.is_scheduled_later) return 'bg-yellow-100 text-yellow-900 border-yellow-300';
@@ -70,7 +78,24 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   const canStart = job.status === 'pending' && job.is_ready_now;
-  const canComplete = job.status === 'active';
+  const canComplete = job.status === 'active' || job.status === 'on_hold';
+  const canHold = job.status === 'active';
+  const canResume = job.status === 'on_hold';
+
+  const handleHoldStage = async (percentage: number, reason: string) => {
+    const success = await holdStage(job.id, percentage, reason);
+    if (success) {
+      setShowHoldDialog(false);
+      onClose();
+    }
+  };
+
+  const handleResumeStage = async () => {
+    const success = await resumeStage(job.id);
+    if (success) {
+      onClose();
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -97,7 +122,8 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   <Badge 
                     className={`${getStatusColor()} border px-3 py-1 font-medium`}
                   >
-                    {job.status === 'active' ? 'Active' : 
+                    {job.status === 'on_hold' ? 'On Hold' :
+                     job.status === 'active' ? 'Active' : 
                      job.is_ready_now ? 'Ready Now' :
                      job.is_scheduled_later ? 'Scheduled' :
                      job.is_waiting_for_dependencies ? 'Waiting' : 'Blocked'}
@@ -298,16 +324,57 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
           {/* Job Actions */}
           <div className="flex gap-3 pt-4 border-t">
+            {job.status === 'on_hold' && (
+              <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Pause className="h-5 w-5 text-orange-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-orange-900">Stage On Hold</p>
+                    <p className="text-xs text-orange-700 mt-1">
+                      {job.completion_percentage}% completed • {job.remaining_minutes} mins remaining
+                    </p>
+                    {job.hold_reason && (
+                      <p className="text-xs text-orange-600 mt-1 italic">"{job.hold_reason}"</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {canStart && (
               <Button
                 onClick={() => {
                   onStartJob?.(job.id);
                   onClose();
                 }}
+                disabled={stageActionsProcessing}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Scan & Start Job
+              </Button>
+            )}
+
+            {canHold && (
+              <Button
+                onClick={() => setShowHoldDialog(true)}
+                disabled={stageActionsProcessing}
+                variant="outline"
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                <Pause className="w-4 h-4 mr-2" />
+                Hold Job
+              </Button>
+            )}
+
+            {canResume && (
+              <Button
+                onClick={handleResumeStage}
+                disabled={stageActionsProcessing}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Resume Job
               </Button>
             )}
             
@@ -317,10 +384,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   onCompleteJob?.(job.id);
                   onClose();
                 }}
+                disabled={stageActionsProcessing}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Scan & Complete Job
+                {job.status === 'on_hold' ? 'Complete Remaining' : 'Scan & Complete Job'}
               </Button>
             )}
 
@@ -328,6 +396,15 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               Close
             </Button>
           </div>
+
+          <StageHoldDialog
+            isOpen={showHoldDialog}
+            onClose={() => setShowHoldDialog(false)}
+            onConfirm={handleHoldStage}
+            scheduledMinutes={job.scheduled_minutes || 0}
+            stageName={job.stage_name}
+            isProcessing={stageActionsProcessing}
+          />
         </div>
       </DialogContent>
     </Dialog>
