@@ -1,11 +1,13 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, CheckCircle, RotateCcw, Mail, ThumbsUp, Upload } from "lucide-react";
+import { Play, CheckCircle, RotateCcw, Mail, ThumbsUp, Upload, Pause } from "lucide-react";
 import ProofLinkButton from "./ProofLinkButton";
 import ProofUploadDialog from "./ProofUploadDialog";
+import StageHoldDialog from "./StageHoldDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
+import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 import { toast } from "sonner";
 
 interface JobModalActionsProps {
@@ -20,6 +22,11 @@ interface JobModalActionsProps {
     status: string;
     proof_emailed_at?: string | null;
     proof_approved_manually_at?: string | null;
+    completion_percentage?: number;
+    remaining_minutes?: number;
+    hold_reason?: string;
+    held_at?: string;
+    scheduled_minutes?: number;
   } | null;
   canWork: boolean;
   onStartJob: () => void;
@@ -38,18 +45,35 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
   isProcessing
 }) => {
   const [showProofUpload, setShowProofUpload] = useState(false);
+  const [showHoldDialog, setShowHoldDialog] = useState(false);
   const [isMarkingProofEmailed, setIsMarkingProofEmailed] = useState(false);
   const [isMarkingProofApproved, setIsMarkingProofApproved] = useState(false);
   const { completeProofStage } = useProofApprovalFlow();
+  const { holdStage, resumeStage, isProcessing: stageActionsProcessing } = useStageActions();
 
   if (!currentStage || !canWork) {
     return null;
   }
 
-  // Core workflow logic: pending stages can be started, active stages can be completed
+  // Core workflow logic: pending stages can be started, active stages can be completed, on_hold stages can be resumed
   const canStart = currentStage.status === 'pending';
   const canComplete = currentStage.status === 'active';
+  const isOnHold = currentStage.status === 'on_hold';
   const isProofStage = currentStage.production_stage.name.toLowerCase().includes('proof');
+
+  const handleHoldStage = async (percentage: number, reason: string) => {
+    const success = await holdStage(currentStage.id, percentage, reason);
+    if (success) {
+      window.location.reload();
+    }
+  };
+
+  const handleResumeStage = async () => {
+    const success = await resumeStage(currentStage.id);
+    if (success) {
+      window.location.reload();
+    }
+  };
 
   const handleMarkProofEmailed = async () => {
     setIsMarkingProofEmailed(true);
@@ -106,6 +130,25 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
 
   return (
     <div className="border-t pt-4 space-y-3">
+      {/* On Hold Status Display */}
+      {isOnHold && (
+        <div className="bg-orange-50 border border-orange-200 rounded-md p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-orange-800">
+              Stage On Hold - {currentStage.completion_percentage}% Complete
+            </span>
+            <span className="text-xs text-orange-600">
+              {currentStage.remaining_minutes} mins remaining
+            </span>
+          </div>
+          {currentStage.hold_reason && (
+            <p className="text-xs text-orange-700">
+              <strong>Reason:</strong> {currentStage.hold_reason}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2">
         {canStart && (
           <Button
@@ -119,20 +162,52 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         )}
 
         {canComplete && !isProofStage && (
-          <Button
-            onClick={onCompleteJob}
-            disabled={isProcessing}
-            className="flex-1"
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Complete Stage
-          </Button>
+          <>
+            <Button
+              onClick={() => setShowHoldDialog(true)}
+              disabled={isProcessing || stageActionsProcessing}
+              variant="outline"
+              className="flex-1"
+            >
+              <Pause className="h-4 w-4 mr-2" />
+              Hold Job
+            </Button>
+            <Button
+              onClick={onCompleteJob}
+              disabled={isProcessing || stageActionsProcessing}
+              className="flex-1"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Complete Job
+            </Button>
+          </>
         )}
 
-        {canComplete && (
+        {isOnHold && (
+          <>
+            <Button
+              onClick={handleResumeStage}
+              disabled={stageActionsProcessing}
+              className="flex-1"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Resume Job
+            </Button>
+            <Button
+              onClick={onCompleteJob}
+              disabled={isProcessing || stageActionsProcessing}
+              className="flex-1"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Complete Remaining
+            </Button>
+          </>
+        )}
+
+        {(canComplete || isOnHold) && (
           <Button
             onClick={onReworkJob}
-            disabled={isProcessing}
+            disabled={isProcessing || stageActionsProcessing}
             variant="outline"
             className="flex-1"
           >
@@ -196,6 +271,15 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         onProofSent={() => {
           toast.success('Proof sent to client');
         }}
+      />
+
+      <StageHoldDialog
+        isOpen={showHoldDialog}
+        onClose={() => setShowHoldDialog(false)}
+        onConfirm={handleHoldStage}
+        scheduledMinutes={currentStage.scheduled_minutes || 0}
+        stageName={currentStage.production_stage.name}
+        isProcessing={stageActionsProcessing}
       />
     </div>
   );

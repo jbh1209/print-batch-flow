@@ -297,10 +297,93 @@ export const useStageActions = () => {
     }
   }, [user?.id]);
 
+  const holdStage = useCallback(async (
+    stageId: string, 
+    completionPercentage: number, 
+    holdReason: string
+  ) => {
+    setIsProcessing(true);
+    try {
+      console.log('⏸️ Holding stage...', { stageId, completionPercentage, holdReason });
+      
+      // Get current stage info to calculate remaining minutes
+      const { data: stageInfo, error: stageInfoError } = await supabase
+        .from('job_stage_instances')
+        .select('scheduled_minutes')
+        .eq('id', stageId)
+        .single();
+
+      if (stageInfoError) throw stageInfoError;
+
+      const scheduledMinutes = stageInfo?.scheduled_minutes || 0;
+      const remainingMinutes = Math.round(scheduledMinutes * (1 - completionPercentage / 100));
+
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'on_hold',
+          completion_percentage: completionPercentage,
+          remaining_minutes: remainingMinutes,
+          hold_reason: holdReason,
+          held_at: new Date().toISOString(),
+          held_by: user?.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageId)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      console.log('✅ Stage held successfully', { 
+        completionPercentage, 
+        remainingMinutes,
+        scheduledMinutes 
+      });
+      toast.success(`Stage held at ${completionPercentage}% completion`);
+      return true;
+    } catch (err) {
+      console.error('❌ Error holding stage:', err);
+      toast.error("Failed to hold stage");
+      return false;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [user?.id]);
+
+  const resumeStage = useCallback(async (stageId: string) => {
+    setIsProcessing(true);
+    try {
+      console.log('▶️ Resuming stage...', { stageId });
+      
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageId)
+        .eq('status', 'on_hold');
+
+      if (error) throw error;
+
+      console.log('✅ Stage resumed successfully');
+      toast.success("Stage resumed");
+      return true;
+    } catch (err) {
+      console.error('❌ Error resuming stage:', err);
+      toast.error("Failed to resume stage");
+      return false;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
   return {
     startStage,
     completeStage,
     completeStageAndSkipConditional,
+    holdStage,
+    resumeStage,
     isProcessing
   };
 };

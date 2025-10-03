@@ -924,10 +924,14 @@ export type Database = {
           client_name: string | null
           completed_at: string | null
           completed_by: string | null
+          completion_percentage: number | null
           configuration_completeness_score: number | null
           created_at: string
           dependency_group: string | null
           estimated_duration_minutes: number | null
+          held_at: string | null
+          held_by: string | null
+          hold_reason: string | null
           hp12000_paper_size_id: string | null
           id: string
           is_rework: boolean | null
@@ -948,6 +952,7 @@ export type Database = {
           qr_scan_data: Json | null
           quantity: number | null
           queue_position: number | null
+          remaining_minutes: number | null
           rework_count: number | null
           rework_reason: string | null
           schedule_status: string | null
@@ -974,10 +979,14 @@ export type Database = {
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          completion_percentage?: number | null
           configuration_completeness_score?: number | null
           created_at?: string
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
+          held_at?: string | null
+          held_by?: string | null
+          hold_reason?: string | null
           hp12000_paper_size_id?: string | null
           id?: string
           is_rework?: boolean | null
@@ -998,6 +1007,7 @@ export type Database = {
           qr_scan_data?: Json | null
           quantity?: number | null
           queue_position?: number | null
+          remaining_minutes?: number | null
           rework_count?: number | null
           rework_reason?: string | null
           schedule_status?: string | null
@@ -1024,10 +1034,14 @@ export type Database = {
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          completion_percentage?: number | null
           configuration_completeness_score?: number | null
           created_at?: string
           dependency_group?: string | null
           estimated_duration_minutes?: number | null
+          held_at?: string | null
+          held_by?: string | null
+          hold_reason?: string | null
           hp12000_paper_size_id?: string | null
           id?: string
           is_rework?: boolean | null
@@ -1048,6 +1062,7 @@ export type Database = {
           qr_scan_data?: Json | null
           quantity?: number | null
           queue_position?: number | null
+          remaining_minutes?: number | null
           rework_count?: number | null
           rework_reason?: string | null
           schedule_status?: string | null
