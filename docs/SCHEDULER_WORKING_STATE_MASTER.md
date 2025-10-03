@@ -1,6 +1,6 @@
 # Scheduler Working State Master Reference
 
-**DEFINITIVE DOCUMENTATION - AS OF SEPTEMBER 30, 2025**
+**DEFINITIVE DOCUMENTATION - AS OF OCTOBER 3, 2025 (v2.3)**
 
 This document captures the **exact working configuration** of the production scheduler system. Use this as the authoritative reference for restoration.
 
@@ -9,14 +9,15 @@ This document captures the **exact working configuration** of the production sch
 ## System Overview
 
 ### Architecture Type
-**Parallel-Aware Sequential Scheduling with Time-Aware Start Times**
+**Two-Phase Scheduling: Parallel-Aware FIFO + Gap-Filling Optimization with Tight Packing**
 
 ### Core Components
-1. **Main Scheduler Function**: `scheduler_reschedule_all_parallel_aware()`
+1. **Main Scheduler Function**: `scheduler_reschedule_all_parallel_aware()` (Phase 1 & 2)
 2. **Wrapper Function**: `simple_scheduler_wrapper()`
-3. **Append Function**: `scheduler_append_jobs()`
-4. **Nightly Cron**: `cron_nightly_reschedule_with_carryforward()`
-5. **Helper Functions**: `place_duration_sql()`, `next_working_start()`, `is_working_day()`
+3. **Append Function**: `scheduler_append_jobs()` (Phase 1 & 2)
+4. **Gap-Finding Helper**: `find_available_gaps()` (v2.2+)
+5. **Nightly Cron**: `cron_nightly_reschedule_with_carryforward()`
+6. **Helper Functions**: `place_duration_sql()`, `next_working_start()`, `is_working_day()`
 
 ---
 
@@ -30,6 +31,13 @@ This document captures the **exact working configuration** of the production sch
 - **Time horizon**: 60 working days
 - **Statement timeout**: 120 seconds
 - **Transaction timeout**: 300 seconds
+
+### Gap-Filling Configuration (v2.2+)
+- **Maximum stage duration for gap-filling**: 120 minutes (2 hours)
+- **Minimum time savings threshold**: 6 hours (0.25 days) - v2.3
+- **Standard stage movement cap**: 21 days
+- **Finishing stage movement cap**: 30 days (trimming, packaging, dispatch)
+- **Lookback calculation**: Dynamic (7-30 days based on schedule)
 
 ### Cron Schedule
 - **Frequency**: Every night at 3:00 AM (Africa/Johannesburg)
@@ -276,6 +284,22 @@ CREATE TEMP TABLE _stage_tails (
 
 ### Persistent Tables
 
+#### schedule_gap_fills (NEW in v2.2)
+**Purpose:** Audit trail for gap-filling optimization decisions
+**Key columns:**
+- `job_id`: Which job was moved
+- `stage_instance_id`: Which stage was moved
+- `production_stage_id`: Which resource/stage type
+- `original_start_at`: Original FIFO scheduled time
+- `new_start_at`: New gap-filled time
+- `minutes_saved`: Time savings achieved
+- `fill_reason`: Why this gap was selected
+- `created_at`: When gap-fill occurred
+
+#### production_stages (UPDATED in v2.2)
+**New column:**
+- `allow_gap_filling`: boolean (default true) - Controls if stage can be moved during Phase 2
+
 #### stage_time_slots
 **Purpose:** Store allocated time slots
 **Key columns:**
@@ -363,6 +387,8 @@ ORDER BY
 - **Total stages processed**: ~323
 - **Execution time**: < 30 seconds
 - **Success rate**: 100%
+- **Gap-filled stages**: Variable (5-20 per run typical)
+- **Average time savings**: 2-4 hours per gap-fill
 - **Memory usage**: Temp table + result sets
 - **Database load**: Single transaction, minimal locking
 
@@ -370,6 +396,7 @@ ORDER BY
 - **Response time**: < 5 seconds for full reschedule
 - **UI feedback**: Real-time progress updates
 - **Validation**: Automatic precedence checking
+- **Gap-filling**: Included in response
 
 ---
 
@@ -377,16 +404,22 @@ ORDER BY
 
 ✅ **Correct Behaviors (DO NOT CHANGE):**
 
-1. **Time-aware scheduling**: 3 AM cron schedules for 8 AM same day on working days
-2. **FIFO ordering**: Jobs processed by `proof_approved_at` ascending
-3. **Sequential processing**: No race conditions or conflicts
-4. **Barrier convergence**: Combined stages wait for all dependencies
-5. **Resource awareness**: Stages scheduled based on resource availability
-6. **Completed slot preservation**: Keeps history of finished work
-7. **Proof approval triggers**: Automatically appends newly approved jobs
-8. **60-day horizon**: Places work up to 60 working days ahead
-9. **Lunch break handling**: Correctly splits work around 1:00-1:30 PM
-10. **Weekend/holiday exclusion**: Only schedules on working days
+1. **Two-phase scheduling**: FIFO sequential + backward gap-filling optimization
+2. **Time-aware scheduling**: 3 AM cron schedules for 8 AM same day on working days
+3. **FIFO ordering**: Jobs processed by `proof_approved_at` ascending
+4. **Sequential processing**: No race conditions or conflicts in Phase 1
+5. **Barrier convergence**: Combined stages wait for all dependencies
+6. **Resource awareness**: Stages scheduled based on resource availability
+7. **Gap-filling eligibility**: Only stages ≤120 minutes, with allow_gap_filling=true
+8. **Tight packing**: Stages align precisely to predecessor finish times (v2.3)
+9. **Stage-type movement caps**: 30 days for finishing, 21 days for standard
+10. **Dynamic lookback**: Calculated based on schedule distance
+11. **Completed slot preservation**: Keeps history of finished work
+12. **Proof approval triggers**: Automatically appends newly approved jobs
+13. **60-day horizon**: Places work up to 60 working days ahead
+14. **Lunch break handling**: Correctly splits work around 1:00-1:30 PM
+15. **Weekend/holiday exclusion**: Only schedules on working days
+16. **Gap-fill audit logging**: All movements logged to schedule_gap_fills
 
 ---
 

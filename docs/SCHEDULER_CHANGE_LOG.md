@@ -8,13 +8,233 @@ This document tracks all changes to the scheduler system in chronological order,
 
 ## Version History
 
-### Current Version: 2.1 - Time-Aware Scheduling
-**Date**: September 30, 2025  
+### Current Version: 2.3 - Tight Packing with Alignment
+**Date**: October 3, 2025  
 **Status**: ✅ WORKING - PRODUCTION
 
 ---
 
 ## Detailed Change Log
+
+### October 3, 2025 - Tight Packing with Alignment (v2.3)
+
+**Migration**: `20251003112533` and `20251003114331`
+
+#### Problem Identified
+- Gap-filling was working but stages were starting at gap beginnings even when predecessors finished mid-gap
+- Created unnecessary delays between dependent stages
+- Result: Sub-optimal packing with wasted time between sequential stages
+
+#### Root Cause
+- `find_available_gaps()` only considered gap start time, not predecessor finish times
+- No mechanism to align stage start with `earliest_possible_start`
+- Threshold was 1 day (too coarse for fine-grained optimization)
+
+#### Solution Implemented
+
+**1. Added `p_align_at` parameter to `find_available_gaps()`**
+```sql
+-- BEFORE
+CREATE FUNCTION find_available_gaps(
+  p_stage_id uuid,
+  p_minutes_needed int,
+  p_original_start timestamptz,
+  p_lookback_days int
+)
+
+-- AFTER
+CREATE FUNCTION find_available_gaps(
+  p_stage_id uuid,
+  p_minutes_needed int,
+  p_original_start timestamptz,
+  p_lookback_days int,
+  p_align_at timestamptz DEFAULT NULL  -- NEW: Precision alignment
+)
+```
+
+**2. Updated gap search logic for precise alignment**
+```sql
+-- Now uses: GREATEST(gap_start, p_align_at, now())
+-- This ensures stage starts exactly when predecessor finishes (if mid-gap)
+```
+
+**3. Reduced threshold to 6 hours (0.25 days)**
+```sql
+-- BEFORE: 1 day minimum savings
+IF (original_start - best_candidate_start) >= interval '1 day' THEN
+
+-- AFTER: 6 hours minimum savings (finer granularity)
+IF (original_start - best_candidate_start) >= interval '6 hours' THEN
+```
+
+**4. Updated both schedulers to pass `earliest_possible_start`**
+- `scheduler_reschedule_all_parallel_aware()` - Phase 2 gap-filling pass
+- `scheduler_append_jobs()` - Append mode gap-filling
+
+#### Behavior Changes
+
+**Before (v2.2):**
+- Predecessor finishes: 10:30 AM
+- Gap available: 8:00 AM - 12:00 PM
+- Stage placed at: 8:00 AM ❌ (1.5 hours wasted waiting for predecessor)
+
+**After (v2.3):**
+- Predecessor finishes: 10:30 AM  
+- Gap available: 8:00 AM - 12:00 PM
+- Stage placed at: 10:30 AM ✓ (zero-gap packing)
+
+#### Files Changed
+1. `supabase/migrations/20251003112533` - Added `p_align_at` parameter
+2. `supabase/migrations/20251003114331` - Updated both scheduler functions
+3. Function: `find_available_gaps()` - Enhanced gap detection
+4. Function: `scheduler_reschedule_all_parallel_aware()` - Pass alignment time
+5. Function: `scheduler_append_jobs()` - Pass alignment time
+
+#### Verification
+```sql
+-- Test tight packing for D426225
+SELECT 
+  jsi.id,
+  ps.name as stage,
+  jsi.scheduled_start_at,
+  jsi.scheduled_end_at,
+  LAG(jsi.scheduled_end_at) OVER (ORDER BY jsi.stage_order) as prev_end,
+  jsi.scheduled_start_at - LAG(jsi.scheduled_end_at) OVER (ORDER BY jsi.stage_order) as gap
+FROM job_stage_instances jsi
+JOIN production_stages ps ON ps.id = jsi.production_stage_id
+JOIN production_jobs pj ON pj.id = jsi.job_id
+WHERE pj.wo_no = 'D426225'
+  AND jsi.schedule_status = 'scheduled'
+ORDER BY jsi.stage_order;
+
+-- Expected: All gaps = '00:00:00' (zero gaps between stages)
+```
+
+#### Impact
+- ✅ Zero-gap scheduling for sequential stages
+- ✅ Tighter schedule packing (more work per day)
+- ✅ 6-hour threshold enables fine-grained optimization
+- ✅ No performance impact (same algorithm complexity)
+- ✅ Backward compatible with v2.2
+
+---
+
+### October 2, 2025 - Gap-Filling Optimization (v2.2)
+
+**Migration**: `20251002163603` (reschedule_all) and `20251002165724` (append_jobs)
+
+#### Problem Identified
+- FIFO scheduling left gaps in production stage schedules
+- Short stages could fit in gaps but weren't being considered
+- Result: Suboptimal resource utilization and longer overall timelines
+
+#### Root Cause
+- Single-pass FIFO algorithm had no backtracking
+- No mechanism to scan backward for gap-filling opportunities
+- No audit trail of gap-filling decisions
+
+#### Solution Implemented
+
+**1. Two-Phase Scheduling Algorithm**
+```
+Phase 1: FIFO Sequential Scheduling (existing)
+  └─ Schedule all jobs in proof approval order
+
+Phase 2: Gap-Filling Optimization Pass (NEW)
+  └─ Scan backward to fill scheduling gaps with smaller jobs
+```
+
+**2. Created `schedule_gap_fills` Audit Table**
+```sql
+CREATE TABLE schedule_gap_fills (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL,
+  stage_instance_id uuid NOT NULL,
+  production_stage_id uuid NOT NULL,
+  original_start_at timestamptz NOT NULL,
+  new_start_at timestamptz NOT NULL,
+  minutes_saved numeric NOT NULL,
+  fill_reason text,
+  created_at timestamptz DEFAULT now()
+);
+```
+
+**3. Added `allow_gap_filling` Column to `production_stages`**
+```sql
+ALTER TABLE production_stages 
+ADD COLUMN allow_gap_filling boolean DEFAULT true;
+```
+
+**4. Stage-Type-Aware Movement Caps**
+```sql
+-- Finishing stages (trimming, packaging, dispatch): 30 days max
+-- Standard stages: 21 days max
+```
+
+**5. Dynamic Lookback Calculation**
+```sql
+-- For standard stages:
+lookback_days := MIN(30, MAX(7, FLOOR(days_until_original * 0.7)))
+
+-- For finishing stages:
+lookback_days := MIN(30, MAX(7, FLOOR(days_until_original)))
+```
+
+#### Gap-Filling Eligibility Criteria
+1. Stage duration ≤ 120 minutes (2 hours)
+2. `allow_gap_filling = true` on production_stage
+3. Stage status = 'scheduled' (not completed/active)
+4. Minimum 1 day savings required (v2.2) → Changed to 6 hours (v2.3)
+5. Respects stage-type movement caps
+6. Respects job-level dependencies (predecessors)
+
+#### Behavior Changes
+
+| Scenario | Before (v2.1) | After (v2.2) |
+|----------|---------------|--------------|
+| Short stage (60 min) | Scheduled in FIFO order | May move earlier into gap |
+| Long stage (180 min) | Scheduled in FIFO order | Never moved (>120 min limit) |
+| Finishing stage | 21-day movement cap | 30-day movement cap |
+| Gap detection | None | Backward scan with lookback |
+
+#### Files Changed
+1. `supabase/migrations/20251002163603` - Updated `scheduler_reschedule_all_parallel_aware()`
+2. `supabase/migrations/20251002165724` - Updated `scheduler_append_jobs()`
+3. Added: `schedule_gap_fills` table for audit logging
+4. Added: `allow_gap_filling` column to `production_stages`
+5. Function: `find_available_gaps()` - New helper for gap detection
+
+#### Verification
+```sql
+-- Check gap-filled stages
+SELECT 
+  sgf.*,
+  pj.wo_no,
+  ps.name as stage_name
+FROM schedule_gap_fills sgf
+JOIN production_jobs pj ON pj.id = sgf.job_id
+JOIN production_stages ps ON ps.id = sgf.production_stage_id
+ORDER BY sgf.created_at DESC
+LIMIT 20;
+
+-- Check average time savings
+SELECT 
+  COUNT(*) as gap_fills,
+  AVG(minutes_saved) as avg_minutes_saved,
+  SUM(minutes_saved) / 60 as total_hours_saved
+FROM schedule_gap_fills
+WHERE created_at >= CURRENT_DATE - interval '7 days';
+```
+
+#### Impact
+- ✅ Optimized resource utilization
+- ✅ Shorter overall timelines
+- ✅ Audit trail for gap-filling decisions
+- ✅ Configurable per production stage
+- ✅ No breaking changes to API
+- ✅ Enhanced in v2.3 with tight packing
+
+---
 
 ### September 30, 2025 - Time-Aware Scheduling Fix (v2.1)
 
@@ -243,7 +463,22 @@ Sept 30, 2025 (v2.1)
   ├─ Updated cron function for time-aware scheduling
   └─ Fixed Monday scheduling gap
       ↓
-CURRENT STATE (v2.1)
+Oct 2, 2025 (v2.2)
+  ├─ Migration: 20251002163603 & 20251002165724
+  ├─ Two-phase scheduling: FIFO + Gap-Filling
+  ├─ Added schedule_gap_fills audit table
+  ├─ Added allow_gap_filling column to production_stages
+  ├─ Stage-type-aware movement caps (21/30 days)
+  └─ Dynamic lookback calculation
+      ↓
+Oct 3, 2025 (v2.3)
+  ├─ Migration: 20251003112533 & 20251003114331
+  ├─ Added p_align_at parameter to find_available_gaps()
+  ├─ Tight packing: stages align to predecessor finish times
+  ├─ Reduced threshold to 6 hours (0.25 days)
+  └─ Zero-gap scheduling between dependent stages
+      ↓
+CURRENT STATE (v2.3)
 ```
 
 ---

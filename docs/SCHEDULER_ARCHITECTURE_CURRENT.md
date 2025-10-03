@@ -1,6 +1,6 @@
 # Scheduler Architecture - Current Working State
 
-**UPDATED: SEPTEMBER 30, 2025**
+**UPDATED: OCTOBER 3, 2025 (v2.3)**
 
 This document describes the current working architecture of the production scheduler system, replacing all outdated architectural references.
 
@@ -8,14 +8,16 @@ This document describes the current working architecture of the production sched
 
 ## Architecture Type
 
-**Parallel-Aware Sequential Scheduling with Time-Aware Start Times**
+**Parallel-Aware Sequential Scheduling with Gap-Filling Optimization and Tight Packing**
 
 ### Key Characteristics
-- **Sequential processing**: Jobs processed one at a time in FIFO order
+- **Two-phase scheduling**: FIFO sequential + backward gap-filling optimization
 - **Parallel stage awareness**: Handles concurrent stages within jobs (cover/text paths)
 - **Resource contention management**: Tracks when each production stage becomes available
 - **Time-aware scheduling**: Considers current time when calculating start times
 - **Barrier-based convergence**: Uses barriers to synchronize parallel workflow paths
+- **Gap-filling optimization**: Scans backward to fill scheduling gaps with smaller jobs
+- **Tight packing**: Aligns stages precisely to predecessor finish times (zero-gap scheduling)
 - **Working day aware**: Only schedules on weekdays, excluding holidays
 
 ---
@@ -62,79 +64,155 @@ Appends job to existing schedule
 
 ---
 
-## Core Algorithm: Parallel-Aware Sequential Scheduling
+## Core Algorithm: Two-Phase Scheduling with Gap-Filling
 
 ### High-Level Flow
 
 ```
 START scheduler_reschedule_all_parallel_aware(p_start_from)
   │
-  ├─ 1. INITIALIZATION
-  │   ├─ Acquire advisory lock pg_advisory_xact_lock(1, 42)
-  │   ├─ Calculate base_time from p_start_from or default
-  │   ├─ Clear non-completed schedule data
-  │   ├─ Create _stage_tails temp table
-  │   └─ Initialize resource availability
-  │
-  ├─ 2. JOB SELECTION
-  │   └─ SELECT jobs WHERE proof_approved_at IS NOT NULL
-  │      ORDER BY proof_approved_at ASC  (FIFO)
-  │
-  ├─ 3. FOR EACH JOB (Sequential)
+  ├─ PHASE 1: FIFO SEQUENTIAL SCHEDULING
   │   │
-  │   ├─ 3.1 Initialize job-specific barriers
-  │   │   ├─ main_barrier = MAX(base_time, proof_approved_at)
-  │   │   ├─ cover_barrier = main_barrier
-  │   │   ├─ text_barrier = main_barrier
-  │   │   └─ both_barrier = main_barrier
+  │   ├─ 1. INITIALIZATION
+  │   │   ├─ Acquire advisory lock pg_advisory_xact_lock(1, 42)
+  │   │   ├─ Calculate base_time from p_start_from or default
+  │   │   ├─ Clear non-completed schedule data
+  │   │   ├─ Create _stage_tails temp table
+  │   │   └─ Initialize resource availability
   │   │
-  │   ├─ 3.2 Load completed stage times into barriers
+  │   ├─ 2. JOB SELECTION
+  │   │   └─ SELECT jobs WHERE proof_approved_at IS NOT NULL
+  │   │      ORDER BY proof_approved_at ASC  (FIFO)
   │   │
-  │   └─ 3.3 FOR EACH STAGE GROUP (by stage_order)
-  │       │
-  │       └─ 3.4 FOR EACH STAGE IN GROUP (Parallel stages)
-  │           │
-  │           ├─ 3.4.1 Determine barrier time
-  │           │   ├─ IF part_assignment = 'both':
-  │           │   │   earliest_start = MAX(cover_barrier, text_barrier, main_barrier)
-  │           │   └─ ELSE:
-  │           │       earliest_start = specific_barrier (cover/text/main)
-  │           │
-  │           ├─ 3.4.2 Get resource availability
-  │           │   resource_available = _stage_tails[production_stage_id]
-  │           │
-  │           ├─ 3.4.3 Calculate actual start
-  │           │   actual_start = MAX(earliest_start, resource_available)
-  │           │
-  │           ├─ 3.4.4 Place duration
-  │           │   slots = place_duration_sql(actual_start, duration, 60 days)
-  │           │
-  │           ├─ 3.4.5 Write time slots
-  │           │   INSERT INTO stage_time_slots (slots data)
-  │           │
-  │           ├─ 3.4.6 Update job stage instance
-  │           │   UPDATE job_stage_instances SET
-  │           │     scheduled_start_at = slots[0].start_time,
-  │           │     scheduled_end_at = slots[-1].end_time,
-  │           │     scheduled_minutes = duration,
-  │           │     schedule_status = 'scheduled'
-  │           │
-  │           ├─ 3.4.7 Update resource availability
-  │           │   _stage_tails[production_stage_id] = stage_end_time
-  │           │
-  │           └─ 3.4.8 Update barriers
-  │               IF part_assignment = 'both':
-  │                 cover_barrier = text_barrier = main_barrier = stage_end_time
-  │               ELSE:
-  │                 specific_barrier = stage_end_time
-  │                 main_barrier = MAX(all barriers)
+  │   ├─ 3. FOR EACH JOB (Sequential)
+  │   │   │
+  │   │   ├─ 3.1 Initialize job-specific barriers
+  │   │   │   ├─ main_barrier = MAX(base_time, proof_approved_at)
+  │   │   │   ├─ cover_barrier = main_barrier
+  │   │   │   ├─ text_barrier = main_barrier
+  │   │   │   └─ both_barrier = main_barrier
+  │   │   │
+  │   │   ├─ 3.2 Load completed stage times into barriers
+  │   │   │
+  │   │   └─ 3.3 FOR EACH STAGE GROUP (by stage_order)
+  │   │       │
+  │   │       └─ 3.4 FOR EACH STAGE IN GROUP (Parallel stages)
+  │   │           │
+  │   │           ├─ 3.4.1 Determine barrier time
+  │   │           │   ├─ IF part_assignment = 'both':
+  │   │           │   │   earliest_start = MAX(cover_barrier, text_barrier, main_barrier)
+  │   │           │   └─ ELSE:
+  │   │           │       earliest_start = specific_barrier (cover/text/main)
+  │   │           │
+  │   │           ├─ 3.4.2 Get resource availability
+  │   │           │   resource_available = _stage_tails[production_stage_id]
+  │   │           │
+  │   │           ├─ 3.4.3 Calculate actual start
+  │   │           │   actual_start = MAX(earliest_start, resource_available)
+  │   │           │
+  │   │           ├─ 3.4.4 Place duration
+  │   │           │   slots = place_duration_sql(actual_start, duration, 60 days)
+  │   │           │
+  │   │           ├─ 3.4.5 Write time slots
+  │   │           │   INSERT INTO stage_time_slots (slots data)
+  │   │           │
+  │   │           ├─ 3.4.6 Update job stage instance
+  │   │           │   UPDATE job_stage_instances SET
+  │   │           │     scheduled_start_at = slots[0].start_time,
+  │   │           │     scheduled_end_at = slots[-1].end_time,
+  │   │           │     scheduled_minutes = duration,
+  │   │           │     schedule_status = 'scheduled'
+  │   │           │
+  │   │           ├─ 3.4.7 Update resource availability
+  │   │           │   _stage_tails[production_stage_id] = stage_end_time
+  │   │           │
+  │   │           └─ 3.4.8 Update barriers
+  │   │               IF part_assignment = 'both':
+  │   │                 cover_barrier = text_barrier = main_barrier = stage_end_time
+  │   │               ELSE:
+  │   │                 specific_barrier = stage_end_time
+  │   │                 main_barrier = MAX(all barriers)
   │
-  ├─ 4. VALIDATION
+  ├─ PHASE 2: GAP-FILLING OPTIMIZATION PASS (NEW in v2.2)
+  │   │
+  │   ├─ 4. IDENTIFY GAP-FILL CANDIDATES
+  │   │   └─ SELECT stages WHERE:
+  │   │      ├─ scheduled_minutes <= 120 (short stages only)
+  │   │      ├─ allow_gap_filling = true (on production_stage)
+  │   │      ├─ schedule_status = 'scheduled' (not completed)
+  │   │      └─ scheduled_start_at > now() + 6 hours (future stages)
+  │   │
+  │   ├─ 5. FOR EACH CANDIDATE (Order by scheduled_start DESC)
+  │   │   │
+  │   │   ├─ 5.1 Calculate earliest_possible_start
+  │   │   │   ├─ Check predecessor stages (by stage_order)
+  │   │   │   └─ earliest_possible = MAX(predecessor_ends, base_time)
+  │   │   │
+  │   │   ├─ 5.2 Determine lookback window
+  │   │   │   ├─ days_until_original = scheduled_start - now()
+  │   │   │   ├─ IF finishing stage (trimming/packaging/dispatch):
+  │   │   │   │   lookback = MIN(30, MAX(7, FLOOR(days_until_original)))
+  │   │   │   └─ ELSE (standard stages):
+  │   │   │       lookback = MIN(30, MAX(7, FLOOR(days_until_original * 0.7)))
+  │   │   │
+  │   │   ├─ 5.3 Find best gap using find_available_gaps()
+  │   │   │   find_available_gaps(
+  │   │   │     p_stage_id,
+  │   │   │     p_minutes_needed,
+  │   │   │     p_original_start,
+  │   │   │     p_lookback_days,
+  │   │   │     p_align_at = earliest_possible_start  -- NEW in v2.3
+  │   │   │   )
+  │   │   │
+  │   │   ├─ 5.4 Validate gap candidate
+  │   │   │   ├─ gap_start >= earliest_possible_start
+  │   │   │   ├─ gap_start >= GREATEST(gap_start, earliest_possible, now())
+  │   │   │   ├─ savings >= 6 hours (0.25 days) -- Updated in v2.3
+  │   │   │   ├─ savings <= max_days_cap (21 or 30 based on stage type)
+  │   │   │   └─ No violations of job-level dependencies
+  │   │   │
+  │   │   ├─ 5.5 Move stage if beneficial
+  │   │   │   ├─ Delete old time slots
+  │   │   │   ├─ Place duration at new aligned time
+  │   │   │   ├─ Insert new time slots
+  │   │   │   ├─ Update job_stage_instances
+  │   │   │   └─ Log to schedule_gap_fills
+  │   │   │
+  │   │   └─ 5.6 Update metrics
+  │   │       └─ gap_filled_count++
+  │
+  ├─ 6. VALIDATION
   │   └─ Run validate_job_scheduling_precedence()
   │
-  └─ 5. RETURN RESULTS
-      └─ (wrote_slots, updated_jsi, violations)
+  └─ 7. RETURN RESULTS
+      └─ (wrote_slots, updated_jsi, violations, gap_filled_count)
 END
+```
+
+### Key Enhancement: Tight Packing (v2.3)
+
+**Problem:** In v2.2, stages would start at gap beginning even if predecessor finished mid-gap
+
+**Solution:** `find_available_gaps()` now accepts `p_align_at` parameter
+
+```sql
+-- Actual gap start calculation (v2.3)
+actual_gap_start := GREATEST(
+  gap_start,           -- Gap window opens
+  p_align_at,          -- Predecessor finishes (NEW)
+  now()                -- Can't schedule in past
+);
+```
+
+**Result:** Zero-gap packing between dependent stages
+
+**Example:**
+```
+Predecessor ends: 10:30 AM
+Gap available: 8:00 AM - 12:00 PM
+
+v2.2: Stage starts at 8:00 AM (1.5 hours wasted)
+v2.3: Stage starts at 10:30 AM (zero waste) ✓
 ```
 
 ---
@@ -506,5 +584,5 @@ SELECT * FROM validate_job_scheduling_precedence();
 ---
 
 **END OF ARCHITECTURE DOCUMENT**
-**Last Updated: September 30, 2025**
+**Last Updated: October 3, 2025 (v2.3)**
 **Supersedes: SCHEDULER_VERSION_1.0_MILESTONE.md, WORKING_SCHEDULER_ARCHITECTURE.md**

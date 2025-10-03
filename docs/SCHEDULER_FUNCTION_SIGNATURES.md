@@ -1,6 +1,6 @@
 # Scheduler Function Signatures Reference
 
-**COMPLETE API DOCUMENTATION - AS OF SEPTEMBER 30, 2025**
+**COMPLETE API DOCUMENTATION - AS OF OCTOBER 3, 2025 (v2.3)**
 
 This document provides complete signatures, parameters, return formats, and dependencies for all scheduler functions.
 
@@ -60,7 +60,7 @@ RETURNS jsonb
 
 ### scheduler_reschedule_all_parallel_aware()
 
-**Main scheduling algorithm with parallel-aware barrier management**
+**Main scheduling algorithm with two-phase processing and parallel-aware barrier management**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.scheduler_reschedule_all_parallel_aware(
@@ -69,7 +69,8 @@ CREATE OR REPLACE FUNCTION public.scheduler_reschedule_all_parallel_aware(
 RETURNS TABLE(
   wrote_slots integer,
   updated_jsi integer,
-  violations jsonb
+  violations jsonb,
+  gap_filled_count integer  -- NEW in v2.2
 )
 ```
 
@@ -84,6 +85,7 @@ RETURNS TABLE(
 | `wrote_slots` | integer | Number of time slots written to `stage_time_slots` |
 | `updated_jsi` | integer | Number of job stage instances updated |
 | `violations` | jsonb | Array of scheduling precedence violations |
+| `gap_filled_count` | integer | Number of stages moved during Phase 2 gap-filling (v2.2+) |
 
 #### Violations Format
 ```typescript
@@ -100,23 +102,36 @@ RETURNS TABLE(
 ```
 
 #### Algorithm Steps
-1. Acquire advisory lock `pg_advisory_xact_lock(1, 42)`
-2. Determine base time from `p_start_from` or default
-3. Clear non-completed slots and schedule data
-4. Initialize `_stage_tails` temp table
-5. Load resource availability from completed slots
-6. Process jobs in FIFO order by `proof_approved_at`
-7. For each stage group:
-   - Calculate barrier times (cover/text/both/main)
-   - Get resource availability
-   - Calculate earliest start = MAX(barrier, resource)
-   - Call `place_duration_sql()`
-   - Insert time slots
-   - Update job stage instances
-   - Update resource availability
-   - Update barriers
-8. Validate precedence
-9. Return metrics
+1. **Phase 1: FIFO Sequential Scheduling**
+   - Acquire advisory lock `pg_advisory_xact_lock(1, 42)`
+   - Determine base time from `p_start_from` or default
+   - Clear non-completed slots and schedule data
+   - Initialize `_stage_tails` temp table
+   - Load resource availability from completed slots
+   - Process jobs in FIFO order by `proof_approved_at`
+   - For each stage group:
+     - Calculate barrier times (cover/text/both/main)
+     - Get resource availability
+     - Calculate earliest start = MAX(barrier, resource)
+     - Call `place_duration_sql()`
+     - Insert time slots
+     - Update job stage instances
+     - Update resource availability
+     - Update barriers
+
+2. **Phase 2: Gap-Filling Optimization (v2.2+)**
+   - Identify eligible stages (≤120 min, allow_gap_filling=true)
+   - For each candidate (ordered by scheduled_start DESC):
+     - Calculate earliest_possible_start from predecessors
+     - Determine lookback window (dynamic, 7-30 days)
+     - Call `find_available_gaps(stage_id, minutes, original_start, lookback, earliest_possible)` 
+     - Validate gap candidate (6-hour min savings, movement caps, dependencies)
+     - Move stage if beneficial (delete old slots, place new, update records)
+     - Log to `schedule_gap_fills` audit table
+
+3. **Validation & Return**
+   - Validate precedence
+   - Return metrics including gap_filled_count
 
 #### Calls
 - `next_working_start(timestamptz)`
@@ -153,24 +168,69 @@ RETURNS TABLE(
 | `p_only_if_unset` | boolean | `true` | Only schedule if `scheduled_start_at` is NULL |
 
 #### Returns
-Same format as `scheduler_reschedule_all_parallel_aware()`
+Same format as `scheduler_reschedule_all_parallel_aware()` (includes `gap_filled_count` in v2.2+)
 
 #### Key Differences from Full Reschedule
 - Only processes jobs in `p_job_ids` array
 - Does NOT clear existing schedule data
 - Respects existing resource availability
 - Only validates affected jobs
+- Includes Phase 2 gap-filling for appended jobs (v2.2+)
 
 #### Calls
 - `next_working_start(timestamptz)`
 - `create_stage_availability_tracker()`
 - `place_duration_sql(timestamptz, integer, integer)`
 - `jsi_minutes(integer, integer)`
+- `find_available_gaps()` (Phase 2, v2.2+)
 - `validate_job_scheduling_precedence()`
 
 #### Used By
 - Proof approval trigger (`trigger_schedule_on_proof_approval()`)
 - Manual job scheduling from UI
+
+---
+
+### find_available_gaps() (NEW in v2.2)
+
+**Finds available scheduling gaps for a stage with tight packing alignment**
+
+```sql
+CREATE OR REPLACE FUNCTION public.find_available_gaps(
+  p_stage_id uuid,
+  p_minutes_needed integer,
+  p_original_start timestamptz,
+  p_lookback_days integer,
+  p_align_at timestamptz DEFAULT NULL  -- NEW in v2.3
+)
+RETURNS TABLE(
+  gap_start timestamptz,
+  gap_end timestamptz,
+  available_minutes integer
+)
+```
+
+#### Parameters
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `p_stage_id` | uuid | required | Production stage ID to find gaps for |
+| `p_minutes_needed` | integer | required | Duration needed for stage |
+| `p_original_start` | timestamptz | required | Original scheduled start (search backward from here) |
+| `p_lookback_days` | integer | required | How many days backward to search |
+| `p_align_at` | timestamptz | `NULL` | Precision alignment time (v2.3) - typically predecessor finish time |
+
+#### Returns
+| Column | Type | Description |
+|--------|------|-------------|
+| `gap_start` | timestamptz | When gap begins (or aligned start if p_align_at provided) |
+| `gap_end` | timestamptz | When gap ends |
+| `available_minutes` | integer | Minutes available in gap |
+
+#### Key Features (v2.3)
+- **Tight packing**: Uses `GREATEST(gap_start, p_align_at, now())` for precise alignment
+- **Prevents waste**: Stages start exactly when predecessor finishes (if mid-gap)
+- **Respects existing slots**: Only finds truly available gaps
+- **Working hours aware**: Uses `place_duration_sql()` to validate capacity
 
 ---
 
@@ -551,4 +611,4 @@ UI / Cron
 ---
 
 **END OF FUNCTION SIGNATURES**
-**Last Updated: September 30, 2025**
+**Last Updated: October 3, 2025 (v2.3)**
