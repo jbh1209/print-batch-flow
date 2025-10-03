@@ -407,6 +407,11 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                     <div className="text-lg font-medium text-gray-700">
                       {job.stage_name}
                     </div>
+                    {(typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('ffdebug') === '1' || localStorage.getItem('ff-debug') === '1')) && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        debug: status={job.status} normalized={normalizeStatus(job.status)} | canStart={String(statusInfo.canStart)} canHold={String(statusInfo.canHold)} canResume={String(statusInfo.canResume)} canComplete={String(statusInfo.canComplete)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

@@ -153,6 +153,11 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                       Queue #{job.queue_position}
                     </div>
                   )}
+                  {(typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('ffdebug') === '1' || localStorage.getItem('ff-debug') === '1')) && (
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      debug: status={job.status} normalized={normalizedStatus} | canStart={String(canStart)} canHold={String(canHold)} canResume={String(canResume)} canComplete={String(canComplete)}
+                    </div>
+                  )}
                 </div>
               </div>
 
