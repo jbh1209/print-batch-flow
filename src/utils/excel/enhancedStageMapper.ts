@@ -62,22 +62,42 @@ export class EnhancedStageMapper {
       this.logger.addDebugInfo(`Loaded ${this.specifications.length} print specifications`);
     }
     
-    // Load existing excel mappings
+    // Load existing excel mappings with deterministic ordering
     const { data: mappingsData, error: mappingsError } = await supabase
       .from('excel_import_mappings')
       .select('*')
       .eq('is_verified', true)
-      .order('confidence_score', { ascending: false });
+      .order('confidence_score', { ascending: false })
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false });
     
     if (mappingsError) {
       this.logger.addDebugInfo(`Warning: Could not load existing mappings: ${mappingsError.message}`);
     } else {
       // Index mappings by text for quick lookup using the same normalization as matching
+      // When multiple mappings have the same normalized key and confidence, prefer the one with:
+      // 1. Higher completeness score (more non-null specification IDs)
+      // 2. Most recently updated (already handled by ORDER BY)
       (mappingsData || []).forEach(mapping => {
         const key = this.normalizeText(mapping.excel_text);
-        if (!this.existingMappings.has(key) || 
-            (this.existingMappings.get(key)?.confidence_score || 0) < mapping.confidence_score) {
+        const existing = this.existingMappings.get(key);
+        
+        if (!existing) {
+          // No existing mapping for this key, add it
           this.existingMappings.set(key, mapping);
+        } else if (mapping.confidence_score > (existing.confidence_score || 0)) {
+          // Higher confidence, replace
+          this.existingMappings.set(key, mapping);
+        } else if (mapping.confidence_score === (existing.confidence_score || 0)) {
+          // Same confidence - use completeness score as tie-breaker
+          const existingCompleteness = this.calculateCompletenessScore(existing);
+          const newCompleteness = this.calculateCompletenessScore(mapping);
+          
+          if (newCompleteness > existingCompleteness) {
+            // Higher completeness, replace
+            this.existingMappings.set(key, mapping);
+          }
+          // If same completeness, keep the existing one (which was updated more recently due to ORDER BY)
         }
       });
       this.logger.addDebugInfo(`Loaded ${this.existingMappings.size} verified mappings`);
@@ -604,17 +624,15 @@ export class EnhancedStageMapper {
   private findDatabaseMapping(searchText: string): any | null {
     const normalizedSearch = this.normalizeText(searchText);
     
-    // Strategy 1: Case-insensitive exact match
-    for (const [mappedText, mapping] of this.existingMappings.entries()) {
-      const normalizedMapped = this.normalizeText(mappedText);
-      
-      if (normalizedSearch === normalizedMapped) {
-        this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mappedText}"`);
-        return {
-          ...mapping,
-          confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
-        };
-      }
+    // Direct Map.get() for exact match - efficient and accurate
+    const mapping = this.existingMappings.get(normalizedSearch);
+    
+    if (mapping) {
+      this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mapping.excel_text}"`);
+      return {
+        ...mapping,
+        confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
+      };
     }
 
     // Strategy 2: Partial match with higher confidence scoring - DISABLED
@@ -830,18 +848,35 @@ export class EnhancedStageMapper {
 
   /**
    * Learn from successful mappings to improve future accuracy
+   * RESTRICTED: Only learns from printing, finishing, and prepress categories
+   * to avoid polluting the mapping library with delivery/packaging auto-learned entries
    */
   private async learnFromMappings(mappings: RowMappingResult[]): Promise<void> {
     try {
+      // Only learn from specific categories
+      const allowedCategories = ['printing', 'finishing', 'prepress'];
+      
       const newMappings = mappings
-        .filter(m => !m.isUnmapped && m.confidence >= 70 && !m.manualOverride)
-        .map(m => ({
-          excel_text: `${m.groupName} ${m.description}`.toLowerCase().trim(),
-          production_stage_id: m.mappedStageId,
-          confidence_score: m.confidence,
-          mapping_type: 'production_stage' as const,
-          is_verified: m.confidence >= 85
-        }));
+        .filter(m => 
+          !m.isUnmapped && 
+          m.confidence >= 70 && 
+          !m.manualOverride &&
+          allowedCategories.includes(m.category)
+        )
+        .map(m => {
+          // Prevent duplicate text (e.g., "groupName groupName") by checking if they're identical
+          const groupName = m.groupName.toLowerCase().trim();
+          const description = m.description.toLowerCase().trim();
+          const excel_text = (groupName === description) ? groupName : `${groupName} ${description}`;
+          
+          return {
+            excel_text,
+            production_stage_id: m.mappedStageId,
+            confidence_score: m.confidence,
+            mapping_type: 'production_stage' as const,
+            is_verified: m.confidence >= 85
+          };
+        });
 
       if (newMappings.length > 0) {
         // Use upsert to avoid conflicts
@@ -852,11 +887,28 @@ export class EnhancedStageMapper {
             ignoreDuplicates: false 
           });
         
-        this.logger.addDebugInfo(`Learned ${newMappings.length} new mappings`);
+        this.logger.addDebugInfo(`Learned ${newMappings.length} new mappings from ${allowedCategories.join(', ')} categories`);
       }
     } catch (error) {
       this.logger.addDebugInfo(`Failed to learn from mappings: ${error}`);
     }
+  }
+  
+  /**
+   * Calculate completeness score for a mapping based on number of non-null specification IDs
+   * Higher score = more complete mapping with more specification details
+   */
+  private calculateCompletenessScore(mapping: any): number {
+    let score = 0;
+    
+    if (mapping.production_stage_id) score++;
+    if (mapping.stage_specification_id) score++;
+    if (mapping.print_specification_id) score++;
+    if (mapping.paper_type_specification_id) score++;
+    if (mapping.paper_weight_specification_id) score++;
+    if (mapping.delivery_method_specification_id) score++;
+    
+    return score;
   }
 
   /**
