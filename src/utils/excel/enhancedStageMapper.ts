@@ -72,9 +72,9 @@ export class EnhancedStageMapper {
     if (mappingsError) {
       this.logger.addDebugInfo(`Warning: Could not load existing mappings: ${mappingsError.message}`);
     } else {
-      // Index mappings by text for quick lookup
+      // Index mappings by text for quick lookup using the same normalization as matching
       (mappingsData || []).forEach(mapping => {
-        const key = mapping.excel_text.toLowerCase().trim();
+        const key = this.normalizeText(mapping.excel_text);
         if (!this.existingMappings.has(key) || 
             (this.existingMappings.get(key)?.confidence_score || 0) < mapping.confidence_score) {
           this.existingMappings.set(key, mapping);
