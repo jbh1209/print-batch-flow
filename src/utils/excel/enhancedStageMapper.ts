@@ -565,19 +565,22 @@ export class EnhancedStageMapper {
       }
     }
 
-    // Strategy 2: Fuzzy string matching (medium confidence)
-    const fuzzyMatch = this.findFuzzyMatch(searchText, category);
-    if (fuzzyMatch) {
-      this.logger.addDebugInfo(`Found fuzzy match: "${searchText}" -> "${fuzzyMatch.stageName}" (confidence: ${fuzzyMatch.confidence})`);
-      return fuzzyMatch;
-    }
+    // FUZZY MATCHING DISABLED - Only exact database matches will be used
+    this.logger.addDebugInfo(`Fuzzy matching disabled - only exact database matches will be used for: "${searchText}"`);
+    
+    // Strategy 2: Fuzzy string matching (medium confidence) - DISABLED
+    // const fuzzyMatch = this.findFuzzyMatch(searchText, category);
+    // if (fuzzyMatch) {
+    //   this.logger.addDebugInfo(`Found fuzzy match: "${searchText}" -> "${fuzzyMatch.stageName}" (confidence: ${fuzzyMatch.confidence})`);
+    //   return fuzzyMatch;
+    // }
 
-    // Strategy 3: Pattern-based matching (lower confidence)
-    const patternMatch = this.findPatternMatch(groupName, description, category);
-    if (patternMatch) {
-      this.logger.addDebugInfo(`Found pattern match: "${searchText}" -> "${patternMatch.stageName}" (confidence: ${patternMatch.confidence})`);
-      return patternMatch;
-    }
+    // Strategy 3: Pattern-based matching (lower confidence) - DISABLED
+    // const patternMatch = this.findPatternMatch(groupName, description, category);
+    // if (patternMatch) {
+    //   this.logger.addDebugInfo(`Found pattern match: "${searchText}" -> "${patternMatch.stageName}" (confidence: ${patternMatch.confidence})`);
+    //   return patternMatch;
+    // }
 
     this.logger.addDebugInfo(`No intelligent match found for: "${searchText}" in category: ${category}`);
     return null;
@@ -602,33 +605,36 @@ export class EnhancedStageMapper {
       }
     }
 
-    // Strategy 2: Partial match with higher confidence scoring
-    let bestMatch: any = null;
-    let bestScore = 0;
+    // Strategy 2: Partial match with higher confidence scoring - DISABLED
+    // Only exact matches will be used
+    this.logger.addDebugInfo(`No exact database match found for: "${searchText}" (partial matching disabled)`);
     
-    for (const [mappedText, mapping] of this.existingMappings.entries()) {
-      const normalizedMapped = this.normalizeText(mappedText);
-      
-      // Calculate similarity for partial matches
-      if (normalizedSearch.includes(normalizedMapped) || normalizedMapped.includes(normalizedSearch)) {
-        const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
-        const score = similarity * mapping.confidence_score;
-        
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = {
-            ...mapping,
-            confidence_score: Math.max(Math.round(score * 0.8), 30) // Reduce confidence for partial matches
-          };
-        }
-      }
-    }
+    // let bestMatch: any = null;
+    // let bestScore = 0;
+    // 
+    // for (const [mappedText, mapping] of this.existingMappings.entries()) {
+    //   const normalizedMapped = this.normalizeText(mappedText);
+    //   
+    //   // Calculate similarity for partial matches
+    //   if (normalizedSearch.includes(normalizedMapped) || normalizedMapped.includes(normalizedSearch)) {
+    //     const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
+    //     const score = similarity * mapping.confidence_score;
+    //     
+    //     if (score > bestScore) {
+    //       bestScore = score;
+    //       bestMatch = {
+    //         ...mapping,
+    //         confidence_score: Math.max(Math.round(score * 0.8), 30) // Reduce confidence for partial matches
+    //       };
+    //     }
+    //   }
+    // }
+    // 
+    // if (bestMatch) {
+    //   this.logger.addDebugInfo(`Found partial match: "${searchText}" -> "${bestMatch.excel_text}" (score: ${bestMatch.confidence_score})`);
+    // }
 
-    if (bestMatch) {
-      this.logger.addDebugInfo(`Found partial match: "${searchText}" -> "${bestMatch.excel_text}" (score: ${bestMatch.confidence_score})`);
-    }
-
-    return bestMatch;
+    return null; // Return null instead of bestMatch - only exact matches allowed
   }
 
   /**
