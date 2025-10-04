@@ -12,6 +12,7 @@ import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator
 import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapper";
 import type { RowMappingResult } from "@/utils/excel/types";
 import { RowMappingTable } from "./RowMappingTable";
+import { RowMappingErrorBoundary } from "./RowMappingErrorBoundary";
 import { supabase } from "@/integrations/supabase/client";
 import { AddRowDialog } from "./AddRowDialog";
 import { toast } from "sonner";
@@ -270,10 +271,22 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
 
   const handleAddCustomRow = (woNo: string, newRow: RowMappingResult) => {
     setUpdatedRowMappings(prev => {
-      const updated = { ...prev };
-      if (!updated[woNo]) updated[woNo] = [];
-      updated[woNo] = [...updated[woNo], newRow];
-      return updated;
+      const currentMappings = prev[woNo] || [];
+      
+      // Count existing custom rows to assign unique negative index
+      const customRowCount = currentMappings.filter(m => m.isCustomRow).length;
+      const uniqueNegativeIndex = -(customRowCount + 1); // -1, -2, -3, etc.
+      
+      // Assign unique negative index while preserving customRowId
+      const rowWithUniqueIndex = {
+        ...newRow,
+        excelRowIndex: uniqueNegativeIndex
+      };
+      
+      return {
+        ...prev,
+        [woNo]: [...currentMappings, rowWithUniqueIndex]
+      };
     });
   };
 
@@ -543,18 +556,20 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <RowMappingTable
-                        rowMappings={getCurrentOrderMappings()}
-                        availableStages={availableStages}
-                        stageSpecifications={stageSpecifications}
-                        workOrderNumber={currentOrder}
-                        onUpdateMapping={(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName) => 
-                          handleUpdateMapping(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName)
-                        }
-                        onToggleManualOverride={(woNo, rowIndex) => handleToggleManualOverride(woNo, rowIndex)}
-                        onIgnoreRow={(woNo, rowIndex) => handleIgnoreRow(woNo, rowIndex)}
-                        onRestoreRow={(woNo, rowIndex) => handleRestoreRow(woNo, rowIndex)}
-                      />
+                      <RowMappingErrorBoundary woNo={currentOrder}>
+                        <RowMappingTable
+                          rowMappings={getCurrentOrderMappings()}
+                          availableStages={availableStages}
+                          stageSpecifications={stageSpecifications}
+                          workOrderNumber={currentOrder}
+                          onUpdateMapping={(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName) => 
+                            handleUpdateMapping(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName)
+                          }
+                          onToggleManualOverride={(woNo, rowIndex) => handleToggleManualOverride(woNo, rowIndex)}
+                          onIgnoreRow={(woNo, rowIndex) => handleIgnoreRow(woNo, rowIndex)}
+                          onRestoreRow={(woNo, rowIndex) => handleRestoreRow(woNo, rowIndex)}
+                        />
+                      </RowMappingErrorBoundary>
                       
                       <div className="mt-4 flex gap-2">
                         <Button

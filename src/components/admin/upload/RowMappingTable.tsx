@@ -57,8 +57,18 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
   };
 
   // Create unique identifier for each row mapping to handle multi-rows correctly
-  const getUniqueRowId = (mapping: RowMappingResult) => {
-    return mapping.customRowId || `${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}-${mapping.instanceId || ''}`;
+  // CRITICAL: customRowId MUST be prioritized to prevent duplicate keys for custom rows
+  const getUniqueRowId = (mapping: RowMappingResult, fallbackIndex: number) => {
+    // Always prefer customRowId for custom rows - this is guaranteed unique
+    if (mapping.customRowId) {
+      return mapping.customRowId;
+    }
+    // For Excel rows, create composite key
+    if (mapping.excelRowIndex >= 0) {
+      return `excel-${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}`;
+    }
+    // Absolute fallback: use array index (should never happen)
+    return `fallback-${fallbackIndex}-${Date.now()}`;
   };
 
   const unmappedCount = rowMappings.filter(m => m.isUnmapped && !m.ignored).length;
@@ -108,7 +118,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
             
             return (
               <TableRow 
-                key={getUniqueRowId(mapping)} 
+                key={getUniqueRowId(mapping, index)} 
                 className={`${mapping.isUnmapped ? "bg-red-50" : ""} ${isIgnored ? "opacity-50" : ""}`}
               >
                 <TableCell className="font-mono text-sm">
