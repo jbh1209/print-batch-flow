@@ -31,6 +31,8 @@ export const AddRowDialog: React.FC<AddRowDialogProps> = ({
   stageSpecifications,
   onAddRow
 }) => {
+  const NONE_SPEC_VALUE = '__none__';
+  
   const [selectedStageId, setSelectedStageId] = useState<string>("");
   const [selectedStageSpecId, setSelectedStageSpecId] = useState<string>("");
   const [description, setDescription] = useState("");
@@ -50,6 +52,11 @@ export const AddRowDialog: React.FC<AddRowDialogProps> = ({
     }
   }, [open]);
 
+  // Clear spec selection when stage changes
+  useEffect(() => {
+    setSelectedStageSpecId("");
+  }, [selectedStageId]);
+
   const selectedStage = availableStages.find(s => s.id === selectedStageId);
   const availableSpecs = selectedStageId ? (stageSpecifications[selectedStageId] || []) : [];
 
@@ -58,7 +65,9 @@ export const AddRowDialog: React.FC<AddRowDialogProps> = ({
       return;
     }
 
-    const selectedSpec = availableSpecs.find(s => s.id === selectedStageSpecId);
+    // Normalize spec selection - treat NONE_SPEC_VALUE as undefined
+    const normalizedSpecId = selectedStageSpecId && selectedStageSpecId !== NONE_SPEC_VALUE ? selectedStageSpecId : undefined;
+    const selectedSpec = availableSpecs.find(s => s.id === normalizedSpecId);
     const customRowId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const newRow: RowMappingResult = {
@@ -70,7 +79,7 @@ export const AddRowDialog: React.FC<AddRowDialogProps> = ({
       woQty: quantity,
       mappedStageId: selectedStageId,
       mappedStageName: selectedStage.name,
-      mappedStageSpecId: selectedStageSpecId || null,
+      mappedStageSpecId: normalizedSpecId || null,
       mappedStageSpecName: selectedSpec?.name || null,
       confidence: 100, // Manual additions have max confidence
       category: selectedStage.category as any,
@@ -126,7 +135,7 @@ export const AddRowDialog: React.FC<AddRowDialogProps> = ({
                   <SelectValue placeholder="Select specification (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No specification</SelectItem>
+                  <SelectItem value={NONE_SPEC_VALUE}>No specification</SelectItem>
                   {availableSpecs.map((spec) => (
                     <SelectItem key={spec.id} value={spec.id}>
                       {spec.name}

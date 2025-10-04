@@ -51,6 +51,8 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   onSingleJobConfirm,
   onComplete
 }) => {
+  const CUSTOM_WORKFLOW_VALUE = 'custom_workflow';
+  
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
   const [selectedTab, setSelectedTab] = useState("mapping");
   const [availableStages, setAvailableStages] = useState<AvailableStage[]>([]);
@@ -599,17 +601,21 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
                         <div>
                           <label className="text-sm font-medium">Category</label>
                           <Select
-                            value={result.categoryAssignments[currentOrder]?.categoryId || ""}
+                            value={result.categoryAssignments[currentOrder]?.categoryId ?? CUSTOM_WORKFLOW_VALUE}
                             onValueChange={(value) => {
-                              const category = availableCategories.find(c => c.id === value);
-                              handleUpdateCategory(currentOrder, value || null, category?.name || null);
+                              if (value === CUSTOM_WORKFLOW_VALUE) {
+                                handleUpdateCategory(currentOrder, null, null);
+                              } else {
+                                const category = availableCategories.find(c => c.id === value);
+                                handleUpdateCategory(currentOrder, value, category?.name || null);
+                              }
                             }}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select category (or leave empty for custom workflow)" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Custom Workflow (Recommended)</SelectItem>
+                              <SelectItem value={CUSTOM_WORKFLOW_VALUE}>Custom Workflow (Recommended)</SelectItem>
                               {availableCategories.map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.name}
