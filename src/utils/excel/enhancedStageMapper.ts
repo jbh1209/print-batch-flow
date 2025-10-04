@@ -536,18 +536,30 @@ export class EnhancedStageMapper {
     if (dbMapping) {
       let stage = null;
       let specificationName = null;
+      let specificationId = null;
 
-      // Check if mapping uses production_stage_id
-      if (dbMapping.production_stage_id) {
-        stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+      // PRIORITY 1: Handle delivery_specification mappings
+      // These should ALWAYS map to the Shipping stage (production_stage_id is set via migration)
+      if (dbMapping.mapping_type === 'delivery_specification') {
+        if (dbMapping.production_stage_id) {
+          stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+          specificationId = dbMapping.delivery_method_specification_id;
+          this.logger.addDebugInfo(`Found delivery specification mapping: "${searchText}" -> Shipping stage`);
+        }
       }
-      // If no stage found and mapping uses stage_specification_id, look up the specification
+      // PRIORITY 2: Handle production_stage mappings
+      else if (dbMapping.production_stage_id) {
+        stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
+        specificationId = dbMapping.stage_specification_id;
+      }
+      // PRIORITY 3: Handle stage_specification mappings (legacy - when stage_specification_id but no production_stage_id)
       else if (dbMapping.stage_specification_id) {
         const specification = this.stageSpecs?.find(s => s.id === dbMapping.stage_specification_id);
         if (specification) {
           // Find the parent stage for this specification
           stage = this.stages.find(s => s.id === specification.production_stage_id);
           specificationName = specification.name;
+          specificationId = dbMapping.stage_specification_id;
         }
       }
 
@@ -559,7 +571,7 @@ export class EnhancedStageMapper {
           confidence: Math.min(dbMapping.confidence_score + 10, 100), // Boost verified mappings
           source: 'database',
           category: this.inferStageCategory(stage.name),
-          stageSpecId: dbMapping.stage_specification_id,
+          stageSpecId: specificationId,
           stageSpecName: specificationName
         };
       }
