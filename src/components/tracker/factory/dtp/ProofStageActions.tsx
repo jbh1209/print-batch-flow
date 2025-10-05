@@ -1,6 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
 import { BatchJobFormRHF } from "../../batch-allocation/BatchJobFormRHF";
@@ -9,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
+import { useProofLinks } from "@/hooks/useProofLinks";
 import { HP12000PaperSizeSelector } from "./HP12000PaperSizeSelector";
 import { useState } from "react";
 
@@ -55,6 +57,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
   const { completeProofStage } = useProofApprovalFlow();
+  const { generateProofLink, isGenerating } = useProofLinks();
+  const [generatedProofLink, setGeneratedProofLink] = useState<string | null>(null);
   const [hp12000ValidationStatus, setHP12000ValidationStatus] = useState<{
     isValid: boolean;
     message?: string;
@@ -114,6 +118,25 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
   };
 
+  const handleGenerateProofLink = async () => {
+    if (!stageInstance?.id) {
+      toast.error("No stage instance found");
+      return;
+    }
+
+    const link = await generateProofLink(stageInstance.id);
+    if (link) {
+      setGeneratedProofLink(link);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (generatedProofLink) {
+      await navigator.clipboard.writeText(generatedProofLink);
+      toast.success("Link copied to clipboard");
+    }
+  };
+
   const handleProofEmailed = async () => {
     const currentTime = new Date().toISOString();
 
@@ -140,6 +163,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       if (jobError) throw jobError;
 
       toast.success("Proof marked as emailed");
+      setGeneratedProofLink(null); // Reset link state
       onRefresh?.();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
@@ -304,14 +328,47 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   if (stageStatus === 'active') {
     if (!hasProofBeenEmailed) {
       return (
-        <Button 
-          onClick={handleProofEmailed}
-          disabled={isLoading || isProcessing}
-          className="w-full bg-blue-600 hover:bg-blue-700"
-        >
-          <Mail className="h-4 w-4 mr-2" />
-          Proof Emailed
-        </Button>
+        <div className="space-y-3">
+          {!generatedProofLink ? (
+            <Button 
+              onClick={handleGenerateProofLink}
+              disabled={isLoading || isProcessing || isGenerating}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <LinkIcon className="h-4 w-4 mr-2" />
+              {isGenerating ? 'Generating Link...' : 'Generate Proof Link'}
+            </Button>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Proof Link (Email Sent)</label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={generatedProofLink}
+                    readOnly
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    onClick={handleCopyLink}
+                    variant="outline"
+                    size="icon"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={handleProofEmailed}
+                disabled={isLoading || isProcessing}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Mark as Emailed
+              </Button>
+            </>
+          )}
+        </div>
       );
     }
 
