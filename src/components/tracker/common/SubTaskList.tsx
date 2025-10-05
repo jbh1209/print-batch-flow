@@ -39,25 +39,39 @@ export const SubTaskList: React.FC<SubTaskListProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [processingTaskId, setProcessingTaskId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(mode === 'expanded');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchSubTasks = async () => {
+    console.log('🔍 SubTaskList: Fetching sub-tasks for stage instance:', stageInstanceId, 'mode:', mode);
+    setError(null);
+    
     try {
       const { data, error } = await supabase.rpc('get_stage_sub_tasks', {
         p_stage_instance_id: stageInstanceId
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ SubTaskList: RPC error:', error);
+        throw error;
+      }
+      
+      console.log('✅ SubTaskList: Received sub-tasks:', data?.length || 0, 'tasks', data);
       setSubTasks(data || []);
     } catch (error) {
-      console.error('Error fetching sub-tasks:', error);
+      console.error('❌ SubTaskList: Error fetching sub-tasks:', error);
+      setError('Failed to load operations');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('🎬 SubTaskList: Component mounted with stageInstanceId:', stageInstanceId);
     if (stageInstanceId) {
       fetchSubTasks();
+    } else {
+      console.warn('⚠️ SubTaskList: No stageInstanceId provided');
+      setIsLoading(false);
     }
   }, [stageInstanceId]);
 
@@ -103,23 +117,41 @@ export const SubTaskList: React.FC<SubTaskListProps> = ({
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-destructive">
+        <span>{error}</span>
+        <Button variant="ghost" size="sm" onClick={fetchSubTasks}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (subTasks.length === 0) {
-    return null;
+    console.log('ℹ️ SubTaskList: No sub-tasks found for stage instance:', stageInstanceId);
+    if (mode === 'compact') return null;
+    return (
+      <div className="text-xs text-muted-foreground italic">
+        No operations configured
+      </div>
+    );
   }
 
   const completedCount = subTasks.filter(st => st.status === 'completed').length;
   const totalCount = subTasks.length;
   const isOnHold = stageStatus === 'on_hold';
 
-  // Compact mode - just show badge
-  if (mode === 'compact') {
+  // Compact mode - show badge that expands inline
+  if (mode === 'compact' && !isExpanded) {
     return (
       <Badge 
         variant="secondary" 
-        className={cn("text-xs", className)}
+        className={cn("text-xs cursor-pointer hover:bg-secondary/80", className)}
         onClick={(e) => {
           e.stopPropagation();
-          setIsExpanded(!isExpanded);
+          console.log('🔽 SubTaskList: Expanding compact view');
+          setIsExpanded(true);
         }}
       >
         <Wrench className="h-3 w-3 mr-1" />

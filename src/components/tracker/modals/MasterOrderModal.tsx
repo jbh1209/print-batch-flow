@@ -384,7 +384,10 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                           className={`p-4 border rounded-lg transition-colors ${
                             selectedStageId === stage.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
                           }`}
-                          onClick={() => setSelectedStageId(selectedStageId === stage.id ? null : stage.id)}
+                          onClick={() => {
+                            console.log('🎯 MasterOrderModal: Stage clicked:', stage.id, stage.production_stage.name);
+                            setSelectedStageId(selectedStageId === stage.id ? null : stage.id);
+                          }}
                         >
                           <div className="flex items-center justify-between">
                              <div className="flex items-center gap-3">
@@ -400,12 +403,13 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                        partAssignment={stage.part_assignment}
                                        stageNotes={stage.notes}
                                      />
-                                     <SubTaskList
-                                       stageInstanceId={stage.id}
-                                       mode="compact"
-                                       stageStatus={stage.status}
-                                       className="ml-2"
-                                     />
+                                      <SubTaskList
+                                        stageInstanceId={stage.id}
+                                        mode="compact"
+                                        stageStatus={stage.status}
+                                        className="ml-2"
+                                        key={`subtask-compact-${stage.id}`}
+                                      />
                                   </div>
                                  {stage.part_name && (
                                    <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
@@ -433,16 +437,17 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                             </div>
                           </div>
 
-                           {/* Stage Details */}
-                           {selectedStageId === stage.id && (
-                             <div className="mt-4 pt-4 border-t space-y-4">
-                               {/* Sub-Tasks Section */}
-                               <SubTaskList
-                                 stageInstanceId={stage.id}
-                                 mode="expanded"
-                                 showActions={false}
-                                 stageStatus={stage.status}
-                               />
+                               {/* Stage Details */}
+                               {selectedStageId === stage.id && (
+                                 <div className="mt-4 pt-4 border-t space-y-4">
+                                   {/* Sub-Tasks Section */}
+                                   <SubTaskList
+                                     stageInstanceId={stage.id}
+                                     mode="expanded"
+                                     showActions={false}
+                                     stageStatus={stage.status}
+                                     key={`subtask-expanded-${stage.id}`}
+                                   />
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 {stage.started_at && (
                                   <div>
