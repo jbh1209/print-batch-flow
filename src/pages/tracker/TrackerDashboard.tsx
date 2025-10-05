@@ -82,9 +82,11 @@ const TrackerDashboard = () => {
       new Date(job.due_date) <= weekFromNow
     ).length;
 
-    // Status counts by current stage status
+    // Status counts: jobs in production pipeline (not pending, not completed)
     const inProgress = jobs.filter(job => 
-      job.current_stage_status === 'active'
+      job.status !== 'Completed' && 
+      job.workflow_progress > 0 &&
+      job.workflow_progress < 100
     ).length;
 
     const pending = jobs.filter(job => 

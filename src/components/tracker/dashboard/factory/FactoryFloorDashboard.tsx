@@ -47,14 +47,14 @@ export const FactoryFloorDashboard: React.FC<FactoryFloorDashboardProps> = ({
   }, [refreshJobs]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 space-y-6">
+    <div className="min-h-screen bg-white text-gray-900 p-4 space-y-6">
       {/* Factory Header */}
-      <div className="flex items-center justify-between bg-gray-800 p-6 rounded-2xl border border-gray-700">
+      <div className="flex items-center justify-between bg-gray-50 p-6 rounded-2xl border border-gray-200">
         <div className="flex items-center gap-4">
           <Monitor className="h-8 w-8 text-blue-400" />
           <div>
-            <h1 className="text-4xl font-bold text-white">Factory Floor Display</h1>
-            <p className="text-gray-400 text-lg">Real-time production monitoring • Live updates</p>
+            <h1 className="text-4xl font-bold text-gray-900">Factory Floor Display</h1>
+            <p className="text-gray-600 text-lg">Real-time production monitoring • Live updates</p>
           </div>
         </div>
         
@@ -65,7 +65,7 @@ export const FactoryFloorDashboard: React.FC<FactoryFloorDashboardProps> = ({
             variant="outline"
             size="lg"
             onClick={toggleFullscreen}
-            className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+            className="bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
           >
             {isFullscreen ? (
               <>
@@ -84,15 +84,12 @@ export const FactoryFloorDashboard: React.FC<FactoryFloorDashboardProps> = ({
             variant="secondary"
             size="lg"
             onClick={onBack}
-            className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+            className="bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
           >
             Back to Dashboard
           </Button>
         </div>
       </div>
-
-      {/* Critical Alerts Banner */}
-      <FactoryAlertBanner stats={stats} />
 
       {/* Hero Stats Grid */}
       <HeroStatsGrid stats={stats} />
