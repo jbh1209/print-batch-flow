@@ -5,6 +5,7 @@ import { Play, CheckCircle, RotateCcw, Mail, ThumbsUp, Upload, Pause } from "luc
 import ProofLinkButton from "./ProofLinkButton";
 import ProofUploadDialog from "./ProofUploadDialog";
 import StageHoldDialog from "./StageHoldDialog";
+import StageSubTaskButtons from "./StageSubTaskButtons";
 import { supabase } from "@/integrations/supabase/client";
 import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
@@ -130,6 +131,17 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
 
   return (
     <div className="border-t pt-4 space-y-3">
+      {/* Multi-Specification Sub-Tasks Display */}
+      <StageSubTaskButtons
+        stageInstanceId={currentStage.id}
+        stageStatus={currentStage.status}
+        isOnHold={isOnHold}
+        onSubTaskComplete={() => {
+          // Refresh stage data when sub-task is updated
+          console.log('Sub-task updated, consider refreshing stage data');
+        }}
+      />
+
       {/* On Hold Status Display */}
       {isOnHold && (
         <div className="bg-orange-50 border border-orange-200 rounded-md p-3 space-y-2">
