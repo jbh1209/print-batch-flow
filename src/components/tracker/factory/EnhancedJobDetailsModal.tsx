@@ -41,6 +41,8 @@ import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { supabase } from "@/integrations/supabase/client";
 import StageHoldDialog from "./StageHoldDialog";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { useStageSubTasks } from "@/hooks/tracker/useStageSubTasks";
+import { MultiSpecificationStagePanel } from "./MultiSpecificationStagePanel";
 
 // Normalize status variants from backend
 const normalizeStatus = (status?: string): 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' => {
@@ -81,6 +83,17 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   const [showHoldDialog, setShowHoldDialog] = useState(false);
   
   const { holdStage, resumeStage, isProcessing: stageActionsProcessing } = useStageActions();
+  
+  // Multi-specification support
+  const { 
+    subTasks, 
+    hasSubTasks, 
+    allSubTasksCompleted,
+    startSubTask, 
+    completeSubTask, 
+    holdSubTask,
+    isLoading: subTasksLoading
+  } = useStageSubTasks(job?.id || null);
   
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
@@ -355,6 +368,21 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                 )}
               </CardContent>
             </Card>
+
+            {/* Multi-Specification Panel (if applicable) */}
+            {hasSubTasks && (
+              <Card>
+                <CardContent className="p-6">
+                  <MultiSpecificationStagePanel
+                    subTasks={subTasks}
+                    onStartSubTask={startSubTask}
+                    onCompleteSubTask={completeSubTask}
+                    onHoldSubTask={holdSubTask}
+                    isStageActive={normalizeStatus(job.status) === 'active'}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Job Overview */}
             <Card>
