@@ -311,20 +311,17 @@ export class PaperMappingMatcher {
     );
     if (exact) return exact;
 
-    // PARTIAL MATCHING DISABLED - Only exact matches will be used
-    // Partial match on display_name - DISABLED
-    // const partial = specs.find(spec => 
-    //   spec.display_name.toLowerCase().includes(lowerSearch) ||
-    //   lowerSearch.includes(spec.display_name.toLowerCase())
-    // );
-    // if (partial) return partial;
+    // Partial match on display_name
+    const partial = specs.find(spec => 
+      spec.display_name.toLowerCase().includes(lowerSearch) ||
+      lowerSearch.includes(spec.display_name.toLowerCase())
+    );
+    if (partial) return partial;
 
-    // Partial match on name - DISABLED
-    // return specs.find(spec => 
-    //   spec.name.toLowerCase().includes(lowerSearch) ||
-    //   lowerSearch.includes(spec.name.toLowerCase())
-    // );
-    
-    return null; // Return null if no exact match found
+    // Partial match on name
+    return specs.find(spec => 
+      spec.name.toLowerCase().includes(lowerSearch) ||
+      lowerSearch.includes(spec.name.toLowerCase())
+    );
   }
 }

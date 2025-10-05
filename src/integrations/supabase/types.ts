@@ -1878,7 +1878,6 @@ export type Database = {
           running_speed_per_hour: number | null
           speed_unit: string | null
           stage_group_id: string | null
-          supports_multi_specifications: boolean | null
           supports_parts: boolean
           updated_at: string
         }
@@ -1896,7 +1895,6 @@ export type Database = {
           running_speed_per_hour?: number | null
           speed_unit?: string | null
           stage_group_id?: string | null
-          supports_multi_specifications?: boolean | null
           supports_parts?: boolean
           updated_at?: string
         }
@@ -1914,7 +1912,6 @@ export type Database = {
           running_speed_per_hour?: number | null
           speed_unit?: string | null
           stage_group_id?: string | null
-          supports_multi_specifications?: boolean | null
           supports_parts?: boolean
           updated_at?: string
         }
@@ -2594,96 +2591,6 @@ export type Database = {
             columns: ["production_stage_id"]
             isOneToOne: false
             referencedRelation: "production_stages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      stage_sub_tasks: {
-        Row: {
-          actual_duration_minutes: number | null
-          completed_at: string | null
-          completed_by: string | null
-          created_at: string
-          estimated_duration_minutes: number | null
-          id: string
-          notes: string | null
-          quantity: number | null
-          stage_instance_id: string
-          stage_specification_id: string | null
-          started_at: string | null
-          started_by: string | null
-          status: string
-          sub_task_order: number
-          updated_at: string
-        }
-        Insert: {
-          actual_duration_minutes?: number | null
-          completed_at?: string | null
-          completed_by?: string | null
-          created_at?: string
-          estimated_duration_minutes?: number | null
-          id?: string
-          notes?: string | null
-          quantity?: number | null
-          stage_instance_id: string
-          stage_specification_id?: string | null
-          started_at?: string | null
-          started_by?: string | null
-          status?: string
-          sub_task_order?: number
-          updated_at?: string
-        }
-        Update: {
-          actual_duration_minutes?: number | null
-          completed_at?: string | null
-          completed_by?: string | null
-          created_at?: string
-          estimated_duration_minutes?: number | null
-          id?: string
-          notes?: string | null
-          quantity?: number | null
-          stage_instance_id?: string
-          stage_specification_id?: string | null
-          started_at?: string | null
-          started_by?: string | null
-          status?: string
-          sub_task_order?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "stage_sub_tasks_stage_instance_id_fkey"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "job_stage_instances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stage_sub_tasks_stage_instance_id_fkey"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "v_job_stage_windows"
-            referencedColumns: ["stage_instance_id"]
-          },
-          {
-            foreignKeyName: "stage_sub_tasks_stage_instance_id_fkey"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "v_schedule_precedence_violations"
-            referencedColumns: ["stage_instance_id"]
-          },
-          {
-            foreignKeyName: "stage_sub_tasks_stage_instance_id_fkey"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "v_scheduler_stages_ready"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stage_sub_tasks_stage_specification_id_fkey"
-            columns: ["stage_specification_id"]
-            isOneToOne: false
-            referencedRelation: "stage_specifications"
             referencedColumns: ["id"]
           },
         ]
@@ -3810,25 +3717,6 @@ export type Database = {
       get_stage_next_available_time: {
         Args: { p_stage_id: string }
         Returns: string
-      }
-      get_stage_sub_tasks: {
-        Args: { p_stage_instance_id: string }
-        Returns: {
-          actual_duration_minutes: number
-          completed_at: string
-          completed_by: string
-          estimated_duration_minutes: number
-          id: string
-          notes: string
-          quantity: number
-          specification_name: string
-          stage_instance_id: string
-          stage_specification_id: string
-          started_at: string
-          started_by: string
-          status: string
-          sub_task_order: number
-        }[]
       }
       get_user_accessible_jobs: {
         Args: {
