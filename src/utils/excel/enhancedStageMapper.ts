@@ -618,51 +618,51 @@ export class EnhancedStageMapper {
 
   /**
    * Find mapping in existing database with improved exact matching
+   * Supports Cover/Text suffix variants for part assignment
    */
   private findDatabaseMapping(searchText: string): any | null {
     const normalizedSearch = this.normalizeText(searchText);
     
-    // Direct Map.get() for exact match - efficient and accurate
-    const mapping = this.existingMappings.get(normalizedSearch);
+    // Try exact match with original text first
+    let mapping = this.existingMappings.get(normalizedSearch);
     
     if (mapping) {
       this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mapping.excel_text}"`);
       return {
         ...mapping,
-        confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
+        confidence_score: Math.min(mapping.confidence_score + 10, 100)
       };
     }
 
-    // Strategy 2: Partial match with higher confidence scoring - DISABLED
-    // Only exact matches will be used
-    this.logger.addDebugInfo(`No exact database match found for: "${searchText}" (partial matching disabled)`);
+    // Try suffix variants for Cover/Text part assignment
+    const suffixVariants: string[] = [];
     
-    // let bestMatch: any = null;
-    // let bestScore = 0;
-    // 
-    // for (const [mappedText, mapping] of this.existingMappings.entries()) {
-    //   const normalizedMapped = this.normalizeText(mappedText);
-    //   
-    //   // Calculate similarity for partial matches
-    //   if (normalizedSearch.includes(normalizedMapped) || normalizedMapped.includes(normalizedSearch)) {
-    //     const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
-    //     const score = similarity * mapping.confidence_score;
-    //     
-    //     if (score > bestScore) {
-    //       bestScore = score;
-    //       bestMatch = {
-    //         ...mapping,
-    //         confidence_score: Math.max(Math.round(score * 0.8), 30) // Reduce confidence for partial matches
-    //       };
-    //     }
-    //   }
-    // }
-    // 
-    // if (bestMatch) {
-    //   this.logger.addDebugInfo(`Found partial match: "${searchText}" -> "${bestMatch.excel_text}" (score: ${bestMatch.confidence_score})`);
-    // }
+    // Check if text has _cover or _text suffix
+    if (normalizedSearch.endsWith('_cover')) {
+      const base = normalizedSearch.slice(0, -6); // Remove "_cover"
+      suffixVariants.push(base, `${base}_text`);
+    } else if (normalizedSearch.endsWith('_text')) {
+      const base = normalizedSearch.slice(0, -5); // Remove "_text"
+      suffixVariants.push(base, `${base}_cover`);
+    } else {
+      // Text has no suffix, try adding both
+      suffixVariants.push(`${normalizedSearch}_cover`, `${normalizedSearch}_text`);
+    }
 
-    return null; // Return null instead of bestMatch - only exact matches allowed
+    // Try each variant
+    for (const variant of suffixVariants) {
+      mapping = this.existingMappings.get(variant);
+      if (mapping) {
+        this.logger.addDebugInfo(`Found suffix variant match: "${searchText}" -> "${mapping.excel_text}"`);
+        return {
+          ...mapping,
+          confidence_score: Math.min(mapping.confidence_score + 10, 100)
+        };
+      }
+    }
+
+    this.logger.addDebugInfo(`No exact database match found for: "${searchText}" (tried suffix variants)`);
+    return null;
   }
 
   /**
