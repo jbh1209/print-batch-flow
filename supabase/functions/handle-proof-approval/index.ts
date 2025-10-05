@@ -1,11 +1,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Resend } from 'npm:resend@4.0.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -110,6 +113,44 @@ serve(async (req) => {
       const requestUrl = new URL(req.url);
       const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
       const proofUrl = `${baseUrl}/proof/${token}`;
+      
+      // Get job details for email
+      const { data: jobDetails } = await supabase
+        .from('production_jobs')
+        .select('wo_no, client_name, client_email')
+        .eq('id', stageInstance.job_id)
+        .single();
+      
+      // Send email notification if client email exists
+      if (jobDetails?.client_email) {
+        try {
+          await resend.emails.send({
+            from: 'proofing@impressweb.co.za',
+            to: [jobDetails.client_email],
+            subject: `Proof Ready for Review - WO ${jobDetails.wo_no}`,
+            html: `
+              <h2>Your proof is ready for review</h2>
+              <p>Hello ${jobDetails.client_name || 'valued client'},</p>
+              <p>Your proof for Work Order <strong>${jobDetails.wo_no}</strong> is now ready for your review and approval.</p>
+              <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
+              <p>Or copy and paste this link into your browser:</p>
+              <p><a href="${proofUrl}">${proofUrl}</a></p>
+              <p>This link will expire on ${expiresAt.toLocaleDateString()}.</p>
+              <p><strong>Next Steps:</strong></p>
+              <ul>
+                <li>Review the proof carefully</li>
+                <li>Click "Approve" if everything looks good - we'll schedule your job immediately</li>
+                <li>Click "Request Changes" if you need any modifications</li>
+              </ul>
+              <p>Thank you for your business!</p>
+            `,
+          });
+          console.log('✅ Proof email sent to:', jobDetails.client_email);
+        } catch (emailError) {
+          console.error('⚠️ Failed to send proof email:', emailError);
+          // Don't fail the whole operation if email fails
+        }
+      }
       
       console.log('✅ Proof link generated successfully');
       return new Response(
