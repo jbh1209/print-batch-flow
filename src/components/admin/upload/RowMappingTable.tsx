@@ -58,17 +58,18 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
 
   // Create unique identifier for each row mapping to handle multi-rows correctly
   // CRITICAL: customRowId MUST be prioritized to prevent duplicate keys for custom rows
+  // CRITICAL: Include workOrderNumber to prevent cross-order key collisions
   const getUniqueRowId = (mapping: RowMappingResult, fallbackIndex: number) => {
     // Always prefer customRowId for custom rows - this is guaranteed unique
     if (mapping.customRowId) {
-      return mapping.customRowId;
+      return `${workOrderNumber}-${mapping.customRowId}`;
     }
-    // For Excel rows, create composite key
+    // For Excel rows, create composite key with order prefix
     if (mapping.excelRowIndex >= 0) {
-      return `excel-${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}`;
+      return `${workOrderNumber}-excel-${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}`;
     }
     // Absolute fallback: use array index (should never happen)
-    return `fallback-${fallbackIndex}-${Date.now()}`;
+    return `${workOrderNumber}-fallback-${fallbackIndex}-${Date.now()}`;
   };
 
   const unmappedCount = rowMappings.filter(m => m.isUnmapped && !m.ignored).length;

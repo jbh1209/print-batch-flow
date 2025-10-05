@@ -77,11 +77,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
 
   useEffect(() => {
     if (result?.rowMappings) {
-      // Initialize updatedRowMappings with current result data
+      // Initialize updatedRowMappings with DEEP CLONE to prevent cross-order contamination
       const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
       Object.entries(result.rowMappings).forEach(([woNo, mappings]) => {
         if (mappings && mappings.length > 0) {
-          initialMappings[woNo] = [...mappings];
+          // CRITICAL: Deep clone each mapping object to avoid shared references
+          initialMappings[woNo] = mappings.map(m => ({...m}));
         }
       });
       setUpdatedRowMappings(initialMappings);
@@ -180,12 +181,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      const mappings = result?.rowMappings?.[woNo];
+      // CRITICAL: Read from state (prev), NOT from props to avoid stale data
+      const mappings = prev[woNo];
       if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         if (mappingIndex >= 0) {
-          if (!updated[woNo]) updated[woNo] = [...mappings];
-          const mappingsCopy = [...updated[woNo]];
+          const mappingsCopy = [...mappings];
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             mappedStageId: stageId,
@@ -214,12 +215,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   const handleToggleManualOverride = (woNo: string, rowIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      const mappings = result?.rowMappings?.[woNo];
+      // CRITICAL: Read from state (prev), NOT from props
+      const mappings = prev[woNo];
       if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         if (mappingIndex >= 0) {
-          if (!updated[woNo]) updated[woNo] = [...mappings];
-          const mappingsCopy = [...updated[woNo]];
+          const mappingsCopy = [...mappings];
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             manualOverride: !mappingsCopy[mappingIndex].manualOverride
@@ -234,12 +235,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   const handleIgnoreRow = (woNo: string, rowIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      const mappings = result?.rowMappings?.[woNo];
+      // CRITICAL: Read from state (prev), NOT from props
+      const mappings = prev[woNo];
       if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         if (mappingIndex >= 0) {
-          if (!updated[woNo]) updated[woNo] = [...mappings];
-          const mappingsCopy = [...updated[woNo]];
+          const mappingsCopy = [...mappings];
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             ignored: true
@@ -254,12 +255,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
   const handleRestoreRow = (woNo: string, rowIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      const mappings = result?.rowMappings?.[woNo];
+      // CRITICAL: Read from state (prev), NOT from props
+      const mappings = prev[woNo];
       if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         if (mappingIndex >= 0) {
-          if (!updated[woNo]) updated[woNo] = [...mappings];
-          const mappingsCopy = [...updated[woNo]];
+          const mappingsCopy = [...mappings];
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
             ignored: false
@@ -296,7 +297,8 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
     if (!currentOrder || !updatedRowMappings[currentOrder]) {
       return [];
     }
-    return updatedRowMappings[currentOrder];
+    // Return a copy to prevent external mutations
+    return [...updatedRowMappings[currentOrder]];
   };
 
   const extractUserApprovedMappings = (woNo: string) => {
@@ -560,6 +562,7 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
                     <CardContent>
                       <RowMappingErrorBoundary woNo={currentOrder}>
                         <RowMappingTable
+                          key={currentOrder}
                           rowMappings={getCurrentOrderMappings()}
                           availableStages={availableStages}
                           stageSpecifications={stageSpecifications}
