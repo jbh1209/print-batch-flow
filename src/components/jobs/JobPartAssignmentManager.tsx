@@ -8,8 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, Clock, Play, Package, Wrench, Truck } from 'lucide-react';
+import { CheckCircle2, Clock, Play, Package, Wrench, Truck, ChevronDown, ChevronRight, List } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface SubTask {
+  id: string;
+  stage_specification_id: string;
+  specification_name: string;
+  sub_task_order: number;
+  status: string;
+  estimated_duration_minutes: number | null;
+  quantity: number | null;
+}
 
 interface JobStageInstance {
   id: string;
@@ -19,6 +29,7 @@ interface JobStageInstance {
   part_assignment: string;
   part_name: string | null;
   quantity: number | null;
+  sub_tasks?: SubTask[];
 }
 
 interface ProductionStage {
@@ -85,6 +96,7 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
   onClose
 }) => {
   const queryClient = useQueryClient();
+  const [expandedStageIds, setExpandedStageIds] = useState<Set<string>>(new Set());
 
   // Optimized job details query with proper caching
   const { data: job } = useQuery<Job>({
@@ -176,6 +188,45 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
     gcTime: 30 * 60 * 1000 // 30 minutes
   });
 
+  // Query for sub-tasks across all stages
+  const { data: allSubTasks } = useQuery({
+    queryKey: ['stage-sub-tasks-all', jobId],
+    queryFn: async () => {
+      if (!stages) return [];
+      
+      const stageInstanceIds = stages.map(s => s.id);
+      const { data, error } = await supabase
+        .from('stage_sub_tasks' as any)
+        .select(`
+          id,
+          stage_instance_id,
+          stage_specification_id,
+          sub_task_order,
+          status,
+          estimated_duration_minutes,
+          quantity,
+          stage_specifications!stage_sub_tasks_stage_specification_id_fkey(name)
+        `)
+        .in('stage_instance_id', stageInstanceIds)
+        .order('sub_task_order');
+
+      if (error) throw error;
+      
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        stage_instance_id: item.stage_instance_id,
+        stage_specification_id: item.stage_specification_id,
+        specification_name: item.stage_specifications?.name || 'Unknown',
+        sub_task_order: item.sub_task_order,
+        status: item.status,
+        estimated_duration_minutes: item.estimated_duration_minutes,
+        quantity: item.quantity
+      }));
+    },
+    enabled: open && !!stages && stages.length > 0,
+    staleTime: 2 * 60 * 1000
+  });
+
   // Create enriched stages by joining data
   const enrichedStages: EnrichedJobStageInstance[] = React.useMemo(() => {
     if (!stages || !productionStages || !stageGroups) return [];
@@ -186,8 +237,12 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
         ? stageGroups.find(sg => sg.id === productionStage.stage_group_id)
         : undefined;
       
+      // Attach sub-tasks to this stage
+      const stageTasks = allSubTasks?.filter(st => st.stage_instance_id === stage.id) || [];
+      
       return {
         ...stage,
+        sub_tasks: stageTasks,
         production_stages: {
           name: productionStage?.name || 'Unknown Stage',
           color: productionStage?.color || '#6B7280',
@@ -199,7 +254,7 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
         } : undefined
       };
     });
-  }, [stages, productionStages, stageGroups]);
+  }, [stages, productionStages, stageGroups, allSubTasks]);
 
   // Optimized mutation with specific query key invalidation
   const updatePartAssignmentMutation = useMutation({
@@ -257,6 +312,18 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
 
   const getPartAssignmentOption = (value: string) => {
     return PART_ASSIGNMENT_OPTIONS.find(opt => opt.value === value) || PART_ASSIGNMENT_OPTIONS[0];
+  };
+
+  const toggleStageExpansion = (stageId: string) => {
+    setExpandedStageIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stageId)) {
+        newSet.delete(stageId);
+      } else {
+        newSet.add(stageId);
+      }
+      return newSet;
+    });
   };
 
   if (!open) return null;
@@ -338,59 +405,124 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
                       {group.stages.map((stage) => {
                         const partOption = getPartAssignmentOption(stage.part_assignment);
                         const Icon = partOption.icon;
+                        const hasSubTasks = stage.sub_tasks && stage.sub_tasks.length > 0;
+                        const isExpanded = expandedStageIds.has(stage.id);
+                        const completedSubTasks = stage.sub_tasks?.filter(st => st.status === 'completed').length || 0;
+                        const totalSubTasks = stage.sub_tasks?.length || 0;
                         
                         return (
-                          <TableRow key={stage.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="w-3 h-3 rounded-full" 
-                                  style={{ backgroundColor: stage.production_stages.color }}
-                                />
-                                <span className="font-medium">{stage.production_stages.name}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {getStatusIcon(stage.status)}
-                                <span className="capitalize">{stage.status}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{stage.stage_order}</TableCell>
-                            <TableCell>
-                              <Badge className={partOption.color}>
-                                <Icon className="h-3 w-3 mr-1" />
-                                {partOption.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={stage.part_assignment}
-                                onValueChange={(value) => handlePartAssignmentChange(stage.id, value)}
-                                disabled={stage.status === 'completed'}
-                              >
-                                <SelectTrigger className="w-40">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {PART_ASSIGNMENT_OPTIONS.map((option) => {
-                                    const OptionIcon = option.icon;
-                                    return (
-                                      <SelectItem key={option.value} value={option.value}>
-                                        <div className="flex items-center gap-2">
-                                          <OptionIcon className="h-4 w-4" />
-                                          {option.label}
+                          <React.Fragment key={stage.id}>
+                            <TableRow className={hasSubTasks ? 'cursor-pointer hover:bg-muted/50' : ''}>
+                              <TableCell onClick={() => hasSubTasks && toggleStageExpansion(stage.id)}>
+                                <div className="flex items-center gap-2">
+                                  {hasSubTasks && (
+                                    isExpanded ? 
+                                      <ChevronDown className="h-4 w-4 text-muted-foreground" /> : 
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <div 
+                                    className="w-3 h-3 rounded-full" 
+                                    style={{ backgroundColor: stage.production_stages.color }}
+                                  />
+                                  <span className="font-medium">{stage.production_stages.name}</span>
+                                  {hasSubTasks && (
+                                    <Badge variant="secondary" className="ml-2">
+                                      <List className="h-3 w-3 mr-1" />
+                                      {totalSubTasks} ops
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(stage.status)}
+                                  <span className="capitalize">{stage.status}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{stage.stage_order}</TableCell>
+                              <TableCell>
+                                <Badge className={partOption.color}>
+                                  <Icon className="h-3 w-3 mr-1" />
+                                  {partOption.label}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={stage.part_assignment}
+                                  onValueChange={(value) => handlePartAssignmentChange(stage.id, value)}
+                                  disabled={stage.status === 'completed'}
+                                >
+                                  <SelectTrigger className="w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PART_ASSIGNMENT_OPTIONS.map((option) => {
+                                      const OptionIcon = option.icon;
+                                      return (
+                                        <SelectItem key={option.value} value={option.value}>
+                                          <div className="flex items-center gap-2">
+                                            <OptionIcon className="h-4 w-4" />
+                                            {option.label}
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                {stage.quantity || '-'}
+                              </TableCell>
+                            </TableRow>
+                            
+                            {/* Sub-tasks expanded view */}
+                            {isExpanded && hasSubTasks && (
+                              <TableRow>
+                                <TableCell colSpan={6} className="bg-muted/30 p-4">
+                                  <div className="space-y-2">
+                                    <div className="text-sm font-medium text-muted-foreground mb-3">
+                                      Operations ({completedSubTasks}/{totalSubTasks} completed)
+                                    </div>
+                                    <div className="grid gap-2">
+                                      {stage.sub_tasks?.map((subTask, idx) => (
+                                        <div 
+                                          key={subTask.id}
+                                          className="flex items-center gap-3 p-3 bg-background rounded-md border"
+                                        >
+                                          <div className="flex-shrink-0">
+                                            {subTask.status === 'completed' ? (
+                                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                            ) : (
+                                              <Clock className="h-4 w-4 text-orange-600" />
+                                            )}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-sm">
+                                              {idx + 1}. {subTask.specification_name}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                              {subTask.estimated_duration_minutes && (
+                                                <span>Est: {subTask.estimated_duration_minutes} mins</span>
+                                              )}
+                                              {subTask.quantity && (
+                                                <span className="ml-3">Qty: {subTask.quantity}</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <Badge 
+                                            variant={subTask.status === 'completed' ? 'default' : 'secondary'}
+                                            className="capitalize"
+                                          >
+                                            {subTask.status}
+                                          </Badge>
                                         </div>
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              {stage.quantity || '-'}
-                            </TableCell>
-                          </TableRow>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </TableBody>
