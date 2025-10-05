@@ -67,81 +67,55 @@ export const initializeJobWorkflowFromMappings = async (
       }
     });
 
-    // Create the enhanced database function call with specifications
-    // Track stage ID usage to handle duplicates by appending suffixes
-    const stageIdCounts = new Map<string, number>();
+    // ✨ NEW: Pre-aggregate mappings by production_stage_id to consolidate multi-spec stages
+    const stageGroups = new Map<string, UserApprovedMapping[]>();
+    sortedMappings.forEach(mapping => {
+      const existing = stageGroups.get(mapping.mappedStageId) || [];
+      existing.push(mapping);
+      stageGroups.set(mapping.mappedStageId, existing);
+    });
     
-    const stageMappingsData = sortedMappings.map((mapping) => {
-      // Check if this stage ID has been used before
-      const currentCount = stageIdCounts.get(mapping.mappedStageId) || 0;
-      stageIdCounts.set(mapping.mappedStageId, currentCount + 1);
+    logger.addDebugInfo(`🔍 Detected ${stageGroups.size} unique stages from ${sortedMappings.length} mappings`);
+    
+    // Build consolidated stage data for the new RPC function
+    const consolidatedStages = Array.from(stageGroups.entries()).map(([stageId, mappings]) => {
+      const stageOrder = stageOrderMap.get(stageId) || 999;
       
-      // If this is the 2nd+ occurrence, append suffix for uniqueness
-      let uniqueStageId = mapping.mappedStageId;
-      if (currentCount > 0) {
-        uniqueStageId = `${mapping.mappedStageId}-${currentCount + 1}`;
-      }
+      // Create specifications array for this stage
+      const specifications = mappings.map(m => ({
+        specification_id: m.mappedStageSpecId || null,
+        quantity: m.qty || null,
+        paper_specification: m.paperSpecification || null
+      })).filter(spec => spec.specification_id); // Only include specs with valid IDs
       
-      const stageData = {
-        stage_id: mapping.mappedStageId, // Keep original for production_stage_id reference
-        unique_stage_id: uniqueStageId, // For uniqueness tracking
-        stage_order: stageOrderMap.get(mapping.mappedStageId) || 999, // Use actual production stage order_index
-        stage_specification_id: mapping.mappedStageSpecId || null, // ✅ FIXED: Ensure specification ID is preserved
-        part_name: mapping.partType || null,
-        quantity: mapping.qty || null,
-        paper_specification: mapping.paperSpecification || null
+      logger.addDebugInfo(`📦 Consolidating stage ${stageId} with ${specifications.length} specification(s)`);
+      
+      return {
+        stage_id: stageId,
+        stage_order: stageOrder,
+        specifications: specifications.length > 0 ? specifications : [{ 
+          specification_id: null,
+          quantity: mappings[0].qty || null,
+          paper_specification: mappings[0].paperSpecification || null
+        }]
       };
-      
-      // Debug logging for each stage mapping
-      logger.addDebugInfo(`🔍 Stage mapping data for ${mapping.mappedStageName}:`);
-      logger.addDebugInfo(`   - Production Stage ID: ${stageData.stage_id}`);
-      logger.addDebugInfo(`   - Unique Instance ID: ${stageData.unique_stage_id}`);
-      logger.addDebugInfo(`   - Stage Order: ${stageData.stage_order}`);
-      logger.addDebugInfo(`   - Specification ID: ${stageData.stage_specification_id}`);
-      logger.addDebugInfo(`   - Part Name: ${stageData.part_name}`);
-      logger.addDebugInfo(`   - Quantity: ${stageData.quantity}`);
-      logger.addDebugInfo(`   - Paper Specification: ${stageData.paper_specification}`);
-      
-      return stageData;
     });
 
-    const { data, error } = await supabase.rpc('initialize_custom_job_stages_with_specs', {
+    // Call the new multi-spec aware RPC function
+    const { data, error } = await supabase.rpc('initialize_job_stages_with_multi_specs', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_stage_mappings: stageMappingsData
+      p_consolidated_stages: consolidatedStages
     });
 
     if (error) {
-      logger.addDebugInfo(`❌ Failed to initialize custom workflow with specs for job ${jobId}: ${error.message}`);
-      // Fallback to simple version without specifications
-      logger.addDebugInfo(`🔄 Falling back to simple stage initialization...`);
-      
-      const stageIds = sortedMappings.map(mapping => mapping.mappedStageId);
-      const stageOrders = sortedMappings.map(mapping => stageOrderMap.get(mapping.mappedStageId) || 999); // Use actual production stage order_index
-
-      const { data: fallbackData, error: fallbackError } = await supabase.rpc('initialize_custom_job_stages', {
-        p_job_id: jobId,
-        p_job_table_name: 'production_jobs',
-        p_stage_ids: stageIds,
-        p_stage_orders: stageOrders
-      });
-
-      if (fallbackError) {
-        logger.addDebugInfo(`❌ Fallback initialization also failed for job ${jobId}: ${fallbackError.message}`);
-        return false;
-      }
-
-      logger.addDebugInfo(`✅ Successfully initialized workflow for job ${jobId} using fallback method (${stageIds.length} stages)`);
-      
-      // 🚀 TIMING CALCULATION: Calculate timing estimates for fallback stages
-      await calculateTimingForCreatedStages(jobId, sortedMappings, logger);
-      
-      return true;
+      logger.addDebugInfo(`❌ Failed to initialize multi-spec workflow for job ${jobId}: ${error.message}`);
+      return false;
     }
 
-    logger.addDebugInfo(`✅ Successfully initialized enhanced workflow for job ${jobId} with specifications (${sortedMappings.length} stages)`);
+    logger.addDebugInfo(`✅ Successfully initialized multi-spec workflow for job ${jobId} (${consolidatedStages.length} stages created)`);
     
-    // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages
+    // 🚀 TIMING CALCULATION: Calculate timing estimates for all created stages (including sub-tasks)
     await calculateTimingForCreatedStages(jobId, sortedMappings, logger);
     
     return true;
@@ -263,18 +237,64 @@ async function calculateTimingForCreatedStages(
       logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} (key: ${uniqueKey}) with quantity ${finalQuantity}`);
       
       try {
-        const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
-          quantity: finalQuantity,
-          stageId: stageInstance.production_stage_id,
-          specificationId: stageInstance.stage_specification_id
-        });
+        // Check if this stage has sub-tasks (multi-spec scenario)
+        const { data: subTasks, error: subTaskError } = await supabase
+          .from('stage_sub_tasks' as any)
+          .select('id, stage_specification_id, quantity, estimated_duration_minutes')
+          .eq('stage_instance_id', stageInstance.id)
+          .order('sub_task_order');
         
-        // Update the stage instance with quantity and duration
+        if (subTaskError) {
+          logger.addDebugInfo(`⚠️ Could not fetch sub-tasks for stage ${stageInstance.id}: ${subTaskError.message}`);
+        }
+        
+        let totalDurationMinutes = 0;
+        
+        // If sub-tasks exist, calculate and sum their durations
+        if (subTasks && subTasks.length > 0) {
+          logger.addDebugInfo(`🔍 Found ${subTasks.length} sub-tasks for stage ${stageInstance.id}, calculating individual durations`);
+          
+          for (const subTask of subTasks as any[]) {
+            const subTaskQuantity = subTask.quantity || finalQuantity;
+            const subTaskTiming = await TimingCalculationService.calculateStageTimingWithInheritance({
+              quantity: subTaskQuantity,
+              stageId: stageInstance.production_stage_id,
+              specificationId: subTask.stage_specification_id
+            });
+            
+            totalDurationMinutes += subTaskTiming.estimatedDurationMinutes;
+            
+            // Update sub-task with its estimated duration
+            await supabase
+              .from('stage_sub_tasks' as any)
+              .update({
+                estimated_duration_minutes: subTaskTiming.estimatedDurationMinutes,
+                quantity: subTaskQuantity
+              })
+              .eq('id', subTask.id);
+            
+            logger.addDebugInfo(`   └── Sub-task ${subTask.id}: ${subTaskTiming.estimatedDurationMinutes} mins`);
+          }
+          
+          logger.addDebugInfo(`✅ Total duration for multi-spec stage: ${totalDurationMinutes} mins (sum of ${subTasks.length} sub-tasks)`);
+        } else {
+          // Single-spec stage: calculate normally
+          const timingResult = await TimingCalculationService.calculateStageTimingWithInheritance({
+            quantity: finalQuantity,
+            stageId: stageInstance.production_stage_id,
+            specificationId: stageInstance.stage_specification_id
+          });
+          
+          totalDurationMinutes = timingResult.estimatedDurationMinutes;
+          logger.addDebugInfo(`✅ Single-spec stage duration: ${totalDurationMinutes} mins`);
+        }
+        
+        // Update the stage instance with quantity and total duration
         const { error: updateError } = await supabase
           .from('job_stage_instances')
           .update({
             quantity: finalQuantity,
-            estimated_duration_minutes: timingResult.estimatedDurationMinutes,
+            estimated_duration_minutes: totalDurationMinutes,
             updated_at: new Date().toISOString()
           })
           .eq('id', stageInstance.id);
@@ -284,7 +304,7 @@ async function calculateTimingForCreatedStages(
           return false;
         }
         
-        logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${timingResult.estimatedDurationMinutes} minutes`);
+        logger.addDebugInfo(`✅ Updated stage instance ${stageInstance.id} with ${totalDurationMinutes} minutes`);
         return true;
       } catch (error) {
         logger.addDebugInfo(`❌ Error calculating timing for stage instance ${stageInstance.id}: ${error}`);
