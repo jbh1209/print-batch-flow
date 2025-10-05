@@ -1,7 +1,8 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon, FileText } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
 import { BatchJobFormRHF } from "../../batch-allocation/BatchJobFormRHF";
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
 import { useProofLinks } from "@/hooks/useProofLinks";
+import { useFileUpload } from "@/hooks/useFileUpload";
 import { HP12000PaperSizeSelector } from "./HP12000PaperSizeSelector";
 import { useState } from "react";
 
@@ -63,6 +65,22 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     isValid: boolean;
     message?: string;
   }>({ isValid: true });
+  
+  // Client details state
+  const [clientEmail, setClientEmail] = useState(stageInstance?.client_email || '');
+  const [clientName, setClientName] = useState(stageInstance?.client_name || '');
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  
+  // File upload for proof PDF
+  const { 
+    selectedFile: proofPdfFile, 
+    handleFileChange: handleProofPdfChange,
+    clearSelectedFile: clearProofPdf,
+    fileInfo: proofPdfInfo
+  } = useFileUpload({
+    acceptedTypes: ['application/pdf'],
+    maxSizeInMB: 10
+  });
 
   // Get the current stage instance ID from the job stage instances
   const getCurrentStageInstanceId = async (): Promise<string | null> => {
@@ -124,9 +142,84 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       return;
     }
 
-    const link = await generateProofLink(stageInstance.id);
-    if (link) {
-      setGeneratedProofLink(link);
+    // Validate inputs
+    if (!proofPdfFile) {
+      toast.error("Please upload a proof PDF first");
+      return;
+    }
+
+    if (!clientEmail || !clientEmail.includes('@')) {
+      toast.error("Please enter a valid client email");
+      return;
+    }
+
+    setIsUploadingPdf(true);
+
+    try {
+      // Upload PDF to storage
+      const fileExt = proofPdfFile.name.split('.').pop();
+      const fileName = `${job.job_id}_${stageInstance.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('proof-pdfs')
+        .upload(filePath, proofPdfFile);
+
+      if (uploadError) {
+        console.error('PDF upload error:', uploadError);
+        toast.error('Failed to upload proof PDF');
+        return;
+      }
+
+      // Get public URL for the PDF
+      const { data: { publicUrl } } = supabase.storage
+        .from('proof-pdfs')
+        .getPublicUrl(filePath);
+
+      console.log('✅ Proof PDF uploaded:', publicUrl);
+
+      // Update stage instance with PDF URL and client details
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          proof_pdf_url: publicUrl,
+          client_email: clientEmail,
+          client_name: clientName || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageInstance.id);
+
+      if (updateError) {
+        console.error('Error updating stage instance:', updateError);
+        toast.error('Failed to save proof details');
+        return;
+      }
+
+      // Also update production job with client details for future reference
+      const { error: jobUpdateError } = await supabase
+        .from('production_jobs')
+        .update({
+          client_email: clientEmail,
+          client_name: clientName || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.job_id);
+
+      if (jobUpdateError) {
+        console.error('Error updating job with client details:', jobUpdateError);
+      }
+
+      // Generate proof link (this will trigger email sending)
+      const link = await generateProofLink(stageInstance.id);
+      if (link) {
+        setGeneratedProofLink(link);
+        clearProofPdf();
+      }
+    } catch (error) {
+      console.error('Error in proof generation:', error);
+      toast.error('Failed to generate proof link');
+    } finally {
+      setIsUploadingPdf(false);
     }
   };
 
@@ -328,20 +421,84 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   if (stageStatus === 'active') {
     if (!hasProofBeenEmailed) {
       return (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {!generatedProofLink ? (
-            <Button 
-              onClick={handleGenerateProofLink}
-              disabled={isLoading || isProcessing || isGenerating}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-            >
-              <LinkIcon className="h-4 w-4 mr-2" />
-              {isGenerating ? 'Generating Link...' : 'Generate Proof Link'}
-            </Button>
+            <>
+              {/* PDF Upload Section */}
+              <div className="space-y-2">
+                <Label htmlFor="proof-pdf" className="text-sm font-medium">
+                  Upload Proof PDF *
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="proof-pdf"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleProofPdfChange}
+                    className="flex-1"
+                  />
+                </div>
+                {proofPdfInfo && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <span>{proofPdfInfo.name} ({(proofPdfInfo.sizeInKB / 1024).toFixed(2)} MB)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Client Email Input */}
+              <div className="space-y-2">
+                <Label htmlFor="client-email" className="text-sm font-medium">
+                  Client Email *
+                </Label>
+                <Input
+                  id="client-email"
+                  type="email"
+                  placeholder="client@example.com"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Client Name Input */}
+              <div className="space-y-2">
+                <Label htmlFor="client-name" className="text-sm font-medium">
+                  Client Name (Optional)
+                </Label>
+                <Input
+                  id="client-name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              </div>
+
+              {/* Generate Link Button */}
+              <Button 
+                onClick={handleGenerateProofLink}
+                disabled={
+                  isLoading || 
+                  isProcessing || 
+                  isGenerating || 
+                  isUploadingPdf || 
+                  !proofPdfFile || 
+                  !clientEmail
+                }
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                {isUploadingPdf ? 'Uploading PDF...' : isGenerating ? 'Generating Link...' : 'Generate Proof Link'}
+              </Button>
+            </>
           ) : (
             <>
+              {/* Generated Link Display */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Proof Link (Email Sent)</label>
+                <Label className="text-sm font-medium text-green-700">
+                  ✅ Proof Link Generated (Email Sent)
+                </Label>
                 <div className="flex gap-2">
                   <Input 
                     value={generatedProofLink}
@@ -358,6 +515,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
                 </div>
               </div>
               
+              {/* Mark as Emailed Button */}
               <Button 
                 onClick={handleProofEmailed}
                 disabled={isLoading || isProcessing}

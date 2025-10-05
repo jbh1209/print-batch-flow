@@ -109,10 +109,10 @@ serve(async (req) => {
         console.log('✅ Stage instance status updated to awaiting_approval');
       }
 
-      // Use the current request URL to determine the correct domain
-      const requestUrl = new URL(req.url);
-      const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
-      const proofUrl = `${baseUrl}/proof/${token}`;
+      // Generate proof URL using production domain
+      const PRODUCTION_DOMAIN = 'https://printstream.impressweb.co.za';
+      const proofUrl = `${PRODUCTION_DOMAIN}/proof/${token}`;
+      console.log('🔗 Proof URL generated:', proofUrl);
       
       // Get job details for email
       const { data: jobDetails } = await supabase
