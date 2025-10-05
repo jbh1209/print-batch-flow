@@ -122,6 +122,32 @@ serve(async (req) => {
       );
     }
 
+    // NEW ENDPOINT: Get schedule estimate
+    if (url.pathname.endsWith('/get-schedule-estimate')) {
+      const { jobId } = await req.json();
+      
+      // Query last stage's scheduled_end_at
+      const { data: lastStage, error: stageError } = await supabase
+        .from('job_stage_instances')
+        .select('scheduled_end_at')
+        .eq('job_id', jobId)
+        .order('stage_order', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (stageError || !lastStage?.scheduled_end_at) {
+        return new Response(
+          JSON.stringify({ error: 'Unable to calculate estimate' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ estimatedCompletion: lastStage.scheduled_end_at }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'submit-approval') {
       // Handle client approval/changes request
       const { token, response, notes } = await req.json();
@@ -193,6 +219,27 @@ serve(async (req) => {
         } else {
           console.log('✅ Job appended to production schedule');
         }
+
+        // Query estimated completion date
+        const { data: lastStage } = await supabase
+          .from('job_stage_instances')
+          .select('scheduled_end_at')
+          .eq('job_id', proofLink.job_id)
+          .order('stage_order', { ascending: false })
+          .limit(1)
+          .single();
+
+        const estimatedCompletion = lastStage?.scheduled_end_at || null;
+
+        // Update proof_links with estimate
+        await supabase
+          .from('proof_links')
+          .update({ 
+            estimated_completion_date: estimatedCompletion,
+            client_ip_address: req.headers.get('x-forwarded-for'),
+            client_user_agent: req.headers.get('user-agent')
+          })
+          .eq('id', proofLink.id);
       } else if (response === 'changes_needed') {
         console.log('🔄 Client requested changes - sending back to DTP');
         
@@ -236,7 +283,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: response === 'approved' ? 'Approved and moved to printing' : 'Sent back to DTP for changes'
+          message: response === 'approved' ? 'Proof approved and job scheduled successfully' : 'Sent back to DTP for changes',
+          estimatedCompletion: response === 'approved' ? estimatedCompletion : null
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

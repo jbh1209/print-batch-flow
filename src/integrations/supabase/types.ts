@@ -1954,46 +1954,58 @@ export type Database = {
       }
       proof_links: {
         Row: {
+          client_ip_address: string | null
           client_notes: string | null
           client_response: string | null
+          client_user_agent: string | null
           created_at: string
           created_by: string | null
+          estimated_completion_date: string | null
           expires_at: string
           id: string
           is_used: boolean
           job_id: string
           job_table_name: string
           responded_at: string | null
+          scheduling_results: Json | null
           stage_instance_id: string
           token: string
           updated_at: string
         }
         Insert: {
+          client_ip_address?: string | null
           client_notes?: string | null
           client_response?: string | null
+          client_user_agent?: string | null
           created_at?: string
           created_by?: string | null
+          estimated_completion_date?: string | null
           expires_at: string
           id?: string
           is_used?: boolean
           job_id: string
           job_table_name?: string
           responded_at?: string | null
+          scheduling_results?: Json | null
           stage_instance_id: string
           token: string
           updated_at?: string
         }
         Update: {
+          client_ip_address?: string | null
           client_notes?: string | null
           client_response?: string | null
+          client_user_agent?: string | null
           created_at?: string
           created_by?: string | null
+          estimated_completion_date?: string | null
           expires_at?: string
           id?: string
           is_used?: boolean
           job_id?: string
           job_table_name?: string
           responded_at?: string | null
+          scheduling_results?: Json | null
           stage_instance_id?: string
           token?: string
           updated_at?: string

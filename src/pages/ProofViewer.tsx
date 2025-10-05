@@ -1,87 +1,81 @@
-import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, FileText, Clock, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import PdfViewer from "@/components/pdf/PdfViewer";
+import { Loader2, CheckCircle, AlertCircle, Download } from "lucide-react";
+import { toast } from "sonner";
 
 const ProofViewer = () => {
-  const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token");
+  
   const [proofData, setProofData] = useState<any>(null);
   const [jobData, setJobData] = useState<any>(null);
-  const [pdfUrl, setPdfUrl] = useState<string>("");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
+  const [approvalConfirmed, setApprovalConfirmed] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [estimatedCompletion, setEstimatedCompletion] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    const loadProofData = async () => {
-      if (!token) {
-        setError("Invalid proof link");
-        setLoading(false);
-        return;
-      }
+    if (!token) {
+      setError("Invalid proof link");
+      setLoading(false);
+      return;
+    }
 
+    const loadProofData = async () => {
       try {
-        // Get proof link data
         const { data: proofLink, error: proofError } = await supabase
-          .from('proof_links')
-          .select(`
-            *,
-            job_stage_instances(
-              *,
-              production_stage:production_stages(name, color)
-            )
-          `)
-          .eq('token', token)
-          .eq('is_used', false)
-          .gte('expires_at', new Date().toISOString())
+          .from("proof_links")
+          .select("*")
+          .eq("token", token)
           .single();
 
         if (proofError || !proofLink) {
-          setError("This proof link is invalid or has expired");
+          setError("Proof link not found or expired");
           setLoading(false);
           return;
+        }
+
+        if (proofLink.expires_at && new Date(proofLink.expires_at) < new Date()) {
+          setError("This proof link has expired");
+          setLoading(false);
+          return;
+        }
+
+        if (proofLink.client_response) {
+          setSubmitted(true);
         }
 
         setProofData(proofLink);
 
-        // Get job data from the appropriate table
-        let job = null;
-        const tableName = proofLink.job_table_name;
+        const { data: stage } = await supabase
+          .from("job_stage_instances")
+          .select(`
+            *,
+            production_jobs(wo_no, contact, due_date)
+          `)
+          .eq("id", proofLink.stage_instance_id)
+          .single();
 
-        if (tableName === 'production_jobs') {
-          const { data, error } = await supabase
-            .from('production_jobs')
-            .select('*')
-            .eq('id', proofLink.job_id)
-            .single();
-          job = data;
-        }
-
-        if (!job) {
-          setError("Unable to load job details");
-          setLoading(false);
-          return;
-        }
-
-        setJobData(job);
-
-        // Check for proof PDF URL from stage instance first, then fallback to job PDF
-        const proofPdfUrl = proofLink.job_stage_instances?.proof_pdf_url;
-        
-        if (proofPdfUrl) {
-          setPdfUrl(proofPdfUrl);
+        if (stage) {
+          setJobData(stage);
+          setPdfUrl(stage.proof_pdf_url);
         }
 
         setLoading(false);
       } catch (err) {
-        console.error('Error loading proof data:', err);
-        setError("Failed to load proof details");
+        console.error("Error loading proof:", err);
+        setError("Failed to load proof");
         setLoading(false);
       }
     };
@@ -89,217 +83,269 @@ const ProofViewer = () => {
     loadProofData();
   }, [token]);
 
-  const handleSubmitResponse = async (response: 'approved' | 'changes_needed') => {
-    if (!token) return;
+  const handleSubmitResponse = async (response: "approved" | "changes_needed") => {
+    if (response === "approved" && !approvalConfirmed) {
+      toast.error("Please confirm you understand the approval terms");
+      return;
+    }
+
+    if (response === "changes_needed" && !notes.trim()) {
+      toast.error("Please describe the changes needed");
+      return;
+    }
 
     setIsSubmitting(true);
+    if (response === "approved") {
+      setIsScheduling(true);
+    }
+
     try {
-      // Use the current domain for the edge function call
-      const { data, error } = await supabase.functions.invoke('handle-proof-approval/submit-approval', {
-        body: {
-          token,
-          response,
-          notes: notes.trim() || null
-        }
+      const res = await supabase.functions.invoke("handle-proof-approval/submit-approval", {
+        body: { token, response, notes: notes.trim() || null }
       });
 
-      if (error) {
-        console.error('Edge function error:', error);
-        const errorMsg = error.message || 'Failed to submit your response';
-        setError(errorMsg);
-        setIsSubmitting(false);
-        return;
-      }
+      if (res.error) throw res.error;
 
-      setSubmitted(true);
+      if (response === "approved" && res.data?.estimatedCompletion) {
+        setEstimatedCompletion(res.data.estimatedCompletion);
+        setShowSuccess(true);
+      } else {
+        toast.success("Your feedback has been submitted successfully");
+        setSubmitted(true);
+      }
     } catch (err: any) {
-      console.error('Error submitting response:', err);
-      const errorMsg = err?.message || "Failed to submit your response. Please try again.";
-      setError(errorMsg);
+      console.error("Error submitting response:", err);
+      toast.error(err.message || "Failed to submit response");
     } finally {
       setIsSubmitting(false);
+      setIsScheduling(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-b-transparent border-blue-600 rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading proof details...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle className="flex items-center text-red-600">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Unable to Load Proof
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">{error}</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
+          <h1 className="text-2xl font-bold text-gray-900">Unable to Load Proof</h1>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (showSuccess && estimatedCompletion) {
+    const completionDate = new Date(estimatedCompletion);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center space-y-6 max-w-2xl bg-white p-8 rounded-lg shadow-lg">
+          <CheckCircle className="h-20 w-20 text-green-500 mx-auto" />
+          <h1 className="text-3xl font-bold text-gray-900">Order Approved & Scheduled!</h1>
+          <p className="text-lg text-gray-600">Your order has been added to our production schedule</p>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 space-y-2">
+            <p className="text-sm font-medium text-blue-900">📅 Estimated Completion</p>
+            <p className="text-2xl font-bold text-blue-900">
+              {completionDate.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+            <p className="text-lg text-blue-700">
+              {completionDate.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </p>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left">
+            <p className="text-sm text-amber-900">
+              ⚠️ <strong>Disclaimer:</strong> This estimate is based on current production capacity 
+              and assumes no equipment downtime, material delays, or unforeseen circumstances. 
+              While we strive for accuracy, actual completion may vary by ±1 business day.
+            </p>
+          </div>
+
+          <p className="text-sm text-gray-500">
+            📧 You'll receive email updates as production progresses.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="max-w-md mx-auto text-center">
-          <CardHeader className="pb-4">
-            <div className="mb-6">
-              <img 
-                src="https://i.imgur.com/YourLogoHere.png" 
-                alt="IMPRESS" 
-                className="h-12 mx-auto"
-              />
-            </div>
-            <CardTitle className="flex items-center justify-center text-green-600 text-lg">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              Thank You!
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">
-              Your feedback has been submitted successfully. Our team will review your response and get back to you soon.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center space-y-4 max-w-md bg-white p-8 rounded-lg shadow-lg">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+          <h1 className="text-2xl font-bold text-gray-900">Response Submitted</h1>
+          <p className="text-gray-600">Thank you for your feedback. We'll be in touch soon.</p>
+        </div>
       </div>
     );
   }
 
-  const expiresAt = new Date(proofData.expires_at);
-  const isExpiring = expiresAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
-
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 py-6">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <img 
-            src="https://i.imgur.com/YourLogoHere.png" 
-            alt="IMPRESS" 
-            className="h-12 mx-auto mb-4"
-          />
-          <h1 className="text-2xl font-bold text-gray-900">Proof Review</h1>
-          <p className="text-gray-600 mt-2">Please review your proof and provide feedback below</p>
+  if (isScheduling) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center space-y-6 max-w-md bg-white p-8 rounded-lg shadow-lg">
+          <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
+          <h2 className="text-2xl font-bold text-gray-900">⏳ Scheduling Your Order...</h2>
+          <div className="space-y-3 text-left">
+            <p className="flex items-center gap-2 text-gray-700">
+              <CheckCircle className="h-5 w-5 text-green-500" /> Mark proof as approved
+            </p>
+            <p className="flex items-center gap-2 text-gray-700">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-500" /> Calculate production timeline
+            </p>
+            <p className="flex items-center gap-2 text-gray-500">
+              <div className="h-5 w-5" /> Reserve equipment slots
+            </p>
+            <p className="flex items-center gap-2 text-gray-500">
+              <div className="h-5 w-5" /> Update delivery estimate
+            </p>
+          </div>
+          <p className="text-sm text-gray-500">This usually takes 5-10 seconds</p>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Job Details */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center justify-between">
-              <div className="flex items-center">
-                <FileText className="h-5 w-5 mr-2 text-blue-600" />
-                Job #{jobData?.job_number || jobData?.wo_no || 'N/A'}
-              </div>
-              <div className="flex items-center text-sm text-gray-500">
-                <Clock className="h-4 w-4 mr-1" />
-                Expires: {expiresAt.toLocaleDateString()}
-                {isExpiring && (
-                  <span className="ml-2 text-amber-600 font-medium">(Soon!)</span>
-                )}
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-700">Customer:</span>
-                <span className="ml-2">{jobData?.customer || 'N/A'}</span>
-              </div>
-              {jobData?.due_date && (
-                <div>
-                  <span className="font-medium text-gray-700">Due Date:</span>
-                  <span className="ml-2">{new Date(jobData.due_date).toLocaleDateString()}</span>
-                </div>
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-5xl mx-auto px-4 space-y-6">
+        {/* Hero Section */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Review Your Proof</h1>
+              <p className="text-gray-600">Job: {jobData?.production_jobs?.wo_no}</p>
+              {jobData?.production_jobs?.contact && (
+                <p className="text-gray-600">For: {jobData.production_jobs.contact}</p>
               )}
             </div>
-          </CardContent>
-        </Card>
+            <div className="px-4 py-2 bg-amber-100 text-amber-900 rounded-full font-medium">
+              Awaiting Your Approval
+            </div>
+          </div>
+          {proofData?.expires_at && (
+            <p className="text-sm text-gray-500">
+              ⏰ This proof link expires in {Math.ceil((new Date(proofData.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days
+            </p>
+          )}
+        </div>
 
         {/* PDF Viewer */}
-        {pdfUrl && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Your Proof</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
-                <iframe
-                  src={pdfUrl}
-                  className="w-full h-96"
-                  title="Proof Document"
-                />
-              </div>
-              <p className="text-sm text-gray-600 mt-3 text-center">
-                Having trouble viewing? <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Open in new tab</a>
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Feedback Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Your Feedback</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Comments (optional)
-              </label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Please add any comments or specific change requests..."
-                rows={4}
-                className="resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Proof Document</h2>
+            {pdfUrl && (
               <Button
-                onClick={() => handleSubmitResponse('approved')}
-                disabled={isSubmitting}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
-                size="lg"
-              >
-                <CheckCircle className="h-5 w-5 mr-2" />
-                {isSubmitting ? 'Submitting...' : 'Approve Proof'}
-              </Button>
-              
-              <Button
-                onClick={() => handleSubmitResponse('changes_needed')}
-                disabled={isSubmitting}
                 variant="outline"
-                className="w-full border-red-300 text-red-700 hover:bg-red-50 py-3 text-base font-medium"
-                size="lg"
+                size="sm"
+                onClick={() => window.open(pdfUrl, '_blank')}
               >
-                <XCircle className="h-5 w-5 mr-2" />
-                {isSubmitting ? 'Submitting...' : 'Request Changes'}
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
               </Button>
-            </div>
+            )}
+          </div>
+          <PdfViewer url={pdfUrl} className="w-full h-[600px]" />
+        </div>
 
-            <Alert>
-              <AlertDescription className="text-sm">
-                <strong>Approve:</strong> The job will move forward to printing.<br />
-                <strong>Request Changes:</strong> The job will be sent back to our design team for revisions.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
+        {/* Decision Interface */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+          <h2 className="text-xl font-semibold text-gray-900">Your Decision</h2>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <Button
+              size="lg"
+              className="h-auto py-6 flex flex-col gap-2 bg-green-600 hover:bg-green-700"
+              onClick={() => {
+                if (!approvalConfirmed) {
+                  toast.error("Please confirm the approval terms below first");
+                  return;
+                }
+                handleSubmitResponse("approved");
+              }}
+              disabled={isSubmitting}
+            >
+              <CheckCircle className="h-8 w-8" />
+              <span className="text-lg font-semibold">Approve & Schedule for Production</span>
+            </Button>
+
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-auto py-6 flex flex-col gap-2 border-amber-300 hover:bg-amber-50"
+              onClick={() => handleSubmitResponse("changes_needed")}
+              disabled={isSubmitting || !notes.trim()}
+            >
+              <AlertCircle className="h-8 w-8 text-amber-600" />
+              <span className="text-lg font-semibold text-amber-900">Request Changes</span>
+            </Button>
+          </div>
+
+          {/* Approval Confirmation */}
+          <div className="border border-red-200 bg-red-50 rounded-lg p-4 space-y-3">
+            <p className="font-semibold text-red-900">⚠️ IMPORTANT: Final Approval Confirmation</p>
+            <p className="text-sm text-red-800">By approving this proof, you confirm that:</p>
+            <ul className="text-sm text-red-800 space-y-1 ml-4">
+              <li>• All details are correct and final</li>
+              <li>• No further changes can be made</li>
+              <li>• Your order will be scheduled for immediate production</li>
+              <li>• The estimated completion date is binding</li>
+            </ul>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox
+                id="approval-confirm"
+                checked={approvalConfirmed}
+                onCheckedChange={(checked) => setApprovalConfirmed(checked as boolean)}
+              />
+              <label
+                htmlFor="approval-confirm"
+                className="text-sm font-medium text-red-900 cursor-pointer"
+              >
+                I understand and approve this proof for production
+              </label>
+            </div>
+          </div>
+
+          {/* Changes Text Area */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Request Changes (describe what needs to be changed)
+            </label>
+            <Textarea
+              placeholder="Please describe the changes needed in detail..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+              maxLength={1000}
+              className="resize-none"
+            />
+            <p className="text-xs text-gray-500">
+              {notes.length}/1000 characters
+            </p>
+          </div>
+        </div>
+
+        {/* Support Info */}
+        <div className="text-center text-sm text-gray-500">
+          <p>Having trouble viewing? Contact us for support</p>
+        </div>
       </div>
     </div>
   );

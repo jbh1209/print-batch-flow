@@ -36,7 +36,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
 
   const { selectedFile, handleFileChange, fileInfo } = useFileUpload({
     acceptedTypes: ["application/pdf"],
-    maxSizeInMB: 50
+    maxSizeInMB: 10
   });
 
   const uploadProofPdf = async (file: File): Promise<string | null> => {
