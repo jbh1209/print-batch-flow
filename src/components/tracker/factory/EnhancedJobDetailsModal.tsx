@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { PrintSpecsBadge } from "./PrintSpecsBadge";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
+import { SubTaskList } from "../common/SubTaskList";
 import { supabase } from "@/integrations/supabase/client";
 import StageHoldDialog from "./StageHoldDialog";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
@@ -318,12 +319,35 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="scanning">Overview & Scanning</TabsTrigger>
+            <TabsTrigger value="operations">Operations</TabsTrigger>
             <TabsTrigger value="workflow">Workflow</TabsTrigger>
             <TabsTrigger value="notes">Notes & Issues</TabsTrigger>
             <TabsTrigger value="details">Job Details</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="operations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Stage Operations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SubTaskList
+                  stageInstanceId={job.id}
+                  mode="interactive"
+                  showActions={true}
+                  stageStatus={job.status}
+                  onSubTaskComplete={() => {
+                    toast.success('Operations updated');
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="scanning" className="space-y-6">
             {/* Mandatory Scanning Section */}

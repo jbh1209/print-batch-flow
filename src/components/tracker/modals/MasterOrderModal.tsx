@@ -31,6 +31,7 @@ import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
 import { SubSpecificationBadge } from "../common/SubSpecificationBadge";
 import { RealTimeStageTimingDisplay } from "@/components/tracker/RealTimeStageTimingDisplay";
 import { EnhancedDueDateDisplay } from "../production/EnhancedDueDateDisplay";
+import { SubTaskList } from "../common/SubTaskList";
 
 interface MasterOrderModalProps {
   isOpen: boolean;
@@ -391,15 +392,21 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                <div className="flex-1">
                                  <div className="flex items-center gap-2 mb-1">
                                    <h4 className="font-medium">{stage.production_stage.name}</h4>
-                                   <SubSpecificationBadge 
-                                      jobId={job.job_id}
-                                      stageId={stage.id}
-                                      compact={true}
-                                      className="ml-2"
-                                      partAssignment={stage.part_assignment}
-                                      stageNotes={stage.notes}
-                                    />
-                                 </div>
+                                    <SubSpecificationBadge 
+                                       jobId={job.job_id}
+                                       stageId={stage.id}
+                                       compact={true}
+                                       className="ml-2"
+                                       partAssignment={stage.part_assignment}
+                                       stageNotes={stage.notes}
+                                     />
+                                     <SubTaskList
+                                       stageInstanceId={stage.id}
+                                       mode="compact"
+                                       stageStatus={stage.status}
+                                       className="ml-2"
+                                     />
+                                  </div>
                                  {stage.part_name && (
                                    <p className="text-sm text-gray-600">Part: {stage.part_name}</p>
                                  )}
@@ -426,9 +433,16 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                             </div>
                           </div>
 
-                          {/* Stage Details */}
-                          {selectedStageId === stage.id && (
-                            <div className="mt-4 pt-4 border-t space-y-4">
+                           {/* Stage Details */}
+                           {selectedStageId === stage.id && (
+                             <div className="mt-4 pt-4 border-t space-y-4">
+                               {/* Sub-Tasks Section */}
+                               <SubTaskList
+                                 stageInstanceId={stage.id}
+                                 mode="expanded"
+                                 showActions={false}
+                                 stageStatus={stage.status}
+                               />
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 {stage.started_at && (
                                   <div>

@@ -14,8 +14,10 @@ import {
   MoreHorizontal,
   AlertTriangle,
   Timer,
-  Info
+  Info,
+  Wrench
 } from "lucide-react";
+import { SubTaskList } from "../common/SubTaskList";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
@@ -248,9 +250,16 @@ export const OperatorJobListView: React.FC<OperatorJobListViewProps> = ({
                       )}
                       
                       <div className={cn("font-medium text-gray-900", multiSelectMode ? "col-span-2" : "col-span-2")}>
-                        <span className="text-base font-bold">{job.wo_no}</span>
-                        {isOverdue && <AlertTriangle className="inline h-4 w-4 text-red-500 ml-1" />}
-                        {isUrgent && !isOverdue && <Clock className="inline h-4 w-4 text-orange-500 ml-1" />}
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-bold">{job.wo_no}</span>
+                          <SubTaskList
+                            stageInstanceId={job.id}
+                            mode="compact"
+                            stageStatus={job.status}
+                          />
+                          {isOverdue && <AlertTriangle className="inline h-4 w-4 text-red-500 ml-1" />}
+                          {isUrgent && !isOverdue && <Clock className="inline h-4 w-4 text-orange-500 ml-1" />}
+                        </div>
                       </div>
                       
                       <div className="col-span-2 text-gray-700 truncate" title={job.customer}>
