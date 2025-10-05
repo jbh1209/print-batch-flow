@@ -81,23 +81,25 @@ export const initializeJobWorkflowFromMappings = async (
     const consolidatedStages = Array.from(stageGroups.entries()).map(([stageId, mappings]) => {
       const stageOrder = stageOrderMap.get(stageId) || 999;
       
-      // Create specifications array for this stage
+      // Create specifications array for this stage - PRESERVE ALL MAPPINGS, even those without spec IDs
       const specifications = mappings.map(m => ({
         specification_id: m.mappedStageSpecId || null,
         quantity: m.qty || null,
         paper_specification: m.paperSpecification || null
-      })).filter(spec => spec.specification_id); // Only include specs with valid IDs
+      }));
+      // DO NOT filter out null spec IDs - they are valid manual entries
       
-      logger.addDebugInfo(`📦 Consolidating stage ${stageId} with ${specifications.length} specification(s)`);
+      logger.addDebugInfo(`📦 Consolidating stage ${stageId} with ${specifications.length} specification(s) from ${mappings.length} mappings`);
+      
+      // Log detailed spec info for debugging
+      specifications.forEach((spec, idx) => {
+        logger.addDebugInfo(`   Spec ${idx + 1}: ${spec.specification_id ? `ID=${spec.specification_id}` : 'NO_ID'}, qty=${spec.quantity}`);
+      });
       
       return {
         stage_id: stageId,
         stage_order: stageOrder,
-        specifications: specifications.length > 0 ? specifications : [{ 
-          specification_id: null,
-          quantity: mappings[0].qty || null,
-          paper_specification: mappings[0].paperSpecification || null
-        }]
+        specifications: specifications // Use ALL specifications as-is
       };
     });
 
