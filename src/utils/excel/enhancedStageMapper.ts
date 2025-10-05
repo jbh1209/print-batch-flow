@@ -352,20 +352,18 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find paper mapping in existing database
+   * Find paper mapping in existing database - EXACT MATCHING ONLY
    */
   private findPaperMapping(searchText: string): string | null {
-    // Check paper-specific mappings
-    for (const [mappedText, mapping] of this.existingMappings.entries()) {
-      if (mapping.mapping_type === 'paper_specification' || 
-          mapping.paper_type_specification_id || 
-          mapping.paper_weight_specification_id) {
-        if (searchText.includes(mappedText) || mappedText.includes(searchText)) {
-          // Get the display name from mapped specifications
-          return this.getPaperSpecificationDisplay(mapping);
-        }
-      }
+    const normalizedSearch = this.normalizeText(searchText);
+    const mapping = this.existingMappings.get(normalizedSearch);
+    
+    if (mapping && (mapping.mapping_type === 'paper_specification' || 
+        mapping.paper_type_specification_id || 
+        mapping.paper_weight_specification_id)) {
+      return this.getPaperSpecificationDisplay(mapping);
     }
+    
     return null;
   }
 

@@ -139,8 +139,18 @@ export const MappingLibrary: React.FC = () => {
         : 0;
       
       const productionStageCount = data?.filter(m => m.mapping_type === 'production_stage').length || 0;
-      const paperSpecCount = data?.filter(m => m.mapping_type === 'paper_specification').length || 0;
+      const paperSpecCount = data?.filter(m => 
+        m.paper_type_specification_id || m.paper_weight_specification_id
+      ).length || 0;
       const deliverySpecCount = data?.filter(m => m.mapping_type === 'delivery_specification').length || 0;
+      
+      console.log('📊 Mapping Stats:', { 
+        total: totalMappings, 
+        verified: verifiedMappings,
+        productionStages: productionStageCount,
+        paperSpecs: paperSpecCount,
+        deliverySpecs: deliverySpecCount
+      });
 
       setStats({
         total: totalMappings,
