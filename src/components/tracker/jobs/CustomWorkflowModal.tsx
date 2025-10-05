@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { StageInstanceEditModal } from "./StageInstanceEditModal";
 import { useSequentialScheduler } from "@/hooks/useSequentialScheduler";
 import { useScheduleInvalidation } from "@/hooks/tracker/useScheduleInvalidation";
+import { SubTaskList } from "../common/SubTaskList";
 
 interface CustomWorkflowModalProps {
   isOpen: boolean;
@@ -32,6 +33,8 @@ interface SelectedStage {
   estimatedDurationMinutes?: number | null;
   partAssignment?: 'cover' | 'text' | 'both' | null;
   stageSpecificationId?: string | null;
+  // Stage instance ID for sub-task tracking
+  stageInstanceId?: string | null;
 }
 
 export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
@@ -152,7 +155,8 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           quantity: (stage as any).quantity || null,
           estimatedDurationMinutes: (stage as any).estimated_duration_minutes || null,
           partAssignment: (stage as any).part_assignment || null,
-          stageSpecificationId: (stage as any).stage_specification_id || null
+          stageSpecificationId: (stage as any).stage_specification_id || null,
+          stageInstanceId: stage.id // Store stage instance ID for sub-task queries
         }));
         
         setSelectedStages(mappedStages);
@@ -859,6 +863,15 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
                                   >
                                     {stage.name}
                                   </Badge>
+                                  
+                                  {/* Sub-tasks display */}
+                                  {stage.stageInstanceId && (
+                                    <SubTaskList
+                                      stageInstanceId={stage.stageInstanceId}
+                                      mode="compact"
+                                      showActions={false}
+                                    />
+                                  )}
                                   
                                   {/* Configuration status indicators */}
                                   <div className="flex items-center gap-1">

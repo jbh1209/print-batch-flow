@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, Clock, Package, Target } from "lucide-react";
+import { Settings, Clock, Package, Target, Wrench } from "lucide-react";
 import { useStageSpecifications } from "@/hooks/tracker/useStageSpecifications";
 import { toast } from "sonner";
+import { SubTaskList } from "../common/SubTaskList";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StageInstanceData {
   stageId: string;
@@ -41,12 +43,49 @@ export const StageInstanceEditModal: React.FC<StageInstanceEditModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<StageInstanceData>(stageData);
   const [isSaving, setIsSaving] = useState(false);
+  const [stageInstanceId, setStageInstanceId] = useState<string | null>(null);
+  const [hasSubTasks, setHasSubTasks] = useState(false);
   
   // Get stage specifications for this production stage
   const { 
     specifications, 
     isLoading: isLoadingSpecs 
   } = useStageSpecifications(stageData.stageId);
+
+  // Fetch stage instance ID to check for sub-tasks
+  useEffect(() => {
+    const fetchStageInstance = async () => {
+      if (!isOpen || !jobData?.id || !stageData?.stageId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('job_stage_instances')
+          .select('id')
+          .eq('job_id', jobData.id)
+          .eq('production_stage_id', stageData.stageId)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching stage instance:', error);
+          return;
+        }
+        
+        if (data) {
+          setStageInstanceId(data.id);
+          
+          // Check if sub-tasks exist
+          const { data: subTasks } = await supabase
+            .rpc('get_stage_sub_tasks', { p_stage_instance_id: data.id });
+          
+          setHasSubTasks(subTasks && subTasks.length > 0);
+        }
+      } catch (err) {
+        console.error('Error in fetchStageInstance:', err);
+      }
+    };
+    
+    fetchStageInstance();
+  }, [isOpen, jobData?.id, stageData?.stageId]);
 
   // Reset form when modal opens or stage data changes
   useEffect(() => {
@@ -229,6 +268,30 @@ export const StageInstanceEditModal: React.FC<StageInstanceEditModalProps> = ({
               </div>
             </CardContent>
           </Card>
+
+          {/* Stage Operations (Sub-Tasks) */}
+          {stageInstanceId && hasSubTasks && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Wrench className="h-4 w-4" />
+                  Stage Operations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    This stage has multiple operations configured:
+                  </p>
+                  <SubTaskList
+                    stageInstanceId={stageInstanceId}
+                    mode="read-only"
+                    showActions={false}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Duration & Specifications */}
           <Card>
