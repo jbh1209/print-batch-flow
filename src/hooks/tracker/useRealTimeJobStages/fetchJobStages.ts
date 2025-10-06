@@ -80,7 +80,7 @@ export async function fetchJobStagesFromSupabase(
 
         return {
           ...stage,
-          status: stage.status as "pending" | "active" | "completed" | "skipped",
+          status: stage.status as "pending" | "active" | "completed" | "skipped" | "on_hold",
           production_stage: stage.production_stage,
           production_job: {
             id: job.job_id || job.id,

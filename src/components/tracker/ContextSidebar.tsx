@@ -150,8 +150,16 @@ export const ContextSidebar = ({
     </Card>;
   const renderProductionSidebar = () => {
     if (!productionSidebarData) return null;
-    return <ProductionSidebar jobs={[]} // This will be passed from the actual production page
-    consolidatedStages={productionSidebarData.consolidatedStages} selectedStageId={selectedStageId} selectedStageName={null} onStageSelect={onStageSelect || (() => {})} />;
+    return <ProductionSidebar 
+      jobs={[]} 
+      jobStages={[]}
+      consolidatedStages={productionSidebarData.consolidatedStages} 
+      selectedStageId={selectedStageId} 
+      selectedStageName={null} 
+      stageStatusFilter="active"
+      onStageSelect={onStageSelect || (() => {})}
+      onStatusFilterChange={() => {}}
+    />;
   };
   const renderKanbanSidebar = () => <Card className="compact-spacing">
       <CardHeader className="card-header-compact">

@@ -12,81 +12,52 @@ import {
   Play
 } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import type { JobStageWithDetails } from "@/hooks/tracker/useRealTimeJobStages/types";
 
 interface ProductionSidebarProps {
   jobs: AccessibleJob[];
+  jobStages: JobStageWithDetails[];
   consolidatedStages: any[];
   selectedStageId?: string | null;
   selectedStageName?: string | null;
+  stageStatusFilter: 'active' | 'pending' | 'on_hold';
   onStageSelect: (stageId: string | null, stageName: string | null) => void;
+  onStatusFilterChange: (status: 'active' | 'pending' | 'on_hold') => void;
 }
 
 export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({ 
   jobs,
+  jobStages,
   consolidatedStages,
   selectedStageId,
   selectedStageName,
-  onStageSelect
+  stageStatusFilter,
+  onStageSelect,
+  onStatusFilterChange
 }) => {
 
-  const getJobCountForStage = (stageName: string) => {
-    return jobs.filter(job => {
-      const currentStage = job.current_stage_name || job.display_stage_name;
-      
-      // Check if job's current stage matches
-      if (currentStage === stageName) {
-        return true;
-      }
-      
-      // Check if job has parallel stages that match
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        return job.parallel_stages.some(stage => stage.stage_name === stageName);
-      }
-      
-      return false;
-    }).length;
-  };
-
-  const getJobCountByStatus = (status: string) => {
-    return jobs.filter(job => {
-      const hasActiveStage = job.current_stage_status === 'active';
-      const hasPendingStages = job.current_stage_status === 'pending';
-      const allCompleted = job.workflow_progress === 100;
-      
-      switch (status) {
-        case 'completed': return allCompleted;
-        case 'in-progress': return hasActiveStage;
-        case 'pending': return hasPendingStages;
-        case 'overdue':
-          if (!job.due_date) return false;
-          const dueDate = new Date(job.due_date);
-          const today = new Date();
-          return dueDate < today && !allCompleted;
-        default: return false;
-      }
-    }).length;
+  const getJobCountForStage = (stageId: string) => {
+    // Count unique job IDs with this stage at the selected status
+    const uniqueJobs = new Set(
+      jobStages
+        .filter(stage => 
+          stage.production_stage_id === stageId && 
+          stage.status === stageStatusFilter
+        )
+        .map(stage => stage.job_id)
+    );
+    return uniqueJobs.size;
   };
 
   const handleStageClick = (stageId: string, stageName: string) => {
-    console.log('Sidebar stage clicked:', { stageId, stageName, selectedStageId, selectedStageName });
-    
     if (selectedStageId === stageId) {
-      // Clicking the same stage - deselect it
       onStageSelect(null, null);
     } else {
-      // Select the new stage
       onStageSelect(stageId, stageName);
     }
   };
 
   const handleAllJobsClick = () => {
-    console.log('All jobs clicked');
-    onStageSelect(null, null);
-  };
-
-  const handleStatusFilter = (status: string) => {
-    console.log('Status filter clicked:', status);
-    // For now, just show all jobs - could extend this later
     onStageSelect(null, null);
   };
 
@@ -113,7 +84,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
             </Badge>
           </Button>
           {consolidatedStages.map(stage => {
-            const jobCount = getJobCountForStage(stage.stage_name);
+            const jobCount = getJobCountForStage(stage.stage_id);
             const isSelected = selectedStageId === stage.stage_id;
             return (
               <Button 
@@ -139,32 +110,28 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
         </CardContent>
       </Card>
 
-      {/* Quick Status Filters */}
+      {/* Stage Status Filter */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            Status Overview
+            Stage Status
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
           {[
-            { id: 'completed', label: 'Completed', icon: CheckCircle, color: 'text-green-500' },
-            { id: 'in-progress', label: 'In Progress', icon: Play, color: 'text-blue-500' },
-            { id: 'pending', label: 'Pending', icon: Clock, color: 'text-yellow-500' },
-            { id: 'overdue', label: 'Overdue', icon: AlertCircle, color: 'text-red-500' }
+            { id: 'active' as const, label: 'Active', icon: Play, color: 'text-blue-500' },
+            { id: 'pending' as const, label: 'Pending', icon: Clock, color: 'text-yellow-500' },
+            { id: 'on_hold' as const, label: 'On Hold', icon: AlertCircle, color: 'text-orange-500' }
           ].map(status => (
             <Button 
               key={status.id}
-              variant="ghost" 
+              variant={stageStatusFilter === status.id ? "default" : "ghost"} 
               size="sm" 
               className="w-full justify-start text-xs h-8"
-              onClick={() => handleStatusFilter(status.id)}
+              onClick={() => onStatusFilterChange(status.id)}
             >
-              <status.icon className={`h-3 w-3 mr-2 ${status.color}`} />
+              <status.icon className={`h-3 w-3 mr-2 ${stageStatusFilter === status.id ? '' : status.color}`} />
               <span className="flex-1 text-left">{status.label}</span>
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {getJobCountByStatus(status.id)}
-              </Badge>
             </Button>
           ))}
         </CardContent>

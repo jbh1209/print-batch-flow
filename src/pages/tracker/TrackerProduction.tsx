@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -41,36 +42,36 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
+  // Get real-time stage data
+  const { jobStages, isLoading: stagesLoading } = useRealTimeJobStages(jobs);
+
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
+  const [stageStatusFilter, setStageStatusFilter] = useState<'active' | 'pending' | 'on_hold'>('active');
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Enhanced filtering to handle batch processing jobs and parallel stages
+  // Filter jobs based on actual job_stage_instances with selected status
   const filteredJobs = useMemo(() => {
-    if (!selectedStageName) {
+    if (!selectedStageId) {
       return jobs;
     }
 
-    return jobs.filter(job => {
-      // Special handling for batch processing
-      if (selectedStageName === 'In Batch Processing') {
-        return job.status === 'In Batch Processing';
-      }
-      
-      // Check if job should appear in this stage based on parallel stages
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        return job.parallel_stages.some(stage => stage.stage_name === selectedStageName);
-      }
-      
-      // Fallback to original logic for jobs without parallel stage data
-      const currentStage = job.current_stage_name || job.display_stage_name;
-      return currentStage === selectedStageName;
-    });
-  }, [jobs, selectedStageName]);
+    // Get unique job IDs that have this stage with the selected status
+    const jobIdsInStage = new Set(
+      jobStages
+        .filter(stage => 
+          stage.production_stage_id === selectedStageId && 
+          stage.status === stageStatusFilter
+        )
+        .map(stage => stage.job_id)
+    );
+
+    return jobs.filter(job => jobIdsInStage.has(job.id));
+  }, [jobs, jobStages, selectedStageId, stageStatusFilter]);
 
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
@@ -96,42 +97,24 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Enhanced stages to include batch processing and parallel stages
+  // Build consolidated stages from actual job_stage_instances
   const consolidatedStages = useMemo(() => {
     const stageMap = new Map();
     
-    jobs.forEach(job => {
-      // Add parallel stages from each job
-      if (job.parallel_stages && job.parallel_stages.length > 0) {
-        job.parallel_stages.forEach(stage => {
-          stageMap.set(stage.stage_id, {
-            stage_id: stage.stage_id,
-            stage_name: stage.stage_name,
-            stage_color: stage.stage_color || '#6B7280'
-          });
-        });
-      } else if (job.current_stage_id && job.current_stage_name) {
-        // Fallback for jobs without parallel stage data
-        stageMap.set(job.current_stage_id, {
-          stage_id: job.current_stage_id,
-          stage_name: job.current_stage_name,
-          stage_color: job.current_stage_color || '#6B7280'
+    jobStages.forEach(jobStage => {
+      if (!stageMap.has(jobStage.production_stage_id)) {
+        stageMap.set(jobStage.production_stage_id, {
+          stage_id: jobStage.production_stage_id,
+          stage_name: jobStage.production_stage.name,
+          stage_color: jobStage.production_stage.color || '#6B7280'
         });
       }
     });
     
-    // Add virtual batch processing stage if we have jobs in that status
-    const batchJobs = jobs.filter(job => job.status === 'In Batch Processing');
-    if (batchJobs.length > 0) {
-      stageMap.set('batch-processing', {
-        stage_id: 'batch-processing',
-        stage_name: 'In Batch Processing',
-        stage_color: '#F59E0B'
-      });
-    }
-    
-    return Array.from(stageMap.values());
-  }, [jobs]);
+    return Array.from(stageMap.values()).sort((a, b) => 
+      a.stage_name.localeCompare(b.stage_name)
+    );
+  }, [jobStages]);
 
   const handleStageSelect = (stageId: string | null, stageName: string | null) => {
     console.log('Stage selected:', { stageId, stageName });
@@ -245,10 +228,13 @@ const TrackerProduction = () => {
         <div className="w-64 border-r bg-white overflow-y-auto">
           <ProductionSidebar
             jobs={jobs}
+            jobStages={jobStages}
             consolidatedStages={consolidatedStages}
             selectedStageId={selectedStageId}
             selectedStageName={selectedStageName}
+            stageStatusFilter={stageStatusFilter}
             onStageSelect={handleStageSelect}
+            onStatusFilterChange={setStageStatusFilter}
           />
         </div>
 
@@ -277,7 +263,8 @@ const TrackerProduction = () => {
             <div className="h-full flex flex-col space-y-2">
               <TrackerErrorBoundary componentName="Production Stats">
                 <ProductionStats 
-                  jobs={filteredJobs}
+                  jobs={jobs}
+                  jobStages={jobStages}
                   jobsWithoutCategory={jobsWithoutCategory}
                 />
               </TrackerErrorBoundary>

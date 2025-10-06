@@ -1,15 +1,25 @@
 
 import React from "react";
+import type { JobStageWithDetails } from "@/hooks/tracker/useRealTimeJobStages/types";
 
 interface ProductionStatsProps {
   jobs: any[];
+  jobStages: JobStageWithDetails[];
   jobsWithoutCategory: any[];
 }
 
 export const ProductionStats: React.FC<ProductionStatsProps> = ({
   jobs,
+  jobStages,
   jobsWithoutCategory
 }) => {
+  // Count unique jobs with active stages
+  const activeJobsCount = new Set(
+    jobStages
+      .filter(stage => stage.status === 'active')
+      .map(stage => stage.job_id)
+  ).size;
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <div className="bg-white rounded-lg border p-3">
@@ -24,7 +34,7 @@ export const ProductionStats: React.FC<ProductionStatsProps> = ({
       </div>
       <div className="bg-white rounded-lg border p-3">
         <div className="text-2xl font-bold text-orange-600">
-          {jobs.filter(j => j.current_stage).length}
+          {activeJobsCount}
         </div>
         <div className="text-xs text-gray-600">In Progress</div>
       </div>
