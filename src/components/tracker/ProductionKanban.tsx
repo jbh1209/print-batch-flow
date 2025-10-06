@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { KanbanColumn } from "./KanbanColumn";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 
-const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+const STATUSES = ["Pre-Press", "Awaiting Approval", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
 export const ProductionKanban = () => {
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
@@ -37,6 +37,7 @@ export const ProductionKanban = () => {
   const getStatusColor = (status: string) => {
     const colors = {
       "Pre-Press": "bg-blue-100 text-blue-800",
+      "Awaiting Approval": "bg-amber-100 text-amber-800",
       "Printing": "bg-yellow-100 text-yellow-800",
       "Finishing": "bg-purple-100 text-purple-800", 
       "Packaging": "bg-orange-100 text-orange-800",
@@ -46,9 +47,9 @@ export const ProductionKanban = () => {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  // Filter jobs by status - now passing full AccessibleJob objects
+  // Filter jobs by stage name - now passing full AccessibleJob objects
   const getJobsByStatus = (status: string) => {
-    return jobs.filter(job => job.status === status);
+    return jobs.filter(job => job.current_stage_name === status);
   };
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
