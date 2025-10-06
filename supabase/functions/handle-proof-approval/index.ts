@@ -189,11 +189,263 @@ serve(async (req) => {
       );
     }
 
+    // NEW ENDPOINT: Resend proof email
+    if (action === 'resend-email') {
+      const { proofLinkId } = await req.json();
+      
+      console.log('📧 Resending proof email for:', proofLinkId);
+      
+      const { data: proofLink, error: linkError } = await supabase
+        .from('proof_links')
+        .select(`
+          *,
+          production_jobs!inner(wo_no, client_name, client_email)
+        `)
+        .eq('id', proofLinkId)
+        .single();
+      
+      if (linkError || !proofLink) {
+        return new Response(
+          JSON.stringify({ error: 'Proof link not found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+      
+      const PRODUCTION_DOMAIN = 'https://printstream.impressweb.co.za';
+      const proofUrl = `${PRODUCTION_DOMAIN}/proof/${proofLink.token}`;
+      const jobDetails = proofLink.production_jobs;
+      
+      if (jobDetails?.client_email) {
+        try {
+          await resend.emails.send({
+            from: 'proofing@impressweb.co.za',
+            to: [jobDetails.client_email],
+            subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
+            html: `
+              <h2>Reminder: Your proof is ready for review</h2>
+              <p>Hello ${jobDetails.client_name || 'valued client'},</p>
+              <p>This is a reminder that your proof for Work Order <strong>${jobDetails.wo_no}</strong> is awaiting your review.</p>
+              <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
+              <p>Or copy and paste this link into your browser:</p>
+              <p><a href="${proofUrl}">${proofUrl}</a></p>
+              <p>Thank you for your prompt attention!</p>
+            `,
+          });
+          
+          // Increment resend count
+          await supabase
+            .from('proof_links')
+            .update({ 
+              resend_count: (proofLink.resend_count || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', proofLinkId);
+          
+          console.log('✅ Proof email resent successfully');
+          return new Response(
+            JSON.stringify({ success: true, message: 'Email resent successfully' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (emailError) {
+          console.error('❌ Failed to resend email:', emailError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to resend email' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'No client email available' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    // NEW ENDPOINT: Regenerate proof link
+    if (action === 'regenerate-link') {
+      const { stageInstanceId } = await req.json();
+      
+      console.log('🔄 Regenerating proof link for:', stageInstanceId);
+      
+      // Invalidate old link
+      await supabase
+        .from('proof_links')
+        .update({ 
+          is_used: true,
+          invalidated_at: new Date().toISOString()
+        })
+        .eq('stage_instance_id', stageInstanceId)
+        .eq('is_used', false);
+      
+      // Generate new token
+      const token = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      const { data: stageInstance } = await supabase
+        .from('job_stage_instances')
+        .select('*, production_jobs!inner(wo_no, client_name, client_email)')
+        .eq('id', stageInstanceId)
+        .single();
+      
+      if (!stageInstance) {
+        return new Response(
+          JSON.stringify({ error: 'Stage instance not found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+      
+      // Create new proof link
+      const { data: newProofLink } = await supabase
+        .from('proof_links')
+        .insert({
+          job_id: stageInstance.job_id,
+          job_table_name: stageInstance.job_table_name,
+          stage_instance_id: stageInstanceId,
+          token,
+          expires_at: expiresAt.toISOString()
+        })
+        .select()
+        .single();
+      
+      const PRODUCTION_DOMAIN = 'https://printstream.impressweb.co.za';
+      const proofUrl = `${PRODUCTION_DOMAIN}/proof/${token}`;
+      const jobDetails = stageInstance.production_jobs;
+      
+      // Send new email
+      if (jobDetails?.client_email) {
+        await resend.emails.send({
+          from: 'proofing@impressweb.co.za',
+          to: [jobDetails.client_email],
+          subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
+          html: `
+            <h2>Your proof link has been updated</h2>
+            <p>Hello ${jobDetails.client_name || 'valued client'},</p>
+            <p>A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>.</p>
+            <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
+            <p>Or copy and paste this link into your browser:</p>
+            <p><a href="${proofUrl}">${proofUrl}</a></p>
+          `,
+        });
+      }
+      
+      console.log('✅ Proof link regenerated successfully');
+      return new Response(
+        JSON.stringify({ success: true, proofUrl, token }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // NEW ENDPOINT: Invalidate proof link
+    if (action === 'invalidate-link') {
+      const { token } = await req.json();
+      
+      console.log('🚫 Invalidating proof link:', token);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('proof_links')
+        .update({ 
+          is_used: true,
+          invalidated_at: new Date().toISOString(),
+          invalidated_by: user?.id || null
+        })
+        .eq('token', token);
+      
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to invalidate link' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+      
+      console.log('✅ Proof link invalidated successfully');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Link invalidated' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // NEW ENDPOINT: List all proof links (admin)
+    if (action === 'list-proof-links') {
+      const { status, startDate, endDate, searchTerm } = await req.json();
+      
+      console.log('📋 Fetching proof links with filters:', { status, startDate, endDate, searchTerm });
+      
+      let query = supabase
+        .from('proof_links')
+        .select(`
+          *,
+          production_jobs!inner(wo_no, client_name, client_email),
+          job_stage_instances!inner(
+            production_stage_id,
+            production_stages(name)
+          )
+        `)
+        .order('created_at', { ascending: false });
+      
+      // Filter by status
+      if (status === 'pending') {
+        query = query.eq('is_used', false).gte('expires_at', new Date().toISOString());
+      } else if (status === 'approved') {
+        query = query.eq('client_response', 'approved');
+      } else if (status === 'changes_requested') {
+        query = query.eq('client_response', 'changes_needed');
+      } else if (status === 'expired') {
+        query = query.eq('is_used', false).lt('expires_at', new Date().toISOString());
+      }
+      
+      // Filter by date range
+      if (startDate) {
+        query = query.gte('created_at', startDate);
+      }
+      if (endDate) {
+        query = query.lte('created_at', endDate);
+      }
+      
+      const { data: proofLinks, error } = await query;
+      
+      if (error) {
+        console.error('❌ Failed to fetch proof links:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch proof links' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+      
+      // Filter by search term if provided
+      let filteredLinks = proofLinks || [];
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        filteredLinks = filteredLinks.filter(link => 
+          link.production_jobs?.wo_no?.toLowerCase().includes(search) ||
+          link.production_jobs?.client_name?.toLowerCase().includes(search) ||
+          link.production_jobs?.client_email?.toLowerCase().includes(search)
+        );
+      }
+      
+      console.log(`✅ Found ${filteredLinks.length} proof links`);
+      return new Response(
+        JSON.stringify({ proofLinks: filteredLinks }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'submit-approval') {
       // Handle client approval/changes request
       const { token, response, notes } = await req.json();
       
       console.log('📝 Processing client response:', { token, response });
+
+      // Track that client viewed the link
+      await supabase
+        .from('proof_links')
+        .update({ 
+          viewed_at: new Date().toISOString()
+        })
+        .eq('token', token)
+        .is('viewed_at', null);
 
       // Verify token and get proof link
       const { data: proofLink, error: linkError } = await supabase

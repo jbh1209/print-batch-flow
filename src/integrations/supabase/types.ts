@@ -1963,14 +1963,18 @@ export type Database = {
           estimated_completion_date: string | null
           expires_at: string
           id: string
+          invalidated_at: string | null
+          invalidated_by: string | null
           is_used: boolean
           job_id: string
           job_table_name: string
+          resend_count: number | null
           responded_at: string | null
           scheduling_results: Json | null
           stage_instance_id: string
           token: string
           updated_at: string
+          viewed_at: string | null
         }
         Insert: {
           client_ip_address?: string | null
@@ -1982,14 +1986,18 @@ export type Database = {
           estimated_completion_date?: string | null
           expires_at: string
           id?: string
+          invalidated_at?: string | null
+          invalidated_by?: string | null
           is_used?: boolean
           job_id: string
           job_table_name?: string
+          resend_count?: number | null
           responded_at?: string | null
           scheduling_results?: Json | null
           stage_instance_id: string
           token: string
           updated_at?: string
+          viewed_at?: string | null
         }
         Update: {
           client_ip_address?: string | null
@@ -2001,14 +2009,18 @@ export type Database = {
           estimated_completion_date?: string | null
           expires_at?: string
           id?: string
+          invalidated_at?: string | null
+          invalidated_by?: string | null
           is_used?: boolean
           job_id?: string
           job_table_name?: string
+          resend_count?: number | null
           responded_at?: string | null
           scheduling_results?: Json | null
           stage_instance_id?: string
           token?: string
           updated_at?: string
+          viewed_at?: string | null
         }
         Relationships: [
           {

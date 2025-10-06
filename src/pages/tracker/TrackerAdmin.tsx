@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet } from "lucide-react";
+import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet, Mail } from "lucide-react";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
@@ -12,6 +12,7 @@ import { AdminStagePermissionsManager } from "@/components/tracker/admin/AdminSt
 import PublicHolidaysManagement from "@/components/tracker/admin/PublicHolidaysManagement";
 import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecificationsManagement";
 import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
+import { ProofLinkManagement } from "@/components/admin/ProofLinkManagement";
 import ExcelMapping from "@/pages/admin/ExcelMapping";
 import { PremiumUserManagement } from "@/components/users/PremiumUserManagement";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
@@ -29,7 +30,7 @@ export default function TrackerAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-11">
+        <TabsList className="grid w-full grid-cols-12">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Users
@@ -73,6 +74,10 @@ export default function TrackerAdmin() {
           <TabsTrigger value="printers" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             Printers
+          </TabsTrigger>
+          <TabsTrigger value="proof-links" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Proof Links
           </TabsTrigger>
         </TabsList>
 
@@ -120,6 +125,10 @@ export default function TrackerAdmin() {
 
         <TabsContent value="printers">
           <PrintersManagement />
+        </TabsContent>
+
+        <TabsContent value="proof-links">
+          <ProofLinkManagement />
         </TabsContent>
       </Tabs>
     </div>
