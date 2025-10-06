@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon, FileText } from "lucide-react";
+import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon, FileText, Clock } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
 import { BatchJobFormRHF } from "../../batch-allocation/BatchJobFormRHF";
@@ -234,6 +234,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     const currentTime = new Date().toISOString();
 
     try {
+      // CRITICAL: Only update proof_emailed_at timestamp
+      // DO NOT change job status - job must remain visible in DTP queue
       const { error: proofError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -245,17 +247,15 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       if (proofError) throw proofError;
 
-      const { error: jobError } = await supabase
-        .from('production_jobs')
-        .update({
-          status: 'Awaiting Client Sign Off',
-          updated_at: currentTime
-        })
-        .eq('id', job.job_id);
+      // Update local state to show emailed status immediately
+      if (stageInstance) {
+        setStageInstance({
+          ...stageInstance,
+          proof_emailed_at: currentTime
+        });
+      }
 
-      if (jobError) throw jobError;
-
-      toast.success("Proof marked as emailed");
+      toast.success("🟡 Proof sent! Job remains in queue awaiting online client approval");
       setGeneratedProofLink(null); // Reset link state
       onRefresh?.();
     } catch (error) {
@@ -488,8 +488,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
                 }
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                <LinkIcon className="h-4 w-4 mr-2" />
-                {isUploadingPdf ? 'Uploading PDF...' : isGenerating ? 'Generating Link...' : 'Generate Proof Link'}
+                <Mail className="h-4 w-4 mr-2" />
+                {isUploadingPdf ? 'Uploading PDF...' : isGenerating ? 'Sending to Client...' : 'Send to Client for Approval'}
               </Button>
             </>
           ) : (
@@ -497,11 +497,11 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
               {/* Generated Link Display */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-green-700">
-                  ✅ Proof Link Generated (Email Sent)
+                  ✅ Email Sent to Client
                 </Label>
                 <div className="flex gap-2">
                   <Input 
-                    value={generatedProofLink}
+                    value={generatedProofLink || 'Generating link...'}
                     readOnly
                     className="font-mono text-xs"
                   />
@@ -509,20 +509,26 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
                     onClick={handleCopyLink}
                     variant="outline"
                     size="icon"
+                    disabled={!generatedProofLink}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
+                {!generatedProofLink && (
+                  <p className="text-xs text-muted-foreground">
+                    Link is being generated and will appear here shortly...
+                  </p>
+                )}
               </div>
               
-              {/* Mark as Emailed Button */}
+              {/* Confirm Proof Sent Button */}
               <Button 
                 onClick={handleProofEmailed}
                 disabled={isLoading || isProcessing}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
                 <Mail className="h-4 w-4 mr-2" />
-                Mark as Emailed
+                Confirm Proof Sent
               </Button>
             </>
           )}
@@ -539,9 +545,9 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
             onValidationChange={(isValid, message) => setHP12000ValidationStatus({ isValid, message })}
           />
           
-          <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
-            <Mail className="h-4 w-4" />
-            <span className="text-sm font-medium">Proof Emailed - Awaiting Client Response</span>
+          <div className="flex items-center justify-center gap-2 text-amber-700 bg-amber-50 p-3 rounded-md border-l-4 border-amber-500">
+            <Clock className="h-4 w-4 animate-pulse" />
+            <span className="text-sm font-medium">🟡 Awaiting Online Client Approval</span>
           </div>
           
           <div className="text-xs text-gray-500 text-center">
