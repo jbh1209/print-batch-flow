@@ -3046,6 +3046,17 @@ export type Database = {
       }
     }
     Views: {
+      user_stage_permissions: {
+        Row: {
+          can_edit: boolean | null
+          can_manage: boolean | null
+          can_view: boolean | null
+          can_work: boolean | null
+          production_stage_id: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       v_job_stage_windows: {
         Row: {
           first_slot: string | null
