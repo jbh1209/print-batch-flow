@@ -39,7 +39,7 @@ export const DtpDashboard: React.FC = () => {
     completeJob, 
     refreshJobs 
   } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: 'view'
   });
 
   useEffect(() => {
