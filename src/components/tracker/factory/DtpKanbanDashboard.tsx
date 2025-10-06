@@ -34,7 +34,7 @@ export const DtpKanbanDashboard = () => {
     hasOptimisticUpdates,
     hasPendingUpdates
   } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: 'view'
   });
 
   // Use proper job actions that resolve stage instance IDs correctly

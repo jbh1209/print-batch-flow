@@ -38,7 +38,7 @@ const TrackerProduction = () => {
     refreshJobs,
     invalidateCache
   } = useAccessibleJobs({
-    permissionType: 'manage'
+    permissionType: 'view'
   });
 
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
