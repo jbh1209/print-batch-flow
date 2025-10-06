@@ -2051,6 +2051,20 @@ export type Database = {
             referencedRelation: "v_scheduler_stages_ready"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proof_links_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proof_links_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
         ]
       }
       public_holidays: {

@@ -97,6 +97,7 @@ serve(async (req) => {
         .from('job_stage_instances')
         .update({
           status: 'awaiting_approval',
+          proof_emailed_at: new Date().toISOString(),
           notes: 'Proof sent to client, awaiting sign off',
           updated_at: new Date().toISOString()
         })
@@ -106,7 +107,7 @@ serve(async (req) => {
         console.error('❌ Failed to update stage instance status:', updateError);
         // Don't fail the whole operation, but log the error
       } else {
-        console.log('✅ Stage instance status updated to awaiting_approval');
+        console.log('✅ Stage instance status updated to awaiting_approval with proof_emailed_at timestamp');
       }
 
       // Generate proof URL using production domain
