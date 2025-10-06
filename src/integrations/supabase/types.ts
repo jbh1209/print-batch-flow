@@ -3869,12 +3869,14 @@ export type Database = {
         }[]
       }
       get_user_accessible_jobs: {
-        Args: {
-          p_permission_type?: string
-          p_stage_filter?: string
-          p_status_filter?: string
-          p_user_id?: string
-        }
+        Args:
+          | {
+              p_permission_type?: string
+              p_stage_filter?: string
+              p_status_filter?: string
+              p_user_id?: string
+            }
+          | { p_user_id?: string }
         Returns: {
           batch_category: string
           batch_name: string
@@ -3891,12 +3893,13 @@ export type Database = {
           customer: string
           display_stage_name: string
           due_date: string
+          effectiveduedate: string
           has_custom_workflow: boolean
           is_batch_master: boolean
           is_in_batch_processing: boolean
           job_id: string
           manual_due_date: string
-          proof_approved_at: string
+          original_committed_due_date: string
           proof_emailed_at: string
           qty: number
           reference: string
