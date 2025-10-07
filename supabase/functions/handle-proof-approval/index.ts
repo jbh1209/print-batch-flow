@@ -118,20 +118,20 @@ serve(async (req) => {
       // Get job details for email
       const { data: jobDetails } = await supabase
         .from('production_jobs')
-        .select('wo_no, client_name, client_email')
+        .select('wo_no, customer, contact')
         .eq('id', stageInstance.job_id)
         .single();
       
       // Send email notification if client email exists
-      if (jobDetails?.client_email) {
+      if (jobDetails?.contact) {
         try {
           await resend.emails.send({
             from: 'proofing@impressweb.co.za',
-            to: [jobDetails.client_email],
+            to: [jobDetails.contact],
             subject: `Proof Ready for Review - WO ${jobDetails.wo_no}`,
             html: `
               <h2>Your proof is ready for review</h2>
-              <p>Hello ${jobDetails.client_name || 'valued client'},</p>
+              <p>Hello ${jobDetails.customer || 'valued client'},</p>
               <p>Your proof for Work Order <strong>${jobDetails.wo_no}</strong> is now ready for your review and approval.</p>
               <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
               <p>Or copy and paste this link into your browser:</p>
@@ -200,7 +200,7 @@ serve(async (req) => {
         .from('proof_links')
         .select(`
           *,
-          production_jobs!inner(wo_no, client_name, client_email)
+          production_jobs!inner(wo_no, customer, contact)
         `)
         .eq('id', proofLinkId)
         .single();
@@ -216,15 +216,15 @@ serve(async (req) => {
       const proofUrl = `${PRODUCTION_DOMAIN}/proof/${proofLink.token}`;
       const jobDetails = proofLink.production_jobs;
       
-      if (jobDetails?.client_email) {
+      if (jobDetails?.contact) {
         try {
           await resend.emails.send({
             from: 'proofing@impressweb.co.za',
-            to: [jobDetails.client_email],
+            to: [jobDetails.contact],
             subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
             html: `
               <h2>Reminder: Your proof is ready for review</h2>
-              <p>Hello ${jobDetails.client_name || 'valued client'},</p>
+              <p>Hello ${jobDetails.customer || 'valued client'},</p>
               <p>This is a reminder that your proof for Work Order <strong>${jobDetails.wo_no}</strong> is awaiting your review.</p>
               <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
               <p>Or copy and paste this link into your browser:</p>
@@ -285,7 +285,7 @@ serve(async (req) => {
       
       const { data: stageInstance } = await supabase
         .from('job_stage_instances')
-        .select('*, production_jobs!inner(wo_no, client_name, client_email)')
+        .select('*, production_jobs!inner(wo_no, customer, contact)')
         .eq('id', stageInstanceId)
         .single();
       
@@ -314,14 +314,14 @@ serve(async (req) => {
       const jobDetails = stageInstance.production_jobs;
       
       // Send new email
-      if (jobDetails?.client_email) {
+      if (jobDetails?.contact) {
         await resend.emails.send({
           from: 'proofing@impressweb.co.za',
-          to: [jobDetails.client_email],
+          to: [jobDetails.contact],
           subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
           html: `
             <h2>Your proof link has been updated</h2>
-            <p>Hello ${jobDetails.client_name || 'valued client'},</p>
+            <p>Hello ${jobDetails.customer || 'valued client'},</p>
             <p>A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>.</p>
             <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
             <p>Or copy and paste this link into your browser:</p>
@@ -378,7 +378,7 @@ serve(async (req) => {
         .from('proof_links')
         .select(`
           *,
-          production_jobs!inner(wo_no, client_name, client_email),
+          production_jobs!inner(wo_no, customer, contact),
           job_stage_instances!inner(
             production_stage_id,
             production_stages(name)
@@ -421,8 +421,8 @@ serve(async (req) => {
         const search = searchTerm.toLowerCase();
         filteredLinks = filteredLinks.filter(link => 
           link.production_jobs?.wo_no?.toLowerCase().includes(search) ||
-          link.production_jobs?.client_name?.toLowerCase().includes(search) ||
-          link.production_jobs?.client_email?.toLowerCase().includes(search)
+          link.production_jobs?.customer?.toLowerCase().includes(search) ||
+          link.production_jobs?.contact?.toLowerCase().includes(search)
         );
       }
       

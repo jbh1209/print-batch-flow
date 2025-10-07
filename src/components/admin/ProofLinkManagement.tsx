@@ -37,8 +37,8 @@ interface ProofLink {
   proof_pdf_url?: string;
   production_jobs: {
     wo_no: string;
-    client_name: string | null;
-    client_email: string | null;
+    customer: string | null;
+    contact: string | null;
   };
   job_stage_instances: {
     production_stages: {
@@ -246,8 +246,8 @@ export const ProofLinkManagement = () => {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium">{link.production_jobs.client_name || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground">{link.production_jobs.client_email}</div>
+                        <div className="font-medium">{link.production_jobs.customer || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">{link.production_jobs.contact}</div>
                       </div>
                     </TableCell>
                     <TableCell>{getStatusBadge(link)}</TableCell>
