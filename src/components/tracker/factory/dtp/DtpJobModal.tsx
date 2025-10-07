@@ -1,5 +1,5 @@
 
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { Calendar, Hash, Building, FileText } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { CurrentStageCard } from "../CurrentStageCard";
 import { ProofStatusIndicator } from "../ProofStatusIndicator";
+import ProofUploadDialog from "../ProofUploadDialog";
 import { useDtpJobModal } from "./useDtpJobModal";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
@@ -38,6 +39,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   onStartJob,
   onCompleteJob
 }) => {
+  const [isProofDialogOpen, setIsProofDialogOpen] = useState(false);
+  
   const {
     stageInstance,
     proofApprovalFlow,
@@ -320,6 +323,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     onBatchCategoryChange={setSelectedBatchCategory}
                     onRefresh={onRefresh}
                     setStageInstance={setStageInstance}
+                    onOpenProofDialog={() => setIsProofDialogOpen(true)}
                   />
                 )}
               </CardContent>
@@ -332,6 +336,19 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Proof Upload Dialog */}
+        {stageInstance?.id && (
+          <ProofUploadDialog
+            isOpen={isProofDialogOpen}
+            onClose={() => setIsProofDialogOpen(false)}
+            stageInstanceId={stageInstance.id}
+            onProofSent={() => {
+              setIsProofDialogOpen(false);
+              onRefresh?.();
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

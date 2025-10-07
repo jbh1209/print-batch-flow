@@ -40,6 +40,7 @@ interface ProofStageActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   setStageInstance: (instance: StageInstance | null) => void;
+  onOpenProofDialog?: () => void;
 }
 
 export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
@@ -54,7 +55,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onClose,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  setStageInstance
+  setStageInstance,
+  onOpenProofDialog
 }) => {
   const { user } = useAuth();
   const { startStage, completeStage, completeStageAndSkipConditional, isProcessing } = useStageActions();
@@ -553,6 +555,19 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
           <div className="text-xs text-gray-500 text-center">
             Emailed: {new Date(hasProofBeenEmailed).toLocaleDateString()} at {new Date(hasProofBeenEmailed).toLocaleTimeString()}
           </div>
+
+          {/* Manage Proof Button */}
+          {onOpenProofDialog && (
+            <Button 
+              onClick={onOpenProofDialog}
+              variant="outline"
+              className="w-full"
+              disabled={isLoading || isProcessing}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Manage Proof (Edit/Resend/Regenerate)
+            </Button>
+          )}
 
           <Button 
             onClick={handleProofApproved}
