@@ -500,6 +500,35 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     }
   };
 
+  const recalculateStageTimings = async (stageInstanceIds: string[]) => {
+    if (stageInstanceIds.length === 0) return;
+    
+    try {
+      console.log(`⏱️ Recalculating timings for ${stageInstanceIds.length} stages...`);
+      
+      // Call the sync_stage_timing_from_subtasks function for each stage
+      for (const stageId of stageInstanceIds) {
+        const { data, error } = await supabase
+          .rpc('sync_stage_timing_from_subtasks', { 
+            p_stage_instance_id: stageId 
+          });
+        
+        if (error) {
+          console.warn(`⚠️ Timing sync warning for stage ${stageId}:`, error.message);
+          // Don't throw - timing sync is not critical for workflow creation
+        } else if (data && data.length > 0) {
+          const result = data[0];
+          console.log(`✅ Stage timing synced: ${result.stage_name} - ${result.message}`);
+        }
+      }
+      
+      console.log('✅ Timing recalculation complete');
+    } catch (err) {
+      console.error('❌ Error during timing recalculation:', err);
+      // Don't throw - timing calculation should not block workflow creation
+    }
+  };
+
   const updateExistingWorkflow = async () => {
     // Get current job stage instances with full metadata
     const { data: currentStages, error: fetchError } = await supabase
@@ -677,35 +706,6 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
 
     // Update the job metadata
     await updateJobMetadata();
-  };
-
-  const recalculateStageTimings = async (stageInstanceIds: string[]) => {
-    if (stageInstanceIds.length === 0) return;
-    
-    try {
-      console.log(`⏱️ Recalculating timings for ${stageInstanceIds.length} stages...`);
-      
-      // Call the sync_stage_timing_from_subtasks function for each stage
-      for (const stageId of stageInstanceIds) {
-        const { data, error } = await supabase
-          .rpc('sync_stage_timing_from_subtasks', { 
-            p_stage_instance_id: stageId 
-          });
-        
-        if (error) {
-          console.warn(`⚠️ Timing sync warning for stage ${stageId}:`, error.message);
-          // Don't throw - timing sync is not critical for workflow creation
-        } else if (data && data.length > 0) {
-          const result = data[0];
-          console.log(`✅ Stage timing synced: ${result.stage_name} - ${result.message}`);
-        }
-      }
-      
-      console.log('✅ Timing recalculation complete');
-    } catch (err) {
-      console.error('❌ Error during timing recalculation:', err);
-      // Don't throw - timing calculation should not block workflow creation
-    }
   };
 
   const updateJobMetadata = async () => {
