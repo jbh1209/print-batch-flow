@@ -4256,6 +4256,17 @@ export type Database = {
           references_created: number
         }[]
       }
+      repair_stage_sub_task_durations: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          new_duration: number
+          old_duration: number
+          repaired_stage_id: string
+          stage_name: string
+          sub_task_count: number
+          wo_no: string
+        }[]
+      }
       reset_custom_workflow_stages_to_pending: {
         Args: Record<PropertyKey, never>
         Returns: {
