@@ -4239,6 +4239,17 @@ export type Database = {
           repaired_table: string
         }[]
       }
+      repair_handwork_stage_timings: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          new_duration: number
+          old_duration: number
+          stage_instance_id: string
+          stage_name: string
+          status: string
+          wo_no: string
+        }[]
+      }
       repair_jobs_missing_stages: {
         Args: Record<PropertyKey, never>
         Returns: {
