@@ -1633,6 +1633,7 @@ export type Database = {
           category: string | null
           category_id: string | null
           contact: string | null
+          contact_email: string | null
           created_at: string | null
           customer: string | null
           date: string | null
@@ -1687,6 +1688,7 @@ export type Database = {
           category?: string | null
           category_id?: string | null
           contact?: string | null
+          contact_email?: string | null
           created_at?: string | null
           customer?: string | null
           date?: string | null
@@ -1741,6 +1743,7 @@ export type Database = {
           category?: string | null
           category_id?: string | null
           contact?: string | null
+          contact_email?: string | null
           created_at?: string | null
           customer?: string | null
           date?: string | null
