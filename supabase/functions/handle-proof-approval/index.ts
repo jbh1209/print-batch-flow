@@ -570,15 +570,18 @@ serve(async (req) => {
         }
 
         // Append this job to the production schedule (not full reschedule)
-        // FIX: Add p_start_from parameter to resolve function overload ambiguity
         const { error: scheduleError } = await supabase.rpc('scheduler_append_jobs', {
           p_job_ids: [proofLink.job_id],
-          p_start_from: new Date().toISOString(),
           p_only_if_unset: true
         });
 
         if (scheduleError) {
-          console.error('⚠️ Failed to append to schedule:', scheduleError);
+          console.error('⚠️ Failed to append to schedule:', {
+            error: scheduleError,
+            jobId: proofLink.job_id,
+            message: scheduleError.message,
+            details: scheduleError.details
+          });
           // Don't fail the whole operation - proof is still approved
         } else {
           console.log('✅ Job appended to production schedule');
