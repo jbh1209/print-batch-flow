@@ -9,7 +9,7 @@ import { ProductionStats } from "@/components/tracker/production/ProductionStats
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { ProductionJobsView } from "@/components/tracker/production/ProductionJobsView";
-import { ProductionSidebar } from "@/components/tracker/production/ProductionSidebar";
+import { DynamicProductionSidebar } from "@/components/tracker/production/DynamicProductionSidebar";
 import { MasterOrderModal } from "@/components/tracker/modals/MasterOrderModal";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
@@ -49,29 +49,16 @@ const TrackerProduction = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
-  const [stageStatusFilter, setStageStatusFilter] = useState<'active' | 'pending' | 'on_hold'>('active');
+  
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Filter jobs based on actual job_stage_instances with selected status
+  // Filter jobs by current stage selection (restore-point behavior)
   const filteredJobs = useMemo(() => {
-    if (!selectedStageId) {
-      return jobs;
-    }
-
-    // Get unique job IDs that have this stage with the selected status
-    const jobIdsInStage = new Set(
-      jobStages
-        .filter(stage => 
-          stage.production_stage_id === selectedStageId && 
-          stage.status === stageStatusFilter
-        )
-        .map(stage => stage.job_id)
-    );
-
-    return jobs.filter(job => jobIdsInStage.has(job.id));
-  }, [jobs, jobStages, selectedStageId, stageStatusFilter]);
+    if (!selectedStageId) return jobs;
+    return jobs.filter(job => (job as any).current_stage_id === selectedStageId);
+  }, [jobs, selectedStageId]);
 
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
@@ -97,29 +84,32 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Build consolidated stages from actual job_stage_instances
+  // Build consolidated stages from current jobs' active stage
   const consolidatedStages = useMemo(() => {
-    const stageMap = new Map();
-    
-    jobStages.forEach(jobStage => {
-      if (!stageMap.has(jobStage.production_stage_id)) {
-        stageMap.set(jobStage.production_stage_id, {
-          stage_id: jobStage.production_stage_id,
-          stage_name: jobStage.production_stage.name,
-          stage_color: jobStage.production_stage.color || '#6B7280'
+    const map = new Map<string, { stage_id: string; stage_name: string; stage_color: string }>();
+    (jobs as any[]).forEach((j: any) => {
+      const id = j?.current_stage_id;
+      const name = j?.display_stage_name || j?.current_stage_name;
+      if (id && name && !map.has(id)) {
+        map.set(id, {
+          stage_id: id,
+          stage_name: name,
+          stage_color: j?.current_stage_color || '#6B7280',
         });
       }
     });
-    
-    return Array.from(stageMap.values()).sort((a, b) => 
-      a.stage_name.localeCompare(b.stage_name)
-    );
-  }, [jobStages]);
+    return Array.from(map.values()).sort((a, b) => a.stage_name.localeCompare(b.stage_name));
+  }, [jobs]);
 
-  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
-    console.log('Stage selected:', { stageId, stageName });
+  const handleSidebarStageSelect = (stageId: string | null) => {
+    if (!stageId) {
+      setSelectedStageId(null);
+      setSelectedStageName(null);
+      return;
+    }
+    const stage = (consolidatedStages as any[]).find((s: any) => s.stage_id === stageId);
     setSelectedStageId(stageId);
-    setSelectedStageName(stageName);
+    setSelectedStageName(stage?.stage_name ?? null);
   };
 
   const handleJobClick = (job: AccessibleJob) => {
@@ -226,15 +216,11 @@ const TrackerProduction = () => {
     <>
       <div className="flex h-full">
         <div className="w-64 border-r bg-white overflow-y-auto">
-          <ProductionSidebar
-            jobs={jobs}
-            jobStages={jobStages}
+          <DynamicProductionSidebar
+            selectedStageId={selectedStageId ?? undefined}
+            onStageSelect={handleSidebarStageSelect}
             consolidatedStages={consolidatedStages}
-            selectedStageId={selectedStageId}
-            selectedStageName={selectedStageName}
-            stageStatusFilter={stageStatusFilter}
-            onStageSelect={handleStageSelect}
-            onStatusFilterChange={setStageStatusFilter}
+            activeJobs={jobs}
           />
         </div>
 
