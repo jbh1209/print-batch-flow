@@ -265,7 +265,7 @@ serve(async (req) => {
       
       if (jobDetails?.contact_email) {
         try {
-          await resend.emails.send({
+          const emailResult = await resend.emails.send({
             from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
             to: [jobDetails.contact_email],
             subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
@@ -279,6 +279,8 @@ serve(async (req) => {
               <p>Thank you for your prompt attention!</p>
             `,
           });
+          
+          console.log('✅ Email sent successfully:', emailResult);
           
           // Increment resend count
           await supabase
@@ -294,10 +296,10 @@ serve(async (req) => {
             JSON.stringify({ success: true, message: 'Email resent successfully' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
-        } catch (emailError) {
+        } catch (emailError: any) {
           console.error('❌ Failed to resend email:', emailError);
           return new Response(
-            JSON.stringify({ error: 'Failed to resend email' }),
+            JSON.stringify({ error: `Failed to resend email: ${emailError.message}` }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
           );
         }
@@ -360,21 +362,37 @@ serve(async (req) => {
       const proofUrl = `${PRODUCTION_DOMAIN}/proof/${token}`;
       const jobDetails = stageInstance.production_jobs;
       
-      // Send new email
+      // Send new email with proper error handling
       if (jobDetails?.contact_email) {
-        await resend.emails.send({
-          from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
-          to: [jobDetails.contact_email],
-          subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
-          html: `
-            <h2>Your proof link has been updated</h2>
-            <p>Hello ${jobDetails.customer || 'valued client'},</p>
-            <p>A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>.</p>
-            <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
-            <p>Or copy and paste this link into your browser:</p>
-            <p><a href="${proofUrl}">${proofUrl}</a></p>
-          `,
-        });
+        try {
+          const emailResult = await resend.emails.send({
+            from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
+            to: [jobDetails.contact_email],
+            subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
+            html: `
+              <h2>Your proof link has been updated</h2>
+              <p>Hello ${jobDetails.customer || 'valued client'},</p>
+              <p>A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>.</p>
+              <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
+              <p>Or copy and paste this link into your browser:</p>
+              <p><a href="${proofUrl}">${proofUrl}</a></p>
+            `,
+          });
+          console.log('✅ Email sent successfully:', emailResult);
+        } catch (emailError: any) {
+          console.error('❌ Failed to send email:', emailError);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Proof link regenerated but email failed to send. Please copy the link manually.',
+              proofUrl,
+              token
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 207 }
+          );
+        }
+      } else {
+        console.warn('⚠️ No client email available for WO', jobDetails?.wo_no);
       }
       
       console.log('✅ Proof link regenerated successfully');
@@ -526,6 +544,9 @@ serve(async (req) => {
         })
         .eq('id', proofLink.id);
 
+      // Declare estimatedCompletion in outer scope so it's accessible in return statement
+      let estimatedCompletion = null;
+
       if (response === 'approved') {
         console.log('✅ Client approved - completing proof stage and scheduling');
         
@@ -549,8 +570,10 @@ serve(async (req) => {
         }
 
         // Append this job to the production schedule (not full reschedule)
+        // FIX: Add p_start_from parameter to resolve function overload ambiguity
         const { error: scheduleError } = await supabase.rpc('scheduler_append_jobs', {
           p_job_ids: [proofLink.job_id],
+          p_start_from: new Date().toISOString(),
           p_only_if_unset: true
         });
 
@@ -570,7 +593,7 @@ serve(async (req) => {
           .limit(1)
           .single();
 
-        const estimatedCompletion = lastStage?.scheduled_end_at || null;
+        estimatedCompletion = lastStage?.scheduled_end_at || null;
 
         // Update proof_links with estimate
         await supabase
