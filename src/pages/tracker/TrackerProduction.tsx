@@ -101,23 +101,20 @@ const TrackerProduction = () => {
   const consolidatedStages = useMemo(() => {
     const stageMap = new Map();
     
-    // Filter by status first, then build stage list
-    jobStages
-      .filter(jobStage => jobStage.status === stageStatusFilter)
-      .forEach(jobStage => {
-        if (!stageMap.has(jobStage.production_stage_id)) {
-          stageMap.set(jobStage.production_stage_id, {
-            stage_id: jobStage.production_stage_id,
-            stage_name: jobStage.production_stage.name,
-            stage_color: jobStage.production_stage.color || '#6B7280'
-          });
-        }
-      });
+    jobStages.forEach(jobStage => {
+      if (!stageMap.has(jobStage.production_stage_id)) {
+        stageMap.set(jobStage.production_stage_id, {
+          stage_id: jobStage.production_stage_id,
+          stage_name: jobStage.production_stage.name,
+          stage_color: jobStage.production_stage.color || '#6B7280'
+        });
+      }
+    });
     
     return Array.from(stageMap.values()).sort((a, b) => 
       a.stage_name.localeCompare(b.stage_name)
     );
-  }, [jobStages, stageStatusFilter]);
+  }, [jobStages]);
 
   const handleStageSelect = (stageId: string | null, stageName: string | null) => {
     console.log('Stage selected:', { stageId, stageName });
