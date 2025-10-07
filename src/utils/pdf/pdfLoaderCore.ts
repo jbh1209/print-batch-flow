@@ -78,5 +78,6 @@ export async function createEmptyPdfBytes(message: string): Promise<ArrayBuffer>
     size: 14
   });
   
-  return await pdfDoc.save();
+  const pdfBytes = await pdfDoc.save();
+  return pdfBytes.buffer.slice(0) as ArrayBuffer;
 }

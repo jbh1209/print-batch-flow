@@ -45,7 +45,7 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       const pdfBytes = await generateBatchOverview(jobs, batchName);
       
       // Convert PDF to a data URL for preview
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blob = new Blob([pdfBytes as any], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setOverviewUrl(url);
       

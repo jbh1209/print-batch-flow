@@ -154,7 +154,7 @@ export const downloadQRLabelsPDF = async (jobs: QRLabelData[], filename?: string
     console.log('PDF generated successfully, size:', pdfBytes.length, 'bytes');
     
     // Create blob with PDF content type
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     
     console.log('Blob created, starting download');

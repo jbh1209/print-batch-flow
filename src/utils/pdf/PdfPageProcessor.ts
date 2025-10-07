@@ -150,7 +150,7 @@ async function extractAndDuplicatePage(
     
     console.log(`Successfully extracted page ${pageIndex}, size: ${pdfBytes.byteLength} bytes`);
     
-    return pdfBytes;
+    return pdfBytes.buffer.slice(0) as ArrayBuffer;
   } catch (error) {
     console.error(`Error extracting page ${pageIndex}:`, error);
     return null;

@@ -33,7 +33,7 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
     const result = await generateBatchJobPdf(jobs, batchName);
     
     // Create a Blob from the PDF bytes
-    const pdfBlob = new Blob([result.pdfBytes], { type: "application/pdf" });
+    const pdfBlob = new Blob([result.pdfBytes as any], { type: "application/pdf" });
     
     // Download the PDF
     saveAs(pdfBlob, `${batchName}-all-jobs.pdf`);
