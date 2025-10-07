@@ -118,16 +118,16 @@ serve(async (req) => {
       // Get job details for email
       const { data: jobDetails } = await supabase
         .from('production_jobs')
-        .select('wo_no, customer, contact')
+        .select('wo_no, customer, contact_email')
         .eq('id', stageInstance.job_id)
         .single();
       
       // Send email notification if client email exists
-      if (jobDetails?.contact) {
+      if (jobDetails?.contact_email) {
         try {
           await resend.emails.send({
             from: 'proofing@impressweb.co.za',
-            to: [jobDetails.contact],
+            to: [jobDetails.contact_email],
             subject: `Proof Ready for Review - WO ${jobDetails.wo_no}`,
             html: `
               <h2>Your proof is ready for review</h2>
@@ -146,7 +146,7 @@ serve(async (req) => {
               <p>Thank you for your business!</p>
             `,
           });
-          console.log('✅ Proof email sent to:', jobDetails.client_email);
+          console.log('✅ Proof email sent to:', jobDetails.contact_email);
         } catch (emailError) {
           console.error('⚠️ Failed to send proof email:', emailError);
           // Don't fail the whole operation if email fails
@@ -200,7 +200,7 @@ serve(async (req) => {
         .from('proof_links')
         .select(`
           *,
-          production_jobs!inner(wo_no, customer, contact)
+          production_jobs!inner(wo_no, customer, contact_email)
         `)
         .eq('id', proofLinkId)
         .single();
@@ -216,11 +216,11 @@ serve(async (req) => {
       const proofUrl = `${PRODUCTION_DOMAIN}/proof/${proofLink.token}`;
       const jobDetails = proofLink.production_jobs;
       
-      if (jobDetails?.contact) {
+      if (jobDetails?.contact_email) {
         try {
           await resend.emails.send({
             from: 'proofing@impressweb.co.za',
-            to: [jobDetails.contact],
+            to: [jobDetails.contact_email],
             subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
             html: `
               <h2>Reminder: Your proof is ready for review</h2>
@@ -285,7 +285,7 @@ serve(async (req) => {
       
       const { data: stageInstance } = await supabase
         .from('job_stage_instances')
-        .select('*, production_jobs!inner(wo_no, customer, contact)')
+        .select('*, production_jobs!inner(wo_no, customer, contact_email)')
         .eq('id', stageInstanceId)
         .single();
       
@@ -314,10 +314,10 @@ serve(async (req) => {
       const jobDetails = stageInstance.production_jobs;
       
       // Send new email
-      if (jobDetails?.contact) {
+      if (jobDetails?.contact_email) {
         await resend.emails.send({
           from: 'proofing@impressweb.co.za',
-          to: [jobDetails.contact],
+          to: [jobDetails.contact_email],
           subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
           html: `
             <h2>Your proof link has been updated</h2>
@@ -378,7 +378,7 @@ serve(async (req) => {
         .from('proof_links')
         .select(`
           *,
-          production_jobs!inner(wo_no, customer, contact),
+          production_jobs!inner(wo_no, customer, contact_email),
           job_stage_instances!inner(
             production_stage_id,
             production_stages(name)
@@ -422,7 +422,7 @@ serve(async (req) => {
         filteredLinks = filteredLinks.filter(link => 
           link.production_jobs?.wo_no?.toLowerCase().includes(search) ||
           link.production_jobs?.customer?.toLowerCase().includes(search) ||
-          link.production_jobs?.contact?.toLowerCase().includes(search)
+          link.production_jobs?.contact_email?.toLowerCase().includes(search)
         );
       }
       
