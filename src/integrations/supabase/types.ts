@@ -1963,6 +1963,8 @@ export type Database = {
           client_user_agent: string | null
           created_at: string
           created_by: string | null
+          email_send_error: string | null
+          email_sent_at: string | null
           estimated_completion_date: string | null
           expires_at: string
           id: string
@@ -1986,6 +1988,8 @@ export type Database = {
           client_user_agent?: string | null
           created_at?: string
           created_by?: string | null
+          email_send_error?: string | null
+          email_sent_at?: string | null
           estimated_completion_date?: string | null
           expires_at: string
           id?: string
@@ -2009,6 +2013,8 @@ export type Database = {
           client_user_agent?: string | null
           created_at?: string
           created_by?: string | null
+          email_send_error?: string | null
+          email_sent_at?: string | null
           estimated_completion_date?: string | null
           expires_at?: string
           id?: string
