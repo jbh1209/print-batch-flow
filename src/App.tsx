@@ -77,6 +77,7 @@ import PosterJobEditPage from "@/pages/generic/PosterJobEditPage";
 import FlyerJobDetail from "@/pages/FlyerJobDetail";
 import GenericJobDetailsPage from "@/pages/generic/GenericJobDetailsPage";
 import { productConfigs } from "@/config/productTypes";
+import ProofViewer from "@/pages/ProofViewer";
 
 // Admin imports
 import AdminDashboard from "@/pages/admin";
@@ -102,6 +103,9 @@ function App() {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
+                
+                {/* Public proof viewer route */}
+                <Route path="/proof/:token" element={<ProofViewer />} />
                 <Route path="/business-cards" element={
                   <ProtectedRoute>
                     <BusinessCardJobs />

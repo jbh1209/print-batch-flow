@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,8 +9,7 @@ import { Loader2, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const ProofViewer = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const { token } = useParams<{ token: string }>();
   
   const [proofData, setProofData] = useState<any>(null);
   const [jobData, setJobData] = useState<any>(null);
