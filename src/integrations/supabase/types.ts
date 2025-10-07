@@ -4451,6 +4451,18 @@ export type Database = {
           synced_count: number
         }[]
       }
+      sync_stage_timing_from_subtasks: {
+        Args: { p_stage_instance_id: string }
+        Returns: {
+          message: string
+          new_duration: number
+          old_duration: number
+          stage_id: string
+          stage_name: string
+          subtask_count: number
+          success: boolean
+        }[]
+      }
       unschedule_auto_stages: {
         Args: { from_date: string; wipe_all?: boolean }
         Returns: number

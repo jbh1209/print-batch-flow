@@ -525,6 +525,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     const stagesToUpdate: Array<{current: any, target: SelectedStage}> = [];
     const stagesToInsert: SelectedStage[] = [];
     const stagesToDelete: any[] = [];
+    const newlyCreatedStageIds: string[] = [];
 
     // Analyze changes needed
     selectedStages.forEach(targetStage => {
@@ -576,7 +577,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     for (const stage of stagesToInsert) {
       console.log(`➕ Inserting new stage: ${stage.name} at order ${stage.order}`);
       
-      const { error: insertError } = await supabase
+      const { data: newStage, error: insertError } = await supabase
         .from('job_stage_instances')
         .insert({
           job_id: job.id,
@@ -591,11 +592,17 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           estimated_duration_minutes: stage.estimatedDurationMinutes || null,
           part_assignment: stage.partAssignment || null,
           stage_specification_id: stage.stageSpecificationId || null
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) {
         console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
         throw insertError;
+      }
+      
+      if (newStage?.id) {
+        newlyCreatedStageIds.push(newStage.id);
       }
     }
 
@@ -614,6 +621,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       }
     }
 
+    // PHASE 2: Trigger timing calculation for newly inserted stages
+    if (newlyCreatedStageIds.length > 0) {
+      console.log('⏱️ Triggering timing calculations for newly inserted stages...');
+      await recalculateStageTimings(newlyCreatedStageIds);
+    }
+
     // Update the job metadata
     await updateJobMetadata();
   };
@@ -622,12 +635,14 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     // Create all new stage instances - ALL START AS PENDING
     console.log('🔄 Creating new stage instances (ALL PENDING)...');
     
+    const createdStageIds: string[] = [];
+    
     for (let i = 0; i < selectedStages.length; i++) {
       const stage = selectedStages[i];
       
       console.log(`Creating stage ${i + 1} as PENDING:`, stage);
       
-      const { error: insertError } = await supabase
+      const { data: newStage, error: insertError } = await supabase
         .from('job_stage_instances')
         .insert({
           job_id: job.id,
@@ -642,16 +657,55 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           estimated_duration_minutes: stage.estimatedDurationMinutes || null,
           part_assignment: stage.partAssignment || null,
           stage_specification_id: stage.stageSpecificationId || null
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) {
         console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
         throw insertError;
       }
+      
+      if (newStage?.id) {
+        createdStageIds.push(newStage.id);
+      }
     }
+
+    // PHASE 2: Trigger timing calculation for all created stages
+    console.log('⏱️ Triggering timing calculations for newly created stages...');
+    await recalculateStageTimings(createdStageIds);
 
     // Update the job metadata
     await updateJobMetadata();
+  };
+
+  const recalculateStageTimings = async (stageInstanceIds: string[]) => {
+    if (stageInstanceIds.length === 0) return;
+    
+    try {
+      console.log(`⏱️ Recalculating timings for ${stageInstanceIds.length} stages...`);
+      
+      // Call the sync_stage_timing_from_subtasks function for each stage
+      for (const stageId of stageInstanceIds) {
+        const { data, error } = await supabase
+          .rpc('sync_stage_timing_from_subtasks', { 
+            p_stage_instance_id: stageId 
+          });
+        
+        if (error) {
+          console.warn(`⚠️ Timing sync warning for stage ${stageId}:`, error.message);
+          // Don't throw - timing sync is not critical for workflow creation
+        } else if (data && data.length > 0) {
+          const result = data[0];
+          console.log(`✅ Stage timing synced: ${result.stage_name} - ${result.message}`);
+        }
+      }
+      
+      console.log('✅ Timing recalculation complete');
+    } catch (err) {
+      console.error('❌ Error during timing recalculation:', err);
+      // Don't throw - timing calculation should not block workflow creation
+    }
   };
 
   const updateJobMetadata = async () => {
