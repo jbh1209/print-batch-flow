@@ -104,74 +104,22 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         })
         .eq('id', stageInstanceId);
 
-      // Generate proof link - this will now properly update the status to 'awaiting_approval'
+      // Generate proof link - this will send the email automatically via the edge function
+      console.log('📤 Generating proof link and sending email...');
       const { data: linkData, error: linkError } = await supabase.functions.invoke(
         'handle-proof-approval/generate-link',
         { body: { stageInstanceId } }
       );
 
       if (linkError || !linkData) {
-        console.error('Failed to generate proof link:', linkError);
-        toast.error("Failed to generate proof link");
+        console.error('❌ Failed to generate proof link:', linkError);
+        toast.error("Failed to generate proof link and send email");
         return;
       }
 
-      // Get stage instance details
-      const { data: stageInstance, error: stageError } = await supabase
-        .from('job_stage_instances')
-        .select('job_id, job_table_name')
-        .eq('id', stageInstanceId)
-        .single();
-
-      if (stageError || !stageInstance) {
-        toast.error("Failed to get stage instance details");
-        return;
-      }
-
-      // Get job details from the appropriate table
-      let jobDetails = null;
-      if (stageInstance.job_table_name === 'production_jobs') {
-        const { data: job, error: jobError } = await supabase
-          .from('production_jobs')
-          .select('wo_no, customer, reference')
-          .eq('id', stageInstance.job_id)
-          .single();
-
-        if (!jobError && job) {
-          jobDetails = {
-            jobNumber: job.wo_no,
-            customer: customerName.trim(),
-            description: jobDescription || job.reference || 'Production Job'
-          };
-        }
-      }
-
-      // Fallback if we couldn't get job details
-      if (!jobDetails) {
-        jobDetails = {
-          jobNumber: 'Unknown',
-          customer: customerName.trim(),
-          description: jobDescription || 'Job Details'
-        };
-      }
-
-      // Send email
-      const { error: emailError } = await supabase.functions.invoke('send-proof-email', {
-        body: {
-          proofUrl: linkData.proofUrl,
-          customerEmail: customerEmail.trim(),
-          jobDetails
-        }
-      });
-
-      if (emailError) {
-        console.error('Email send error:', emailError);
-        toast.error("Failed to send email");
-        return;
-      }
-
-      console.log('✅ Proof email sent successfully, stage status should now be awaiting_approval');
-      toast.success("Proof email sent successfully!");
+      console.log('✅ Proof link generated:', linkData.proofUrl);
+      console.log('📧 Email should have been sent by edge function');
+      toast.success("Proof link generated and email sent!");
       onProofSent();
       onClose();
       setCustomerName("");

@@ -115,24 +115,38 @@ serve(async (req) => {
       const proofUrl = `${PRODUCTION_DOMAIN}/proof/${token}`;
       console.log('🔗 Proof URL generated:', proofUrl);
       
-      // Get job details for email
+      // Get job details for email - check both production_jobs and stage instance
       const { data: jobDetails } = await supabase
         .from('production_jobs')
         .select('wo_no, customer, contact_email')
         .eq('id', stageInstance.job_id)
         .single();
       
+      // Get client email/name from stage instance (set by ProofUploadDialog)
+      const clientEmail = stageInstance.client_email || jobDetails?.contact_email;
+      const clientName = stageInstance.client_name || jobDetails?.customer;
+      
+      console.log('📧 Email details:', { 
+        clientEmail, 
+        clientName, 
+        wo_no: jobDetails?.wo_no,
+        from_stage: !!stageInstance.client_email,
+        from_job: !!jobDetails?.contact_email 
+      });
+      
       // Send email notification if client email exists
-      if (jobDetails?.contact_email) {
+      if (clientEmail) {
         try {
-          await resend.emails.send({
-            from: 'proofing@impressweb.co.za',
-            to: [jobDetails.contact_email],
-            subject: `Proof Ready for Review - WO ${jobDetails.wo_no}`,
+          console.log('📤 Attempting to send proof email via Resend...');
+          
+          const emailResult = await resend.emails.send({
+            from: 'PrintStream Proofing <proofing@impressweb.co.za>',
+            to: [clientEmail],
+            subject: `Proof Ready for Review - WO ${jobDetails?.wo_no || 'N/A'}`,
             html: `
               <h2>Your proof is ready for review</h2>
-              <p>Hello ${jobDetails.customer || 'valued client'},</p>
-              <p>Your proof for Work Order <strong>${jobDetails.wo_no}</strong> is now ready for your review and approval.</p>
+              <p>Hello ${clientName || 'valued client'},</p>
+              <p>Your proof for Work Order <strong>${jobDetails?.wo_no || 'N/A'}</strong> is now ready for your review and approval.</p>
               <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
               <p>Or copy and paste this link into your browser:</p>
               <p><a href="${proofUrl}">${proofUrl}</a></p>
@@ -144,13 +158,46 @@ serve(async (req) => {
                 <li>Click "Request Changes" if you need any modifications</li>
               </ul>
               <p>Thank you for your business!</p>
+              <p style="color: #666; font-size: 12px; margin-top: 20px;">PrintStream by ImpressWeb</p>
             `,
           });
-          console.log('✅ Proof email sent to:', jobDetails.contact_email);
-        } catch (emailError) {
-          console.error('⚠️ Failed to send proof email:', emailError);
+          
+          console.log('✅ Proof email sent successfully!', emailResult);
+          console.log('   📧 To:', clientEmail);
+          console.log('   📋 WO:', jobDetails?.wo_no);
+          
+          // Update proof_links to track email sent
+          await supabase
+            .from('proof_links')
+            .update({ 
+              email_sent_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', proofLink.id);
+            
+        } catch (emailError: any) {
+          console.error('❌ FAILED to send proof email:', emailError);
+          console.error('   Error details:', {
+            message: emailError?.message,
+            name: emailError?.name,
+            stack: emailError?.stack
+          });
+          
+          // Log to proof_links for tracking
+          await supabase
+            .from('proof_links')
+            .update({ 
+              email_send_error: emailError?.message || 'Unknown error',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', proofLink.id);
+          
           // Don't fail the whole operation if email fails
         }
+      } else {
+        console.warn('⚠️ No client email available - proof link created but email NOT sent');
+        console.warn('   Stage client_email:', stageInstance.client_email);
+        console.warn('   Job contact_email:', jobDetails?.contact_email);
       }
       
       console.log('✅ Proof link generated successfully');
