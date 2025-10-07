@@ -140,7 +140,7 @@ serve(async (req) => {
           console.log('📤 Attempting to send proof email via Resend...');
           
           const emailResult = await resend.emails.send({
-            from: 'PrintStream Proofing <proofing@jaimar.dev>',
+            from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
             to: [clientEmail],
             subject: `Proof Ready for Review - WO ${jobDetails?.wo_no || 'N/A'}`,
             html: `
@@ -266,7 +266,7 @@ serve(async (req) => {
       if (jobDetails?.contact_email) {
         try {
           await resend.emails.send({
-            from: 'PrintStream Proofing <proofing@jaimar.dev>',
+            from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
             to: [jobDetails.contact_email],
             subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
             html: `
@@ -363,7 +363,7 @@ serve(async (req) => {
       // Send new email
       if (jobDetails?.contact_email) {
         await resend.emails.send({
-          from: 'PrintStream Proofing <proofing@jaimar.dev>',
+          from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
           to: [jobDetails.contact_email],
           subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
           html: `
