@@ -67,38 +67,50 @@ export const initializeJobWorkflowFromMappings = async (
       }
     });
 
-    // ✨ NEW: Pre-aggregate mappings by production_stage_id to consolidate multi-spec stages
+    // ✨ RESTORED: Group by composite key (stage_id + partType) to prevent Cover/Text consolidation
+    // This ensures Cover and Text parts create SEPARATE stage instances, even on the same printer
+    // BUT still allows multi-spec consolidation for non-part scenarios (e.g., Handwork)
     const stageGroups = new Map<string, UserApprovedMapping[]>();
     sortedMappings.forEach(mapping => {
-      const existing = stageGroups.get(mapping.mappedStageId) || [];
+      // Create composite key: stage_id + partType separator
+      // If partType exists (Cover/Text), they get different keys → separate stages
+      // If partType is null (Handwork), same stage_id → consolidated with sub-tasks
+      const groupKey = `${mapping.mappedStageId}::${mapping.partType || 'none'}`;
+      const existing = stageGroups.get(groupKey) || [];
       existing.push(mapping);
-      stageGroups.set(mapping.mappedStageId, existing);
+      stageGroups.set(groupKey, existing);
     });
     
     logger.addDebugInfo(`🔍 Detected ${stageGroups.size} unique stages from ${sortedMappings.length} mappings`);
     
     // Build consolidated stage data for the new RPC function
-    const consolidatedStages = Array.from(stageGroups.entries()).map(([stageId, mappings]) => {
+    const consolidatedStages = Array.from(stageGroups.entries()).map(([groupKey, mappings]) => {
+      // Extract the actual stage_id from the composite key (before the '::' separator)
+      const stageId = groupKey.split('::')[0];
+      const partType = groupKey.split('::')[1] === 'none' ? null : groupKey.split('::')[1];
       const stageOrder = stageOrderMap.get(stageId) || 999;
       
       // Create specifications array for this stage - PRESERVE ALL MAPPINGS, even those without spec IDs
       const specifications = mappings.map(m => ({
         specification_id: m.mappedStageSpecId || null,
+        specification_name: m.mappedStageSpecName || null,
         quantity: m.qty || null,
-        paper_specification: m.paperSpecification || null
+        paper_specification: m.paperSpecification || null,
+        part_type: m.partType || null
       }));
       // DO NOT filter out null spec IDs - they are valid manual entries
       
-      logger.addDebugInfo(`📦 Consolidating stage ${stageId} with ${specifications.length} specification(s) from ${mappings.length} mappings`);
+      logger.addDebugInfo(`📦 Consolidating stage ${stageId} (partType: ${partType || 'none'}) with ${specifications.length} specification(s) from ${mappings.length} mappings`);
       
       // Log detailed spec info for debugging
       specifications.forEach((spec, idx) => {
-        logger.addDebugInfo(`   Spec ${idx + 1}: ${spec.specification_id ? `ID=${spec.specification_id}` : 'NO_ID'}, qty=${spec.quantity}`);
+        logger.addDebugInfo(`   Spec ${idx + 1}: ${spec.specification_id ? `ID=${spec.specification_id}` : 'NO_ID'}, qty=${spec.quantity}, part=${spec.part_type || 'none'}`);
       });
       
       return {
         stage_id: stageId,
         stage_order: stageOrder,
+        part_type: partType,
         specifications: specifications // Use ALL specifications as-is
       };
     });
