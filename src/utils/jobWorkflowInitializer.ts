@@ -103,7 +103,7 @@ export const initializeJobWorkflowFromMappings = async (
       };
     });
 
-    // Call the new multi-spec aware RPC function
+    // Call the new multi-spec aware RPC function with enhanced error handling
     const { data, error } = await supabase.rpc('initialize_job_stages_with_multi_specs', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
@@ -111,7 +111,14 @@ export const initializeJobWorkflowFromMappings = async (
     });
 
     if (error) {
-      logger.addDebugInfo(`❌ Failed to initialize multi-spec workflow for job ${jobId}: ${error.message}`);
+      logger.addDebugInfo(`❌ RPC initialize_job_stages_with_multi_specs failed: ${error.message}`);
+      logger.addDebugInfo(`   PostgREST error details: code=${error.code}, hint=${error.hint || 'N/A'}`);
+      logger.addDebugInfo(`   Failed with consolidated stages: ${JSON.stringify(consolidatedStages, null, 2)}`);
+      return false;
+    }
+    
+    if (!data) {
+      logger.addDebugInfo(`⚠️ RPC returned no data (expected boolean), workflow initialization may have failed`);
       return false;
     }
 
