@@ -1,0 +1,49 @@
+Scheduler Version 2.4 - October 7, 2025
+Gap-Filling Regression Fix
+
+PROBLEM:
+- Jobs due months out were scheduled far in the future
+- Finishing stages couldn't move to fill gaps > 30 days away
+- Artificial caps prevented legitimate optimization
+- D426432 Final Trimming stage had 49-day gap but couldn't move forward
+
+ROOT CAUSE:
+- Hard-coded v_lookback_days capped at 30 days
+- Hard-coded v_stage_move_cap of 30 days for all stages
+- find_available_gaps() scan window didn't include earliest_possible_start
+
+SOLUTION:
+1. Dynamic lookback (7-90 days based on job spacing)
+   - Calculated from gap between scheduled_start and earliest_possible_start
+   - Extends far enough to scan back to predecessor stages
+   
+2. Removed upper move cap for gap-filling stages
+   - BEFORE: days_saved <= 30 days (prevented D426432 from moving 49 days)
+   - AFTER: Only minimum threshold of 0.25 days (6 hours)
+   - No upper limit for allow_gap_filling=true stages
+
+3. Extended scan window in find_available_gaps()
+   - Now includes COALESCE(p_align_at::date, v_earliest_allowed_date)
+   - Ensures scan covers the date of earliest_possible_start
+
+MIGRATION: 20251007180644_4664bf1f-28d6-42b4-abf8-dcb5beffa0ab.sql
+
+FUNCTIONS UPDATED:
+- scheduler_reschedule_all_parallel_aware()
+  - Dynamic v_lookback_days calculation
+  - Removed upper cap condition for gap-filling stages
+  
+- find_available_gaps()
+  - Extended scan_start_date calculation
+  - Now includes p_align_at date in scan window
+
+VERIFICATION:
+After reschedule, finishing stages with large gaps should move forward:
+- D426432 Final Trimming should fill earlier available slots
+- No precedence violations
+- Tight packing still maintained (zero-gap scheduling)
+
+BACKWARD COMPATIBILITY:
+- Fully compatible with v2.3
+- No breaking changes to APIs
+- Existing behavior preserved for non-gap-filling stages

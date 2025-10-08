@@ -705,5 +705,6 @@ WHERE jsi.schedule_status = 'scheduled'
 ---
 
 **END OF RESTORATION GUIDE**
-**Last Updated: September 30, 2025**
+**Last Updated: October 7, 2025 (v2.4)**
+**Current Working Version: 2.4**
 **Keep with SCHEDULER_WORKING_STATE_MASTER.md**

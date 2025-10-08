@@ -1,6 +1,6 @@
 # Scheduler Architecture - Current Working State
 
-**UPDATED: OCTOBER 3, 2025 (v2.3)**
+**UPDATED: OCTOBER 7, 2025 (v2.4)**
 
 This document describes the current working architecture of the production scheduler system, replacing all outdated architectural references.
 
@@ -8,15 +8,16 @@ This document describes the current working architecture of the production sched
 
 ## Architecture Type
 
-**Parallel-Aware Sequential Scheduling with Gap-Filling Optimization and Tight Packing**
+**Parallel-Aware Sequential Scheduling with Dynamic Gap-Filling Optimization and Tight Packing**
 
 ### Key Characteristics
 - **Two-phase scheduling**: FIFO sequential + backward gap-filling optimization
+- **Dynamic lookback**: Calculates scan window based on actual job spacing (7-90 days)
+- **Intelligent gap-filling**: No artificial distance caps for finishing stages
 - **Parallel stage awareness**: Handles concurrent stages within jobs (cover/text paths)
 - **Resource contention management**: Tracks when each production stage becomes available
 - **Time-aware scheduling**: Considers current time when calculating start times
 - **Barrier-based convergence**: Uses barriers to synchronize parallel workflow paths
-- **Gap-filling optimization**: Scans backward to fill scheduling gaps with smaller jobs
 - **Tight packing**: Aligns stages precisely to predecessor finish times (zero-gap scheduling)
 - **Working day aware**: Only schedules on weekdays, excluding holidays
 
@@ -148,12 +149,10 @@ START scheduler_reschedule_all_parallel_aware(p_start_from)
   │   │   │   ├─ Check predecessor stages (by stage_order)
   │   │   │   └─ earliest_possible = MAX(predecessor_ends, base_time)
   │   │   │
-  │   │   ├─ 5.2 Determine lookback window
-  │   │   │   ├─ days_until_original = scheduled_start - now()
-  │   │   │   ├─ IF finishing stage (trimming/packaging/dispatch):
-  │   │   │   │   lookback = MIN(30, MAX(7, FLOOR(days_until_original)))
-  │   │   │   └─ ELSE (standard stages):
-  │   │   │       lookback = MIN(30, MAX(7, FLOOR(days_until_original * 0.7)))
+  │   │   ├─ 5.2 Determine lookback window (ENHANCED in v2.4)
+  │   │   │   ├─ days_back_to_prev = (scheduled_start - earliest_possible_start) / 86400
+  │   │   │   ├─ lookback_days = MIN(90, MAX(7, FLOOR(days_back_to_prev)))
+  │   │   │   └─ Dynamic: adjusts to actual job spacing (not fixed cap)
   │   │   │
   │   │   ├─ 5.3 Find best gap using find_available_gaps()
   │   │   │   find_available_gaps(
@@ -163,12 +162,14 @@ START scheduler_reschedule_all_parallel_aware(p_start_from)
   │   │   │     p_lookback_days,
   │   │   │     p_align_at = earliest_possible_start  -- NEW in v2.3
   │   │   │   )
+  │   │   │   ├─ scan_start includes earliest_possible_start date (v2.4)
+  │   │   │   └─ Extended window ensures predecessor dates are scanned
   │   │   │
-  │   │   ├─ 5.4 Validate gap candidate
+  │   │   ├─ 5.4 Validate gap candidate (RELAXED in v2.4)
   │   │   │   ├─ gap_start >= earliest_possible_start
   │   │   │   ├─ gap_start >= GREATEST(gap_start, earliest_possible, now())
   │   │   │   ├─ savings >= 6 hours (0.25 days) -- Updated in v2.3
-  │   │   │   ├─ savings <= max_days_cap (21 or 30 based on stage type)
+  │   │   │   ├─ NO UPPER CAP for allow_gap_filling=true stages (NEW in v2.4)
   │   │   │   └─ No violations of job-level dependencies
   │   │   │
   │   │   ├─ 5.5 Move stage if beneficial
@@ -584,5 +585,5 @@ SELECT * FROM validate_job_scheduling_precedence();
 ---
 
 **END OF ARCHITECTURE DOCUMENT**
-**Last Updated: October 3, 2025 (v2.3)**
+**Last Updated: October 7, 2025 (v2.4)**
 **Supersedes: SCHEDULER_VERSION_1.0_MILESTONE.md, WORKING_SCHEDULER_ARCHITECTURE.md**

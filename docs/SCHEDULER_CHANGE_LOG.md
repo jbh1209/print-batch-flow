@@ -8,13 +8,76 @@ This document tracks all changes to the scheduler system in chronological order,
 
 ## Version History
 
-### Current Version: 2.3 - Tight Packing with Alignment
-**Date**: October 3, 2025  
+### Current Version: 2.4 - Enhanced Gap-Filling with Dynamic Lookback
+**Date**: October 7, 2025  
 **Status**: ✅ WORKING - PRODUCTION
 
 ---
 
 ## Detailed Change Log
+
+### October 7, 2025 - Enhanced Gap-Filling Regression Fix (v2.4)
+
+**Migration**: `20251007180644_4664bf1f-28d6-42b4-abf8-dcb5beffa0ab.sql`
+
+#### Problem Identified
+- Gap-filling was broken after recent 30-day caps were introduced
+- Finishing stages with large gaps (e.g., 49 days) couldn't move forward
+- Jobs due months out (like D426432 in December) were being scheduled far in the future
+- Recent lookback and move cap additions created artificial constraints
+
+#### Root Cause
+- Hard-coded `v_lookback_days` capped at 30 days prevented scanning back to predecessor stages
+- Hard-coded `v_stage_move_cap` of 30 days prevented legitimate gap-fills for finishing stages
+- `find_available_gaps()` scan window didn't include `earliest_possible_start` date
+
+#### Solution Implemented
+
+**1. Dynamic Lookback Calculation**
+```sql
+-- Calculate based on gap to previous stage
+v_days_back_to_prev := EXTRACT(epoch FROM (original_start - earliest_possible_start)) / 86400.0;
+v_lookback_days := LEAST(90, GREATEST(7, FLOOR(v_days_back_to_prev)))::integer;
+```
+
+**2. Removed Upper Move Cap for Gap-Filling Stages**
+```sql
+-- BEFORE: days_saved <= 30 days (artificial limit)
+-- AFTER: Only minimum threshold (0.25 days), no upper limit for allow_gap_filling=true
+IF best_gap IS NOT NULL AND days_saved >= 0.25 THEN
+```
+
+**3. Extended find_available_gaps() Scan Window**
+```sql
+scan_start_date := GREATEST(
+  (p_fifo_start_time - make_interval(days => p_lookback_days))::date,
+  v_earliest_allowed_date,
+  COALESCE(p_align_at::date, v_earliest_allowed_date)
+);
+```
+
+#### Behavior Changes
+
+| Scenario | Before (v2.3) | After (v2.4) |
+|----------|---------------|--------------|
+| Finishing stage 49 days out | Couldn't move (>30 day cap) | Can move to fill gap ✓ |
+| Lookback window | Fixed 30 days max | Dynamic up to 90 days ✓ |
+| Scan window | Might miss predecessor date | Always includes predecessor ✓ |
+| Move threshold | 0.25 days minimum | 0.25 days minimum (unchanged) |
+
+#### Files Changed
+1. Migration: `20251007180644_4664bf1f-28d6-42b4-abf8-dcb5beffa0ab.sql`
+2. Function: `find_available_gaps()` - Extended scan window calculation
+3. Function: `scheduler_reschedule_all_parallel_aware()` - Dynamic lookback, removed cap
+
+#### Impact
+- ✅ Finishing stages can now be gap-filled regardless of distance
+- ✅ Lookback dynamically calculated based on actual job spacing
+- ✅ Maximum efficiency for production schedule packing
+- ✅ Precedence constraints still enforced (no violations)
+- ✅ Backward compatible with v2.3
+
+---
 
 ### October 3, 2025 - Tight Packing with Alignment (v2.3)
 
@@ -478,7 +541,14 @@ Oct 3, 2025 (v2.3)
   ├─ Reduced threshold to 6 hours (0.25 days)
   └─ Zero-gap scheduling between dependent stages
       ↓
-CURRENT STATE (v2.3)
+Oct 7, 2025 (v2.4)
+  ├─ Migration: 20251007180644_4664bf1f-28d6-42b4-abf8-dcb5beffa0ab.sql
+  ├─ Dynamic lookback (up to 90 days based on job spacing)
+  ├─ Removed upper move cap for gap-filling stages
+  ├─ Extended find_available_gaps scan window
+  └─ Fixed regression preventing long-distance gap-fills
+      ↓
+CURRENT STATE (v2.4)
 ```
 
 ---
