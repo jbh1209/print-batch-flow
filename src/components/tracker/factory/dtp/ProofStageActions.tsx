@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon, FileText, Clock } from "lucide-react";
+import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight, Scan, Copy, Link as LinkIcon, FileText, Clock, AlertCircle } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
 import { BatchJobFormRHF } from "../../batch-allocation/BatchJobFormRHF";
@@ -14,6 +14,7 @@ import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
 import { useProofLinks } from "@/hooks/useProofLinks";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { HP12000PaperSizeSelector } from "./HP12000PaperSizeSelector";
+import { ManageProofDialog } from "./ManageProofDialog";
 import { useState } from "react";
 
 interface StageInstance {
@@ -67,6 +68,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     isValid: boolean;
     message?: string;
   }>({ isValid: true });
+  const [isManageProofOpen, setIsManageProofOpen] = useState(false);
   
   // Client details state
   const [clientEmail, setClientEmail] = useState(stageInstance?.client_email || '');
@@ -266,6 +268,138 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
   };
 
+  const handleManualEmailSent = async () => {
+    const currentTime = new Date().toISOString();
+
+    try {
+      console.log('📧 Marking proof as manually emailed for job:', job.job_id);
+      
+      // Update stage instance - proof sent manually outside system
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          proof_emailed_at: currentTime,
+          updated_at: currentTime,
+          notes: 'Proof sent manually via email (not through system)'
+        })
+        .eq('job_id', job.job_id)
+        .eq('production_stage_id', job.current_stage_id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      if (stageInstance) {
+        setStageInstance({
+          ...stageInstance,
+          proof_emailed_at: currentTime
+        });
+      }
+
+      toast.success("✅ Proof marked as emailed manually - awaiting client response");
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error marking proof as manually emailed:', error);
+      toast.error("Failed to mark proof as emailed");
+    }
+  };
+
+  const handlePrintjobApproval = async () => {
+    // Check HP12000 paper size validation before proceeding
+    if (!hp12000ValidationStatus.isValid) {
+      toast.error(hp12000ValidationStatus.message || 'Please assign paper sizes to all HP12000 stages before approving proof');
+      return;
+    }
+
+    try {
+      console.log('🎯 Marking proof as approved on Printjob for job:', job.job_id);
+      
+      if (!stageInstance?.id) {
+        toast.error('No stage instance found');
+        return;
+      }
+
+      // Use the existing proof approval flow - it handles scheduling automatically
+      const success = await completeProofStage(job.job_id, stageInstance.id);
+
+      if (!success) {
+        toast.error('Failed to approve proof');
+        return;
+      }
+
+      console.log('✅ Proof approved (Printjob) and scheduling triggered');
+      
+      // Update local state
+      const currentTime = new Date().toISOString();
+      if (stageInstance) {
+        setStageInstance({
+          ...stageInstance,
+          proof_emailed_at: currentTime,
+          proof_approved_manually_at: currentTime
+        });
+      }
+      
+      // Move to allocation choice
+      onProofApprovalFlowChange('choosing_allocation');
+      toast.success('✅ Proof approved (from Printjob) - scheduling triggered. Choose next step.');
+      
+      setTimeout(() => {
+        onRefresh?.();
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error approving proof from Printjob:', error);
+      toast.error('Failed to approve proof');
+    }
+  };
+
+  const handleMarkAsNeedingChanges = async () => {
+    try {
+      console.log('🔄 Marking proof as needing changes for job:', job.job_id);
+      
+      // Clear proof_emailed_at and revert to active status
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'active',
+          proof_emailed_at: null,
+          notes: 'Proof requires changes - sent back for revision',
+          updated_at: new Date().toISOString()
+        })
+        .eq('job_id', job.job_id)
+        .eq('production_stage_id', job.current_stage_id);
+
+      if (updateError) throw updateError;
+
+      // Invalidate any active proof links
+      await supabase
+        .from('proof_links')
+        .update({
+          is_used: true,
+          invalidated_at: new Date().toISOString(),
+          client_response: 'changes_needed',
+          client_notes: 'Manually marked as needing changes'
+        })
+        .eq('job_id', job.job_id)
+        .eq('stage_instance_id', stageInstance?.id)
+        .eq('is_used', false);
+
+      // Update local state
+      if (stageInstance) {
+        setStageInstance({
+          ...stageInstance,
+          status: 'active',
+          proof_emailed_at: undefined
+        });
+      }
+
+      toast.success("✅ Proof reverted - ready for changes");
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error marking proof as needing changes:', error);
+      toast.error("Failed to revert proof");
+    }
+  };
+
   const handleProofApproved = async () => {
     // Check HP12000 paper size validation before proceeding
     if (!hp12000ValidationStatus.isValid) {
@@ -424,6 +558,37 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     if (!hasProofBeenEmailed) {
       return (
         <div className="space-y-4">
+          {/* Manual Entry Options */}
+          <div className="space-y-3 border-b pb-4 mb-4">
+            <p className="text-sm font-medium text-gray-700">How was this proof handled?</p>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                variant="outline"
+                onClick={handleManualEmailSent}
+                disabled={isLoading || isProcessing}
+                className="w-full"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Emailed Manually
+              </Button>
+              
+              <Button 
+                variant="outline"
+                onClick={handlePrintjobApproval}
+                disabled={isLoading || isProcessing}
+                className="w-full"
+              >
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                Approved on Printjob
+              </Button>
+            </div>
+            
+            <div className="text-xs text-gray-500 text-center">
+              Or use the online approval system below
+            </div>
+          </div>
+
           {!generatedProofLink ? (
             <>
               {/* PDF Upload Section */}
@@ -557,9 +722,9 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
           </div>
 
           {/* Manage Proof Button */}
-          {onOpenProofDialog && (
+          {stageInstance?.id && (
             <Button 
-              onClick={onOpenProofDialog}
+              onClick={() => setIsManageProofOpen(true)}
               variant="outline"
               className="w-full"
               disabled={isLoading || isProcessing}
@@ -569,14 +734,26 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
             </Button>
           )}
 
-          <Button 
-            onClick={handleProofApproved}
-            disabled={isLoading || isProcessing || !hp12000ValidationStatus.isValid}
-            className="w-full bg-green-600 hover:bg-green-700"
-          >
-            <ThumbsUp className="h-4 w-4 mr-2" />
-            {hp12000ValidationStatus.isValid ? 'Mark as Approved' : 'HP12000 Paper Sizes Required'}
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              onClick={handleProofApproved}
+              disabled={isLoading || isProcessing || !hp12000ValidationStatus.isValid}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              <ThumbsUp className="h-4 w-4 mr-2" />
+              {hp12000ValidationStatus.isValid ? 'Approve' : 'Sizes Required'}
+            </Button>
+
+            <Button 
+              onClick={handleMarkAsNeedingChanges}
+              disabled={isLoading || isProcessing}
+              variant="destructive"
+              className="w-full"
+            >
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Needs Changes
+            </Button>
+          </div>
         </div>
       );
     }
@@ -652,5 +829,19 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
   }
 
-  return null;
+  return (
+    <>
+      {stageInstance?.id && (
+        <ManageProofDialog
+          isOpen={isManageProofOpen}
+          onClose={() => setIsManageProofOpen(false)}
+          stageInstanceId={stageInstance.id}
+          jobId={job.job_id}
+          currentEmail={stageInstance.client_email}
+          currentName={stageInstance.client_name}
+          onRefresh={onRefresh}
+        />
+      )}
+    </>
+  );
 };
