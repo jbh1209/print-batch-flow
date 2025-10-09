@@ -4332,13 +4332,7 @@ export type Database = {
         }[]
       }
       scheduler_append_jobs: {
-        Args:
-          | { p_job_ids: string[]; p_only_if_unset?: boolean }
-          | {
-              p_job_ids: string[]
-              p_only_if_unset?: boolean
-              p_start_from?: string
-            }
+        Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
         Returns: {
           updated_jsi: number
           violations: Json
