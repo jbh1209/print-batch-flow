@@ -3666,10 +3666,10 @@ export type Database = {
       find_available_gaps: {
         Args:
           | {
-              p_align_at?: string
+              p_align_at: string
               p_duration_minutes: number
               p_fifo_start_time: string
-              p_lookback_days?: number
+              p_lookback_days: number
               p_stage_id: string
             }
           | {
