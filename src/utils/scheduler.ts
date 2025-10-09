@@ -37,7 +37,7 @@ function getFactoryBaseTime(): string {
 /**
  * Main reschedule function - routes through edge function to avoid DB timeouts
  */
-export async function rescheduleAll(startFrom?: string): Promise<SchedulerResult | null> {
+export async function rescheduleAll(): Promise<SchedulerResult | null> {
   try {
     console.log('🔄 Starting reschedule via Edge Function simple-scheduler...');
 
@@ -107,7 +107,6 @@ export async function scheduleJobs(jobIds: string[], forceReschedule = false): P
   try {
     const { data, error } = await supabase.rpc('scheduler_append_jobs', {
       p_job_ids: jobIds,
-      p_start_from: null,
       p_only_if_unset: !forceReschedule
     });
     
