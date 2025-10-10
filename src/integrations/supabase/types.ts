@@ -4408,7 +4408,7 @@ export type Database = {
         }[]
       }
       shift_window_enhanced: {
-        Args: { p_date: string }
+        Args: { p_date: string } | { p_end_date: string; p_start_date: string }
         Returns: {
           has_lunch_break: boolean
           lunch_end: string
