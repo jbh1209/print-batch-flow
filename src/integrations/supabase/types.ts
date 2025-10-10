@@ -3665,6 +3665,7 @@ export type Database = {
       }
       find_available_gaps: {
         Args: {
+          p_align_at?: string
           p_duration_minutes: number
           p_fifo_start_time: string
           p_lookback_days?: number
@@ -3672,7 +3673,7 @@ export type Database = {
         }
         Returns: {
           days_earlier: number
-          gap_capacity_minutes: number
+          gap_duration_minutes: number
           gap_end: string
           gap_start: string
         }[]
