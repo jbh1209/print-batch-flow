@@ -249,7 +249,7 @@ export class DirectJobCreator {
     const stageDataMap = new Map(stageData?.map(stage => [stage.id, stage]) || []);
     
     // Create stages manually instead of using RPC to support multiple instances of same stage
-    await this.createCustomStageInstances(job, processedMappings, stageOrderMap);
+    await this.createCustomStageInstances(job, processedMappings, stageOrderMap, stageDataMap);
 
     // Set all stages to pending (override any default behavior)
     await supabase
@@ -335,7 +335,7 @@ export class DirectJobCreator {
   /**
    * Create stage instances manually to support multiple instances of the same stage
    */
-  private async createCustomStageInstances(job: any, mappings: any[], stageOrderMap: Map<string, number>): Promise<void> {
+  private async createCustomStageInstances(job: any, mappings: any[], stageOrderMap: Map<string, number>, stageDataMap: Map<string, any>): Promise<void> {
     // Sort mappings by stage order and instance index
     const sortedMappings = mappings.sort((a, b) => {
       const aOrder = stageOrderMap.get(a.originalStageId || a.mappedStageId) || 0;
@@ -354,9 +354,14 @@ export class DirectJobCreator {
     for (let i = 0; i < sortedMappings.length; i++) {
       const mapping = sortedMappings[i];
       const stageId = mapping.originalStageId || mapping.mappedStageId;
+      const stageName = mapping.mappedStageName || 'Unknown';
       
-      // CRITICAL FIX: Use the actual quantity from the mapping, not a default value
-      const actualQuantity = mapping.qty || null;
+      // CRITICAL FIX 1: DTP and Proof stages always get qty=1
+      let actualQuantity = mapping.qty || null;
+      if (stageName.toLowerCase().includes('dtp') || stageName.toLowerCase().includes('proof')) {
+        actualQuantity = 1;
+        this.logger.addDebugInfo(`[DTP/PROOF] Hardcoded quantity=1 for ${stageName}`);
+      }
       
       this.logger.addDebugInfo(`[QUANTITY LOG] Creating stage instance with quantity: ${actualQuantity} for mapping: ${JSON.stringify({
         mappedStageName: mapping.mappedStageName,
@@ -364,7 +369,7 @@ export class DirectJobCreator {
         partType: mapping.partType
       })}`);
       
-      const { error } = await supabase
+      const { data: insertedStage, error } = await supabase
         .from('job_stage_instances')
         .insert({
           job_id: job.id,
@@ -376,13 +381,41 @@ export class DirectJobCreator {
           quantity: actualQuantity, // FIXED: Use actual quantity from mapping
           part_type: mapping.partType?.toLowerCase() || null,
           part_name: mapping.partType || null
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         throw new Error(`Failed to create stage instance for ${mapping.mappedStageName}: ${error.message}`);
       }
 
       this.logger.addDebugInfo(`[QUANTITY LOG] Created stage instance: ${mapping.mappedStageName} (order: ${i + 1}, qty: ${actualQuantity})`);
+
+      // CRITICAL FIX 2: Calculate duration immediately if we have timing data
+      if (insertedStage && actualQuantity && actualQuantity > 0) {
+        const stageData = stageDataMap.get(stageId);
+        if (stageData?.running_speed_per_hour && stageData.running_speed_per_hour > 0) {
+          try {
+            const { data: calculatedDuration } = await supabase.rpc('calculate_stage_duration', {
+              p_quantity: actualQuantity,
+              p_running_speed_per_hour: stageData.running_speed_per_hour,
+              p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
+              p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
+            });
+            
+            if (calculatedDuration && typeof calculatedDuration === 'number') {
+              await supabase
+                .from('job_stage_instances')
+                .update({ estimated_duration_minutes: calculatedDuration })
+                .eq('id', insertedStage.id);
+              
+              this.logger.addDebugInfo(`[DURATION] Calculated ${calculatedDuration} mins for ${stageName} (qty: ${actualQuantity})`);
+            }
+          } catch (calcError) {
+            this.logger.addDebugInfo(`[DURATION] Calculation failed for ${stageName}: ${calcError}`);
+          }
+        }
+      }
     }
   }
 
@@ -454,16 +487,22 @@ export class DirectJobCreator {
       let estimatedDuration = null;
       const mappingQuantity = mapping.qty; // Use actual quantity from mapping
       
-      if (mappingQuantity && stageData) {
-        const { data: calculatedDuration, error: durationError } = await supabase.rpc('calculate_stage_duration', {
-          p_quantity: mappingQuantity, // FIXED: Use actual mapping quantity
-          p_running_speed_per_hour: stageData.running_speed_per_hour || 100,
-          p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
-          p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
-        });
+      // CRITICAL FIX 3: Fallback to production_stage timing if no specification
+      if (mappingQuantity && mappingQuantity > 0 && stageData) {
+        if (stageData.running_speed_per_hour && stageData.running_speed_per_hour > 0) {
+          const { data: calculatedDuration, error: durationError } = await supabase.rpc('calculate_stage_duration', {
+            p_quantity: mappingQuantity,
+            p_running_speed_per_hour: stageData.running_speed_per_hour,
+            p_make_ready_time_minutes: stageData.make_ready_time_minutes || 10,
+            p_speed_unit: stageData.speed_unit || 'sheets_per_hour'
+          });
 
-        if (!durationError && calculatedDuration) {
-          estimatedDuration = calculatedDuration;
+          if (!durationError && calculatedDuration && typeof calculatedDuration === 'number') {
+            estimatedDuration = calculatedDuration;
+            this.logger.addDebugInfo(`[FALLBACK DURATION] Calculated ${calculatedDuration} mins from production_stage config for ${mapping.mappedStageName}`);
+          }
+        } else {
+          this.logger.addDebugInfo(`[FALLBACK DURATION] No timing config for ${mapping.mappedStageName}, trigger will apply 60min default`);
         }
       }
 
