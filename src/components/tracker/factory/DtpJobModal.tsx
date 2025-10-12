@@ -165,6 +165,31 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
               </Card>
             )}
 
+            {/* Proof Stage Actions */}
+            {getCurrentStage() === 'proof' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Proof Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ProofStageActions
+                    job={job}
+                    stageStatus={getStageStatus()}
+                    stageInstance={stageInstance}
+                    proofApprovalFlow={proofApprovalFlow}
+                    selectedBatchCategory={selectedBatchCategory}
+                    scanCompleted={scanCompleted}
+                    isLoading={isLoading}
+                    onRefresh={onRefresh}
+                    onClose={onClose}
+                    onProofApprovalFlowChange={setProofApprovalFlow}
+                    onBatchCategoryChange={setSelectedBatchCategory}
+                    setStageInstance={loadModalData}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
           {/* Notes Section - Only show when stage is active AND scanned */}
           {getStageStatus() === 'active' && scanCompleted && (
             <Card>
