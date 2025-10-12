@@ -106,16 +106,26 @@ const ProofViewer = () => {
 
       if (res.error) throw res.error;
 
+      // Handle idempotent submissions gracefully
+      if (res.data?.alreadyProcessed) {
+        toast.success(res.data.message || "Your response was already recorded");
+        setSubmitted(true);
+        return;
+      }
+
       if (response === "approved" && res.data?.estimatedCompletion) {
         setEstimatedCompletion(res.data.estimatedCompletion);
         setShowSuccess(true);
       } else {
-        toast.success("Your feedback has been submitted successfully");
+        toast.success(res.data?.message || "Your feedback has been submitted successfully");
         setSubmitted(true);
       }
     } catch (err: any) {
       console.error("Error submitting response:", err);
-      toast.error(err.message || "Failed to submit response");
+      
+      // Display server-provided error messages when available
+      const errorMessage = err?.message || err?.error || "Failed to submit response. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
       setIsScheduling(false);

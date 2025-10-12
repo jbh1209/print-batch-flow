@@ -505,52 +505,112 @@ serve(async (req) => {
     }
 
     if (action === 'submit-approval') {
-      // Handle client approval/changes request
+      // Handle client approval/changes request with robust validation
       const { token, response, notes } = await req.json();
       
       console.log('📝 Processing client response:', { token, response });
 
-      // Track that client viewed the link
-      await supabase
-        .from('proof_links')
-        .update({ 
-          viewed_at: new Date().toISOString()
-        })
-        .eq('token', token)
-        .is('viewed_at', null);
-
-      // Verify token and get proof link
-      const { data: proofLink, error: linkError } = await supabase
+      // STEP 1: Fetch proof link by token only (no filters)
+      const { data: rawLink, error: fetchError } = await supabase
         .from('proof_links')
         .select(`
           *,
-          job_stage_instances(*)
+          job_stage_instances(notes)
         `)
         .eq('token', token)
-        .eq('is_used', false)
-        .gte('expires_at', new Date().toISOString())
         .single();
 
-      if (linkError || !proofLink) {
-        console.error('❌ Invalid or expired proof link:', linkError);
+      if (fetchError || !rawLink) {
+        console.error('❌ Proof link not found:', fetchError);
         return new Response(
-          JSON.stringify({ error: 'Invalid or expired proof link' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          JSON.stringify({ error: 'Proof link not found. Please check your link or contact support.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
         );
       }
 
-      // Mark proof link as used
-      await supabase
+      console.log('🔍 Found proof link:', { 
+        id: rawLink.id, 
+        is_used: rawLink.is_used, 
+        client_response: rawLink.client_response,
+        expires_at: rawLink.expires_at 
+      });
+
+      // STEP 2: Check if link is already used (idempotent handling)
+      if (rawLink.is_used) {
+        console.log('⚠️ Link already used - checking for idempotent submission');
+        
+        // If same response, return success (idempotent)
+        if (rawLink.client_response === response) {
+          console.log('✅ Idempotent submission detected - returning success');
+          return new Response(
+            JSON.stringify({ 
+              success: true,
+              alreadyProcessed: true,
+              message: response === 'approved' 
+                ? 'Your approval was already recorded. Thank you!' 
+                : 'Your change request was already recorded. Our team will be in touch soon.'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+        
+        // Different response - conflict
+        console.error('❌ Link already used with different response');
+        return new Response(
+          JSON.stringify({ 
+            error: `This proof link was already used to submit: ${rawLink.client_response === 'approved' ? 'Approval' : 'Change Request'}. Please contact us if you need to modify your response.`
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+        );
+      }
+
+      // STEP 3: Check if link is expired
+      if (rawLink.expires_at && new Date(rawLink.expires_at) < new Date()) {
+        console.error('❌ Proof link has expired');
+        return new Response(
+          JSON.stringify({ 
+            error: 'This proof link has expired. Please contact us to request a new proof link.'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 410 }
+        );
+      }
+
+      // STEP 4: Track that client viewed the link (if not already tracked)
+      if (!rawLink.viewed_at) {
+        await supabase
+          .from('proof_links')
+          .update({ 
+            viewed_at: new Date().toISOString()
+          })
+          .eq('id', rawLink.id);
+      }
+
+      console.log('✅ Proof link valid - processing response');
+
+      // STEP 5: Mark proof link as used and record response
+      const { error: markUsedError } = await supabase
         .from('proof_links')
         .update({
           is_used: true,
           client_response: response,
           client_notes: notes,
-          responded_at: new Date().toISOString()
+          responded_at: new Date().toISOString(),
+          client_ip_address: req.headers.get('x-forwarded-for'),
+          client_user_agent: req.headers.get('user-agent')
         })
-        .eq('id', proofLink.id);
+        .eq('id', rawLink.id);
 
-      // Declare estimatedCompletion in outer scope so it's accessible in return statement
+      if (markUsedError) {
+        console.error('❌ Failed to mark proof link as used:', markUsedError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to record your response. Please try again.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      console.log('✅ Proof link marked as used');
+
+      // STEP 6: Process the response
       let estimatedCompletion = null;
 
       if (response === 'approved') {
@@ -565,7 +625,7 @@ serve(async (req) => {
             proof_approved_manually_at: new Date().toISOString(),
             notes: `Client approved via external link. ${notes ? `Client notes: ${notes}` : ''}`
           })
-          .eq('id', proofLink.stage_instance_id);
+          .eq('id', rawLink.stage_instance_id);
 
         if (completeError) {
           console.error('❌ Failed to complete proof stage:', completeError);
@@ -575,16 +635,18 @@ serve(async (req) => {
           );
         }
 
-        // Append this job to the production schedule (not full reschedule)
+        console.log('✅ Proof stage marked as completed');
+
+        // Append this job to the production schedule
         const { error: scheduleError } = await supabase.rpc('scheduler_append_jobs', {
-          p_job_ids: [proofLink.job_id],
+          p_job_ids: [rawLink.job_id],
           p_only_if_unset: true
         });
 
         if (scheduleError) {
           console.error('⚠️ Failed to append to schedule:', {
             error: scheduleError,
-            jobId: proofLink.job_id,
+            jobId: rawLink.job_id,
             message: scheduleError.message,
             details: scheduleError.details
           });
@@ -597,7 +659,7 @@ serve(async (req) => {
         const { data: lastStage } = await supabase
           .from('job_stage_instances')
           .select('scheduled_end_at')
-          .eq('job_id', proofLink.job_id)
+          .eq('job_id', rawLink.job_id)
           .order('stage_order', { ascending: false })
           .limit(1)
           .single();
@@ -608,26 +670,29 @@ serve(async (req) => {
         await supabase
           .from('proof_links')
           .update({ 
-            estimated_completion_date: estimatedCompletion,
-            client_ip_address: req.headers.get('x-forwarded-for'),
-            client_user_agent: req.headers.get('user-agent')
+            estimated_completion_date: estimatedCompletion
           })
-          .eq('id', proofLink.id);
+          .eq('id', rawLink.id);
+
+        console.log('✅ Estimated completion:', estimatedCompletion);
+        
       } else if (response === 'changes_needed') {
         console.log('🔄 Client requested changes on proof');
         
-        // Simply update the proof stage to reflect client feedback
-        // Factory team will manually decide next action (send to DTP, contact client, etc.)
+        // Get existing notes from stage
+        const existingNotes = rawLink.job_stage_instances?.notes || '';
+        
+        // Update the proof stage to reflect client feedback
         const { error: updateError } = await supabase
           .from('job_stage_instances')
           .update({
             status: 'changes_requested',
             notes: notes 
-              ? `CLIENT FEEDBACK: ${notes}${proofLink.job_stage_instances.notes ? '\n\nPrevious notes: ' + proofLink.job_stage_instances.notes : ''}` 
-              : (proofLink.job_stage_instances.notes || 'Client requested changes (no notes provided)'),
+              ? `CLIENT FEEDBACK: ${notes}${existingNotes ? '\n\nPrevious notes: ' + existingNotes : ''}` 
+              : (existingNotes || 'Client requested changes (no notes provided)'),
             updated_at: new Date().toISOString()
           })
-          .eq('id', proofLink.stage_instance_id);
+          .eq('id', rawLink.stage_instance_id);
 
         if (updateError) {
           console.error('❌ Failed to update proof stage:', updateError);
@@ -644,7 +709,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: response === 'approved' ? 'Proof approved and job scheduled successfully' : 'Changes requested. Our team will review your feedback and contact you shortly.',
+          message: response === 'approved' 
+            ? 'Proof approved and job scheduled successfully' 
+            : 'Changes requested. Our team will review your feedback and contact you shortly.',
           estimatedCompletion: response === 'approved' ? estimatedCompletion : null
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
