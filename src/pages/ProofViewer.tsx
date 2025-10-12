@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PdfViewer from "@/components/pdf/PdfViewer";
 import { Loader2, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { toast } from "sonner";
+import { ProofViewerHeader } from "@/components/proof/ProofViewerHeader";
 
 const ProofViewer = () => {
   const { token } = useParams<{ token: string }>();
@@ -123,28 +124,36 @@ const ProofViewer = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <>
+        <ProofViewerHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="text-center space-y-4 max-w-md">
-          <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
-          <h1 className="text-2xl font-bold text-gray-900">Unable to Load Proof</h1>
-          <p className="text-gray-600">{error}</p>
+      <>
+        <ProofViewerHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+          <div className="text-center space-y-4 max-w-md">
+            <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
+            <h1 className="text-2xl font-bold text-gray-900">Unable to Load Proof</h1>
+            <p className="text-gray-600">{error}</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (showSuccess && estimatedCompletion) {
     const completionDate = new Date(estimatedCompletion);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <>
+        <ProofViewerHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-6 max-w-2xl bg-white p-8 rounded-lg shadow-lg">
           <CheckCircle className="h-20 w-20 text-green-500 mx-auto" />
           <h1 className="text-3xl font-bold text-gray-900">Order Approved & Scheduled!</h1>
@@ -181,24 +190,30 @@ const ProofViewer = () => {
           </p>
         </div>
       </div>
+      </>
     );
   }
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <>
+        <ProofViewerHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-4 max-w-md bg-white p-8 rounded-lg shadow-lg">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
           <h1 className="text-2xl font-bold text-gray-900">Response Submitted</h1>
           <p className="text-gray-600">Thank you for your feedback. We'll be in touch soon.</p>
         </div>
       </div>
+      </>
     );
   }
 
   if (isScheduling) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <>
+        <ProofViewerHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-6 max-w-md bg-white p-8 rounded-lg shadow-lg">
           <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
           <h2 className="text-2xl font-bold text-gray-900">⏳ Scheduling Your Order...</h2>
@@ -219,11 +234,14 @@ const ProofViewer = () => {
           <p className="text-sm text-gray-500">This usually takes 5-10 seconds</p>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <>
+      <ProofViewerHeader />
+      <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4 space-y-6">
         {/* Hero Section */}
         <div className="bg-white rounded-lg shadow-sm border p-6 space-y-2">
@@ -347,6 +365,7 @@ const ProofViewer = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
