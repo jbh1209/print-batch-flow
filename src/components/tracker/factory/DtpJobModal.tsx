@@ -95,7 +95,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   };
 
   const getStageStatus = (): string => {
-    return localStageStatus;
+    // Use actual stage instance status from database, fallback to local state
+    return stageInstance?.status || localStageStatus;
   };
 
   return (

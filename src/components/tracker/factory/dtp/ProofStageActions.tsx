@@ -829,6 +829,76 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
   }
 
+  // Handle awaiting_approval status (proof sent, waiting for client)
+  if (stageStatus === 'awaiting_approval') {
+    return (
+      <>
+        <div className="space-y-3">
+          {/* HP12000 Paper Size Selector */}
+          <HP12000PaperSizeSelector 
+            jobId={job.job_id}
+            onValidationChange={(isValid, message) => setHP12000ValidationStatus({ isValid, message })}
+          />
+          
+          <div className="flex items-center justify-center gap-2 text-amber-700 bg-amber-50 p-3 rounded-md border-l-4 border-amber-500">
+            <Clock className="h-4 w-4 animate-pulse" />
+            <span className="text-sm font-medium">🟡 Awaiting Online Client Approval</span>
+          </div>
+          
+          <div className="text-xs text-gray-500 text-center">
+            Emailed: {hasProofBeenEmailed ? new Date(hasProofBeenEmailed).toLocaleDateString() + ' at ' + new Date(hasProofBeenEmailed).toLocaleTimeString() : 'Unknown'}
+          </div>
+
+          {/* Manage Proof Button */}
+          {stageInstance?.id && (
+            <Button 
+              onClick={() => setIsManageProofOpen(true)}
+              variant="outline"
+              className="w-full"
+              disabled={isLoading || isProcessing}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Manage Proof (Edit/Resend/Regenerate)
+            </Button>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              onClick={handleProofApproved}
+              disabled={isLoading || isProcessing || !hp12000ValidationStatus.isValid}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              <ThumbsUp className="h-4 w-4 mr-2" />
+              {hp12000ValidationStatus.isValid ? 'Approve' : 'Sizes Required'}
+            </Button>
+
+            <Button 
+              onClick={handleMarkAsNeedingChanges}
+              disabled={isLoading || isProcessing}
+              variant="destructive"
+              className="w-full"
+            >
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Needs Changes
+            </Button>
+          </div>
+        </div>
+
+        {stageInstance?.id && (
+          <ManageProofDialog
+            isOpen={isManageProofOpen}
+            onClose={() => setIsManageProofOpen(false)}
+            stageInstanceId={stageInstance.id}
+            jobId={job.job_id}
+            currentEmail={stageInstance.client_email}
+            currentName={stageInstance.client_name}
+            onRefresh={onRefresh}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       {stageInstance?.id && (
