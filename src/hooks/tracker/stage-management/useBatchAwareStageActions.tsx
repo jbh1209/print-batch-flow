@@ -192,7 +192,7 @@ export const useBatchAwareStageActions = () => {
       const { error } = await supabase.rpc('rework_job_stage', {
         p_job_id: options.jobId,
         p_job_table_name: options.jobTableName,
-        p_current_stage_id: currentStageId,
+        p_current_stage_instance_id: currentStageId,
         p_target_stage_id: targetStageId,
         p_rework_reason: reworkReason,
         p_reworked_by: user?.id

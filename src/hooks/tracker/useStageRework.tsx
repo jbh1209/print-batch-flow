@@ -33,7 +33,7 @@ export const useStageRework = () => {
       const { data, error } = await supabase.rpc('rework_job_stage', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
-        p_current_stage_id: currentStageId,
+        p_current_stage_instance_id: currentStageId,
         p_target_stage_id: targetStageId,
         p_rework_reason: reworkReason || null
       });

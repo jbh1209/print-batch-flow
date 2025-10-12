@@ -614,49 +614,37 @@ serve(async (req) => {
           })
           .eq('id', proofLink.id);
       } else if (response === 'changes_needed') {
-        console.log('🔄 Client requested changes - sending back to DTP');
+        console.log('🔄 Client requested changes on proof');
         
-        // Find DTP stage to rework to
-        const { data: dtpStages } = await supabase
+        // Simply update the proof stage to reflect client feedback
+        // Factory team will manually decide next action (send to DTP, contact client, etc.)
+        const { error: updateError } = await supabase
           .from('job_stage_instances')
-          .select(`
-            *,
-            production_stage:production_stages(name)
-          `)
-          .eq('job_id', proofLink.job_id)
-          .eq('job_table_name', proofLink.job_table_name)
-          .order('stage_order');
+          .update({
+            status: 'changes_requested',
+            notes: notes 
+              ? `CLIENT FEEDBACK: ${notes}${proofLink.job_stage_instances.notes ? '\n\nPrevious notes: ' + proofLink.job_stage_instances.notes : ''}` 
+              : (proofLink.job_stage_instances.notes || 'Client requested changes (no notes provided)'),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', proofLink.stage_instance_id);
 
-        const dtpStage = dtpStages?.find(stage => 
-          stage.production_stage?.name?.toLowerCase().includes('dtp') ||
-          stage.production_stage?.name?.toLowerCase().includes('design') ||
-          stage.production_stage?.name?.toLowerCase().includes('prepress')
-        );
-
-        if (dtpStage) {
-          const { error: reworkError } = await supabase.rpc('rework_job_stage', {
-            p_job_id: proofLink.job_id,
-            p_job_table_name: proofLink.job_table_name,
-            p_current_stage_instance_id: proofLink.stage_instance_id,
-            p_target_stage_id: dtpStage.production_stage_id,
-            p_rework_reason: `Client requested changes via external link. ${notes ? `Client notes: ${notes}` : ''}`
-          });
-
-          if (reworkError) {
-            console.error('❌ Failed to rework to DTP:', reworkError);
-            return new Response(
-              JSON.stringify({ error: 'Failed to send back to DTP' }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-            );
-          }
+        if (updateError) {
+          console.error('❌ Failed to update proof stage:', updateError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to record client feedback' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
         }
+
+        console.log('✅ Proof stage updated with client feedback');
       }
 
       console.log('✅ Client response processed successfully');
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: response === 'approved' ? 'Proof approved and job scheduled successfully' : 'Sent back to DTP for changes',
+          message: response === 'approved' ? 'Proof approved and job scheduled successfully' : 'Changes requested. Our team will review your feedback and contact you shortly.',
           estimatedCompletion: response === 'approved' ? estimatedCompletion : null
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
