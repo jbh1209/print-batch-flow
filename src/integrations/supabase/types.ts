@@ -3887,7 +3887,7 @@ export type Database = {
               p_permission_type?: string
               p_stage_filter?: string
               p_status_filter?: string
-              p_user_id?: string
+              p_user_id: string
             }
           | { p_user_id?: string }
         Returns: {
