@@ -11,7 +11,7 @@ export interface ScheduledJobStage {
   stage_name: string;
   stage_color: string;
   stage_order: number;
-  status: 'pending' | 'active' | 'in_progress' | 'completed' | 'skipped' | 'on_hold';
+  status: 'pending' | 'active' | 'in_progress' | 'completed' | 'skipped' | 'on_hold' | 'changes_requested';
   queue_position?: number;
   scheduled_start_at?: string;
   scheduled_end_at?: string;

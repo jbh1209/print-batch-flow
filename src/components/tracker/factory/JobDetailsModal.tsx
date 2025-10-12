@@ -34,10 +34,10 @@ import { useStageActions } from "@/hooks/tracker/stage-management/useStageAction
 import { toast } from "sonner";
 
 // Normalize status variants from backend
-const normalizeStatus = (status?: string): 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' => {
+const normalizeStatus = (status?: string): 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' | 'changes_requested' => {
   if (status === 'in_progress') return 'active';
   if (!status) return 'pending';
-  return status as 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold';
+  return status as 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' | 'changes_requested';
 };
 
 interface JobDetailsModalProps {

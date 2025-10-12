@@ -7,7 +7,7 @@ export interface JobStageWithDetails {
   production_stage_id: string;
   stage_order: number;
   job_order_in_stage: number;
-  status: 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold';
+  status: 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' | 'changes_requested';
   started_at?: string;
   completed_at?: string;
   notes?: string;
