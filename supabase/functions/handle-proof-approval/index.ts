@@ -247,7 +247,8 @@ serve(async (req) => {
         .from('proof_links')
         .select(`
           *,
-          production_jobs!inner(wo_no, customer, contact_email)
+          production_jobs!inner(wo_no, customer, contact_email),
+          job_stage_instances!inner(client_email, client_name)
         `)
         .eq('id', proofLinkId)
         .single();
@@ -262,16 +263,21 @@ serve(async (req) => {
       const PRODUCTION_DOMAIN = 'https://printstream.impressweb.co.za';
       const proofUrl = `${PRODUCTION_DOMAIN}/proof/${proofLink.token}`;
       const jobDetails = proofLink.production_jobs;
+      const stageInstance = proofLink.job_stage_instances;
       
-      if (jobDetails?.contact_email) {
+      // Priority: stage instance email > production job email
+      const clientEmail = stageInstance?.client_email || jobDetails?.contact_email;
+      const clientName = stageInstance?.client_name || jobDetails?.customer;
+      
+      if (clientEmail) {
         try {
           const emailResult = await resend.emails.send({
             from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
-            to: [jobDetails.contact_email],
+            to: [clientEmail],
             subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
             html: `
               <h2>Reminder: Your proof is ready for review</h2>
-              <p>Hello ${jobDetails.customer || 'valued client'},</p>
+              <p>Hello ${clientName || 'valued client'},</p>
               <p>This is a reminder that your proof for Work Order <strong>${jobDetails.wo_no}</strong> is awaiting your review.</p>
               <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
               <p>Or copy and paste this link into your browser:</p>
