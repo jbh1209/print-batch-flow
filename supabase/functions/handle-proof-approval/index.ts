@@ -637,7 +637,7 @@ serve(async (req) => {
           const { error: reworkError } = await supabase.rpc('rework_job_stage', {
             p_job_id: proofLink.job_id,
             p_job_table_name: proofLink.job_table_name,
-            p_current_stage_id: proofLink.job_stage_instances.production_stage_id,
+            p_current_stage_instance_id: proofLink.stage_instance_id,
             p_target_stage_id: dtpStage.production_stage_id,
             p_rework_reason: `Client requested changes via external link. ${notes ? `Client notes: ${notes}` : ''}`
           });
