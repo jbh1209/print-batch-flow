@@ -4291,7 +4291,7 @@ export type Database = {
       }
       rework_job_stage: {
         Args: {
-          p_current_stage_id: string
+          p_current_stage_instance_id: string
           p_job_id: string
           p_job_table_name: string
           p_rework_reason?: string
