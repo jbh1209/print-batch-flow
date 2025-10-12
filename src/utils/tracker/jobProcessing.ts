@@ -225,10 +225,14 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
         categorized.dtpJobs.push(job);
         console.log('📝 Added to DTP:', job.wo_no);
       } 
-      // CRITICAL: Include jobs awaiting online proof approval
-      else if (job.current_stage_status === 'awaiting_approval' || job.proof_emailed_at) {
+      // CRITICAL: Include jobs awaiting online proof approval or with changes requested
+      else if (
+        job.current_stage_status === 'awaiting_approval' || 
+        job.current_stage_status === 'changes_requested' ||
+        job.proof_emailed_at
+      ) {
         categorized.proofJobs.push(job);
-        console.log('📧 Added to Proof (awaiting approval):', job.wo_no);
+        console.log('📧 Added to Proof (awaiting approval/changes requested):', job.wo_no);
       }
       else if (effectiveStageName.includes('proof') ||
                  effectiveStageName.includes('approval') ||

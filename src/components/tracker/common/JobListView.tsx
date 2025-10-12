@@ -45,6 +45,9 @@ export const JobListView: React.FC<JobListViewProps> = ({
     if (job.proof_approved_at) {
       return 'completed'; // Proof approved, ready for production
     }
+    if (job.current_stage_status === 'changes_requested') {
+      return 'changes_requested'; // Client requested changes
+    }
     if (job.proof_emailed_at) {
       return 'awaiting_approval'; // Proof sent, waiting for approval
     }
@@ -147,12 +150,12 @@ export const JobListView: React.FC<JobListViewProps> = ({
                      )}
                    </div>
                    
-                     {/* FIXED: Only show proof indicator for jobs awaiting approval (not approved ones) */}
-                     {isProofJob(job) && job.proof_emailed_at && !job.proof_approved_at && (
+                     {/* FIXED: Show proof indicator for jobs awaiting approval or with changes requested */}
+                     {isProofJob(job) && (job.proof_emailed_at || job.current_stage_status === 'changes_requested') && !job.proof_approved_at && (
                        <div className="mt-2">
                          <ProofStatusIndicator
                            stageInstance={{
-                             status: 'awaiting_approval',
+                             status: job.current_stage_status === 'changes_requested' ? 'changes_requested' : 'awaiting_approval',
                              proof_emailed_at: job.proof_emailed_at,
                              updated_at: job.proof_emailed_at
                            }}

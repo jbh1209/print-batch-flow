@@ -163,7 +163,7 @@ export const ProofStatusIndicator: React.FC<ProofStatusIndicatorProps> = ({
   }
 
   // Status: Changes requested
-  if (status === 'reworked') {
+  if (status === 'changes_requested' || status === 'reworked') {
     if (variant === "corner-badge") {
       return (
         <div className="absolute -top-1 -right-1 z-10">

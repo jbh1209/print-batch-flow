@@ -85,7 +85,7 @@ export const useAccessibleJobs = ({
         `)
         .in('job_id', jobIds)
         .eq('job_table_name', 'production_jobs')
-        .in('status', ['pending', 'active', 'awaiting_approval']);
+        .in('status', ['pending', 'active', 'awaiting_approval', 'changes_requested']);
 
       if (error) {
         console.error('❌ Error fetching job stages:', error);

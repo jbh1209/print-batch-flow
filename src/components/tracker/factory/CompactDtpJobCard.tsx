@@ -37,6 +37,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   // Get proof status and urgency
   const getProofStatus = () => {
     if (job.proof_approved_at) return "approved";
+    if (job.current_stage_status === 'changes_requested') return "changes_requested";
     if (job.proof_emailed_at) return "awaiting_approval";
     return null;
   };
@@ -88,11 +89,11 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
       onClick={handleCardClick}
     >
       <CardContent className="p-3">
-         {/* FIXED: Only show corner indicator for jobs awaiting approval */}
-         {isProofJob && proofStatus === "awaiting_approval" && (
+         {/* FIXED: Show corner indicator for jobs awaiting approval or with changes requested */}
+         {isProofJob && (proofStatus === "awaiting_approval" || proofStatus === "changes_requested") && (
            <ProofStatusIndicator
              stageInstance={{
-               status: 'awaiting_approval',
+               status: proofStatus === "changes_requested" ? 'changes_requested' : 'awaiting_approval',
                proof_emailed_at: job.proof_emailed_at,
                updated_at: job.proof_emailed_at
              }}
