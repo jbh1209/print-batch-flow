@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, Clock, Settings, Zap, Package } from "lucide-react";
+import { Calendar, AlertTriangle, Clock, Settings, Zap, Package, Mail, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -11,6 +11,7 @@ import {
   getJobStatusBadgeInfo
 } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { BatchStatusIndicator } from "@/components/tracker/batch/BatchStatusIndicator";
+import { getWorkflowStateColor } from "@/utils/tracker/workflowStateUtils";
 
 interface JobStatusDisplayProps {
   job: AccessibleJob & { 
@@ -46,6 +47,11 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const jobStatus = processJobStatus(job);
   const statusBadgeInfo = getJobStatusBadgeInfo(job);
   const isExpedited = job.is_expedited === true;
+  
+  // Get workflow state for enhanced DTP/Proof status display
+  const workflowState = getWorkflowStateColor(job);
+  const stageName = job.current_stage_name?.toLowerCase() || '';
+  const isDtpOrProofStage = stageName.includes('dtp') || stageName.includes('proof');
 
   const iconSize = compact ? "h-3 w-3" : "h-4 w-4";
   const textSize = compact ? "text-xs" : "text-sm";
@@ -104,18 +110,34 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Status Badge */}
-      <div className="flex items-center gap-2">
+      {/* Status Badge - Enhanced for DTP/Proof workflows */}
+      <div className="flex items-center gap-2 flex-wrap">
         <Badge 
           variant={badgeVariant}
           className={cn(
             "whitespace-nowrap", 
-            badgeClassName,
+            isDtpOrProofStage ? workflowState.badgeClass : badgeClassName,
             compact && "text-xs px-2 py-0"
           )}
         >
           {displayStatus}
         </Badge>
+        
+        {/* Workflow State Pill for DTP/Proof */}
+        {isDtpOrProofStage && showDetails && (
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "text-xs flex items-center gap-1",
+              workflowState.badgeClass
+            )}
+          >
+            {stageName.includes('proof') && job.proof_approved_at && <CheckCircle className="h-3 w-3" />}
+            {stageName.includes('proof') && job.current_stage_status === 'changes_requested' && <XCircle className="h-3 w-3" />}
+            {stageName.includes('proof') && job.proof_emailed_at && !job.proof_approved_at && job.current_stage_status !== 'changes_requested' && <Mail className="h-3 w-3" />}
+            {workflowState.label}
+          </Badge>
+        )}
         
         {hasCustomWorkflow && showDetails && (
           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs flex items-center gap-1">
@@ -124,7 +146,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
           </Badge>
         )}
         
-        {jobStatus === 'active' && !isOrphaned && hasStage && (
+        {jobStatus === 'active' && !isOrphaned && hasStage && !isDtpOrProofStage && (
           <div className="flex items-center gap-1 text-blue-600">
             <Clock className={cn(iconSize, "animate-pulse")} />
             {!compact && <span className={cn("font-medium", textSize)}>Active</span>}

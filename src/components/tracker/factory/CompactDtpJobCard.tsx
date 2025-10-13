@@ -6,11 +6,8 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
 import { ProofStatusIndicator } from "./ProofStatusIndicator";
-import { 
-  processJobStatus, 
-  isJobOverdue, 
-  isJobDueSoon
-} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { processJobStatus } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { getWorkflowStateColor } from "@/utils/tracker/workflowStateUtils";
 
 interface CompactDtpJobCardProps {
   job: AccessibleJob;
@@ -27,52 +24,23 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   onJobClick,
   showActions = true
 }) => {
-  const isOverdue = isJobOverdue(job);
-  const isDueSoon = isJobDueSoon(job);
   const jobStatus = processJobStatus(job);
+  
+  // Get workflow state-based colors
+  const workflowState = getWorkflowStateColor(job);
   
   // Check if this is a proof stage job
   const isProofJob = job.current_stage_name && job.current_stage_name.toLowerCase().includes('proof');
   
-  // Get proof status and urgency
+  // Get proof status for corner indicator
   const getProofStatus = () => {
     if (job.proof_approved_at) return "approved";
     if (job.current_stage_status === 'changes_requested') return "changes_requested";
     if (job.proof_emailed_at) return "awaiting_approval";
     return null;
   };
-
-  const getProofUrgency = () => {
-    if (!job.proof_emailed_at || job.proof_approved_at) return null;
-    const daysSinceProof = Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSinceProof >= 3) return "critical";
-    if (daysSinceProof >= 1) return "warning";
-    return "normal";
-  };
   
   const proofStatus = getProofStatus();
-  const proofUrgency = getProofUrgency();
-
-  const getCardStyle = () => {
-    // Priority order: Active > Proof approved > Proof urgency > Overdue > Due soon
-    if (jobStatus === 'active') return "border-blue-500 bg-blue-50 shadow-md";
-    
-    // Proof approved - ready for production
-    if (isProofJob && proofStatus === "approved") {
-      return "border-green-500 bg-green-50 shadow-md";
-    }
-    
-    // Proof awaiting approval with urgency
-    if (isProofJob && proofStatus === "awaiting_approval") {
-      if (proofUrgency === "critical") return "border-red-500 bg-red-50 shadow-md animate-pulse";
-      if (proofUrgency === "warning") return "border-orange-500 bg-orange-50 shadow-md";
-      return "border-purple-500 bg-purple-50 shadow-sm";
-    }
-    
-    if (isOverdue) return "border-red-500 bg-red-50";
-    if (isDueSoon) return "border-orange-500 bg-orange-50";
-    return "border-gray-200 bg-white hover:shadow-sm";
-  };
 
   const handleCardClick = () => {
     if (onJobClick) {
@@ -84,7 +52,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     <Card 
       className={cn(
         "mb-2 transition-all duration-200 cursor-pointer hover:shadow-md relative", 
-        getCardStyle()
+        workflowState.cardClass
       )}
       onClick={handleCardClick}
     >
