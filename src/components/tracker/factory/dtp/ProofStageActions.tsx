@@ -15,6 +15,7 @@ import { useProofLinks } from "@/hooks/useProofLinks";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { HP12000PaperSizeSelector } from "./HP12000PaperSizeSelector";
 import { ManageProofDialog } from "./ManageProofDialog";
+import { ClientChangeRequestCard } from "../ClientChangeRequestCard";
 import { useState } from "react";
 
 interface StageInstance {
@@ -24,6 +25,8 @@ interface StageInstance {
   proof_approved_manually_at?: string;
   client_email?: string;
   client_name?: string;
+  notes?: string;
+  rework_count?: number;
 }
 
 type ProofApprovalFlow = 'pending' | 'choosing_allocation' | 'batch_allocation' | 'direct_printing';
@@ -827,6 +830,34 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
         }
       }
     }
+  }
+
+  // Handle changes_requested status (client requested changes)
+  if (stageStatus === 'changes_requested') {
+    return (
+      <div className="space-y-3">
+        {/* Display Client Change Request */}
+        <ClientChangeRequestCard
+          clientName={stageInstance?.client_name || null}
+          clientEmail={stageInstance?.client_email || null}
+          requestedAt={stageInstance?.proof_emailed_at || null}
+          feedback={stageInstance?.notes || 'No specific feedback provided'}
+          reworkCount={stageInstance?.rework_count || 0}
+        />
+
+        {/* Upload Revised Proof Button */}
+        {onOpenProofDialog && (
+          <Button 
+            onClick={onOpenProofDialog}
+            className="w-full bg-orange-600 hover:bg-orange-700"
+            disabled={isLoading || isProcessing}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Upload Revised Proof
+          </Button>
+        )}
+      </div>
+    );
   }
 
   // Handle awaiting_approval status (proof sent, waiting for client)
