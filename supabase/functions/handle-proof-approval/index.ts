@@ -39,13 +39,13 @@ serve(async (req) => {
           production_stage:production_stages(name)
         `)
         .eq('id', stageInstanceId)
-        .eq('status', 'active')
+        .in('status', ['active', 'changes_requested'])
         .single();
 
       if (stageError || !stageInstance) {
         console.error('❌ Stage instance not found:', stageError);
         return new Response(
-          JSON.stringify({ error: 'Stage instance not found or not active' }),
+          JSON.stringify({ error: 'Stage instance not found or not in a valid state for proof generation' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
         );
       }
