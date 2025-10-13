@@ -8,6 +8,7 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
 import { SubSpecificationBadge } from "./SubSpecificationBadge";
 import { ProofStatusIndicator } from "../factory/ProofStatusIndicator";
+import { getWorkflowStateColor } from "@/utils/tracker/workflowStateUtils";
 
 interface JobListViewProps {
   jobs: AccessibleJob[];
@@ -40,83 +41,34 @@ export const JobListView: React.FC<JobListViewProps> = ({
     return job.current_stage_name && job.current_stage_name.toLowerCase().includes('proof');
   };
 
-  // Get proof status for job  
-  const getProofStatus = (job: AccessibleJob) => {
-    if (job.proof_approved_at) {
-      return 'completed'; // Proof approved, ready for production
-    }
-    if (job.current_stage_status === 'changes_requested') {
-      return 'changes_requested'; // Client requested changes
-    }
-    if (job.proof_emailed_at) {
-      return 'awaiting_approval'; // Proof sent, waiting for approval
-    }
-    return null;
-  };
-
-  // Get row styling based on proof status
-  const getRowClassName = (job: AccessibleJob) => {
-    const baseClasses = "p-3 hover:bg-gray-50 cursor-pointer transition-colors";
-    
-    if (isProofJob(job)) {
-      // Proof approved - ready for production (green)
-      if (job.proof_approved_at) {
-        return `${baseClasses} bg-green-50 border-l-4 border-l-green-500`;
-      }
-      
-      // Proof emailed - awaiting approval with urgency levels
-      if (job.proof_emailed_at) {
-        const daysSinceProof = Math.floor((Date.now() - new Date(job.proof_emailed_at).getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (daysSinceProof >= 3) {
-          return `${baseClasses} bg-red-50 border-l-4 border-l-red-500`; // Critical urgency
-        } else if (daysSinceProof >= 1) {
-          return `${baseClasses} bg-orange-50 border-l-4 border-l-orange-500`; // Warning urgency
-        } else {
-          return `${baseClasses} bg-blue-50 border-l-4 border-l-blue-500`; // Normal proof status
-        }
-      }
-    }
-    
-    return baseClasses;
-  };
-
   return (
     <Card className={cn("", className)}>
       <CardContent className="p-0">
         <div className="divide-y">
-          {jobs.map((job) => (
-            <div
-              key={job.job_id}
-              className={getRowClassName(job)}
-              onClick={() => onJobClick?.(job)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                   <div className="flex items-center gap-3 flex-wrap">
-                     <h4 className="font-medium text-sm">{job.wo_no}</h4>
-                     
-                     {/* FIXED: Single status badge - show proof approval status or current stage */}
-                     {job.proof_approved_at ? (
-                       <Badge variant="outline" className="factory-success text-xs px-1.5 py-0.5 font-semibold">
-                         <CheckCircle className="h-3 w-3 mr-1" />
-                         READY FOR PRODUCTION
+          {jobs.map((job) => {
+            const state = getWorkflowStateColor(job);
+            return (
+              <div
+                key={job.job_id}
+                className={cn("p-3 hover:brightness-[.98] cursor-pointer transition-colors border rounded-none border-x-0 border-t-0", state.cardClass)}
+                onClick={() => onJobClick?.(job)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                     <div className="flex items-center gap-3 flex-wrap">
+                       <h4 className="font-medium text-sm">{job.wo_no}</h4>
+                       
+                       {/* Workflow state badge */}
+                       <Badge className={cn("text-xs px-1.5 py-0.5", state.badgeClass)}>
+                         {state.label}
                        </Badge>
-                     ) : (
-                       <Badge 
-                         variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
-                         className="text-xs px-1.5 py-0.5"
-                       >
-                         {job.current_stage_name} - {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
-                       </Badge>
-                     )}
-                     
-                     <SubSpecificationBadge 
-                       jobId={job.job_id}
-                       stageId={job.current_stage_id}
-                       compact={true}
-                     />
-                   </div>
+                       
+                       <SubSpecificationBadge 
+                         jobId={job.job_id}
+                         stageId={job.current_stage_id}
+                         compact={true}
+                       />
+                     </div>
                   
                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
                      <div className="flex items-center gap-1">
@@ -150,47 +102,48 @@ export const JobListView: React.FC<JobListViewProps> = ({
                      )}
                    </div>
                    
-                     {/* FIXED: Show proof indicator for jobs awaiting approval or with changes requested */}
-                     {isProofJob(job) && (job.proof_emailed_at || job.current_stage_status === 'changes_requested') && !job.proof_approved_at && (
-                       <div className="mt-2">
-                         <ProofStatusIndicator
-                           stageInstance={{
-                             status: job.current_stage_status === 'changes_requested' ? 'changes_requested' : 'awaiting_approval',
-                             proof_emailed_at: job.proof_emailed_at,
-                             updated_at: job.proof_emailed_at
-                           }}
-                           variant="default"
-                           showTimeElapsed={true}
-                         />
-                       </div>
-                     )}
+                      {/* Show proof indicator for jobs awaiting approval or with changes requested */}
+                      {isProofJob(job) && (job.proof_emailed_at || job.current_stage_status === 'changes_requested') && !job.proof_approved_at && (
+                        <div className="mt-2">
+                          <ProofStatusIndicator
+                            stageInstance={{
+                              status: job.current_stage_status === 'changes_requested' ? 'changes_requested' : 'awaiting_approval',
+                              proof_emailed_at: job.proof_emailed_at,
+                              updated_at: job.proof_emailed_at
+                            }}
+                            variant="default"
+                            showTimeElapsed={true}
+                          />
+                        </div>
+                      )}
+                  </div>
+                 
+                 <div className="flex items-center gap-2 ml-4">
+                   {job.current_stage_status === 'pending' && onStart && (
+                     <Button
+                       size="sm"
+                       onClick={(e) => handleJobAction(e, job, 'start')}
+                       className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                     >
+                       <Play className="h-3 w-3 mr-1" />
+                       Start
+                     </Button>
+                   )}
+                   {job.current_stage_status === 'active' && onComplete && (
+                     <Button
+                       size="sm"
+                       onClick={(e) => handleJobAction(e, job, 'complete')}
+                       className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                     >
+                       <CheckCircle className="h-3 w-3 mr-1" />
+                       Complete
+                     </Button>
+                   )}
                  </div>
-                
-                <div className="flex items-center gap-2 ml-4">
-                  {job.current_stage_status === 'pending' && onStart && (
-                    <Button
-                      size="sm"
-                      onClick={(e) => handleJobAction(e, job, 'start')}
-                      className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
-                    >
-                      <Play className="h-3 w-3 mr-1" />
-                      Start
-                    </Button>
-                  )}
-                  {job.current_stage_status === 'active' && onComplete && (
-                    <Button
-                      size="sm"
-                      onClick={(e) => handleJobAction(e, job, 'complete')}
-                      className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Complete
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+               </div>
+             </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

@@ -14,7 +14,7 @@ import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { ViewToggle } from "../common/ViewToggle";
 import { JobListView } from "../common/JobListView";
 import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
-import { sortJobsByWorkflowPriority } from "@/utils/tracker/workflowStateUtils";
+import { sortJobsByWorkflowPriority, getWorkflowStateColor } from "@/utils/tracker/workflowStateUtils";
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -83,10 +83,31 @@ export const DtpKanbanDashboard = () => {
         return stageName.includes('batch allocation') || stageName.includes('batch_allocation');
       });
       
+      const sortedDtp = sortJobsByWorkflowPriority(categories.dtpJobs);
+      const sortedProof = sortJobsByWorkflowPriority(categories.proofJobs);
+      const sortedBatch = sortJobsByWorkflowPriority(batchJobs);
+      
+      // Debug logs for verification
+      console.log('📊 DTP Jobs (first 10):', sortedDtp.slice(0, 10).map(j => ({ 
+        wo: j.wo_no, 
+        label: getWorkflowStateColor(j).label, 
+        priority: getWorkflowStateColor(j).priority 
+      })));
+      console.log('📊 Proof Jobs (first 10):', sortedProof.slice(0, 10).map(j => ({ 
+        wo: j.wo_no, 
+        label: getWorkflowStateColor(j).label, 
+        priority: getWorkflowStateColor(j).priority 
+      })));
+      console.log('📊 Batch Jobs (first 10):', sortedBatch.slice(0, 10).map(j => ({ 
+        wo: j.wo_no, 
+        label: getWorkflowStateColor(j).label, 
+        priority: getWorkflowStateColor(j).priority 
+      })));
+      
       return {
-        dtpJobs: sortJobsByWorkflowPriority(categories.dtpJobs),
-        proofJobs: sortJobsByWorkflowPriority(categories.proofJobs),
-        batchAllocationJobs: sortJobsByWorkflowPriority(batchJobs)
+        dtpJobs: sortedDtp,
+        proofJobs: sortedProof,
+        batchAllocationJobs: sortedBatch
       };
     } catch (categorizationError) {
       console.error("❌ Error categorizing jobs:", categorizationError);
@@ -293,9 +314,14 @@ export const DtpKanbanDashboard = () => {
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4 h-full overflow-hidden">
             <div className="flex flex-col space-y-2 min-h-0">
-              <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md">
-                <FileText className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium text-sm truncate">DTP Jobs ({dtpJobs.length})</span>
+              <div className="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium text-sm truncate">DTP Jobs ({dtpJobs.length})</span>
+                  </div>
+                  <span className="text-xs opacity-80">Sorted by: Priority</span>
+                </div>
               </div>
               <ScrollArea className="flex-1">
                 <div className="pr-4">
@@ -310,9 +336,14 @@ export const DtpKanbanDashboard = () => {
             </div>
             
             <div className="flex flex-col space-y-2 min-h-0">
-              <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-md">
-                <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium text-sm truncate">Proofing Jobs ({proofJobs.length})</span>
+              <div className="flex-shrink-0 px-3 py-2 bg-purple-600 text-white rounded-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium text-sm truncate">Proofing Jobs ({proofJobs.length})</span>
+                  </div>
+                  <span className="text-xs opacity-80">Sorted by: Priority</span>
+                </div>
               </div>
               <ScrollArea className="flex-1">
                 <div className="pr-4">
@@ -327,9 +358,14 @@ export const DtpKanbanDashboard = () => {
             </div>
 
             <div className="flex flex-col space-y-2 min-h-0">
-              <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-md">
-                <Package className="h-4 w-4 flex-shrink-0" />
-                <span className="font-medium text-sm truncate">Batch Allocation ({batchAllocationJobs.length})</span>
+              <div className="flex-shrink-0 px-3 py-2 bg-orange-600 text-white rounded-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium text-sm truncate">Batch Allocation ({batchAllocationJobs.length})</span>
+                  </div>
+                  <span className="text-xs opacity-80">Sorted by: Priority</span>
+                </div>
               </div>
               <ScrollArea className="flex-1">
                 <div className="pr-4">

@@ -184,13 +184,39 @@ export const getWorkflowStateColor = (job: AccessibleJob): WorkflowStateColor =>
 };
 
 /**
- * Sort jobs by workflow state priority
+ * Sort jobs by workflow state priority with tie-breakers
  * Lower priority number = higher in list
+ * Tie-breakers: proof_emailed_at (oldest first), due_date (earliest first), wo_no (numeric)
  */
 export const sortJobsByWorkflowPriority = (jobs: AccessibleJob[]): AccessibleJob[] => {
   return [...jobs].sort((a, b) => {
     const aColor = getWorkflowStateColor(a);
     const bColor = getWorkflowStateColor(b);
-    return aColor.priority - bColor.priority;
+    
+    // Primary sort by priority
+    if (aColor.priority !== bColor.priority) {
+      return aColor.priority - bColor.priority;
+    }
+    
+    // Tie-breaker 1: For proof jobs with emails, oldest first (most urgent)
+    const aIsProof = (a.current_stage_name || '').toLowerCase().includes('proof');
+    const bIsProof = (b.current_stage_name || '').toLowerCase().includes('proof');
+    if (aIsProof && bIsProof && a.proof_emailed_at && b.proof_emailed_at) {
+      const aTime = new Date(a.proof_emailed_at).getTime();
+      const bTime = new Date(b.proof_emailed_at).getTime();
+      if (aTime !== bTime) return aTime - bTime; // older first
+    }
+    
+    // Tie-breaker 2: Due date (earliest first)
+    if (a.due_date && b.due_date) {
+      const aDate = new Date(a.due_date).getTime();
+      const bDate = new Date(b.due_date).getTime();
+      if (aDate !== bDate) return aDate - bDate;
+    }
+    
+    // Tie-breaker 3: Work order number (numeric ascending)
+    const aNum = parseInt((a.wo_no || '').replace(/\D/g, '')) || 0;
+    const bNum = parseInt((b.wo_no || '').replace(/\D/g, '')) || 0;
+    return aNum - bNum;
   });
 };
