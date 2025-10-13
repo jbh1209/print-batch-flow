@@ -14,6 +14,7 @@ import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { ViewToggle } from "../common/ViewToggle";
 import { JobListView } from "../common/JobListView";
 import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
+import { sortJobsByWorkflowPriority } from "@/utils/tracker/workflowStateUtils";
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -83,9 +84,9 @@ export const DtpKanbanDashboard = () => {
       });
       
       return {
-        dtpJobs: sortJobsByWONumber(categories.dtpJobs),
-        proofJobs: sortJobsByWONumber(categories.proofJobs),
-        batchAllocationJobs: sortJobsByWONumber(batchJobs)
+        dtpJobs: sortJobsByWorkflowPriority(categories.dtpJobs),
+        proofJobs: sortJobsByWorkflowPriority(categories.proofJobs),
+        batchAllocationJobs: sortJobsByWorkflowPriority(batchJobs)
       };
     } catch (categorizationError) {
       console.error("❌ Error categorizing jobs:", categorizationError);
