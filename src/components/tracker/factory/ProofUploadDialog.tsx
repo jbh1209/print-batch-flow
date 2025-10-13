@@ -24,6 +24,15 @@ interface ProofUploadDialogProps {
   onProofSent: () => void;
 }
 
+interface StageInstanceData {
+  client_email: string | null;
+  client_name: string | null;
+  proof_pdf_url: string | null;
+  status: string;
+  notes: string | null;
+  rework_count: number;
+}
+
 interface ProofLinkData {
   id: string;
   token: string;
@@ -51,6 +60,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
   const [proofLink, setProofLink] = useState<ProofLinkData | null>(null);
   const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [stageData, setStageData] = useState<StageInstanceData | null>(null);
 
   const { selectedFile, handleFileChange, fileInfo } = useFileUpload({
     acceptedTypes: ["application/pdf"],
@@ -66,17 +76,18 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
 
   const loadProofData = async () => {
     try {
-      // Get stage instance data
-      const { data: stageData } = await supabase
+      // Get stage instance data with status and notes for revision detection
+      const { data: stageInstanceData } = await supabase
         .from('job_stage_instances')
-        .select('client_email, client_name, proof_pdf_url')
+        .select('client_email, client_name, proof_pdf_url, status, notes, rework_count')
         .eq('id', stageInstanceId)
         .single();
 
-      if (stageData) {
-        setCustomerEmail(stageData.client_email || '');
-        setCustomerName(stageData.client_name || '');
-        setExistingPdfUrl(stageData.proof_pdf_url);
+      if (stageInstanceData) {
+        setStageData(stageInstanceData);
+        setCustomerEmail(stageInstanceData.client_email || '');
+        setCustomerName(stageInstanceData.client_name || '');
+        setExistingPdfUrl(stageInstanceData.proof_pdf_url);
       }
 
       // Get existing proof link if any
@@ -164,7 +175,9 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
 
   const uploadProofPdf = async (file: File): Promise<string | null> => {
     try {
-      const fileName = `proof_${stageInstanceId}_${Date.now()}.pdf`;
+      // Add version number to filename if this is a revision
+      const versionSuffix = stageData?.rework_count ? `_v${stageData.rework_count + 1}` : '';
+      const fileName = `proof_${stageInstanceId}${versionSuffix}_${Date.now()}.pdf`;
       const filePath = `proofs/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -233,16 +246,33 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         }
       }
 
-      // Update stage instance with proof PDF URL and client info
+      // Prepare update data - increment rework_count if this is a revision
+      const isRevision = stageData?.status === 'changes_requested';
+      const updateData: any = { 
+        proof_pdf_url: proofPdfUrl,
+        client_email: customerEmail.trim(),
+        client_name: customerName.trim(),
+        proof_emailed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // If this is a revision, increment rework_count and append revision log to notes
+      if (isRevision) {
+        const currentReworkCount = stageData?.rework_count || 0;
+        const newReworkCount = currentReworkCount + 1;
+        updateData.rework_count = newReworkCount;
+        
+        // Append revision log to existing notes
+        const revisionLog = `\n\nREVISION #${newReworkCount} (${new Date().toISOString().split('T')[0]}): Revised proof uploaded and sent to client`;
+        updateData.notes = (stageData?.notes || '') + revisionLog;
+        
+        console.log(`🔄 Uploading revision #${newReworkCount} for stage ${stageInstanceId}`);
+      }
+
+      // Update stage instance
       await supabase
         .from('job_stage_instances')
-        .update({ 
-          proof_pdf_url: proofPdfUrl,
-          client_email: customerEmail.trim(),
-          client_name: customerName.trim(),
-          proof_emailed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', stageInstanceId);
 
       // Generate proof link - this will send the email automatically
@@ -259,7 +289,12 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
       }
 
       console.log('✅ Proof link generated:', linkData.proofUrl);
-      toast.success("Proof link generated and email sent!");
+      
+      if (isRevision) {
+        toast.success(`Revised proof (v${(stageData?.rework_count || 0) + 1}) sent to client!`);
+      } else {
+        toast.success("Proof link generated and email sent!");
+      }
       
       setHasUnsavedChanges(false);
       await loadProofData(); // Refresh to show new proof link data
@@ -295,6 +330,8 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
   };
 
   const statusInfo = getProofStatusInfo();
+  const isRevisionMode = stageData?.status === 'changes_requested';
+  const parsedFeedback = stageData?.notes?.replace(/^CLIENT FEEDBACK:\s*/i, '').split('\n')[0]?.trim();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -302,11 +339,28 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            {proofLink ? 'Manage Proof' : 'Send Proof to Client'}
+            {isRevisionMode 
+              ? `Upload Revised Proof (Revision #${(stageData?.rework_count || 0) + 1})` 
+              : proofLink ? 'Manage Proof' : 'Send Proof to Client'
+            }
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Client Change Request Alert - Show when responding to changes */}
+          {isRevisionMode && parsedFeedback && (
+            <Alert className="border-orange-200 bg-orange-50">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription>
+                <p className="font-medium text-orange-800 mb-1">Client's Requested Changes:</p>
+                <p className="text-sm text-orange-700 italic">"{parsedFeedback}"</p>
+                <p className="text-xs text-orange-600 mt-2">
+                  Please address the above feedback in your revised proof before uploading.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Proof Status Card */}
           {statusInfo && (
             <Alert className={

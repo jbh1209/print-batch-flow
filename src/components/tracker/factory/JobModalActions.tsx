@@ -6,6 +6,7 @@ import ProofLinkButton from "./ProofLinkButton";
 import ProofUploadDialog from "./ProofUploadDialog";
 import StageHoldDialog from "./StageHoldDialog";
 import StageSubTaskButtons from "./StageSubTaskButtons";
+import { ClientChangeRequestCard } from "./ClientChangeRequestCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useProofApprovalFlow } from "@/hooks/tracker/useProofApprovalFlow";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
@@ -28,6 +29,10 @@ interface JobModalActionsProps {
     hold_reason?: string;
     held_at?: string;
     scheduled_minutes?: number;
+    notes?: string | null;
+    client_name?: string | null;
+    client_email?: string | null;
+    rework_count?: number;
   } | null;
   canWork: boolean;
   onStartJob: () => void;
@@ -60,6 +65,7 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
   const canStart = currentStage.status === 'pending';
   const canComplete = currentStage.status === 'active';
   const isOnHold = currentStage.status === 'on_hold';
+  const isChangesRequested = currentStage.status === 'changes_requested';
   const isProofStage = currentStage.production_stage.name.toLowerCase().includes('proof');
 
   const handleHoldStage = async (percentage: number, reason: string) => {
@@ -131,6 +137,17 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
 
   return (
     <div className="border-t pt-4 space-y-3">
+      {/* Client Change Request Display - Show when changes are requested */}
+      {isChangesRequested && isProofStage && (
+        <ClientChangeRequestCard
+          clientName={currentStage.client_name}
+          clientEmail={currentStage.client_email}
+          requestedAt={currentStage.proof_emailed_at}
+          feedback={currentStage.notes || 'No specific feedback provided'}
+          reworkCount={currentStage.rework_count || 0}
+        />
+      )}
+
       {/* Multi-Specification Sub-Tasks Display */}
       <StageSubTaskButtons
         stageInstanceId={currentStage.id}
@@ -229,7 +246,23 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         )}
       </div>
 
-      {/* Proof Stage Specific Actions - only show when proof stage is active */}
+      {/* Proof Stage Specific Actions - Changes Requested State */}
+      {isChangesRequested && isProofStage && (
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-gray-700">Respond to Changes:</div>
+          
+          <Button
+            onClick={() => setShowProofUpload(true)}
+            size="sm"
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Revised Proof & Send to Client
+          </Button>
+        </div>
+      )}
+
+      {/* Proof Stage Specific Actions - Active State */}
       {isProofStage && canComplete && (
         <div className="space-y-2">
           <div className="text-sm font-medium text-gray-700">Proof Actions:</div>
