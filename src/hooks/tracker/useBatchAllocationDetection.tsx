@@ -24,7 +24,16 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
       console.log('🔍 Fetching batch allocation jobs...');
       
       // Get jobs in Batch Allocation stage that are ready for batching
+      // Get current user for RPC call
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser?.id) {
+        console.warn('⚠️ No authenticated user, skipping batch allocation detection');
+        setIsLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
+        p_user_id: currentUser.id,
         p_permission_type: 'work'
       });
 

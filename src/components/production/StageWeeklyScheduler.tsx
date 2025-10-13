@@ -125,7 +125,18 @@ export function useStageSchedule() {
       console.log(`🎯 Stages being queried: ${stageIds.length} stages`);
 
       // Fetch enhanced job info with specifications
-      const { data: jobsInfo } = await supabase.rpc("get_user_accessible_jobs", {});
+      // Get current user for RPC call
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser?.id) {
+        console.warn('⚠️ No authenticated user, skipping job info fetch');
+        setItems([]);
+        return;
+      }
+      
+      const { data: jobsInfo } = await supabase.rpc("get_user_accessible_jobs", {
+        p_user_id: currentUser.id,
+        p_permission_type: 'work'
+      });
       const jobMap: Record<string, { wo_no?: string; customer?: string; is_expedited?: boolean; qty?: number; paper_specs?: any; printing_specs?: any }> = {};
       (jobsInfo || []).forEach((j: any) => { 
         jobMap[j.job_id] = { 
