@@ -58,7 +58,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setProofApprovalFlow,
     setSelectedBatchCategory,
     isLoading,
-    loadModalData
+    loadModalData,
+    setStageInstance
   } = useDtpJobModal(job, isOpen);
 
   // Reset local state when modal opens
@@ -185,7 +186,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     onClose={onClose}
                     onProofApprovalFlowChange={setProofApprovalFlow}
                     onBatchCategoryChange={setSelectedBatchCategory}
-                    setStageInstance={loadModalData}
+                    setStageInstance={setStageInstance}
                   />
                 </CardContent>
               </Card>
