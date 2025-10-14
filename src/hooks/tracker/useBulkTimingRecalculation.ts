@@ -29,13 +29,22 @@ export const useBulkTimingRecalculation = () => {
 
       if (!stageInstances || stageInstances.length === 0) {
         toast.info("No active stage instances found to recalculate");
-        return;
+        return 0;
+      }
+
+      const totalCount = stageInstances.length;
+      
+      // Warn if processing large batch
+      if (totalCount > 100) {
+        toast.info(`Processing ${totalCount} stage instances. This may take a few minutes...`);
       }
 
       let updateCount = 0;
+      let processedCount = 0;
 
-      // Process each stage instance
+      // Process each stage instance with progress updates
       for (const instance of stageInstances) {
+        processedCount++;
         try {
           // Get job details for quantity if not available on stage instance
           let quantity = instance.quantity;
@@ -78,6 +87,11 @@ export const useBulkTimingRecalculation = () => {
             if (!updateError) {
               updateCount++;
             }
+          }
+          
+          // Show progress every 50 stages
+          if (processedCount % 50 === 0) {
+            toast.info(`Progress: ${processedCount}/${totalCount} stages processed, ${updateCount} updated`);
           }
         } catch (error) {
           console.warn(`Failed to recalculate timing for stage instance ${instance.id}:`, error);
