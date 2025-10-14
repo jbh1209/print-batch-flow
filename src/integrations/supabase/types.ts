@@ -4399,11 +4399,8 @@ export type Database = {
       shift_window_enhanced: {
         Args: { p_date: string } | { p_end_date: string; p_start_date: string }
         Returns: {
-          has_lunch_break: boolean
-          lunch_end: string
-          lunch_start: string
-          win_end: string
-          win_start: string
+          end_time: string
+          start_time: string
         }[]
       }
       simple_scheduler_wrapper: {
