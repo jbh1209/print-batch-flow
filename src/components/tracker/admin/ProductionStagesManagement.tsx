@@ -2,8 +2,9 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
+import { useBulkTimingRecalculation } from "@/hooks/tracker/useBulkTimingRecalculation";
 import { ProductionStageForm } from "./ProductionStageForm";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -13,6 +14,7 @@ import { ProductionStagesList } from "./ProductionStagesList";
 
 export const ProductionStagesManagement = () => {
   const { stages, isLoading, error, updateStage, deleteStage } = useProductionStages();
+  const { recalculateAllStageTiming, isRecalculating } = useBulkTimingRecalculation();
 
   const moveStage = async (stageId: string, direction: 'up' | 'down') => {
     const currentStage = stages.find(s => s.id === stageId);
@@ -67,16 +69,26 @@ export const ProductionStagesManagement = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Production Stages Management</CardTitle>
-          <ProductionStageForm 
-            onSave={handleStageUpdate} 
-            onCancel={() => {}}
-            trigger={
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Stage
-              </Button>
-            }
-          />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={recalculateAllStageTiming}
+              disabled={isRecalculating}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRecalculating ? 'animate-spin' : ''}`} />
+              {isRecalculating ? 'Recalculating...' : 'Recalculate Timings'}
+            </Button>
+            <ProductionStageForm 
+              onSave={handleStageUpdate} 
+              onCancel={() => {}}
+              trigger={
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Stage
+                </Button>
+              }
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <ProductionStagesList
