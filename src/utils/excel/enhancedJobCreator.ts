@@ -279,7 +279,8 @@ export class EnhancedJobCreator {
         headers || [],
         job.paper_specifications,
         job.packaging_specifications,  // Pass packaging specifications
-        job.delivery_specifications   // Pass delivery specifications
+        job.delivery_specifications,   // Pass delivery specifications
+        job  // Pass job to access cover_text_detection
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself
@@ -547,7 +548,8 @@ export class EnhancedJobCreator {
         headers || [],
         job.paper_specifications,
         job.packaging_specifications,  // Pass packaging specifications
-        job.delivery_specifications   // Pass delivery specifications
+        job.delivery_specifications,   // Pass delivery specifications
+        job  // Pass job to access cover_text_detection
       );
     } else {
       // No group specifications found - create a simple row mapping from the job data itself

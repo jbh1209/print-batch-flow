@@ -95,7 +95,8 @@ export class EnhancedStageMapper {
     headers: string[],
     paperSpecs?: GroupSpecifications | null,
     packagingSpecs?: GroupSpecifications | null,
-    deliverySpecs?: GroupSpecifications | null
+    deliverySpecs?: GroupSpecifications | null,
+    job?: any // Add job parameter to access cover_text_detection
   ): RowMappingResult[] {
     this.logger.addDebugInfo(`Creating intelligent row mappings with ${excelRows.length} Excel rows and ${headers.length} headers`);
     this.logger.addDebugInfo(`Input specifications - Printing: ${printingSpecs ? Object.keys(printingSpecs).length : 0}, Finishing: ${finishingSpecs ? Object.keys(finishingSpecs).length : 0}, Prepress: ${prepressSpecs ? Object.keys(prepressSpecs).length : 0}, Packaging: ${packagingSpecs ? Object.keys(packagingSpecs).length : 0}, Delivery: ${deliverySpecs ? Object.keys(deliverySpecs).length : 0}`);
@@ -117,7 +118,7 @@ export class EnhancedStageMapper {
     if (printingSpecs) {
       this.logger.addDebugInfo(`Processing printing specs: ${JSON.stringify(Object.keys(printingSpecs))}`);
       const printingMappings = this.createPrintingRowMappingsWithPaper(
-        printingSpecs, paperMappings, excelRows, headers, rowIndex
+        printingSpecs, paperMappings, excelRows, headers, rowIndex, job
       );
       rowMappings.push(...printingMappings);
       rowIndex += printingMappings.length; // FIX: Use actual mappings created, not spec count
@@ -221,7 +222,7 @@ export class EnhancedStageMapper {
       // FIXED: Pass the actual paper mappings instead of empty array to enable multi-row printing
       const paperMappings = this.allPaperMappings || [];
       this.logger.addDebugInfo(`🎯 MULTI-ROW PRINTING: Using ${paperMappings.length} paper mappings for printing stage creation (Cover: ${paperMappings[0]?.mappedSpec || 'none'}, Text: ${paperMappings[1]?.mappedSpec || 'none'})`);
-      return this.createPrintingRowMappingsWithPaper(specs, paperMappings, excelRows, headers, startRowIndex);
+      return this.createPrintingRowMappingsWithPaper(specs, paperMappings, excelRows, headers, startRowIndex, undefined);
     }
 
     // For non-printing categories, use standard processing
@@ -387,7 +388,8 @@ export class EnhancedStageMapper {
     paperMappings: Array<{groupName: string, spec: any, mappedSpec: string, qty: number}>,
     excelRows: any[][],
     headers: string[],
-    startRowIndex: number
+    startRowIndex: number,
+    job?: any // Add job parameter to access cover_text_detection
   ): RowMappingResult[] {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
@@ -401,21 +403,48 @@ export class EnhancedStageMapper {
     }
 
     this.logger.addDebugInfo(`Found ${printingOps.length} printing operations and ${paperMappings.length} paper specifications`);
+    
+    // Check for cover/text detection from matrixParser
+    const hasCoverTextDetection = job?.cover_text_detection?.isBookJob;
+    const coverComponent = job?.cover_text_detection?.components?.find((c: any) => c.type === 'cover');
+    const textComponent = job?.cover_text_detection?.components?.find((c: any) => c.type === 'text');
+    
+    this.logger.addDebugInfo(`🎯 COVER/TEXT DETECTION: hasCoverTextDetection=${hasCoverTextDetection}, coverComponent=${coverComponent ? 'found' : 'none'}, textComponent=${textComponent ? 'found' : 'none'}`);
 
-    // If we have multiple papers and printing operations - CREATE EXACTLY 2 PRINTING STAGES
-    if (printingOps.length > 0 && paperMappings.length >= 2) {
-      // Sort papers by quantity to identify Cover (smallest) and Text (largest)
-      const sortedPapers = [...paperMappings].sort((a, b) => a.qty - b.qty);
-      const coverPaper = sortedPapers[0];  // Smallest quantity = Cover
-      const textPaper = sortedPapers[sortedPapers.length - 1];  // Largest quantity = Text
+    // If we have cover/text detection from matrixParser OR multiple papers - CREATE EXACTLY 2 PRINTING STAGES
+    if (printingOps.length > 0 && (paperMappings.length >= 2 || (hasCoverTextDetection && coverComponent && textComponent))) {
+      // Determine paper specs - prefer from cover_text_detection, fallback to paperMappings
+      let coverPaperSpec = 'Cover';
+      let textPaperSpec = 'Text';
       
-      this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaper.mappedSpec} (qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (qty: ${textPaper.qty})`);
+      if (paperMappings.length >= 2) {
+        // Sort papers by quantity to identify Cover (smallest) and Text (largest)
+        const sortedPapers = [...paperMappings].sort((a, b) => a.qty - b.qty);
+        coverPaperSpec = sortedPapers[0].mappedSpec;
+        textPaperSpec = sortedPapers[sortedPapers.length - 1].mappedSpec;
+        this.logger.addDebugInfo(`Using paper mappings: Cover=${coverPaperSpec}, Text=${textPaperSpec}`);
+      } else if (coverComponent?.paper && textComponent?.paper) {
+        // Use paper from cover_text_detection
+        coverPaperSpec = coverComponent.paper.description || 'Cover';
+        textPaperSpec = textComponent.paper.description || 'Text';
+        this.logger.addDebugInfo(`Using cover_text_detection paper: Cover=${coverPaperSpec}, Text=${textPaperSpec}`);
+      }
       
-      // Match printing operations to paper components by quantity
-      // Sort printing operations by quantity to match with sorted papers
+      // Match printing operations by quantity - use cover_text_detection if available
       const sortedPrintingOps = [...printingOps].sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
-      const coverPrintingOp = sortedPrintingOps[0];  // Smallest quantity = Cover printing
-      const textPrintingOp = sortedPrintingOps.length > 1 ? sortedPrintingOps[sortedPrintingOps.length - 1] : sortedPrintingOps[0];
+      
+      // Match by quantity from cover_text_detection if available
+      let coverPrintingOp = sortedPrintingOps[0];
+      let textPrintingOp = sortedPrintingOps.length > 1 ? sortedPrintingOps[sortedPrintingOps.length - 1] : sortedPrintingOps[0];
+      
+      if (hasCoverTextDetection && coverComponent && textComponent) {
+        // Match by exact quantity from cover_text_detection
+        coverPrintingOp = printingOps.find(op => op.spec.qty === coverComponent.printing.qty) || sortedPrintingOps[0];
+        textPrintingOp = printingOps.find(op => op.spec.qty === textComponent.printing.qty) || sortedPrintingOps[sortedPrintingOps.length - 1];
+        this.logger.addDebugInfo(`Matched printing ops by cover_text_detection qty: Cover=${coverPrintingOp.spec.qty}, Text=${textPrintingOp.spec.qty}`);
+      }
+      
+      this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaperSpec} (qty: ${coverPrintingOp.spec.qty}), Text=${textPaperSpec} (qty: ${textPrintingOp.spec.qty})`);
       
       // Create Cover printing stage
       const coverStageMapping = this.findIntelligentStageMatchWithSpec(
@@ -432,8 +461,8 @@ export class EnhancedStageMapper {
       mappings.push({
         excelRowIndex: coverPrintingOp.rowIndex,
         excelData: excelRows[0] || [],
-        groupName: `${coverPrintingOp.groupName} - ${coverPaper.mappedSpec}`,
-        description: `${coverPrintingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
+        groupName: `${coverPrintingOp.groupName} - ${coverPaperSpec}`,
+        description: `${coverPrintingOp.spec.description || ''} (Cover: ${coverPaperSpec})`,
         qty: coverPrintingOp.spec.qty || 0,
         woQty: coverPrintingOp.spec.wo_qty || 0,
         mappedStageId: coverStageMapping?.stageId || null,
@@ -445,7 +474,7 @@ export class EnhancedStageMapper {
         isUnmapped: false, // Force mapped
         manualOverride: false,
         instanceId: coverInstanceId,
-        paperSpecification: coverPaper.mappedSpec,
+        paperSpecification: coverPaperSpec,
         partType: 'Cover'
       });
 
@@ -464,8 +493,8 @@ export class EnhancedStageMapper {
       mappings.push({
         excelRowIndex: textPrintingOp.rowIndex,
         excelData: excelRows[0] || [],
-        groupName: `${textPrintingOp.groupName} - ${textPaper.mappedSpec}`,
-        description: `${textPrintingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
+        groupName: `${textPrintingOp.groupName} - ${textPaperSpec}`,
+        description: `${textPrintingOp.spec.description || ''} (Text: ${textPaperSpec})`,
         qty: textPrintingOp.spec.qty || 0,
         woQty: textPrintingOp.spec.wo_qty || 0,
         mappedStageId: textStageMapping?.stageId || null,
@@ -477,11 +506,11 @@ export class EnhancedStageMapper {
         isUnmapped: false, // Force mapped
         manualOverride: false,
         instanceId: textInstanceId,
-        paperSpecification: textPaper.mappedSpec,
+        paperSpecification: textPaperSpec,
         partType: 'Text'
       });
 
-      this.logger.addDebugInfo(`Created 2 printing mappings: Cover (qty: ${coverPaper.qty}) and Text (qty: ${textPaper.qty})`);
+      this.logger.addDebugInfo(`Created 2 printing mappings with partType set: Cover (qty: ${coverPrintingOp.spec.qty}) and Text (qty: ${textPrintingOp.spec.qty})`);
     } else if (printingOps.length > 0) {
       // Single paper or no paper scenario - create single printing stage
       for (const printingOp of printingOps) {

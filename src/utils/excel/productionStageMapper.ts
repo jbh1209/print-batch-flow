@@ -107,7 +107,10 @@ export class ProductionStageMapper {
       prepressSpecs,
       excelRows,
       headers,
-      null // Paper specs not available at this level
+      null, // Paper specs not available at this level
+      null, // Packaging specs
+      null, // Delivery specs
+      undefined // Job not available in this context
     );
   }
 
