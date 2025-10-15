@@ -48,8 +48,7 @@ const detectMatrixStructure = (headers: string[], rows: any[][], logger: ExcelIm
   const groupColumn = findColumnByNames(headers, ['Groups', 'GROUP', 'group', 'Category', 'CATEGORY', 'category']);
   const workOrderColumn = findColumnByNames(headers, ['WO', 'Work Order', 'WorkOrder', 'wo_no', 'WO_NO']);
   const descriptionColumn = findColumnByNames(headers, ['Description', 'DESCRIPTION', 'description', 'Desc', 'DESC']);
-  const qtyColumn = findColumnByNames(headers, ['Qty', 'QTY', 'qty', 'Quantity', 'QUANTITY']);
-  const woQtyColumn = findColumnByNames(headers, ['Wo_Qty', 'WO_QTY', 'wo_qty', 'WO Qty', 'Total Qty']);
+  const { qtyColumn, woQtyColumn } = detectQtyColumns(headers, logger);
   
   logger.addDebugInfo(`Detected columns - Group: ${groupColumn}, WO: ${workOrderColumn}, Desc: ${descriptionColumn}, Qty: ${qtyColumn}, WO_Qty: ${woQtyColumn}`);
   
@@ -76,6 +75,50 @@ const findColumnByNames = (headers: string[], possibleNames: string[]): number =
     if (index !== -1) return index;
   }
   return -1;
+};
+
+const detectQtyColumns = (headers: string[], logger: ExcelImportDebugger): { qtyColumn: number; woQtyColumn: number } => {
+  const norm = (s: string) => (s || '').toLowerCase().trim();
+
+  const tokens = headers.map(h => norm(h));
+  const isWoLike = (t: string) =>
+    /\b(wo|work|workorder|work order|total)\b/.test(t);
+  const isExactQty = (t: string) => t === 'qty' || t === 'quantity';
+  const containsQty = (t: string) => t.includes('qty') || t.includes('quantity');
+
+  let qtyIdx = -1;
+  let woIdx = -1;
+
+  // Prefer exact 'qty' or 'quantity' for per-row quantity
+  for (let i = 0; i < tokens.length; i++) {
+    if (isExactQty(tokens[i])) {
+      qtyIdx = i;
+      break;
+    }
+  }
+
+  // Fallback: a header containing qty/quantity but NOT wo/work/total
+  if (qtyIdx === -1) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (containsQty(tokens[i]) && !isWoLike(tokens[i])) {
+        qtyIdx = i;
+        break;
+      }
+    }
+  }
+
+  // WO/Total qty: any header that contains qty AND wo/work/total tokens
+  for (let i = 0; i < tokens.length; i++) {
+    if (containsQty(tokens[i]) && isWoLike(tokens[i])) {
+      woIdx = i;
+      break;
+    }
+  }
+
+  // Log which headers were chosen
+  logger.addDebugInfo(`Resolved Qty columns - Qty: ${qtyIdx >= 0 ? headers[qtyIdx] : 'not found'}, WO_Qty: ${woIdx >= 0 ? headers[woIdx] : 'not found'}`);
+
+  return { qtyColumn: qtyIdx, woQtyColumn: woIdx };
 };
 
 const detectGroups = (rows: any[][], groupColumn: number, logger: ExcelImportDebugger): string[] => {

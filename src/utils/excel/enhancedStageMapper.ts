@@ -412,7 +412,7 @@ export class EnhancedStageMapper {
     this.logger.addDebugInfo(`🎯 COVER/TEXT DETECTION: hasCoverTextDetection=${hasCoverTextDetection}, coverComponent=${coverComponent ? 'found' : 'none'}, textComponent=${textComponent ? 'found' : 'none'}`);
 
     // If we have cover/text detection from matrixParser OR multiple papers - CREATE EXACTLY 2 PRINTING STAGES
-    if (printingOps.length > 0 && (paperMappings.length >= 2 || (hasCoverTextDetection && coverComponent && textComponent))) {
+    if (printingOps.length >= 2 && (paperMappings.length >= 2 || (hasCoverTextDetection && coverComponent && textComponent))) {
       // Determine paper specs - prefer from cover_text_detection, fallback to paperMappings
       let coverPaperSpec = 'Cover';
       let textPaperSpec = 'Text';
