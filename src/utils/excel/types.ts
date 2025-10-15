@@ -98,6 +98,7 @@ export interface CoverTextComponent {
     qty: number;
     wo_qty: number;
     row: any[];
+    rowIndex?: number;
   };
   paper?: {
     description: string;

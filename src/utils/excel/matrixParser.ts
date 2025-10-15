@@ -323,23 +323,23 @@ const extractGroupSpecifications = (
   const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
   
   // Create a map for unique printing specification keys
-  const printingKeyMap = new Map<string, string>();
+  const printingKeyMap = new Map<number, string>();
   
   if (coverTextDetection && coverTextDetection.isBookJob) {
     // For book jobs, create unique keys for cover and text printing
     const coverComponent = coverTextDetection.components.find(c => c.type === 'cover');
     const textComponent = coverTextDetection.components.find(c => c.type === 'text');
     
-    if (coverComponent) {
+    if (coverComponent && coverComponent.printing.rowIndex !== undefined) {
       const coverDesc = coverComponent.printing.description;
-      printingKeyMap.set(`${coverDesc}_${coverComponent.printing.qty}`, `${coverDesc}_Cover`);
-      logger.addDebugInfo(`[QUANTITY LOG] Created unique key for cover printing: ${coverDesc}_Cover (qty: ${coverComponent.printing.qty})`);
+      printingKeyMap.set(coverComponent.printing.rowIndex, '_Cover');
+      logger.addDebugInfo(`[QUANTITY LOG] Created unique key for cover printing: ${coverDesc}_Cover (rowIndex: ${coverComponent.printing.rowIndex}, qty: ${coverComponent.printing.qty})`);
     }
     
-    if (textComponent) {
+    if (textComponent && textComponent.printing.rowIndex !== undefined) {
       const textDesc = textComponent.printing.description;
-      printingKeyMap.set(`${textDesc}_${textComponent.printing.qty}`, `${textDesc}_Text`);
-      logger.addDebugInfo(`[QUANTITY LOG] Created unique key for text printing: ${textDesc}_Text (qty: ${textComponent.printing.qty})`);
+      printingKeyMap.set(textComponent.printing.rowIndex, '_Text');
+      logger.addDebugInfo(`[QUANTITY LOG] Created unique key for text printing: ${textDesc}_Text (rowIndex: ${textComponent.printing.rowIndex}, qty: ${textComponent.printing.qty})`);
     }
   }
   
@@ -368,11 +368,10 @@ const extractGroupSpecifications = (
     if (category) {
       // For printing category, use unique keys if this is a book job
       if (category === 'printing' && coverTextDetection && coverTextDetection.isBookJob) {
-        const lookupKey = `${specKey}_${qty}`;
-        const uniqueKey = printingKeyMap.get(lookupKey);
-        if (uniqueKey) {
-          specKey = uniqueKey;
-          logger.addDebugInfo(`[QUANTITY LOG] Using unique printing key: ${specKey} for qty: ${qty}`);
+        const uniqueKeySuffix = printingKeyMap.get(index);
+        if (uniqueKeySuffix) {
+          specKey = specKey + uniqueKeySuffix;
+          logger.addDebugInfo(`[QUANTITY LOG] Using unique printing key: ${specKey} (row index: ${index})`);
         }
       }
       
@@ -474,7 +473,8 @@ const detectCoverTextScenario = (
         description: coverPrinting.description,
         qty: coverPrinting.qty,
         wo_qty: coverPrinting.wo_qty,
-        row: coverPrinting.rawRow
+        row: coverPrinting.rawRow,
+        rowIndex: coverPrinting.rowIndex
       },
       paper: sortedPaperRows.length > 0 ? {
         description: sortedPaperRows[0].description,
@@ -489,7 +489,8 @@ const detectCoverTextScenario = (
         description: textPrinting.description,
         qty: textPrinting.qty,
         wo_qty: textPrinting.wo_qty,
-        row: textPrinting.rawRow
+        row: textPrinting.rawRow,
+        rowIndex: textPrinting.rowIndex
       },
       paper: sortedPaperRows.length > 1 ? {
         description: sortedPaperRows[sortedPaperRows.length - 1].description,
