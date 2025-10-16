@@ -224,7 +224,7 @@ async function calculateTimingForCreatedStages(
     // Fetch all stage instances for this job
     const { data: stageInstances, error } = await supabase
       .from('job_stage_instances')
-      .select('id, production_stage_id, stage_specification_id, quantity, unique_stage_key')
+      .select('id, production_stage_id, stage_specification_id, quantity, unique_stage_key, part_name')
       .eq('job_id', jobId)
       .eq('job_table_name', 'production_jobs')
       .order('stage_order');
@@ -239,23 +239,66 @@ async function calculateTimingForCreatedStages(
       return;
     }
     
-    // Create a map of unique stage keys to quantities from user mappings
+    // Create a composite-keys quantity map that matches stage instances
     const quantityMap = new Map<string, number>();
     userApprovedMappings.forEach(mapping => {
       if (mapping.qty && mapping.qty > 0) {
-        quantityMap.set(mapping.mappedStageId, mapping.qty);
+        // Derive part from groupName or use partType directly
+        const norm = mapping.groupName?.toLowerCase() || '';
+        const part = mapping.partType?.toLowerCase() || (norm.includes('cover') ? 'cover' : norm.includes('text') ? 'text' : 'none');
+        
+        // Build composite key if part exists
+        if (part !== 'none') {
+          const compositeKey = `${mapping.mappedStageId}::${part}`;
+          quantityMap.set(compositeKey, mapping.qty);
+          logger.addDebugInfo(`✅ Set composite quantity ${mapping.qty} for key ${compositeKey}`);
+        }
+        
+        // Also set base stageId if not already set (fallback)
+        if (!quantityMap.has(mapping.mappedStageId)) {
+          quantityMap.set(mapping.mappedStageId, mapping.qty);
+          logger.addDebugInfo(`✅ Set base quantity ${mapping.qty} for stage ${mapping.mappedStageId}`);
+        }
       }
     });
     
-    logger.addDebugInfo(`📊 Found ${quantityMap.size} stage quantities from user mappings`);
+    // Safety guard: if no valid quantities found, don't update (let EnhancedJobCreator handle it)
+    if (quantityMap.size === 0) {
+      logger.addDebugInfo(`⚠️ No valid quantities found in user mappings, skipping quantity updates in this pass`);
+      return;
+    }
     
-    // Calculate timing for each stage instance using its stored unique key
+    logger.addDebugInfo(`📊 Built composite quantity map with ${quantityMap.size} entries`);
+    
+    // Calculate timing for each stage instance using its stored unique key and part-aware resolution
     const timingPromises = stageInstances.map(async (stageInstance) => {
       const uniqueKey = stageInstance.unique_stage_key;
-      const quantity = uniqueKey ? quantityMap.get(uniqueKey) : null;
+      const partName = stageInstance.part_name;
+      const stageId = stageInstance.production_stage_id;
+      
+      // Try resolution in order: unique_stage_key, composite with part, base stageId
+      let quantity: number | undefined;
+      let resolvedVia = 'default';
+      
+      if (uniqueKey && quantityMap.has(uniqueKey)) {
+        quantity = quantityMap.get(uniqueKey);
+        resolvedVia = `unique_key:${uniqueKey}`;
+      } else if (partName) {
+        const compositeKey = `${stageId}::${partName.toLowerCase()}`;
+        if (quantityMap.has(compositeKey)) {
+          quantity = quantityMap.get(compositeKey);
+          resolvedVia = `composite:${compositeKey}`;
+        }
+      }
+      
+      if (!quantity && quantityMap.has(stageId)) {
+        quantity = quantityMap.get(stageId);
+        resolvedVia = `base_stage:${stageId}`;
+      }
+      
       const finalQuantity = quantity || stageInstance.quantity || 1;
       
-      logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} (key: ${uniqueKey}) with quantity ${finalQuantity}`);
+      logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} (${resolvedVia}) with quantity ${finalQuantity}`);
       
       try {
         // Check if this stage has sub-tasks (multi-spec scenario)

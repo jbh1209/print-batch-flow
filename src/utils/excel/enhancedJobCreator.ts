@@ -923,30 +923,34 @@ private async calculateTimingForJob(
     
     // Add quantities from user mappings - these should contain the parsed Excel quantities
     if (userApprovedMappings) {
-    // Track stage ID occurrences to generate unique keys
-    const stageIdCounts = new Map<string, number>();
-  
     userApprovedMappings.forEach(mapping => {
-    this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
-    
-    // First try to extract quantity from job specifications based on groupName
-    let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
-    
-    this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
-    
-    if (qty > 0) {
-      // Generate unique key similar to jobWorkflowInitializer
-      const baseStageId = mapping.mappedStageId;
-      const currentCount = stageIdCounts.get(baseStageId) || 0;
-      stageIdCounts.set(baseStageId, currentCount + 1);
+      this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
       
-      const uniqueKey = currentCount === 0 ? baseStageId : `${baseStageId}-${currentCount + 1}`;
+      // First try to extract quantity from job specifications based on groupName
+      let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
       
-      quantityMap.set(uniqueKey, qty);
-      this.logger.addDebugInfo(`✅ Set quantity ${qty} for unique key ${uniqueKey} (${mapping.mappedStageName})`);
-    }
-  });
-}
+      this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
+      
+      if (qty > 0) {
+        // Derive part from groupName
+        const norm = mapping.groupName.toLowerCase();
+        let part: 'cover' | 'text' | 'none' = norm.includes('cover') ? 'cover' : norm.includes('text') ? 'text' : 'none';
+        
+        // Build composite key: stageId::part
+        if (part !== 'none') {
+          const compositeKey = `${mapping.mappedStageId}::${part}`;
+          quantityMap.set(compositeKey, qty);
+          this.logger.addDebugInfo(`✅ Set composite quantity ${qty} for key ${compositeKey} (${mapping.mappedStageName} - ${part})`);
+        }
+        
+        // Also set base stageId if not already set (fallback)
+        if (!quantityMap.has(mapping.mappedStageId)) {
+          quantityMap.set(mapping.mappedStageId, qty);
+          this.logger.addDebugInfo(`✅ Set base quantity ${qty} for stage ${mapping.mappedStageId} (${mapping.mappedStageName})`);
+        }
+      }
+    });
+  }
 
     
     // Fallback to job qty if no specific quantities found
@@ -1114,22 +1118,37 @@ private async addWorkingDays(startDate: Date, daysToAdd: number): Promise<Date> 
 }
 /**
  * Get quantity for a stage instance with fallback logic
+ * Now part-aware to distinguish cover vs text printing
  */
 private getQuantityForStageInstance(stageInstance: any, quantityMap: Map<string, number>, defaultQty: number): number {
   const uniqueKey = stageInstance.unique_stage_key;
+  const partName = stageInstance.part_name;
+  const stageId = stageInstance.production_stage_id;
   
-  // Try exact unique key first
+  // 1. Try exact unique key first
   if (uniqueKey && quantityMap.has(uniqueKey)) {
+    this.logger.addDebugInfo(`🔑 Resolved qty via unique_stage_key: ${uniqueKey} = ${quantityMap.get(uniqueKey)}`);
     return quantityMap.get(uniqueKey)!;
   }
   
-  // Try base stage ID (remove suffix like -2, -3)
-  const baseStageId = this.extractBaseStageId(uniqueKey || stageInstance.production_stage_id);
+  // 2. Try composite key with part_name
+  if (partName) {
+    const compositeKey = `${stageId}::${partName.toLowerCase()}`;
+    if (quantityMap.has(compositeKey)) {
+      this.logger.addDebugInfo(`🔑 Resolved qty via composite key: ${compositeKey} = ${quantityMap.get(compositeKey)}`);
+      return quantityMap.get(compositeKey)!;
+    }
+  }
+  
+  // 3. Try base stage ID (remove suffix like -2, -3)
+  const baseStageId = this.extractBaseStageId(uniqueKey || stageId);
   if (quantityMap.has(baseStageId)) {
+    this.logger.addDebugInfo(`🔑 Resolved qty via base stage ID: ${baseStageId} = ${quantityMap.get(baseStageId)}`);
     return quantityMap.get(baseStageId)!;
   }
   
-  // Fallback to default
+  // 4. Fallback to default
+  this.logger.addDebugInfo(`🔑 Using default qty: ${defaultQty}`);
   return defaultQty;
 }
 
