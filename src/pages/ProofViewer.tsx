@@ -8,6 +8,7 @@ import PdfViewer from "@/components/pdf/PdfViewer";
 import { Loader2, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { ProofViewerHeader } from "@/components/proof/ProofViewerHeader";
+import impressLogo from "@/assets/impress-logo-colour.png";
 
 const ProofViewer = () => {
   const { token } = useParams<{ token: string }>();
@@ -135,7 +136,7 @@ const ProofViewer = () => {
   if (loading) {
     return (
       <>
-        <ProofViewerHeader />
+        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -146,7 +147,7 @@ const ProofViewer = () => {
   if (error) {
     return (
       <>
-        <ProofViewerHeader />
+        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
           <div className="text-center space-y-4 max-w-md">
             <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
@@ -162,9 +163,14 @@ const ProofViewer = () => {
     const completionDate = new Date(estimatedCompletion);
     return (
       <>
-        <ProofViewerHeader />
+        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-6 max-w-2xl bg-white p-8 rounded-lg shadow-lg">
+          <img 
+            src={impressLogo} 
+            alt="Impress Print" 
+            className="h-12 w-auto mx-auto mb-4"
+          />
           <CheckCircle className="h-20 w-20 text-green-500 mx-auto" />
           <h1 className="text-3xl font-bold text-gray-900">Order Approved & Scheduled!</h1>
           <p className="text-lg text-gray-600">Your order has been added to our production schedule</p>
@@ -177,12 +183,6 @@ const ProofViewer = () => {
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
-              })}
-            </p>
-            <p className="text-lg text-blue-700">
-              {completionDate.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
               })}
             </p>
           </div>
@@ -207,7 +207,7 @@ const ProofViewer = () => {
   if (submitted) {
     return (
       <>
-        <ProofViewerHeader />
+        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-4 max-w-md bg-white p-8 rounded-lg shadow-lg">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
@@ -222,7 +222,7 @@ const ProofViewer = () => {
   if (isScheduling) {
     return (
       <>
-        <ProofViewerHeader />
+        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-6 max-w-md bg-white p-8 rounded-lg shadow-lg">
           <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
@@ -250,7 +250,7 @@ const ProofViewer = () => {
 
   return (
     <>
-      <ProofViewerHeader />
+      <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
       <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4 space-y-6">
         {/* Hero Section */}
