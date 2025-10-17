@@ -28,11 +28,6 @@ export const ProofViewerHeader = ({ woNumber, contact }: ProofViewerHeaderProps)
             )}
           </div>
         </div>
-        <img 
-          src={impressLogo} 
-          alt="Impress Print" 
-          className="h-8 w-auto opacity-60"
-        />
       </div>
     </header>
   );
