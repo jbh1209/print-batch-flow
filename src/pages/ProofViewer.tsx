@@ -63,7 +63,7 @@ const ProofViewer = () => {
           .from("job_stage_instances")
           .select(`
             *,
-            production_jobs(wo_no, contact, due_date)
+            production_jobs(wo_no, contact, due_date, reference, qty)
           `)
           .eq("id", proofLink.stage_instance_id)
           .single();
@@ -136,7 +136,12 @@ const ProofViewer = () => {
   if (loading) {
     return (
       <>
-        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
+        <ProofViewerHeader 
+          woNumber={jobData?.production_jobs?.wo_no} 
+          contact={jobData?.production_jobs?.contact}
+          reference={jobData?.production_jobs?.reference}
+          qty={jobData?.production_jobs?.qty}
+        />
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -147,7 +152,12 @@ const ProofViewer = () => {
   if (error) {
     return (
       <>
-        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
+        <ProofViewerHeader 
+          woNumber={jobData?.production_jobs?.wo_no} 
+          contact={jobData?.production_jobs?.contact}
+          reference={jobData?.production_jobs?.reference}
+          qty={jobData?.production_jobs?.qty}
+        />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
           <div className="text-center space-y-4 max-w-md">
             <AlertCircle className="h-16 w-16 text-destructive mx-auto" />
@@ -163,7 +173,12 @@ const ProofViewer = () => {
     const completionDate = new Date(estimatedCompletion);
     return (
       <>
-        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
+        <ProofViewerHeader 
+          woNumber={jobData?.production_jobs?.wo_no} 
+          contact={jobData?.production_jobs?.contact}
+          reference={jobData?.production_jobs?.reference}
+          qty={jobData?.production_jobs?.qty}
+        />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-6 max-w-2xl bg-white p-8 rounded-lg shadow-lg">
           <img 
@@ -207,7 +222,12 @@ const ProofViewer = () => {
   if (submitted) {
     return (
       <>
-        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
+        <ProofViewerHeader 
+          woNumber={jobData?.production_jobs?.wo_no} 
+          contact={jobData?.production_jobs?.contact}
+          reference={jobData?.production_jobs?.reference}
+          qty={jobData?.production_jobs?.qty}
+        />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-4 max-w-md bg-white p-8 rounded-lg shadow-lg">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
@@ -222,7 +242,12 @@ const ProofViewer = () => {
   if (isScheduling) {
     return (
       <>
-        <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
+        <ProofViewerHeader 
+          woNumber={jobData?.production_jobs?.wo_no} 
+          contact={jobData?.production_jobs?.contact}
+          reference={jobData?.production_jobs?.reference}
+          qty={jobData?.production_jobs?.qty}
+        />
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-6 max-w-md bg-white p-8 rounded-lg shadow-lg">
           <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
@@ -250,7 +275,12 @@ const ProofViewer = () => {
 
   return (
     <>
-      <ProofViewerHeader woNumber={jobData?.production_jobs?.wo_no} contact={jobData?.production_jobs?.contact} />
+      <ProofViewerHeader 
+        woNumber={jobData?.production_jobs?.wo_no} 
+        contact={jobData?.production_jobs?.contact}
+        reference={jobData?.production_jobs?.reference}
+        qty={jobData?.production_jobs?.qty}
+      />
       <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4 space-y-6">
         {/* Hero Section */}
