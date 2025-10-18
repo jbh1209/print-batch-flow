@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _app_secrets: {
+        Row: {
+          created_at: string | null
+          key: string
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
       active_job_assignments: {
         Row: {
           department_id: string
