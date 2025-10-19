@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 /**
  * Represents the available user roles in the system
  */
-export type UserRole = 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'user';
+export type UserRole = 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'packaging_operator' | 'user';
 
 /**
  * Response from the useUserRole hook
@@ -24,6 +24,8 @@ export interface UserRoleResponse {
   isOperator: boolean;
   /** Whether the user is specifically a DTP operator */
   isDtpOperator: boolean;
+  /** Whether the user is specifically a Packaging & Shipping operator */
+  isPackagingOperator: boolean;
   /** List of stages the user has access to - based on actual group memberships, not admin overrides */
   accessibleStages: Array<{
     stage_id: string;
@@ -177,6 +179,15 @@ export const useUserRole = (): UserRoleResponse => {
                  stageName.includes('artwork');
         });
 
+        const packagingRelatedStages = effectiveWorkableStages.filter(stage => {
+          const stageName = stage.stage_name.toLowerCase();
+          return stageName.includes('packaging') ||
+                 stageName.includes('pack') ||
+                 stageName.includes('shipping') ||
+                 stageName.includes('dispatch') ||
+                 stageName.includes('ship');
+        });
+
         const printingRelatedStages = effectiveWorkableStages.filter(stage => {
           const stageName = stage.stage_name.toLowerCase();
           return stageName.includes('print') ||
@@ -206,19 +217,31 @@ export const useUserRole = (): UserRoleResponse => {
           name.includes('press')
         );
 
+        // Check for packaging & dispatch group membership
+        const isInPackagingGroup = groupNames.some(name =>
+          name.toLowerCase().includes('packaging') ||
+          name.toLowerCase().includes('dispatch') ||
+          name.toLowerCase().includes('shipping')
+        );
+
         console.log('🧑‍💻 Enhanced operator analysis:', {
           workableStages: workableStages.length,
           manageableStages: manageableStages.length,
           effectiveWorkableStages: effectiveWorkableStages.length,
           dtpStages: dtpRelatedStages.length,
+          packagingStages: packagingRelatedStages.length,
           printingStages: printingRelatedStages.length,
           isInOperatorGroup,
+          isInPackagingGroup,
           groupNames,
           stageNames: effectiveWorkableStages.map(s => s.stage_name)
         });
 
         // Role determination with enhanced logic and fallbacks
-        if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
+        if (isInPackagingGroup && (packagingRelatedStages.length > 0 || groupNames.some(n => n.toLowerCase().includes('packaging') || n.toLowerCase().includes('dispatch')))) {
+          console.log('🔑 User determined as packaging_operator');
+          setUserRole('packaging_operator');
+        } else if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
           console.log('🔑 User determined as dtp_operator');
           setUserRole('dtp_operator');
         } else if (effectiveWorkableStages.length > 0 || isInOperatorGroup) {
@@ -245,8 +268,9 @@ export const useUserRole = (): UserRoleResponse => {
   const isAdmin = userRole === 'admin';
   const isManager = userRole === 'manager' || userRole === 'admin';
   // IMPORTANT: isOperator should NOT include admin/manager - only actual operators
-  const isOperator = userRole === 'operator' || userRole === 'dtp_operator';
+  const isOperator = userRole === 'operator' || userRole === 'dtp_operator' || userRole === 'packaging_operator';
   const isDtpOperator = userRole === 'dtp_operator';
+  const isPackagingOperator = userRole === 'packaging_operator';
 
   return {
     userRole,
@@ -255,6 +279,7 @@ export const useUserRole = (): UserRoleResponse => {
     isManager,
     isOperator,
     isDtpOperator,
+    isPackagingOperator,
     accessibleStages
   };
 };

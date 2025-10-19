@@ -16,7 +16,7 @@ import { AlertTriangle } from "lucide-react";
  * - Admins, managers see the full tracker layout
  */
 const RoleAwareLayout: React.FC = () => {
-  const { userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator } = useUserRole();
+  const { userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator, isPackagingOperator } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -31,6 +31,7 @@ const RoleAwareLayout: React.FC = () => {
       isAdmin,
       isManager,
       isDtpOperator,
+      isPackagingOperator,
       currentPath: location.pathname,
       hasInitialized
     });
@@ -45,8 +46,14 @@ const RoleAwareLayout: React.FC = () => {
         navigate('/tracker/dtp-workflow', { replace: true });
         return;
       }
+
+      if (isPackagingOperator && !isAdmin && !isManager) {
+        console.log('🔄 Redirecting Packaging operator to Packaging & Shipping workflow');
+        navigate('/tracker/packaging-shipping', { replace: true });
+        return;
+      }
       
-      if (isOperator && !isDtpOperator && !isAdmin && !isManager) {
+      if (isOperator && !isDtpOperator && !isPackagingOperator && !isAdmin && !isManager) {
         console.log('🔄 Redirecting regular operator to factory floor');
         navigate('/tracker/factory-floor', { replace: true });
         return;
@@ -59,7 +66,7 @@ const RoleAwareLayout: React.FC = () => {
     }
 
     setHasInitialized(true);
-  }, [userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator, navigate, location.pathname, hasInitialized]);
+  }, [userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator, isPackagingOperator, navigate, location.pathname, hasInitialized]);
 
   // Show loading state
   if (isLoading) {

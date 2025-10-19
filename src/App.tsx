@@ -27,6 +27,7 @@ import TrackerWorkSheets from "@/pages/tracker/TrackerWorkSheets";
 import TrackerLabels from "@/pages/tracker/TrackerLabels";
 import TrackerUpload from "@/pages/tracker/TrackerUpload";
 import TrackerDTPWorkflow from "@/pages/tracker/TrackerDTPWorkflow";
+import TrackerPackagingShipping from "@/pages/tracker/TrackerPackagingShipping";
 import FactoryFloor from "@/pages/tracker/FactoryFloor";
 import MobileFactory from "@/pages/tracker/MobileFactory";
 
@@ -210,6 +211,7 @@ function App() {
                   <Route path="schedule-board" element={<ScheduleBoardPage />} />
                   <Route path="factory-floor" element={<FactoryFloor />} />
                   <Route path="dtp-workflow" element={<TrackerDTPWorkflow />} />
+                  <Route path="packaging-shipping" element={<TrackerPackagingShipping />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
                   <Route path="worksheets" element={<TrackerWorkSheets />} />
                   <Route path="admin" element={
