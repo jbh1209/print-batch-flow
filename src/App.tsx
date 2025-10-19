@@ -29,6 +29,7 @@ import TrackerLabels from "@/pages/tracker/TrackerLabels";
 import TrackerUpload from "@/pages/tracker/TrackerUpload";
 import TrackerDTPWorkflow from "@/pages/tracker/TrackerDTPWorkflow";
 import FactoryFloor from "@/pages/tracker/FactoryFloor";
+import DieCuttingManager from "@/pages/tracker/DieCuttingManager";
 import MobileFactory from "@/pages/tracker/MobileFactory";
 
 // Printstream imports
@@ -210,6 +211,7 @@ function App() {
                   <Route path="kanban" element={<TrackerKanban />} />
                   <Route path="schedule-board" element={<ScheduleBoardPage />} />
                   <Route path="factory-floor" element={<FactoryFloor />} />
+                  <Route path="die-cutting-manager" element={<DieCuttingManager />} />
                   <Route path="dtp-workflow" element={<TrackerDTPWorkflow />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
                   <Route path="worksheets" element={<TrackerWorkSheets />} />

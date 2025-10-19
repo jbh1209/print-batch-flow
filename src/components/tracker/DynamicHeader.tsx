@@ -6,6 +6,7 @@ import { Bell, HelpCircle, LogOut, Home, Factory, Search, Settings2 } from "luci
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useIsManagement } from "@/hooks/tracker/useIsManagement";
 import { RefreshIndicator } from "./RefreshIndicator";
 import { useDataManager } from "@/hooks/tracker/useDataManager";
 import { OrderSearchModal } from "./modals/OrderSearchModal";
@@ -23,6 +24,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const { isManager, isAdmin } = useUserRole();
+  const { isManagement } = useIsManagement();
   const { 
     lastUpdated, 
     isRefreshing, 
@@ -129,9 +131,9 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
               </Link>
             </Button>
           )}
-          {(isManager || isAdmin) && (
+          {(isManager || isAdmin || isManagement) && (
             <Button variant="outline" size="sm" asChild className="px-2 py-1 text-xs">
-              <Link to="/tracker/die-cutting-allocation" className="flex items-center gap-1">
+              <Link to="/tracker/die-cutting-manager" className="flex items-center gap-1">
                 <Settings2 size={14} />
                 Die Cut
               </Link>
