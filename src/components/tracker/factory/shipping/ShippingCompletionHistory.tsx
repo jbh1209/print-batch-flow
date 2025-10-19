@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Package, Truck, MapPin, User } from "lucide-react";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,33 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import type { ShippingCompletion } from "./types";
 
 interface ShippingCompletionHistoryProps {
-  jobId: string;
+  history: ShippingCompletion[];
   jobQty: number;
-  getShippingHistory: (jobId: string) => Promise<ShippingCompletion[]>;
 }
 
 export const ShippingCompletionHistory = ({
-  jobId,
-  jobQty,
-  getShippingHistory
+  history,
+  jobQty
 }: ShippingCompletionHistoryProps) => {
-  const [history, setHistory] = useState<ShippingCompletion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadHistory = async () => {
-      setIsLoading(true);
-      const data = await getShippingHistory(jobId);
-      setHistory(data);
-      setIsLoading(false);
-    };
-    loadHistory();
-  }, [jobId, getShippingHistory]);
-
-  if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading shipping history...</div>;
-  }
-
   if (history.length === 0) {
     return null;
   }

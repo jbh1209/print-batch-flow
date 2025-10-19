@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
-import type { ShippingCompletionFormData } from "./types";
+import type { ShippingCompletionFormData, ShippingCompletion } from "./types";
 import { ShippingCompletionHistory } from "./ShippingCompletionHistory";
 import { useShippingCompletion } from "@/hooks/tracker/useShippingCompletion";
 
@@ -38,10 +38,12 @@ export const ShippingCompletionDialog = ({
   });
 
   const [remainingQty, setRemainingQty] = useState(job.qty);
+  const [shippingHistory, setShippingHistory] = useState<ShippingCompletion[]>([]);
 
   useEffect(() => {
     const loadRemainingQty = async () => {
       const history = await getShippingHistory(job.job_id);
+      setShippingHistory(history);
       const totalShipped = history.reduce((sum, s) => sum + s.qty_shipped, 0);
       setRemainingQty(job.qty - totalShipped);
       setFormData(prev => ({ ...prev, qtyShipped: job.qty - totalShipped }));
@@ -113,9 +115,8 @@ export const ShippingCompletionDialog = ({
           </div>
 
           <ShippingCompletionHistory 
-            jobId={job.job_id}
+            history={shippingHistory}
             jobQty={job.qty}
-            getShippingHistory={getShippingHistory}
           />
 
           <form onSubmit={handleSubmit} className="space-y-4">
