@@ -272,9 +272,18 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('📡 Setting up real-time subscription for scheduled jobs');
+    const channelName = production_stage_id 
+      ? `scheduled-jobs-${production_stage_id}`
+      : 'scheduled-jobs-all';
+    
+    const filterString = production_stage_id
+      ? `job_table_name=eq.production_jobs,production_stage_id=eq.${production_stage_id}`
+      : `job_table_name=eq.production_jobs`;
+
+    console.log('📡 Setting up real-time subscription:', { channelName, filter: filterString });
     
     let debounceTimeout: NodeJS.Timeout;
+    let messageCount = 0;
     
     const debouncedFetch = () => {
       clearTimeout(debounceTimeout);
@@ -285,28 +294,29 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
     };
 
     const channel = supabase
-      .channel('scheduled-jobs-updates')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'job_stage_instances',
-          filter: `job_table_name=eq.production_jobs`
+          filter: filterString
         },
         (payload) => {
-          console.log('🔄 Real-time update received for job stages:', payload.eventType);
+          messageCount++;
+          console.log(`🔄 Real-time update #${messageCount} received:`, payload.eventType);
           debouncedFetch();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('🔌 Unsubscribing from scheduled jobs updates');
+      console.log(`🔌 Unsubscribing from ${channelName} (received ${messageCount} messages)`);
       clearTimeout(debounceTimeout);
       supabase.removeChannel(channel);
     };
-  }, [user?.id]); // Removed fetchScheduledJobs to break dependency loop
+  }, [user?.id, production_stage_id, fetchScheduledJobs]);
 
   // Group jobs by readiness status
   const jobsByReadiness = useMemo(() => {
