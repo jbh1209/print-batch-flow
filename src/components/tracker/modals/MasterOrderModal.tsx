@@ -74,6 +74,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   }, [initialJob]);
 
   const canUseAdminControls = isManager || isAdmin;
+  const canShowAdminToggle = isManager || isAdmin; // Only admins and managers can see the toggle
 
   // Fetch fresh job data from database
   const fetchFreshJobData = useCallback(async (): Promise<AccessibleJob | null> => {
@@ -258,7 +259,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
               <Package className="h-5 w-5" />
               Master Order: {job.wo_no}
             </DialogTitle>
-            {canUseAdminControls && (
+            {canShowAdminToggle && (
               <Button
                 variant={showAdminControls ? "default" : "outline"}
                 size="sm"

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/auth/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import { TrackerErrorBoundary } from "@/components/tracker/TrackerErrorBoundary";
 import RoleAwareLayout from "@/components/tracker/RoleAwareLayout";
 import Auth from "@/pages/Auth";
@@ -211,7 +212,11 @@ function App() {
                   <Route path="dtp-workflow" element={<TrackerDTPWorkflow />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
                   <Route path="worksheets" element={<TrackerWorkSheets />} />
-                  <Route path="admin" element={<TrackerAdmin />} />
+                  <Route path="admin" element={
+                    <AdminRoute>
+                      <TrackerAdmin />
+                    </AdminRoute>
+                  } />
                   <Route path="users" element={<TrackerUsers />} />
                   <Route path="labels" element={<TrackerLabels />} />
                   <Route path="upload" element={<TrackerUpload />} />
@@ -228,24 +233,32 @@ function App() {
                 {/* Admin routes without Printstream layout */}
                 <Route path="/admin" element={
                   <ProtectedRoute>
-                    <AdminDashboard />
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/schedule" element={
                   <ProtectedRoute>
-                    <AdminSchedulePage />
+                    <AdminRoute>
+                      <AdminSchedulePage />
+                    </AdminRoute>
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/excel-mapping" element={
                   <ProtectedRoute>
-                    <ExcelMapping />
+                    <AdminRoute>
+                      <ExcelMapping />
+                    </AdminRoute>
                   </ProtectedRoute>
                 } />
-                <Route path="/admin/users" element={
-                  <ProtectedRoute>
-                    <Users />
-                  </ProtectedRoute>
-                } />
+          <Route path="/admin/users" element={
+            <ProtectedRoute>
+              <AdminRoute>
+                <Users />
+              </AdminRoute>
+            </ProtectedRoute>
+          } />
                 {/* Legacy test routes removed */}
                 {/* Removed scheduler routes */}
 

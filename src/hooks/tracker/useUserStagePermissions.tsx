@@ -146,11 +146,20 @@ export const useUserStagePermissions = (userId?: string) => {
     fetchUserPermissions();
   }, [userId]);
 
+  // Helper function to check if user can work on a specific stage
+  const canUserWorkOnStage = (stageId: string): boolean => {
+    if (isAdmin) return true; // Admins can work on any stage
+    
+    const permission = accessibleStages.find(stage => stage.stage_id === stageId);
+    return permission?.can_work === true;
+  };
+
   return {
     accessibleStages, // Raw stages for admin/backwards compatibility
     consolidatedStages, // Consolidated stages for operator UI
     isLoading,
     error,
-    isAdmin
+    isAdmin,
+    canUserWorkOnStage
   };
 };

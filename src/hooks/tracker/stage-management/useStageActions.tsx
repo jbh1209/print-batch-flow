@@ -2,16 +2,41 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
 import { useAuth } from "@/hooks/useAuth";
 
 export const useStageActions = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
+  const { isAdmin, isManager } = useUserRole();
+  const { canUserWorkOnStage } = useUserStagePermissions(user?.id);
 
   const startStage = useCallback(async (stageId: string, qrData?: any) => {
     setIsProcessing(true);
     try {
       console.log('🔄 Starting stage manually...', { stageId, qrData });
+      
+      // Get stage info to check permissions
+      const { data: stageData, error: fetchError } = await supabase
+        .from('job_stage_instances')
+        .select('production_stage_id')
+        .eq('id', stageId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Check permissions - admins and managers can bypass
+      if (!isAdmin && !isManager) {
+        const hasPermission = canUserWorkOnStage(stageData.production_stage_id);
+        if (!hasPermission) {
+          toast.error("Access Denied", {
+            description: "You don't have permission to work on this stage"
+          });
+          setIsProcessing(false);
+          return false;
+        }
+      }
       
       const { error } = await supabase
         .from('job_stage_instances')
@@ -35,26 +60,39 @@ export const useStageActions = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isAdmin, isManager, canUserWorkOnStage]);
 
   const completeStage = useCallback(async (stageId: string, notes?: string) => {
     setIsProcessing(true);
     try {
       console.log('🔄 Completing stage...', { stageId, notes });
       
-      // Get stage info before completing to check if it's a proof stage
+      // Get stage info before completing to check permissions AND if it's a proof stage
       const { data: stageInfo, error: stageInfoError } = await supabase
         .from('job_stage_instances')
         .select(`
           id,
           job_id,
           job_table_name,
+          production_stage_id,
           production_stage:production_stages(name)
         `)
         .eq('id', stageId)
         .single();
 
       if (stageInfoError) throw stageInfoError;
+
+      // Check permissions - admins and managers can bypass
+      if (!isAdmin && !isManager) {
+        const hasPermission = canUserWorkOnStage(stageInfo.production_stage_id);
+        if (!hasPermission) {
+          toast.error("Access Denied", {
+            description: "You don't have permission to work on this stage"
+          });
+          setIsProcessing(false);
+          return false;
+        }
+      }
 
       const isProofStage = stageInfo?.production_stage?.name?.toLowerCase().includes('proof');
       
@@ -114,7 +152,7 @@ export const useStageActions = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isAdmin, isManager, canUserWorkOnStage]);
 
   const completeStageAndSkipConditional = useCallback(async (
     jobId: string, 
@@ -306,16 +344,28 @@ export const useStageActions = () => {
     try {
       console.log('⏸️ Holding stage...', { stageId, completionPercentage, holdReason });
       
-      // Get current stage info to calculate remaining minutes
-      const { data: stageInfo, error: stageInfoError } = await supabase
+      // Get stage info to check permissions
+      const { data: stageData, error: fetchError } = await supabase
         .from('job_stage_instances')
-        .select('scheduled_minutes')
+        .select('production_stage_id, scheduled_minutes')
         .eq('id', stageId)
         .single();
 
-      if (stageInfoError) throw stageInfoError;
+      if (fetchError) throw fetchError;
 
-      const scheduledMinutes = stageInfo?.scheduled_minutes || 0;
+      // Check permissions - admins and managers can bypass
+      if (!isAdmin && !isManager) {
+        const hasPermission = canUserWorkOnStage(stageData.production_stage_id);
+        if (!hasPermission) {
+          toast.error("Access Denied", {
+            description: "You don't have permission to work on this stage"
+          });
+          setIsProcessing(false);
+          return false;
+        }
+      }
+      
+      const scheduledMinutes = stageData?.scheduled_minutes || 0;
       const remainingMinutes = Math.round(scheduledMinutes * (1 - completionPercentage / 100));
 
       const { error } = await supabase
@@ -348,7 +398,7 @@ export const useStageActions = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isAdmin, isManager, canUserWorkOnStage]);
 
   const resumeStage = useCallback(async (stageId: string) => {
     setIsProcessing(true);
