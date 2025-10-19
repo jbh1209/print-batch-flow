@@ -626,45 +626,6 @@ export type Database = {
         }
         Relationships: []
       }
-      die_cutting_machines: {
-        Row: {
-          created_at: string
-          id: string
-          location: string | null
-          machine_type: string
-          max_concurrent_jobs: number | null
-          name: string
-          notes: string | null
-          sort_order: number | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          location?: string | null
-          machine_type: string
-          max_concurrent_jobs?: number | null
-          name: string
-          notes?: string | null
-          sort_order?: number | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          location?: string | null
-          machine_type?: string
-          max_concurrent_jobs?: number | null
-          name?: string
-          notes?: string | null
-          sort_order?: number | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       due_date_recalculation_queue: {
         Row: {
           created_at: string
@@ -976,7 +937,6 @@ export type Database = {
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
-          allocated_machine_id: string | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
@@ -1032,7 +992,6 @@ export type Database = {
         }
         Insert: {
           actual_duration_minutes?: number | null
-          allocated_machine_id?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -1088,7 +1047,6 @@ export type Database = {
         }
         Update: {
           actual_duration_minutes?: number | null
-          allocated_machine_id?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -1155,13 +1113,6 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "v_jobs_ready_for_production"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "job_stage_instances_allocated_machine_id_fkey"
-            columns: ["allocated_machine_id"]
-            isOneToOne: false
-            referencedRelation: "die_cutting_machines"
             referencedColumns: ["id"]
           },
           {

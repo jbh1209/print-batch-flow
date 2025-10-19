@@ -2,11 +2,10 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, HelpCircle, LogOut, Home, Factory, Search, Settings2 } from "lucide-react";
+import { Bell, HelpCircle, LogOut, Home, Factory, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { useIsManagement } from "@/hooks/tracker/useIsManagement";
 import { RefreshIndicator } from "./RefreshIndicator";
 import { useDataManager } from "@/hooks/tracker/useDataManager";
 import { OrderSearchModal } from "./modals/OrderSearchModal";
@@ -24,7 +23,6 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const { isManager, isAdmin } = useUserRole();
-  const { isManagement } = useIsManagement();
   const { 
     lastUpdated, 
     isRefreshing, 
@@ -128,14 +126,6 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
               <Link to="/tracker/factory-floor" className="flex items-center gap-1">
                 <Factory size={14} />
                 Factory
-              </Link>
-            </Button>
-          )}
-          {(isManager || isAdmin || isManagement) && (
-            <Button variant="outline" size="sm" asChild className="px-2 py-1 text-xs">
-              <Link to="/tracker/die-cutting-manager" className="flex items-center gap-1">
-                <Settings2 size={14} />
-                Die Cut
               </Link>
             </Button>
           )}
