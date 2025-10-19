@@ -237,13 +237,66 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     };
   }, [scheduledJobs, jobsByReadiness, selectedJobs]);
 
-  if (isLoading) {
+  // Show loading only if we have a selected stage
+  if (isLoading && (selectedPrinterId || production_stage_id)) {
     return (
       <div className="flex items-center justify-center p-8 min-h-screen bg-gray-50">
         <div className="text-center">
           <RefreshCw className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
           <span className="text-xl font-medium text-gray-900">Loading production queue...</span>
           <p className="text-gray-600 mt-2">Fetching scheduled jobs from the system...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show selection prompt if no stage is selected
+  if (!selectedPrinterId && !production_stage_id) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Factory Floor</h1>
+                <p className="text-gray-600">
+                  Welcome back, {user?.email?.split('@')[0] || 'Operator'}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <Users className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <PrinterQueueSelector
+            selectedPrinterId={selectedPrinterId}
+            onPrinterChange={handlePrinterChange}
+            jobStats={{
+              ready: 0,
+              scheduled: 0,
+              waiting: 0,
+              active: 0
+            }}
+          />
+          
+          <Card className="mt-6">
+            <CardContent className="p-12 text-center">
+              <Info className="h-16 w-16 mx-auto mb-4 text-blue-500" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Select Your Work Queue
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Please select which production stage you'd like to work on from the dropdown above.
+              </p>
+              <p className="text-sm text-gray-500">
+                Your queue will load once you've made a selection.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );

@@ -64,11 +64,19 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
   const fetchScheduledJobs = useCallback(async () => {
     if (!user?.id) return;
 
+    // Skip fetch if no production_stage_id is provided (unless explicitly allowed)
+    if (!production_stage_id && !include_all_stages) {
+      console.log('⏸️ Skipping fetch - no production_stage_id selected and include_all_stages=false');
+      setScheduledJobs([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔄 Fetching scheduled jobs with options:', { production_stage_id, department_filter });
+      console.log('🔄 Fetching scheduled jobs with options:', { production_stage_id, department_filter, include_all_stages });
       console.log('📊 Initial filter state - production_stage_id:', production_stage_id);
 
       // Query job_stage_instances with scheduling data and job details
@@ -261,7 +269,7 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, production_stage_id, department_filter]);
+  }, [user?.id, production_stage_id, department_filter, include_all_stages]);
 
   // Initial fetch
   useEffect(() => {
@@ -271,6 +279,12 @@ export const useScheduledJobs = (options: UseScheduledJobsOptions = {}) => {
   // Real-time subscription for schedule updates with debounced fetching
   useEffect(() => {
     if (!user?.id) return;
+
+    // Skip subscription if no production_stage_id (unless explicitly allowed)
+    if (!production_stage_id && !include_all_stages) {
+      console.log('⏸️ Skipping real-time subscription - no production_stage_id selected');
+      return;
+    }
 
     const channelName = production_stage_id 
       ? `scheduled-jobs-${production_stage_id}`
