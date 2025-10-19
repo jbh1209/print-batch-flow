@@ -26,22 +26,7 @@ export const UniversalFactoryFloor = () => {
 
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeQueueFilters, setActiveQueueFilters] = useState<string[]>(() => {
-    // Initialize from saved printer queue selection
-    const savedPrinter = localStorage.getItem('selected_printer_queue');
-    if (savedPrinter) {
-      try {
-        const parsed = JSON.parse(savedPrinter);
-        const name = String(parsed?.name || '').toLowerCase();
-        if (name.includes('12000')) return ['HP 12000'];
-        if (name.includes('7900')) return ['HP 7900'];
-        if (name.includes('t250')) return ['HP T250'];
-      } catch {
-        // ignore
-      }
-    }
-    return [];
-  });
+  const [activeQueueFilters, setActiveQueueFilters] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
     try {
@@ -119,8 +104,8 @@ export const UniversalFactoryFloor = () => {
           });
         }
 
-        // Non-printing jobs are hidden when print queue filters are active
-        return false;
+        // Non-printing jobs remain visible regardless of print queue filters
+        return true;
       });
       console.log('🎯 After queue filter:', filtered.length);
     }
@@ -237,7 +222,7 @@ export const UniversalFactoryFloor = () => {
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
       <OperatorHeader 
-        title={isDtpOperator ? "DTP & Proofing Jobs" : `Factory Floor - Smart Permissions (${highestPermission})`}
+        title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor"}
       />
 
       {/* Controls */}

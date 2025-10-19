@@ -1,9 +1,4 @@
-import React, { useMemo } from "react";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { DieCuttingKanbanView } from "@/components/tracker/factory/DieCuttingKanbanView";
+import React from "react";
 import { UniversalFactoryFloor } from "@/components/tracker/factory/UniversalFactoryFloor";
 
 const FactoryFloor = () => {
