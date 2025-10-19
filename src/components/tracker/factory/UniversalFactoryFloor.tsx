@@ -3,7 +3,6 @@ import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
 import { OperatorHeader } from "./OperatorHeader";
 import { QueueFilters } from "./QueueFilters";
 import { JobGroupsDisplay } from "./JobGroupsDisplay";
@@ -14,15 +13,35 @@ import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 export const UniversalFactoryFloor = () => {
-  const { isDtpOperator, isOperator } = useUserRole();
-  const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
+  const { isDtpOperator, isOperator, isAdmin, isManager } = useUserRole();
   
-  // Use smart permission detection for optimal job access
+  // Always request 'work' permission - operators should only see jobs they can work on
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: highestPermission // Let the database function handle all the filtering
+    permissionType: 'work',
+    statusFilter: null
   });
   
   const { startJob, completeJob } = useJobActions(refreshJobs);
+
+  // Filter to workable jobs for operators (not admins/managers)
+  const filteredJobs = useMemo(() => {
+    console.log('🔍 Total jobs from DB:', jobs.length);
+    
+    // Admins and managers see all jobs
+    if (isAdmin || isManager) {
+      console.log('👑 Admin/Manager: showing all jobs');
+      return jobs;
+    }
+    
+    // Operators only see jobs they can work on
+    if (isOperator || isDtpOperator) {
+      const workableJobs = jobs.filter(job => job.user_can_work === true);
+      console.log('👷 Operator: filtered to workable jobs:', workableJobs.length);
+      return workableJobs;
+    }
+    
+    return jobs;
+  }, [jobs, isAdmin, isManager, isOperator, isDtpOperator]);
 
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,15 +64,12 @@ export const UniversalFactoryFloor = () => {
     }
   };
 
-  // Simple filtering and categorization - let the jobs come pre-filtered from the database
+  // Filtering and categorization using workable jobs only
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
-    console.log('🔄 Processing jobs with simplified logic:', {
-      jobCount: jobs?.length || 0,
-      permissionUsed: highestPermission,
-      permissionLoading
-    });
+    console.log('📊 Starting job categorization, filtered jobs:', filteredJobs.length);
+    console.log('🔐 User permissions:', { isAdmin, isManager, isOperator, isDtpOperator });
     
-    if (!jobs || jobs.length === 0) {
+    if (!filteredJobs || filteredJobs.length === 0) {
       console.log('❌ No jobs available for processing');
       return { 
         dtpJobs: [], 
@@ -66,8 +82,8 @@ export const UniversalFactoryFloor = () => {
       };
     }
 
-    let filtered = jobs;
-    console.log('📋 Starting with jobs:', filtered.length, 'using permission:', highestPermission);
+    let filtered = filteredJobs;
+    console.log('📋 Starting with filtered jobs:', filtered.length);
 
     // Apply simple search filter
     if (searchQuery.trim()) {
@@ -123,8 +139,7 @@ export const UniversalFactoryFloor = () => {
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
 
-    console.log('✅ Simplified job categorization complete:', {
-      permission: highestPermission,
+    console.log('✅ Final categorization:', {
       dtp: result.dtpJobs.length,
       proof: result.proofJobs.length,
       hp12000: result.hp12000Jobs.length,
@@ -136,7 +151,7 @@ export const UniversalFactoryFloor = () => {
     });
 
     return result;
-  }, [jobs, searchQuery, activeQueueFilters, highestPermission, permissionLoading]);
+  }, [filteredJobs, searchQuery, activeQueueFilters, isAdmin, isManager, isOperator, isDtpOperator]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -159,11 +174,11 @@ export const UniversalFactoryFloor = () => {
     setSelectedJob(null);
   };
 
-  // Show loading state while detecting permissions
-  if (permissionLoading || isLoading) {
+  // Show loading state
+  if (isLoading) {
     return (
       <JobListLoading 
-        message="Loading your work queue with smart permissions..."
+        message="Loading your work queue..."
         showProgress={true}
       />
     );
@@ -211,8 +226,7 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  console.log('🎨 Rendering simplified job groups:', {
-    permission: highestPermission,
+  console.log('🎨 Rendering job groups:', {
     groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
   });
 
