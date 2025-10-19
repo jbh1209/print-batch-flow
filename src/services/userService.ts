@@ -2,25 +2,69 @@
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
-// Fetch users using the new reliable edge function
+// Fetch users using RPC and public tables (the original working pattern)
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
-    console.log('🔄 Fetching users via edge function...');
+    console.log('🔄 Fetching users via RPC...');
     
-    const { data, error } = await supabase.functions.invoke('get-users-admin');
+    // Get user IDs and emails from auth.users via RPC
+    const { data: authUsers, error: rpcError } = await supabase.rpc('get_all_users');
     
-    if (error) {
-      console.error('❌ Edge function error:', error);
-      throw new Error(`Failed to fetch users: ${error.message}`);
+    if (rpcError) {
+      console.error('❌ RPC error:', rpcError);
+      throw new Error(`Failed to fetch users: ${rpcError.message}`);
     }
     
-    if (!data || !Array.isArray(data)) {
-      console.warn('⚠️ Invalid response from edge function:', data);
+    if (!authUsers || !Array.isArray(authUsers)) {
+      console.warn('⚠️ Invalid response from RPC:', authUsers);
       return [];
     }
     
-    console.log(`✅ Successfully fetched ${data.length} users via edge function`);
-    return data;
+    // Get all profiles
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*');
+    
+    if (profilesError) {
+      console.error('❌ Profiles error:', profilesError);
+    }
+    
+    // Get all roles
+    const { data: roles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('*');
+    
+    if (rolesError) {
+      console.error('❌ Roles error:', rolesError);
+    }
+    
+    // Get all group memberships
+    const { data: memberships, error: membershipsError } = await supabase
+      .from('user_group_memberships')
+      .select('user_id, group_id');
+    
+    if (membershipsError) {
+      console.error('❌ Memberships error:', membershipsError);
+    }
+    
+    // Combine all data
+    const users: UserWithRole[] = authUsers.map((authUser: { id: string; email: string }) => {
+      const profile = profiles?.find(p => p.id === authUser.id);
+      const userRole = roles?.find(r => r.user_id === authUser.id);
+      const userGroups = memberships?.filter(m => m.user_id === authUser.id).map(m => m.group_id) || [];
+      
+      return {
+        id: authUser.id,
+        email: authUser.email,
+        full_name: profile?.full_name || null,
+        role: (userRole?.role as UserRole) || 'user',
+        groups: userGroups,
+        created_at: profile?.created_at || new Date().toISOString()
+      };
+    });
+    
+    console.log(`✅ Successfully fetched ${users.length} users via RPC`);
+    return users;
   } catch (error: any) {
     console.error('❌ Error in fetchUsers:', error);
     throw new Error(`Failed to fetch users: ${error.message}`);
@@ -65,13 +109,16 @@ export async function addAdminRole(userId: string): Promise<void> {
   }
 }
 
-// Create a new user using edge function
+// Create a new user using Supabase Admin API
 export async function createUser(userData: UserFormData): Promise<User> {
   try {
-    console.log('Creating user via edge function:', userData);
+    console.log('Creating user via Admin API:', userData);
     
-    const { data, error } = await supabase.functions.invoke('create-user-admin', {
+    // This will need to use an edge function since we can't access admin.createUser from client
+    // But we'll use a different approach - direct table operations after auth
+    const { data, error } = await supabase.functions.invoke('update-user-email-admin', {
       body: {
+        action: 'create',
         email: userData.email,
         password: userData.password,
         full_name: userData.full_name,

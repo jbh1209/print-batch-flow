@@ -44,12 +44,19 @@ export const useUserGroups = (userId?: string, showAllUsers = false) => {
 
   const fetchUsersWithGroups = async () => {
     try {
-      // Get all users with their profiles and roles
-      const { data: usersData, error: usersError } = await supabase.functions.invoke('get-users-admin');
+      // Get user IDs and emails from auth.users via RPC
+      const { data: authUsers, error: rpcError } = await supabase.rpc('get_all_users');
       
-      if (usersError) throw usersError;
+      if (rpcError) throw rpcError;
 
-      // Get group memberships
+      // Get all profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (profilesError) throw profilesError;
+
+      // Get group memberships with full group data
       const { data: memberships, error: membershipsError } = await supabase
         .from('user_group_memberships')
         .select(`
@@ -60,17 +67,22 @@ export const useUserGroups = (userId?: string, showAllUsers = false) => {
       if (membershipsError) throw membershipsError;
 
       // Combine data
-      const usersWithGroups = usersData.map((user: any) => ({
-        ...user,
-        groups: memberships
-          ?.filter(m => m.user_id === user.id)
-          ?.map(m => ({
-            ...m.user_groups,
-            permissions: typeof m.user_groups.permissions === 'object' && m.user_groups.permissions !== null 
-              ? m.user_groups.permissions as Record<string, boolean>
-              : {}
-          })) || []
-      }));
+      const usersWithGroups = authUsers.map((authUser: any) => {
+        const profile = profiles?.find(p => p.id === authUser.id);
+        return {
+          id: authUser.id,
+          email: authUser.email,
+          full_name: profile?.full_name || '',
+          groups: memberships
+            ?.filter(m => m.user_id === authUser.id)
+            ?.map(m => ({
+              ...m.user_groups,
+              permissions: typeof m.user_groups.permissions === 'object' && m.user_groups.permissions !== null 
+                ? m.user_groups.permissions as Record<string, boolean>
+                : {}
+            })) || []
+        };
+      });
 
       setUsers(usersWithGroups);
     } catch (error) {
