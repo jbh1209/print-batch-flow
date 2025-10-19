@@ -112,13 +112,10 @@ export async function addAdminRole(userId: string): Promise<void> {
 // Create a new user using Supabase Admin API
 export async function createUser(userData: UserFormData): Promise<User> {
   try {
-    console.log('Creating user via Admin API:', userData);
+    console.log('Creating user via create-user-admin edge function:', userData);
     
-    // This will need to use an edge function since we can't access admin.createUser from client
-    // But we'll use a different approach - direct table operations after auth
-    const { data, error } = await supabase.functions.invoke('update-user-email-admin', {
+    const { data, error } = await supabase.functions.invoke('create-user-admin', {
       body: {
-        action: 'create',
         email: userData.email,
         password: userData.password,
         full_name: userData.full_name,
