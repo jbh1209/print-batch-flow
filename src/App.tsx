@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/auth/AuthProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
+import { DieCuttingAllocationPage } from "@/components/tracker/machine-allocation/DieCuttingAllocationPage";
 import { TrackerErrorBoundary } from "@/components/tracker/TrackerErrorBoundary";
 import RoleAwareLayout from "@/components/tracker/RoleAwareLayout";
 import Auth from "@/pages/Auth";
@@ -220,6 +221,11 @@ function App() {
                   <Route path="users" element={<TrackerUsers />} />
                   <Route path="labels" element={<TrackerLabels />} />
                   <Route path="upload" element={<TrackerUpload />} />
+                  <Route path="die-cutting-allocation" element={
+                    <AdminRoute>
+                      <DieCuttingAllocationPage />
+                    </AdminRoute>
+                  } />
                   <Route path="mobile" element={<MobileFactory />} />
                 </Route>
                 

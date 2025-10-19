@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, HelpCircle, LogOut, Home, Factory, Search } from "lucide-react";
+import { Bell, HelpCircle, LogOut, Home, Factory, Search, Settings2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -126,6 +126,14 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
               <Link to="/tracker/factory-floor" className="flex items-center gap-1">
                 <Factory size={14} />
                 Factory
+              </Link>
+            </Button>
+          )}
+          {(isManager || isAdmin) && (
+            <Button variant="outline" size="sm" asChild className="px-2 py-1 text-xs">
+              <Link to="/tracker/die-cutting-allocation" className="flex items-center gap-1">
+                <Settings2 size={14} />
+                Die Cut
               </Link>
             </Button>
           )}
