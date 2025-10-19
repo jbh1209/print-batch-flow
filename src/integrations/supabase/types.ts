@@ -626,6 +626,45 @@ export type Database = {
         }
         Relationships: []
       }
+      die_cutting_machines: {
+        Row: {
+          created_at: string
+          id: string
+          location: string | null
+          machine_type: string
+          max_concurrent_jobs: number | null
+          name: string
+          notes: string | null
+          sort_order: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          machine_type: string
+          max_concurrent_jobs?: number | null
+          name: string
+          notes?: string | null
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          machine_type?: string
+          max_concurrent_jobs?: number | null
+          name?: string
+          notes?: string | null
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       due_date_recalculation_queue: {
         Row: {
           created_at: string
@@ -937,6 +976,7 @@ export type Database = {
       job_stage_instances: {
         Row: {
           actual_duration_minutes: number | null
+          allocated_machine_id: string | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
@@ -992,6 +1032,7 @@ export type Database = {
         }
         Insert: {
           actual_duration_minutes?: number | null
+          allocated_machine_id?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -1047,6 +1088,7 @@ export type Database = {
         }
         Update: {
           actual_duration_minutes?: number | null
+          allocated_machine_id?: string | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -1113,6 +1155,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_allocated_machine_id_fkey"
+            columns: ["allocated_machine_id"]
+            isOneToOne: false
+            referencedRelation: "die_cutting_machines"
             referencedColumns: ["id"]
           },
           {
@@ -1663,6 +1712,7 @@ export type Database = {
           expedite_reason: string | null
           expedited_at: string | null
           expedited_by: string | null
+          final_delivery_method: string | null
           finishing_specifications: Json | null
           has_custom_workflow: boolean | null
           highlighted: boolean | null
@@ -1670,6 +1720,7 @@ export type Database = {
           internal_completion_date: string | null
           is_batch_master: boolean | null
           is_expedited: boolean | null
+          is_partially_shipped: boolean | null
           last_due_date_check: string | null
           location: string | null
           manual_due_date: string | null
@@ -1691,6 +1742,7 @@ export type Database = {
           specification: string | null
           status: string | null
           tentative_due_date: string | null
+          total_qty_shipped: number | null
           updated_at: string | null
           user_id: string
           user_name: string | null
@@ -1718,6 +1770,7 @@ export type Database = {
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
+          final_delivery_method?: string | null
           finishing_specifications?: Json | null
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
@@ -1725,6 +1778,7 @@ export type Database = {
           internal_completion_date?: string | null
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
+          is_partially_shipped?: boolean | null
           last_due_date_check?: string | null
           location?: string | null
           manual_due_date?: string | null
@@ -1746,6 +1800,7 @@ export type Database = {
           specification?: string | null
           status?: string | null
           tentative_due_date?: string | null
+          total_qty_shipped?: number | null
           updated_at?: string | null
           user_id: string
           user_name?: string | null
@@ -1773,6 +1828,7 @@ export type Database = {
           expedite_reason?: string | null
           expedited_at?: string | null
           expedited_by?: string | null
+          final_delivery_method?: string | null
           finishing_specifications?: Json | null
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
@@ -1780,6 +1836,7 @@ export type Database = {
           internal_completion_date?: string | null
           is_batch_master?: boolean | null
           is_expedited?: boolean | null
+          is_partially_shipped?: boolean | null
           last_due_date_check?: string | null
           location?: string | null
           manual_due_date?: string | null
@@ -1801,6 +1858,7 @@ export type Database = {
           specification?: string | null
           status?: string | null
           tentative_due_date?: string | null
+          total_qty_shipped?: number | null
           updated_at?: string | null
           user_id?: string
           user_name?: string | null
@@ -2371,6 +2429,100 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      shipping_completions: {
+        Row: {
+          courier_waybill_number: string | null
+          courier_waybill_url: string | null
+          created_at: string
+          delivery_method: string
+          id: string
+          job_id: string
+          notes: string | null
+          qe_dn_number: string
+          qty_shipped: number
+          shipment_number: number
+          shipped_at: string
+          shipped_by: string | null
+          stage_instance_id: string
+          updated_at: string
+        }
+        Insert: {
+          courier_waybill_number?: string | null
+          courier_waybill_url?: string | null
+          created_at?: string
+          delivery_method: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          qe_dn_number: string
+          qty_shipped: number
+          shipment_number?: number
+          shipped_at?: string
+          shipped_by?: string | null
+          stage_instance_id: string
+          updated_at?: string
+        }
+        Update: {
+          courier_waybill_number?: string | null
+          courier_waybill_url?: string | null
+          created_at?: string
+          delivery_method?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          qe_dn_number?: string
+          qty_shipped?: number
+          shipment_number?: number
+          shipped_at?: string
+          shipped_by?: string | null
+          stage_instance_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipping_completions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_completions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_jobs_ready_for_production"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_completions_stage_instance_id_fkey"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "job_stage_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_completions_stage_instance_id_fkey"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_job_stage_windows"
+            referencedColumns: ["stage_instance_id"]
+          },
+          {
+            foreignKeyName: "shipping_completions_stage_instance_id_fkey"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_schedule_precedence_violations"
+            referencedColumns: ["stage_instance_id"]
+          },
+          {
+            foreignKeyName: "shipping_completions_stage_instance_id_fkey"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_scheduler_stages_ready"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sleeve_jobs: {
         Row: {

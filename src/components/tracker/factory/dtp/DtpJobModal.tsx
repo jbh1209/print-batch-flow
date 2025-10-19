@@ -17,6 +17,7 @@ import ProofUploadDialog from "../ProofUploadDialog";
 import { useDtpJobModal } from "./useDtpJobModal";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
+import { ShippingActions } from "../shipping/ShippingActions";
 
 interface DtpJobModalProps {
   isOpen: boolean;
@@ -324,6 +325,17 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     onRefresh={onRefresh}
                     setStageInstance={setStageInstance}
                     onOpenProofDialog={() => setIsProofDialogOpen(true)}
+                  />
+                )}
+
+                {job.current_stage_name?.toLowerCase().includes('shipping') && (
+                  <ShippingActions
+                    job={job}
+                    stageInstanceId={getStageIdForActions() || ''}
+                    onComplete={() => {
+                      onRefresh?.();
+                      onClose();
+                    }}
                   />
                 )}
               </CardContent>
