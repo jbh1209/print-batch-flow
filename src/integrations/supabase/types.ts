@@ -1002,6 +1002,8 @@ export type Database = {
           part_name: string | null
           part_type: string | null
           previous_stage_id: string | null
+          print_files_sent_by: string | null
+          print_files_sent_to_printer_at: string | null
           printer_id: string | null
           production_stage_id: string
           proof_approved_manually_at: string | null
@@ -1058,6 +1060,8 @@ export type Database = {
           part_name?: string | null
           part_type?: string | null
           previous_stage_id?: string | null
+          print_files_sent_by?: string | null
+          print_files_sent_to_printer_at?: string | null
           printer_id?: string | null
           production_stage_id: string
           proof_approved_manually_at?: string | null
@@ -1114,6 +1118,8 @@ export type Database = {
           part_name?: string | null
           part_type?: string | null
           previous_stage_id?: string | null
+          print_files_sent_by?: string | null
+          print_files_sent_to_printer_at?: string | null
           printer_id?: string | null
           production_stage_id?: string
           proof_approved_manually_at?: string | null

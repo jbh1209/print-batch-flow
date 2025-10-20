@@ -9,15 +9,18 @@ import {
   CheckCircle,
   FileText,
   Users,
-  Package
+  Package,
+  Send
 } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import type { DashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
+import type { AutoApprovedJob } from "@/hooks/tracker/useAutoApprovedJobs";
 
 interface DtpDashboardStatsProps {
   dtpJobs: AccessibleJob[];
   proofJobs: AccessibleJob[];
   batchAllocationJobs?: AccessibleJob[];
+  autoApprovedJobs?: AutoApprovedJob[];
   metrics?: DashboardMetrics;
 }
 
@@ -25,6 +28,7 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
   dtpJobs, 
   proofJobs, 
   batchAllocationJobs = [],
+  autoApprovedJobs = [],
   metrics 
 }) => {
   // Calculate DTP-specific metrics
@@ -57,7 +61,7 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
   }).length;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       {/* DTP Jobs Summary */}
       <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
         <CardContent className="p-4">
@@ -127,20 +131,38 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Overall Progress */}
+      {/* Auto Approved - Send to Print */}
       <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600">Total Progress</p>
-              <p className="text-2xl font-bold text-green-900">
+              <p className="text-sm font-medium text-green-600">Send to Print</p>
+              <p className="text-2xl font-bold text-green-900">{autoApprovedJobs.length}</p>
+              <div className="flex gap-1 mt-1">
+                <Badge variant="outline" className="text-xs bg-green-600 text-white">
+                  Auto Approved
+                </Badge>
+              </div>
+            </div>
+            <Send className="h-8 w-8 text-green-600" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Overall Progress */}
+      <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600">Total Progress</p>
+              <p className="text-2xl font-bold text-slate-900">
                 {dtpJobs.length + proofJobs.length + batchAllocationJobs.length}
               </p>
-              <p className="text-xs text-green-700 mt-1">
+              <p className="text-xs text-slate-700 mt-1">
                 {dtpPending + proofPending + batchPending} Pending
               </p>
             </div>
-            <TrendingUp className="h-8 w-8 text-green-600" />
+            <TrendingUp className="h-8 w-8 text-slate-600" />
           </div>
         </CardContent>
       </Card>

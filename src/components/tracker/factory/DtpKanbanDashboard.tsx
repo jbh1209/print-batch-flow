@@ -1,14 +1,17 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { AlertTriangle, FileText, CheckCircle, RefreshCw, Package } from "lucide-react";
+import { AlertTriangle, FileText, CheckCircle, RefreshCw, Package, Send } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useAuth } from "@/hooks/useAuth";
+import { useAutoApprovedJobs } from "@/hooks/tracker/useAutoApprovedJobs";
 import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
 import { DtpJobModal } from "./dtp/DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
+import { AutoApprovedPrintQueueColumn } from "./AutoApprovedPrintQueueColumn";
+import { AutoApprovedPrintQueueList } from "./AutoApprovedPrintQueueList";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
 import { ViewToggle } from "../common/ViewToggle";
@@ -45,6 +48,13 @@ export const DtpKanbanDashboard = () => {
     optimisticUpdates,
     hasOptimisticUpdates: hasJobActionUpdates 
   } = useJobActions(refreshJobs);
+
+  // Auto-approved jobs hook for print file dispatch tracking
+  const { 
+    jobs: autoApprovedJobs,
+    isLoading: autoApprovedLoading,
+    markFilesSent
+  } = useAutoApprovedJobs();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -57,9 +67,14 @@ export const DtpKanbanDashboard = () => {
     return calculateDashboardMetrics(jobs);
   }, [jobs]);
 
-  const { dtpJobs, proofJobs, batchAllocationJobs } = useMemo(() => {
+  const { dtpJobs, proofJobs, batchAllocationJobs, autoApprovedForPrint } = useMemo(() => {
     if (!jobs || jobs.length === 0) {
-      return { dtpJobs: [], proofJobs: [], batchAllocationJobs: [] };
+      return { 
+        dtpJobs: [], 
+        proofJobs: [], 
+        batchAllocationJobs: [],
+        autoApprovedForPrint: autoApprovedJobs
+      };
     }
 
     try {
@@ -107,14 +122,20 @@ export const DtpKanbanDashboard = () => {
       return {
         dtpJobs: sortedDtp,
         proofJobs: sortedProof,
-        batchAllocationJobs: sortedBatch
+        batchAllocationJobs: sortedBatch,
+        autoApprovedForPrint: autoApprovedJobs
       };
     } catch (categorizationError) {
       console.error("❌ Error categorizing jobs:", categorizationError);
       toast.error("Error processing jobs data");
-      return { dtpJobs: [], proofJobs: [], batchAllocationJobs: [] };
+      return { 
+        dtpJobs: [], 
+        proofJobs: [], 
+        batchAllocationJobs: [],
+        autoApprovedForPrint: autoApprovedJobs
+      };
     }
-  }, [jobs, searchQuery, dashboardMetrics]);
+  }, [jobs, searchQuery, dashboardMetrics, autoApprovedJobs]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -134,6 +155,14 @@ export const DtpKanbanDashboard = () => {
     setShowJobModal(true);
     setScanCompleted(false); // Reset scan state for new job
   }, []);
+
+  // Handler for clicking auto-approved jobs (takes job_id string)
+  const handleAutoApprovedJobClick = useCallback((jobId: string) => {
+    const jobToOpen = jobs.find(j => j.job_id === jobId);
+    if (jobToOpen) {
+      handleJobClick(jobToOpen);
+    }
+  }, [jobs, handleJobClick]);
 
   // Modal handlers for start/complete actions - now just open modal
   const openModalForStart = useCallback(async (jobId: string, _stageId: string) => {
@@ -258,6 +287,7 @@ export const DtpKanbanDashboard = () => {
             dtpJobs={dtpJobs}
             proofJobs={proofJobs}
             batchAllocationJobs={batchAllocationJobs}
+            autoApprovedJobs={autoApprovedForPrint}
             metrics={dashboardMetrics}
           />
         </TrackerErrorBoundary>
@@ -274,7 +304,7 @@ export const DtpKanbanDashboard = () => {
 
       <div className="flex-1 overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
         {viewMode === 'card' ? (
-          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 h-full overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 h-full overflow-hidden">
             <div className="flex-1 min-h-0">
               <DtpKanbanColumnWithBoundary
                 title="DTP Jobs"
@@ -310,9 +340,17 @@ export const DtpKanbanDashboard = () => {
                 icon={<Package className="h-4 w-4" />}
               />
             </div>
+
+            <div className="flex-1 min-h-0">
+              <AutoApprovedPrintQueueColumn
+                jobs={autoApprovedForPrint}
+                onJobClick={handleAutoApprovedJobClick}
+                onMarkFilesSent={markFilesSent}
+              />
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4 h-full overflow-hidden">
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4 h-full overflow-hidden">
             <div className="flex flex-col space-y-2 min-h-0">
               <div className="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-md">
                 <div className="flex items-center justify-between">
@@ -374,6 +412,29 @@ export const DtpKanbanDashboard = () => {
                     onStart={openModalForStart}
                     onComplete={openModalForComplete}
                     onJobClick={handleJobClick}
+                  />
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="flex flex-col space-y-2 min-h-0">
+              <div className="flex-shrink-0 px-3 py-2 bg-green-600 text-white rounded-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Send className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium text-sm truncate">
+                      Auto Approved - Send to Print ({autoApprovedForPrint.length})
+                    </span>
+                  </div>
+                  <span className="text-xs opacity-80">Action Required</span>
+                </div>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="pr-4">
+                  <AutoApprovedPrintQueueList
+                    jobs={autoApprovedForPrint}
+                    onJobClick={handleAutoApprovedJobClick}
+                    onMarkFilesSent={markFilesSent}
                   />
                 </div>
               </ScrollArea>
