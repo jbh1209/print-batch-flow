@@ -403,40 +403,40 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
 
     try {
-      console.log(`🎯 Starting proof approval for job ${job.job_id}`);
+      console.log(`🎯 Proof approved for job ${job.job_id} - showing allocation options`);
       
       if (!stageInstance?.id) {
         toast.error('No stage instance found');
         return;
       }
 
-      // Use the existing proof approval flow hook
-      const success = await completeProofStage(job.job_id, stageInstance.id);
+      const currentTime = new Date().toISOString();
 
-      if (!success) {
-        toast.error('Failed to approve proof');
-        return;
-      }
+      // Mark proof as approved in the stage instance, but DON'T complete it yet
+      // Stage completion happens when user chooses batch or printing route
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          proof_approved_manually_at: currentTime,
+          updated_at: currentTime
+        })
+        .eq('id', stageInstance.id);
 
-      console.log('✅ Proof approved and scheduling triggered');
-      
-      // CRITICAL: Update local stageInstance immediately to prevent loadModalData race condition
+      if (updateError) throw updateError;
+
+      // Update local state to show the approval
       if (stageInstance) {
-        const currentTime = new Date().toISOString();
         setStageInstance({
           ...stageInstance,
           proof_approved_manually_at: currentTime
         });
       }
       
-      // IMMEDIATE STATE UPDATE for instant UI feedback
+      // Show allocation choice UI - stage is still 'proof' so modal stays open
       onProofApprovalFlowChange('choosing_allocation');
-      toast.success('Proof approved! Scheduling triggered. Choose next step.');
+      toast.success('Proof approved! Choose next step.');
       
-      // Delayed refresh to ensure database consistency 
-      setTimeout(() => {
-        onRefresh?.();
-      }, 100);
+      // NO refresh here - we don't want to reload until user makes their choice
       
     } catch (error) {
       console.error('Error marking proof as approved:', error);
@@ -454,11 +454,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     try {
       console.log('🔄 Completing proof stage and sending to batch allocation');
       
-      // Complete the current proof stage using the stage instance ID
-      const success = await completeStage(
-        currentStageInstanceId,
-        'Proof approved - sending to batch allocation'
-      );
+      // NOW complete the proof stage (triggers scheduling)
+      const success = await completeProofStage(job.job_id, currentStageInstanceId);
 
       if (!success) {
         throw new Error('Failed to complete proof stage');
@@ -476,7 +473,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       if (jobError) throw jobError;
 
-      toast.success("Job sent to batch allocation successfully");
+      toast.success("Job sent to batch allocation - scheduling triggered");
       onRefresh?.();
       onClose();
     } catch (error) {
@@ -493,17 +490,24 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
 
     try {
-      console.log('🔄 Completing proof stage and advancing to printing (skipping conditional stages)');
+      console.log('🔄 Completing proof stage and advancing to printing');
       
-      // Complete the current proof stage and skip conditional stages using the correct stage instance ID
-      const success = await completeStageAndSkipConditional(
+      // Complete the proof stage first (triggers scheduling)
+      const completeSuccess = await completeProofStage(job.job_id, currentStageInstanceId);
+
+      if (!completeSuccess) {
+        throw new Error('Failed to complete proof stage');
+      }
+
+      // Then skip conditional stages and advance to printing
+      const advanceSuccess = await completeStageAndSkipConditional(
         job.job_id,
         currentStageInstanceId,
         'Proof approved - advancing directly to printing'
       );
 
-      if (!success) {
-        throw new Error('Failed to complete proof stage and advance');
+      if (!advanceSuccess) {
+        throw new Error('Failed to advance to printing stage');
       }
 
       // Update job status to Ready to Print
@@ -517,7 +521,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       if (jobError) throw jobError;
 
-      toast.success("Job advanced to printing stage");
+      toast.success("Job advanced to printing stage - scheduling triggered");
       onRefresh?.();
       onClose();
     } catch (error) {
