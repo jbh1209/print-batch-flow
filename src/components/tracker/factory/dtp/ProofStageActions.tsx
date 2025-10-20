@@ -307,12 +307,9 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   };
 
   const handlePrintjobApproval = async () => {
-    // Check HP12000 paper size validation before proceeding
-    if (!hp12000ValidationStatus.isValid) {
-      toast.error(hp12000ValidationStatus.message || 'Please assign paper sizes to all HP12000 stages before approving proof');
-      return;
-    }
-
+    // This function marks proof as handled via Printjob
+    // The actual approval happens when they click "Approve" button after selecting paper sizes
+    
     try {
       console.log('🎯 Marking proof as approved on Printjob for job:', job.job_id);
       
@@ -321,37 +318,32 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
         return;
       }
 
-      // Use the existing proof approval flow - it handles scheduling automatically
-      const success = await completeProofStage(job.job_id, stageInstance.id);
-
-      if (!success) {
-        toast.error('Failed to approve proof');
-        return;
-      }
-
-      console.log('✅ Proof approved (Printjob) and scheduling triggered');
-      
-      // Update local state
       const currentTime = new Date().toISOString();
-      if (stageInstance) {
-        setStageInstance({
-          ...stageInstance,
+
+      // Update stage instance - proof handled on Printjob (like manual email)
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
           proof_emailed_at: currentTime,
-          proof_approved_manually_at: currentTime
-        });
-      }
-      
-      // Move to allocation choice
-      onProofApprovalFlowChange('choosing_allocation');
-      toast.success('✅ Proof approved (from Printjob) - scheduling triggered. Choose next step.');
-      
-      setTimeout(() => {
-        onRefresh?.();
-      }, 100);
+          updated_at: currentTime,
+          notes: 'Proof approved on Printjob (not emailed to client)'
+        })
+        .eq('id', stageInstance.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state to trigger paper size selector UI
+      setStageInstance({
+        ...stageInstance,
+        proof_emailed_at: currentTime
+      });
+
+      toast.success('✅ Proof approved on Printjob - please assign paper sizes and approve');
+      onRefresh?.();
       
     } catch (error) {
-      console.error('Error approving proof from Printjob:', error);
-      toast.error('Failed to approve proof');
+      console.error('Error marking proof as approved on Printjob:', error);
+      toast.error('Failed to mark proof as approved on Printjob');
     }
   };
 
