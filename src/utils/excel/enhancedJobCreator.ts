@@ -926,10 +926,15 @@ private async calculateTimingForJob(
     userApprovedMappings.forEach(mapping => {
       this.logger.addDebugInfo(`🔍 Processing mapping for group: ${mapping.groupName}`);
       
-      // First try to extract quantity from job specifications based on groupName
-      let qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+      // PRIORITY 1: Use explicit quantity from user-approved mapping (for custom rows)
+      let qty = (mapping as any).quantity;
       
-      this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty}`);
+      // PRIORITY 2: Extract from job specifications (for Excel-parsed rows)
+      if (!qty || qty <= 0) {
+        qty = this.extractQuantityFromJobSpecs(originalJob, mapping.groupName);
+      }
+      
+      this.logger.addDebugInfo(`📊 Quantity for ${mapping.groupName}: ${qty} (explicit: ${(mapping as any).quantity || 'none'}, extracted: ${!((mapping as any).quantity) ? qty : 'skipped'})`);
       
       if (qty > 0) {
         // Derive part from groupName
