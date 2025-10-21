@@ -236,8 +236,9 @@ export class EnhancedStageMapper {
       const instanceId = this.generateInstanceId(groupName, currentRowIndex);
       
       // Ensure we have a valid mapping with appropriate confidence threshold
-      // RAISED: Prefer Unknown over Wrong - require 65+ confidence to accept non-exact matches
-      const hasValidMapping = stageMapping && stageMapping.confidence >= 65;
+      // RAISED: Prefer Unknown over Wrong - require 65+ confidence globally, 80+ for finishing
+      const minConfidence = category === 'finishing' ? 80 : 65;
+      const hasValidMapping = stageMapping && stageMapping.confidence >= minConfidence;
       
       // DEBUG: Log detailed mapping information
       this.logger.addDebugInfo(`🔍 Detailed mapping for "${groupName}":`);
@@ -579,6 +580,20 @@ export class EnhancedStageMapper {
           // Find the parent stage for this specification
           stage = this.stages.find(s => s.id === specification.production_stage_id);
           specificationName = specification.name;
+          
+          // EXTEND ANCHOR GUARD: Also apply token guard when resolving via stage_specification_id
+          const normalizedSearch = this.normalizeText(searchText);
+          const criticalTokens = ['perfect', 'wire', 'saddle', 'case', 'spiral', 'comb', 'wiro'];
+          const searchTokens = criticalTokens.filter(token => normalizedSearch.includes(token));
+          
+          if (searchTokens.length > 0 && stage) {
+            const stageName = this.normalizeText(stage.name);
+            const hasMatchingToken = searchTokens.some(token => stageName.includes(token));
+            if (!hasMatchingToken) {
+              this.logger.addDebugInfo(`🚫 Blocked DB spec mapping: "${searchText}" -> "${stage.name}" via spec "${specificationName}" (missing anchor token: ${searchTokens.join(', ')})`);
+              stage = null; // Nullify to skip this mapping
+            }
+          }
         }
       }
 
@@ -1162,6 +1177,7 @@ export class EnhancedStageMapper {
 
   /**
    * Enhanced stage matching with sub-specification support
+   * UPDATED: Prioritize stage-level exact/DB matches before attempting stage+spec fuzzy
    */
   private findIntelligentStageMatchWithSpec(
     groupName: string,
@@ -1170,20 +1186,43 @@ export class EnhancedStageMapper {
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase().trim();
     
-    // Strategy 1: Direct stage + specification matching
+    // Strategy 1: Try stage-level matching first (DB, exact, fuzzy, pattern)
+    const stageMatch = this.findIntelligentStageMatch(groupName, description, category);
+    
+    // If we got a high-confidence stage match (exact or DB-backed), return immediately
+    // This prevents stage+spec fuzzy from overriding with cross-binding guesses
+    if (stageMatch && stageMatch.confidence >= 95) {
+      this.logger.addDebugInfo(`✅ [Stage high-conf] "${searchText}" -> "${stageMatch.stageName}" (${stageMatch.confidence}) - skipping spec matching`);
+      return stageMatch;
+    }
+    
+    // Strategy 2: If no high-confidence stage match, try stage + specification matching with strict guards
     const stageSpecMatch = this.findStageSpecificationMatch(searchText, category);
     if (stageSpecMatch) {
+      this.logger.addDebugInfo(`✅ [Stage+Spec] "${searchText}" -> "${stageSpecMatch.stageName}" / "${stageSpecMatch.stageSpecName}" (${stageSpecMatch.confidence})`);
       return stageSpecMatch;
     }
     
-    // Fallback to original matching logic
-    return this.findIntelligentStageMatch(groupName, description, category);
+    // Strategy 3: Fall back to lower-confidence stage match if we have one
+    if (stageMatch) {
+      this.logger.addDebugInfo(`✅ [Stage fallback] "${searchText}" -> "${stageMatch.stageName}" (${stageMatch.confidence})`);
+      return stageMatch;
+    }
+    
+    return null;
   }
 
   /**
    * Find matching stage and specification combination
+   * UPDATED: Added strict anchor-token guards and raised threshold to prevent cross-binding matches
    */
   private findStageSpecificationMatch(searchText: string, category: string): MappingConfidence | null {
+    const normalized = this.normalizeText(searchText);
+    
+    // Define critical binding tokens that must match
+    const criticalTokens = ['perfect', 'wire', 'wiro', 'saddle', 'case', 'spiral', 'comb'];
+    const searchTokens = criticalTokens.filter(token => normalized.includes(token));
+    
     let bestMatch: MappingConfidence | null = null;
     let bestScore = 0;
 
@@ -1195,6 +1234,19 @@ export class EnhancedStageMapper {
       const specName = spec.name.toLowerCase();
       const stageName = stage.name.toLowerCase();
       
+      // ANCHOR-TOKEN GUARD: If search has critical token, require stage or spec to have same token
+      if (searchTokens.length > 0) {
+        const normalizedStageName = this.normalizeText(stageName);
+        const normalizedSpecName = this.normalizeText(specName);
+        const hasMatchingToken = searchTokens.some(token => 
+          normalizedStageName.includes(token) || normalizedSpecName.includes(token)
+        );
+        if (!hasMatchingToken) {
+          this.logger.addDebugInfo(`🚫 Blocked stage+spec: "${searchText}" -> "${stage.name}/${spec.name}" (missing anchor token: ${searchTokens.join(', ')})`);
+          continue; // Skip this stage/spec combo
+        }
+      }
+      
       // Check if the search text matches both stage and specification
       const stageScore = this.calculateSimilarity(searchText, stageName);
       const specScore = this.calculateSimilarity(searchText, specName);
@@ -1202,14 +1254,15 @@ export class EnhancedStageMapper {
       
       const maxScore = Math.max(stageScore, specScore, combinedScore);
       
-      if (maxScore > bestScore && maxScore > 0.6) { // Higher threshold for stage+spec matching
+      // RAISED THRESHOLD: From 0.6 to 0.8, capped confidence at 85
+      if (maxScore > bestScore && maxScore > 0.8) {
         bestScore = maxScore;
         bestMatch = {
           stageId: stage.id,
           stageName: stage.name,
           stageSpecId: spec.id,
           stageSpecName: spec.name,
-          confidence: Math.round(maxScore * 90), // Higher confidence for precise matches
+          confidence: Math.min(Math.round(maxScore * 85), 85), // Cap at 85, below exact/DB
           source: 'fuzzy',
           category: this.inferStageCategory(stage.name)
         };
