@@ -236,7 +236,8 @@ export class EnhancedStageMapper {
       const instanceId = this.generateInstanceId(groupName, currentRowIndex);
       
       // Ensure we have a valid mapping with appropriate confidence threshold
-      const hasValidMapping = stageMapping && stageMapping.confidence >= 30;
+      // RAISED: Prefer Unknown over Wrong - require 65+ confidence to accept non-exact matches
+      const hasValidMapping = stageMapping && stageMapping.confidence >= 65;
       
       // DEBUG: Log detailed mapping information
       this.logger.addDebugInfo(`🔍 Detailed mapping for "${groupName}":`);
@@ -548,6 +549,7 @@ export class EnhancedStageMapper {
 
   /**
    * Intelligent stage matching using multiple strategies
+   * UPDATED: Added exact stage name matching and anchor-token guards
    */
   public findIntelligentStageMatch(
     groupName: string,
@@ -560,8 +562,8 @@ export class EnhancedStageMapper {
       : `${groupName} ${description}`.toLowerCase().trim();
     this.logger.addDebugInfo(`Searching for stage match: "${searchText}" in category: ${category}`);
     
-    // Strategy 1: Database mapping lookup (highest confidence)
-    const dbMapping = this.findDatabaseMapping(searchText);
+    // Strategy 1: Database mapping lookup (highest confidence, with anchor-token guard)
+    const dbMapping = this.findDatabaseMapping(searchText, category);
     if (dbMapping) {
       let stage = null;
       let specificationName = null;
@@ -581,7 +583,7 @@ export class EnhancedStageMapper {
       }
 
       if (stage) {
-        this.logger.addDebugInfo(`Found database mapping: "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''} (confidence: ${dbMapping.confidence_score})`);
+        this.logger.addDebugInfo(`✅ [DB exact] "${searchText}" -> "${stage.name}"${specificationName ? ` (${specificationName})` : ''} (confidence: ${dbMapping.confidence_score})`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -594,35 +596,60 @@ export class EnhancedStageMapper {
       }
     }
 
-    // Strategy 2: Fuzzy string matching (medium confidence)
+    // Strategy 2: Exact stage name match (100% confidence for exact matches)
+    const exactMatch = this.findExactStageNameMatch(searchText, category);
+    if (exactMatch) {
+      this.logger.addDebugInfo(`✅ [Stage exact] "${searchText}" -> "${exactMatch.stageName}" (confidence: ${exactMatch.confidence})`);
+      return exactMatch;
+    }
+
+    // Strategy 3: Fuzzy string matching (medium confidence, with anchor guards)
     const fuzzyMatch = this.findFuzzyMatch(searchText, category);
     if (fuzzyMatch) {
-      this.logger.addDebugInfo(`Found fuzzy match: "${searchText}" -> "${fuzzyMatch.stageName}" (confidence: ${fuzzyMatch.confidence})`);
+      this.logger.addDebugInfo(`✅ [Fuzzy anchored] "${searchText}" -> "${fuzzyMatch.stageName}" (confidence: ${fuzzyMatch.confidence})`);
       return fuzzyMatch;
     }
 
-    // Strategy 3: Pattern-based matching (lower confidence)
+    // Strategy 4: Pattern-based matching (lower confidence, explicit only)
     const patternMatch = this.findPatternMatch(groupName, description, category);
     if (patternMatch) {
-      this.logger.addDebugInfo(`Found pattern match: "${searchText}" -> "${patternMatch.stageName}" (confidence: ${patternMatch.confidence})`);
+      this.logger.addDebugInfo(`✅ [Pattern explicit] "${searchText}" -> "${patternMatch.stageName}" (confidence: ${patternMatch.confidence})`);
       return patternMatch;
     }
 
-    this.logger.addDebugInfo(`No intelligent match found for: "${searchText}" in category: ${category}`);
+    this.logger.addDebugInfo(`❌ [Unknown] No match found for: "${searchText}" in category: ${category}`);
     return null;
   }
 
   /**
    * Find mapping in existing database with improved exact matching
+   * UPDATED: Added anchor-token guard to prevent verified-but-wrong hits
    */
-  private findDatabaseMapping(searchText: string): any | null {
+  private findDatabaseMapping(searchText: string, category: string): any | null {
     const normalizedSearch = this.normalizeText(searchText);
+    
+    // Define critical binding tokens that must match between search and stage
+    const criticalTokens = ['perfect', 'wire', 'saddle', 'case', 'spiral', 'comb', 'wiro'];
+    const searchTokens = criticalTokens.filter(token => normalizedSearch.includes(token));
     
     // Strategy 1: Case-insensitive exact match
     for (const [mappedText, mapping] of this.existingMappings.entries()) {
       const normalizedMapped = this.normalizeText(mappedText);
       
       if (normalizedSearch === normalizedMapped) {
+        // Apply anchor-token guard: if search has critical token, stage must have same token
+        if (searchTokens.length > 0) {
+          const stage = this.stages.find(s => s.id === mapping.production_stage_id);
+          if (stage) {
+            const stageName = this.normalizeText(stage.name);
+            const hasMatchingToken = searchTokens.some(token => stageName.includes(token));
+            if (!hasMatchingToken) {
+              this.logger.addDebugInfo(`🚫 Blocked DB mapping: "${searchText}" -> "${stage.name}" (missing anchor token: ${searchTokens.join(', ')})`);
+              continue; // Skip this mapping
+            }
+          }
+        }
+        
         this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mappedText}"`);
         return {
           ...mapping,
@@ -640,6 +667,19 @@ export class EnhancedStageMapper {
       
       // Calculate similarity for partial matches
       if (normalizedSearch.includes(normalizedMapped) || normalizedMapped.includes(normalizedSearch)) {
+        // Apply anchor-token guard for partial matches too
+        if (searchTokens.length > 0) {
+          const stage = this.stages.find(s => s.id === mapping.production_stage_id);
+          if (stage) {
+            const stageName = this.normalizeText(stage.name);
+            const hasMatchingToken = searchTokens.some(token => stageName.includes(token));
+            if (!hasMatchingToken) {
+              this.logger.addDebugInfo(`🚫 Blocked DB partial match: "${searchText}" -> "${stage.name}" (missing anchor token: ${searchTokens.join(', ')})`);
+              continue; // Skip this mapping
+            }
+          }
+        }
+        
         const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
         const score = similarity * mapping.confidence_score;
         
@@ -661,6 +701,37 @@ export class EnhancedStageMapper {
   }
 
   /**
+   * Find exact stage name match (case-insensitive, punctuation-insensitive)
+   * NEW: Provides 100% confidence for perfect stage name matches
+   */
+  private findExactStageNameMatch(searchText: string, category: string): MappingConfidence | null {
+    const normalizedSearch = this.normalizeText(searchText);
+    
+    // Filter stages by category
+    const categoryStages = this.stages.filter(stage => 
+      this.inferStageCategory(stage.name) === category
+    );
+    
+    // Look for exact match
+    for (const stage of categoryStages) {
+      const normalizedStageName = this.normalizeText(stage.name);
+      
+      if (normalizedSearch === normalizedStageName) {
+        this.logger.addDebugInfo(`Found exact stage name match: "${searchText}" -> "${stage.name}"`);
+        return {
+          stageId: stage.id,
+          stageName: stage.name,
+          confidence: 100, // Perfect confidence for exact matches
+          source: 'database', // Treat as database-level confidence
+          category: this.inferStageCategory(stage.name)
+        };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
    * Normalize text for consistent matching
    */
   private normalizeText(text: string): string {
@@ -675,20 +746,46 @@ export class EnhancedStageMapper {
 
   /**
    * Fuzzy string matching against stage names
+   * UPDATED: Tightened thresholds per category and added anchor-token guards
    */
   private findFuzzyMatch(searchText: string, category: string): MappingConfidence | null {
     const categoryStages = this.stages.filter(stage => 
       this.inferStageCategory(stage.name) === category
     );
 
+    // Define per-category minimum similarity thresholds
+    const categoryThresholds: Record<string, number> = {
+      'finishing': 0.72,  // Strictest for binding-type stages
+      'printing': 0.65,
+      'prepress': 0.65,
+      'delivery': 0.70,
+      'packaging': 0.70
+    };
+    const minThreshold = categoryThresholds[category] || 0.65;
+    
+    // Define critical binding tokens for anchor matching
+    const criticalTokens = ['perfect', 'wire', 'saddle', 'case', 'spiral', 'comb', 'wiro'];
+    const searchTokens = criticalTokens.filter(token => searchText.includes(token));
+    
     let bestMatch: MappingConfidence | null = null;
     let bestScore = 0;
 
     for (const stage of categoryStages) {
       const stageName = stage.name.toLowerCase();
+      
+      // Apply anchor-token guard: if search has critical token, stage must have same token
+      if (searchTokens.length > 0) {
+        const normalizedStageName = this.normalizeText(stageName);
+        const hasMatchingToken = searchTokens.some(token => normalizedStageName.includes(token));
+        if (!hasMatchingToken) {
+          this.logger.addDebugInfo(`🚫 Blocked fuzzy match: "${searchText}" -> "${stage.name}" (missing anchor token: ${searchTokens.join(', ')})`);
+          continue; // Skip this stage
+        }
+      }
+      
       const score = this.calculateSimilarity(searchText, stageName);
       
-      if (score > bestScore && score > 0.4) { // Minimum 40% similarity
+      if (score > bestScore && score >= minThreshold) {
         bestScore = score;
         bestMatch = {
           stageId: stage.id,
@@ -736,6 +833,7 @@ export class EnhancedStageMapper {
 
   /**
    * Pattern-based matching (fallback)
+   * UPDATED: Removed generic binding patterns, kept only explicit variants
    */
   private findPatternMatch(
     groupName: string,
@@ -744,43 +842,44 @@ export class EnhancedStageMapper {
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase();
     
-    // Enhanced pattern matching with more specific patterns
+    // Enhanced pattern matching with EXPLICIT patterns only (no generic "bind/binding")
     const enhancedPatterns = {
       printing: [
-        { patterns: ['hp 12000', 'hp12000', '12000'], stageName: 'Printing - HP 12000', confidence: 85 },
-        { patterns: ['t250', 'xerox t250', 't-250'], stageName: 'Printing - Xerox T250', confidence: 85 },
-        { patterns: ['7900', 'hp 7900', 'hp7900'], stageName: 'Printing - HP 7900', confidence: 85 },
-        { patterns: ['c8000', 'xerox c8000'], stageName: 'Printing - Xerox C8000', confidence: 85 },
-        { patterns: ['digital print', 'digital'], stageName: 'Digital Printing', confidence: 70 },
-        { patterns: ['large format', 'wide format'], stageName: 'Large Format Printing', confidence: 75 }
+        { patterns: ['hp 12000', 'hp12000', '12000'], stageName: 'Printing - HP 12000', confidence: 70 },
+        { patterns: ['t250', 'xerox t250', 't-250'], stageName: 'Printing - Xerox T250', confidence: 70 },
+        { patterns: ['7900', 'hp 7900', 'hp7900'], stageName: 'Printing - HP 7900', confidence: 70 },
+        { patterns: ['c8000', 'xerox c8000'], stageName: 'Printing - Xerox C8000', confidence: 70 },
+        { patterns: ['digital print', 'digital'], stageName: 'Digital Printing', confidence: 60 },
+        { patterns: ['large format', 'wide format'], stageName: 'Large Format Printing', confidence: 65 }
       ],
       finishing: [
-        { patterns: ['laminat'], stageName: 'Laminating', confidence: 80 },
-        { patterns: ['envelope print'], stageName: 'Envelope Printing', confidence: 85 },
-        { patterns: ['cut', 'guillotine'], stageName: 'Cutting', confidence: 75 },
-        { patterns: ['fold'], stageName: 'Folding', confidence: 75 },
-        { patterns: ['bind', 'binding'], stageName: 'Binding', confidence: 75 },
-        { patterns: ['perfect bind'], stageName: 'Perfect Binding', confidence: 80 },
-        { patterns: ['saddle stitch'], stageName: 'Saddle Stitching', confidence: 80 }
+        { patterns: ['laminat'], stageName: 'Laminating', confidence: 70 },
+        { patterns: ['envelope print'], stageName: 'Envelope Printing', confidence: 70 },
+        { patterns: ['cut', 'guillotine'], stageName: 'Cutting', confidence: 65 },
+        { patterns: ['fold'], stageName: 'Folding', confidence: 65 },
+        // CRITICAL: Removed generic ['bind', 'binding'] pattern
+        { patterns: ['perfect bind'], stageName: 'Perfect Binding', confidence: 70 },
+        { patterns: ['wire bind', 'wiro'], stageName: 'Wire Binding', confidence: 70 },
+        { patterns: ['saddle stitch'], stageName: 'Saddle Stitching', confidence: 70 }
       ],
       prepress: [
-        { patterns: ['dtp', 'desktop'], stageName: 'DTP', confidence: 80 },
-        { patterns: ['proof'], stageName: 'Proofing', confidence: 75 },
-        { patterns: ['plate'], stageName: 'Plate Making', confidence: 75 },
-        { patterns: ['rip', 'ripping'], stageName: 'RIP Processing', confidence: 75 }
+        { patterns: ['dtp', 'desktop'], stageName: 'DTP', confidence: 70 },
+        { patterns: ['proof'], stageName: 'Proofing', confidence: 65 },
+        { patterns: ['plate'], stageName: 'Plate Making', confidence: 65 },
+        { patterns: ['rip', 'ripping'], stageName: 'RIP Processing', confidence: 65 }
       ],
       packaging: [
-        { patterns: ['packag', 'box', 'boxing'], stageName: 'Packaging', confidence: 85 },
-        { patterns: ['wrap', 'wrapping'], stageName: 'Wrapping', confidence: 80 },
-        { patterns: ['ship', 'shipping'], stageName: 'Shipping', confidence: 75 },
-        { patterns: ['mail', 'mailing'], stageName: 'Mailing', confidence: 75 }
+        { patterns: ['packag', 'box', 'boxing'], stageName: 'Packaging', confidence: 70 },
+        { patterns: ['wrap', 'wrapping'], stageName: 'Wrapping', confidence: 70 },
+        { patterns: ['ship', 'shipping'], stageName: 'Shipping', confidence: 65 },
+        { patterns: ['mail', 'mailing'], stageName: 'Mailing', confidence: 65 }
       ],
       delivery: [
-        { patterns: ['collect', 'collection', 'pickup', 'customer collect'], stageName: 'Shipping', confidence: 85 },
-        { patterns: ['local delivery', 'delivery', 'local'], stageName: 'Shipping', confidence: 85 },
-        { patterns: ['courier', 'post', 'mail'], stageName: 'Shipping', confidence: 80 },
-        { patterns: ['dispatch', 'ship'], stageName: 'Shipping', confidence: 80 },
-        { patterns: ['hand deliver'], stageName: 'Shipping', confidence: 75 }
+        { patterns: ['collect', 'collection', 'pickup', 'customer collect'], stageName: 'Shipping', confidence: 70 },
+        { patterns: ['local delivery', 'delivery', 'local'], stageName: 'Shipping', confidence: 70 },
+        { patterns: ['courier', 'post', 'mail'], stageName: 'Shipping', confidence: 70 },
+        { patterns: ['dispatch', 'ship'], stageName: 'Shipping', confidence: 70 },
+        { patterns: ['hand deliver'], stageName: 'Shipping', confidence: 65 }
       ]
     };
 
@@ -841,17 +940,19 @@ export class EnhancedStageMapper {
 
   /**
    * Learn from successful mappings to improve future accuracy
+   * UPDATED: Raised threshold from 70 to 95 to prevent learning from guesses
    */
   private async learnFromMappings(mappings: RowMappingResult[]): Promise<void> {
     try {
       const newMappings = mappings
-        .filter(m => !m.isUnmapped && m.confidence >= 70 && !m.manualOverride)
+        // RAISED: Only learn from highly confident (exact/DB-boosted) matches, not fuzzy/pattern guesses
+        .filter(m => !m.isUnmapped && m.confidence >= 95 && !m.manualOverride)
         .map(m => ({
           excel_text: `${m.groupName} ${m.description}`.toLowerCase().trim(),
           production_stage_id: m.mappedStageId,
           confidence_score: m.confidence,
           mapping_type: 'production_stage' as const,
-          is_verified: m.confidence >= 85
+          is_verified: m.confidence >= 95 // Only exact matches are verified
         }));
 
       if (newMappings.length > 0) {
@@ -863,7 +964,7 @@ export class EnhancedStageMapper {
             ignoreDuplicates: false 
           });
         
-        this.logger.addDebugInfo(`Learned ${newMappings.length} new mappings`);
+        this.logger.addDebugInfo(`Learned ${newMappings.length} new mappings (confidence >= 95 only)`);
       }
     } catch (error) {
       this.logger.addDebugInfo(`Failed to learn from mappings: ${error}`);
