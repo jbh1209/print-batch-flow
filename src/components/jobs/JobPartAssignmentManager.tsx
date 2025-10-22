@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle2, Clock, Play, Package, Wrench, Truck, ChevronDown, ChevronRight, List } from 'lucide-react';
 import { toast } from 'sonner';
+import { autoAssignParts } from '@/utils/tracker/partAutoAssignment';
 
 interface SubTask {
   id: string;
@@ -282,6 +283,86 @@ const JobPartAssignmentManager: React.FC<JobPartAssignmentManagerProps> = ({
       toast.error('Failed to update part assignment: ' + error.message);
     }
   });
+
+  // Bulk update mutation for auto-assignment (silent, no toasts)
+  const bulkUpdatePartAssignmentsMutation = useMutation({
+    mutationFn: async (updates: Array<{ stageId: string; partAssignment: string }>) => {
+      const promises = updates.map(({ stageId, partAssignment }) => {
+        const partName = partAssignment === 'none' ? null : 
+          partAssignment.charAt(0).toUpperCase() + partAssignment.slice(1);
+        
+        return supabase
+          .from('job_stage_instances')
+          .update({ 
+            part_assignment: partAssignment,
+            part_name: partName
+          })
+          .eq('id', stageId);
+      });
+      
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw new Error(`Failed to update ${errors.length} stages`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job-stages-simple', jobId] });
+    },
+    onError: (error) => {
+      console.error('Auto-assignment failed:', error);
+    }
+  });
+
+  // Auto-assign parts when dialog opens
+  useEffect(() => {
+    if (!open || !enrichedStages || enrichedStages.length === 0) return;
+    
+    // Detect available parts from existing stage instances
+    const detectedParts = new Set<string>();
+    enrichedStages.forEach(stage => {
+      if (stage.part_name) {
+        detectedParts.add(stage.part_name.toLowerCase());
+      }
+    });
+    
+    const availableParts = Array.from(detectedParts);
+    
+    // Only auto-assign if we have both cover and text
+    if (!availableParts.includes('cover') || !availableParts.includes('text')) {
+      return;
+    }
+    
+    // Build multiPartStages structure for the auto-assignment utility
+    const multiPartStages = enrichedStages
+      .filter(stage => stage.part_assignment === 'both' && stage.status === 'pending')
+      .map(stage => ({
+        stage_id: stage.id,
+        stage_name: stage.production_stages.name,
+        stage_color: stage.production_stages.color,
+        part_types: availableParts
+      }));
+    
+    if (multiPartStages.length === 0) return;
+    
+    // Get auto-assignment suggestions
+    const suggestedAssignments = autoAssignParts(availableParts, multiPartStages);
+    
+    if (Object.keys(suggestedAssignments).length === 0) return;
+    
+    // Build update list
+    const updates: Array<{ stageId: string; partAssignment: string }> = [];
+    
+    Object.entries(suggestedAssignments).forEach(([partName, stageId]) => {
+      updates.push({
+        stageId: stageId,
+        partAssignment: partName.toLowerCase()
+      });
+    });
+    
+    if (updates.length > 0) {
+      console.log(`🔄 Auto-assigning ${updates.length} stage(s) to parts...`);
+      bulkUpdatePartAssignmentsMutation.mutate(updates);
+    }
+  }, [open, enrichedStages]);
 
   const handlePartAssignmentChange = (stageId: string, newAssignment: string) => {
     updatePartAssignmentMutation.mutate({ stageId, partAssignment: newAssignment });
