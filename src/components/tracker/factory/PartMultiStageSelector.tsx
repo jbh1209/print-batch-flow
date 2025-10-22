@@ -3,6 +3,8 @@ import React, { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CheckCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MultiPartStage {
   stage_id: string;
@@ -16,13 +18,15 @@ interface PartMultiStageSelectorProps {
   availableStages: MultiPartStage[];
   onPartAssignmentsChange: (assignments: Record<string, string>) => void;
   initialAssignments?: Record<string, string>;
+  autoAssignedParts?: string[];
 }
 
 export const PartMultiStageSelector: React.FC<PartMultiStageSelectorProps> = ({
   availableParts,
   availableStages,
   onPartAssignmentsChange,
-  initialAssignments = {}
+  initialAssignments = {},
+  autoAssignedParts = []
 }) => {
   const [partAssignments, setPartAssignments] = useState<Record<string, string>>(initialAssignments);
 
@@ -51,43 +55,62 @@ export const PartMultiStageSelector: React.FC<PartMultiStageSelectorProps> = ({
     <div className="space-y-4">
       <Label className="text-base font-medium">Assign Parts to Stages</Label>
       
-      {availableParts.map((partName) => (
-        <div key={partName} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge 
-              variant="outline"
-              className={getPartColor(partName)}
+      {availableParts.map((partName) => {
+        const isAutoAssigned = autoAssignedParts.includes(partName);
+        
+        return (
+          <div key={partName} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="outline"
+                className={getPartColor(partName)}
+              >
+                {getPartDisplayName(partName)}
+              </Badge>
+              {isAutoAssigned && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-300">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Auto
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Auto-assigned based on common workflow patterns</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <span className="text-sm text-gray-600">→</span>
+            </div>
+            
+            <Select 
+              value={partAssignments[partName] || ''} 
+              onValueChange={(stageId) => handlePartAssignment(partName, stageId)}
             >
-              {getPartDisplayName(partName)}
-            </Badge>
-            <span className="text-sm text-gray-600">→</span>
+              <SelectTrigger className={`w-full ${isAutoAssigned ? 'border-green-300 bg-green-50/30' : ''}`}>
+                <SelectValue placeholder={`Select stage for ${getPartDisplayName(partName)}...`} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableStages
+                  .filter(stage => stage.part_types.includes(partName))
+                  .map((stage) => (
+                    <SelectItem key={stage.stage_id} value={stage.stage_id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: stage.stage_color }}
+                        />
+                        <span>{stage.stage_name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
-          
-          <Select 
-            value={partAssignments[partName] || ''} 
-            onValueChange={(stageId) => handlePartAssignment(partName, stageId)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={`Select stage for ${getPartDisplayName(partName)}...`} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableStages
-                .filter(stage => stage.part_types.includes(partName))
-                .map((stage) => (
-                  <SelectItem key={stage.stage_id} value={stage.stage_id}>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: stage.stage_color }}
-                      />
-                      <span>{stage.stage_name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ))}
+        );
+      })}
       
       {availableParts.length === 0 && (
         <div className="text-sm text-gray-500 italic">

@@ -9,6 +9,7 @@ import { useCategories } from "@/hooks/tracker/useCategories";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
 import { useAtomicCategoryAssignment } from "@/hooks/tracker/useAtomicCategoryAssignment.tsx";
 import { supabase } from "@/integrations/supabase/client";
+import { autoAssignParts } from "@/utils/tracker/partAutoAssignment";
 
 interface SimpleCategoryAssignModalProps {
   job: any;
@@ -40,6 +41,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
   const [loadingStages, setLoadingStages] = useState(true);
   const [currentStep, setCurrentStep] = useState<'category' | 'parts'>('category');
   const [partAssignments, setPartAssignments] = useState<Record<string, string>>({});
+  const [autoAssignedParts, setAutoAssignedParts] = useState<string[]>([]);
 
   const { availableParts, multiPartStages, hasMultiPartStages, isLoading: partsLoading } = useCategoryParts(selectedCategoryId);
 
@@ -108,8 +110,36 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setPartAssignments({}); // Reset part assignments when category changes
+    setAutoAssignedParts([]); // Reset auto-assignments
     setCurrentStep('category'); // Always go back to category step if category changes
   };
+
+  // Auto-assign parts when entering parts step
+  useEffect(() => {
+    if (currentStep === 'parts' && availableParts.length > 0 && multiPartStages.length > 0) {
+      const autoAssignments = autoAssignParts(availableParts, multiPartStages);
+      
+      if (Object.keys(autoAssignments).length > 0) {
+        // Merge auto-assignments with existing assignments (don't overwrite user selections)
+        setPartAssignments(prev => {
+          const merged = { ...autoAssignments, ...prev };
+          return merged;
+        });
+        
+        // Track which parts were auto-assigned
+        setAutoAssignedParts(Object.keys(autoAssignments));
+        
+        // Show a toast notification
+        const assignmentCount = Object.keys(autoAssignments).length;
+        toast.success(`Auto-assigned ${assignmentCount} part${assignmentCount !== 1 ? 's' : ''} based on common patterns`, {
+          description: Object.entries(autoAssignments).map(([part, stageId]) => {
+            const stage = multiPartStages.find(s => s.stage_id === stageId);
+            return `${part} → ${stage?.stage_name || 'Unknown'}`;
+          }).join(', ')
+        });
+      }
+    }
+  }, [currentStep, availableParts, multiPartStages]);
 
   const handleNextStep = () => {
     if (!selectedCategoryId || !selectedCategoryDetails) return;
@@ -342,6 +372,12 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                   The selected category "{selectedCategoryDetails.name}" requires part assignment. 
                   Please assign each part to the appropriate production stage.
                 </p>
+                {autoAssignedParts.length > 0 && (
+                  <p className="text-sm text-green-700 mt-2 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Auto-assigned {autoAssignedParts.length} part{autoAssignedParts.length !== 1 ? 's' : ''} based on common workflow patterns
+                  </p>
+                )}
               </div>
 
               {partsLoading ? (
@@ -351,50 +387,65 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {availableParts.map((part) => (
-                    <div key={part} className="space-y-2">
-                      <label htmlFor={`part-assign-${part}`} className="text-sm font-medium">
-                        Assign "{part}" to stage:
-                      </label>
-                      <Select
-                        value={partAssignments[part] || ""}
-                        onValueChange={(value) => {
-                          const newAssignments = { ...partAssignments };
-                          if (value) {
-                            newAssignments[part] = value;
-                          } else {
-                            delete newAssignments[part];
-                          }
-                          handlePartAssignmentsChange(newAssignments);
-                        }}
-                      >
-                        <SelectTrigger id={`part-assign-${part}`}>
-                          <SelectValue placeholder="Select a stage..." />
-                        </SelectTrigger>
-                        <SelectContent
-                          side="top"
-                          collisionPadding={16}
-                          avoidCollisions={true}
-                          className="max-h-[48vh] overflow-y-auto z-[1200] bg-white"
-                          align="start"
+                  {availableParts.map((part) => {
+                    const isAutoAssigned = autoAssignedParts.includes(part);
+                    
+                    return (
+                      <div key={part} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label htmlFor={`part-assign-${part}`} className="text-sm font-medium">
+                            Assign "{part}" to stage:
+                          </label>
+                          {isAutoAssigned && (
+                            <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-300">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Auto
+                            </Badge>
+                          )}
+                        </div>
+                        <Select
+                          value={partAssignments[part] || ""}
+                          onValueChange={(value) => {
+                            const newAssignments = { ...partAssignments };
+                            if (value) {
+                              newAssignments[part] = value;
+                            } else {
+                              delete newAssignments[part];
+                            }
+                            handlePartAssignmentsChange(newAssignments);
+                          }}
                         >
-                          {multiPartStages
-                            .filter(stage => stage.part_types.includes(part))
-                            .map((stage) => (
-                              <SelectItem key={stage.stage_id} value={stage.stage_id}>
-                                <div className="flex items-center gap-2">
-                                  <div 
-                                    className="w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: stage.stage_color || '#6B7280' }}
-                                  />
-                                  <span>{stage.stage_name}</span>
-                                </div>
-                              </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                          <SelectTrigger 
+                            id={`part-assign-${part}`}
+                            className={isAutoAssigned ? 'border-green-300 bg-green-50/30' : ''}
+                          >
+                            <SelectValue placeholder="Select a stage..." />
+                          </SelectTrigger>
+                          <SelectContent
+                            side="top"
+                            collisionPadding={16}
+                            avoidCollisions={true}
+                            className="max-h-[48vh] overflow-y-auto z-[1200] bg-white"
+                            align="start"
+                          >
+                            {multiPartStages
+                              .filter(stage => stage.part_types.includes(part))
+                              .map((stage) => (
+                                <SelectItem key={stage.stage_id} value={stage.stage_id}>
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: stage.stage_color || '#6B7280' }}
+                                    />
+                                    <span>{stage.stage_name}</span>
+                                  </div>
+                                </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

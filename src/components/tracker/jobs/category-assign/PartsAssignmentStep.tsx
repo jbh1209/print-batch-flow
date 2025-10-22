@@ -1,4 +1,3 @@
-
 import React from "react";
 import { PartMultiStageSelector } from "../../factory/PartMultiStageSelector";
 
@@ -8,6 +7,7 @@ interface PartsAssignmentStepProps {
   multiPartStages: any[];
   partAssignments: Record<string, string>;
   onPartAssignmentsChange: (assignments: Record<string, string>) => void;
+  autoAssignedParts?: string[];
 }
 
 export const PartsAssignmentStep: React.FC<PartsAssignmentStepProps> = ({
@@ -15,7 +15,8 @@ export const PartsAssignmentStep: React.FC<PartsAssignmentStepProps> = ({
   availableParts,
   multiPartStages,
   partAssignments,
-  onPartAssignmentsChange
+  onPartAssignmentsChange,
+  autoAssignedParts = []
 }) => {
   return (
     <>
@@ -33,6 +34,7 @@ export const PartsAssignmentStep: React.FC<PartsAssignmentStepProps> = ({
         availableStages={multiPartStages}
         onPartAssignmentsChange={onPartAssignmentsChange}
         initialAssignments={partAssignments}
+        autoAssignedParts={autoAssignedParts}
       />
     </>
   );

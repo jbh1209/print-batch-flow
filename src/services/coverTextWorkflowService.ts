@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { CoverTextDetection, ParsedJob } from '@/utils/excel/types';
 import type { ExcelImportDebugger } from '@/utils/excel/debugger';
+import { determineComponentForStage } from '@/utils/tracker/partAutoAssignment';
 
 export interface CoverTextWorkflowResult {
   success: boolean;
@@ -96,10 +97,24 @@ export class CoverTextWorkflowService {
     
     const componentName = component.type.charAt(0).toUpperCase() + component.type.slice(1);
     const stageInstances: any[] = [];
+    const hasCoverAndText = true; // We know this is a book job with both
 
     for (const [index, categoryStage] of categoryStages.entries()) {
       const stage = categoryStage.production_stages;
       const isFirstStage = index === 0;
+      
+      // Determine if this stage should be created for this component
+      const componentForStage = determineComponentForStage(stage.name, hasCoverAndText);
+      
+      // Skip this stage if it's not meant for this component
+      if (componentForStage === 'cover' && component.type !== 'cover') {
+        this.logger.addDebugInfo(`Skipping ${stage.name} for ${componentName} (stage is for cover only)`);
+        continue;
+      }
+      if (componentForStage === 'text' && component.type !== 'text') {
+        this.logger.addDebugInfo(`Skipping ${stage.name} for ${componentName} (stage is for text only)`);
+        continue;
+      }
       
       // Phase 3: Fix Stage Instance Creation - Only assign dependency groups to true synchronization points
       const needsSynchronization = this.shouldWaitForDependency(stage.supports_parts);
