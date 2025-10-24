@@ -301,6 +301,13 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
     return [...updatedRowMappings[currentOrder]];
   };
 
+  const getCurrentOrderJobData = () => {
+    if (!currentOrder || !result?.categoryAssignments[currentOrder]) {
+      return null;
+    }
+    return result.categoryAssignments[currentOrder].originalJob;
+  };
+
   const extractUserApprovedMappings = (woNo: string) => {
     const mappings = updatedRowMappings[woNo] || [];
     const userApprovedMappings: Array<{
@@ -440,6 +447,32 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
           <DialogDescription>
             Process orders one at a time to avoid duplicate data issues and maintain better control
           </DialogDescription>
+          
+          {/* Order Reference Info Bar */}
+          {getCurrentOrderJobData() && (
+            <div className="flex flex-wrap gap-4 pt-2 text-sm border-t mt-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Customer:</span>
+                <span className="font-medium">{getCurrentOrderJobData()?.customer || 'N/A'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Reference:</span>
+                <span className="font-medium">{getCurrentOrderJobData()?.reference || 'N/A'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Qty:</span>
+                <span className="font-medium">{getCurrentOrderJobData()?.qty || 'N/A'}</span>
+              </div>
+              {getCurrentOrderJobData()?.due_date && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Due:</span>
+                  <span className="font-medium">
+                    {new Date(getCurrentOrderJobData()!.due_date!).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
         {isProcessing ? (
