@@ -13,6 +13,7 @@ import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProduction
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
 import { useJobModalHandlers } from "./hooks/useJobModalHandlers";
+import { useDivision } from "@/contexts/DivisionContext";
 import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
 
 interface ResponsiveJobsTableProps {
@@ -25,8 +26,9 @@ interface ResponsiveJobsTableProps {
 export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({ 
   filters = {} 
 }) => {
+  const { selectedDivision } = useDivision();
   const [partAssignmentJob, setPartAssignmentJob] = useState<any>(null);
-  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs({ divisionFilter: selectedDivision });
   const { categories } = useCategories();
   
   const {

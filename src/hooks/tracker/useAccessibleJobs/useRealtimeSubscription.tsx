@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface RealtimeSubscriptionOptions {
   onJobUpdate?: (jobId: string, updateType: 'status' | 'stage' | 'progress') => void;
   batchDelay?: number;
+  divisionFilter?: string | null;
 }
 
 export const useRealtimeSubscription = (
@@ -17,7 +18,7 @@ export const useRealtimeSubscription = (
   const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
   
-  const { onJobUpdate, batchDelay = 500 } = options;
+  const { onJobUpdate, batchDelay = 500, divisionFilter = null } = options;
 
   // Batched update handler to prevent UI thrashing
   const handleBatchedUpdate = useCallback(() => {
@@ -82,7 +83,10 @@ export const useRealtimeSubscription = (
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log("🔄 Setting up enhanced real-time subscription for accessible jobs");
+    console.log("🔄 Setting up enhanced real-time subscription for accessible jobs", {
+      userId: user.id,
+      divisionFilter
+    });
 
     // Cleanup any existing channel
     if (channelRef.current) {
@@ -177,7 +181,7 @@ export const useRealtimeSubscription = (
         }
       }
     };
-  }, [user?.id, queueUpdate, getJobIdFromPayload, getJobIdFromStagePayload]);
+  }, [user?.id, queueUpdate, getJobIdFromPayload, getJobIdFromStagePayload, divisionFilter]);
 
   // Force immediate update (bypass batching)
   const forceUpdate = useCallback(() => {

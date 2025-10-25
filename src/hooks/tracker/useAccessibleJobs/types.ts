@@ -37,6 +37,7 @@ export interface AccessibleJob {
   manual_due_date?: string | null;
   batch_category?: string | null;
   is_in_batch_processing: boolean;
+  division?: string | null;
   // Additional fields for enhanced compatibility
   started_by?: string | null;
   started_by_name?: string | null;
@@ -57,5 +58,6 @@ export interface UseAccessibleJobsOptions {
   permissionType?: 'view' | 'edit' | 'work' | 'manage';
   statusFilter?: string | null;
   stageFilter?: string | null;
+  divisionFilter?: string | null;
 }
 
