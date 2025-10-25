@@ -3,6 +3,7 @@ import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { OperatorHeader } from "./OperatorHeader";
 import { QueueFilters } from "./QueueFilters";
 import { JobGroupsDisplay } from "./JobGroupsDisplay";
@@ -14,11 +15,13 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 
 export const DynamicFactoryFloorView = () => {
   const { user } = useAuth();
+  const { selectedDivision } = useDivision();
   const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
   
-  // Use smart permission detection for optimal job access
+  // Use smart permission detection for optimal job access with division filtering
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: highestPermission // Let the database function handle all the filtering
+    permissionType: highestPermission,
+    divisionFilter: selectedDivision
   });
   
   const { startJob, completeJob } = useJobActions(refreshJobs);

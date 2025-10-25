@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
@@ -28,6 +29,7 @@ interface TrackerProductionContext {
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
+  const { selectedDivision } = useDivision();
   const isMobile = useIsMobile();
   
   const { 
@@ -39,7 +41,8 @@ const TrackerProduction = () => {
     refreshJobs,
     invalidateCache
   } = useAccessibleJobs({
-    permissionType: 'manage'
+    permissionType: 'manage',
+    divisionFilter: selectedDivision
   });
 
   // Get real-time stage data

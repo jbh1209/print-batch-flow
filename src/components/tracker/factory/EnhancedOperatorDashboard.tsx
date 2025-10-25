@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useNavigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { categorizeJobs, calculateJobCounts } from "@/utils/tracker/jobProcessing";
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
   const { user, signOut } = useAuth();
+  const { selectedDivision } = useDivision();
   const { userRole, isOperator, isDtpOperator } = useUserRole();
   const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
@@ -39,7 +41,8 @@ export const EnhancedOperatorDashboard = () => {
     error, 
     refreshJobs 
   } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: 'work',
+    divisionFilter: selectedDivision
   });
 
   const handleLogout = async () => {

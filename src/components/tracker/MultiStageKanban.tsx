@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
@@ -23,8 +24,10 @@ import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
 import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
 export const MultiStageKanban = () => {
+  const { selectedDivision } = useDivision();
   const { jobs, isLoading: jobsLoading, error: jobsError, refreshJobs } = useAccessibleJobs({
-    permissionType: 'manage'
+    permissionType: 'manage',
+    divisionFilter: selectedDivision
   });
   const { stages } = useProductionStages();
 

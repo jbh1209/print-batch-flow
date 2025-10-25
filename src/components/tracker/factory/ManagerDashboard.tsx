@@ -18,10 +18,12 @@ import {
   WifiOff
 } from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
 
 export const ManagerDashboard: React.FC = () => {
+  const { selectedDivision } = useDivision();
   const { 
     jobs, 
     isLoading, 
@@ -30,7 +32,9 @@ export const ManagerDashboard: React.FC = () => {
     hasOptimisticUpdates,
     hasPendingUpdates,
     lastFetchTime
-  } = useAccessibleJobs();
+  } = useAccessibleJobs({
+    divisionFilter: selectedDivision
+  });
   
   const [refreshing, setRefreshing] = useState(false);
 

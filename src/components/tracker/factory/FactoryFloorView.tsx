@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useNavigate } from "react-router-dom";
 import { categorizeJobs } from "@/utils/tracker/jobProcessing";
 import { DtpDashboardStats } from "./DtpDashboardStats";
@@ -22,6 +23,7 @@ import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 
 export const FactoryFloorView = () => {
   const { user, signOut } = useAuth();
+  const { selectedDivision } = useDivision();
   const navigate = useNavigate();
   
   const { 
@@ -30,7 +32,8 @@ export const FactoryFloorView = () => {
     error, 
     refreshJobs 
   } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: 'work',
+    divisionFilter: selectedDivision
   });
 
   const handleLogout = async () => {

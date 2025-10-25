@@ -4,6 +4,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useAutoApprovedJobs } from "@/hooks/tracker/useAutoApprovedJobs";
 import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
 import { DtpJobModal } from "./dtp/DtpJobModal";
@@ -28,6 +29,7 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
   const { signOut } = useAuth();
+  const { selectedDivision } = useDivision();
   const navigate = useNavigate();
   
   const { 
@@ -38,7 +40,8 @@ export const DtpKanbanDashboard = () => {
     hasOptimisticUpdates,
     hasPendingUpdates
   } = useAccessibleJobs({
-    permissionType: 'view'
+    permissionType: 'view',
+    divisionFilter: selectedDivision
   });
 
   // Use proper job actions that resolve stage instance IDs correctly

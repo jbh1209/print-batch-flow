@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Package, Users, Clock } from 'lucide-react';
 import { useAccessibleJobs } from '@/hooks/tracker/useAccessibleJobs';
+import { useDivision } from '@/contexts/DivisionContext';
 import type { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 
 interface BatchAwareJobSearchProps {
@@ -15,8 +16,12 @@ export const BatchAwareJobSearch: React.FC<BatchAwareJobSearchProps> = ({
   onJobSelect, 
   className = '' 
 }) => {
+  const { selectedDivision } = useDivision();
   const [searchTerm, setSearchTerm] = useState('');
-  const { jobs, isLoading } = useAccessibleJobs({ permissionType: 'view' });
+  const { jobs, isLoading } = useAccessibleJobs({ 
+    permissionType: 'view',
+    divisionFilter: selectedDivision
+  });
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];

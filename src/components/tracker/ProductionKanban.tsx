@@ -16,12 +16,15 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { KanbanColumn } from "./KanbanColumn";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 
 const STATUSES = ["Pre-Press", "Awaiting Approval", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
 export const ProductionKanban = () => {
+  const { selectedDivision } = useDivision();
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: 'manage'
+    permissionType: 'manage',
+    divisionFilter: selectedDivision
   });
   const [activeId, setActiveId] = useState<string | null>(null);
 

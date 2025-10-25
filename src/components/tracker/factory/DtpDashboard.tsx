@@ -14,6 +14,7 @@ import { DtpJobModal } from "./DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -26,6 +27,7 @@ import { toast } from "sonner";
 
 export const DtpDashboard: React.FC = () => {
   const { user, signOut } = useAuth();
+  const { selectedDivision } = useDivision();
   const navigate = useNavigate();
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
@@ -39,7 +41,8 @@ export const DtpDashboard: React.FC = () => {
     completeJob, 
     refreshJobs 
   } = useAccessibleJobs({
-    permissionType: 'view'
+    permissionType: 'view',
+    divisionFilter: selectedDivision
   });
 
   useEffect(() => {

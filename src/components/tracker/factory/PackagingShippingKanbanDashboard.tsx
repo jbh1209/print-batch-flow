@@ -4,6 +4,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
 import { DtpJobModal } from "./dtp/DtpJobModal";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
@@ -25,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 export const PackagingShippingKanbanDashboard = () => {
   const { accessibleStages } = useUserRole();
   const { signOut } = useAuth();
+  const { selectedDivision } = useDivision();
   const navigate = useNavigate();
   
   const { 
@@ -35,7 +37,8 @@ export const PackagingShippingKanbanDashboard = () => {
     hasOptimisticUpdates,
     hasPendingUpdates
   } = useAccessibleJobs({
-    permissionType: 'view'
+    permissionType: 'view',
+    divisionFilter: selectedDivision
   });
 
   const { 

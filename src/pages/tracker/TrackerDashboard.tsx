@@ -2,8 +2,10 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { FactoryFloorDashboard } from "@/components/tracker/dashboard/factory/FactoryFloorDashboard";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 
 const TrackerDashboard = () => {
+  const { selectedDivision } = useDivision();
   const {
     jobs,
     isLoading,
@@ -11,7 +13,8 @@ const TrackerDashboard = () => {
     refreshJobs,
     lastFetchTime
   } = useAccessibleJobs({
-    permissionType: 'manage'
+    permissionType: 'manage',
+    divisionFilter: selectedDivision
   });
 
   // Calculate comprehensive dashboard metrics

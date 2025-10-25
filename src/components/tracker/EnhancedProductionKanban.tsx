@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { EnhancedJobCard } from "./EnhancedJobCard";
 
@@ -93,8 +94,10 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
 };
 
 export const EnhancedProductionKanban = () => {
+  const { selectedDivision } = useDivision();
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: 'manage'
+    permissionType: 'manage',
+    divisionFilter: selectedDivision
   });
   const { stages } = useProductionStages();
 

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Loader2, Package, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDivision } from "@/contexts/DivisionContext";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface OrderSearchModalProps {
@@ -19,9 +20,13 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
   onClose,
   onOrderSelect
 }) => {
+  const { selectedDivision } = useDivision();
   const [searchQuery, setSearchQuery] = useState("");
   const [batchFilter, setBatchFilter] = useState("all");
-  const { jobs, isLoading } = useAccessibleJobs({ permissionType: 'manage' });
+  const { jobs, isLoading } = useAccessibleJobs({ 
+    permissionType: 'manage',
+    divisionFilter: selectedDivision
+  });
 
   // Enhanced filter with batch context
   const filteredJobs = jobs.filter(job => {
