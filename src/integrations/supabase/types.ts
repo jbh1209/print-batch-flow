@@ -4169,21 +4169,30 @@ export type Database = {
           p_permission_type?: string
           p_stage_filter?: string
           p_status_filter?: string
-          p_user_id: string
+          p_user_id?: string
         }
         Returns: {
+          batch_category: string
+          batch_name: string
           category_color: string
           category_id: string
           category_name: string
           completed_stages: number
+          constituent_job_count: number
+          contact: string
           current_stage_color: string
           current_stage_id: string
           current_stage_name: string
           current_stage_status: string
           customer: string
           display_stage_name: string
+          division: string
           due_date: string
+          has_custom_workflow: boolean
+          is_batch_master: boolean
+          is_in_batch_processing: boolean
           job_id: string
+          manual_due_date: string
           proof_approved_at: string
           proof_emailed_at: string
           qty: number
@@ -4200,33 +4209,80 @@ export type Database = {
           workflow_progress: number
         }[]
       }
-      get_user_accessible_jobs_with_batch_allocation: {
-        Args: {
-          p_permission_type?: string
-          p_stage_filter?: string
-          p_status_filter?: string
-          p_user_id?: string
-        }
-        Returns: {
-          batch_size: number
-          category_id: string
-          category_name: string
-          created_at: string
-          current_stage_id: string
-          current_stage_name: string
-          current_stage_status: string
-          due_date: string
-          is_batch_master: boolean
-          job_id: string
-          job_name: string
-          job_status: string
-          proof_approved_at: string
-          proof_emailed_at: string
-          stage_order: number
-          updated_at: string
-          wo_no: string
-        }[]
-      }
+      get_user_accessible_jobs_with_batch_allocation:
+        | {
+            Args: {
+              p_permission_type?: string
+              p_stage_filter?: string
+              p_status_filter?: string
+              p_user_id?: string
+            }
+            Returns: {
+              batch_category: string
+              batch_name: string
+              category_color: string
+              category_id: string
+              category_name: string
+              completed_stages: number
+              constituent_job_count: number
+              contact: string
+              current_stage_color: string
+              current_stage_id: string
+              current_stage_name: string
+              current_stage_status: string
+              customer: string
+              display_stage_name: string
+              division: string
+              due_date: string
+              effectiveduedate: string
+              has_custom_workflow: boolean
+              is_batch_master: boolean
+              is_in_batch_processing: boolean
+              job_id: string
+              manual_due_date: string
+              original_committed_due_date: string
+              proof_emailed_at: string
+              qty: number
+              reference: string
+              started_by: string
+              started_by_name: string
+              status: string
+              total_stages: number
+              user_can_edit: boolean
+              user_can_manage: boolean
+              user_can_view: boolean
+              user_can_work: boolean
+              wo_no: string
+              workflow_progress: number
+            }[]
+          }
+        | {
+            Args: {
+              p_permission_type?: string
+              p_stage_filter?: string
+              p_status_filter?: string
+              p_user_id?: string
+            }
+            Returns: {
+              batch_size: number
+              category_id: string
+              category_name: string
+              created_at: string
+              current_stage_id: string
+              current_stage_name: string
+              current_stage_status: string
+              due_date: string
+              is_batch_master: boolean
+              job_id: string
+              job_name: string
+              job_status: string
+              proof_approved_at: string
+              proof_emailed_at: string
+              stage_order: number
+              updated_at: string
+              wo_no: string
+            }[]
+          }
       get_user_accessible_stages: {
         Args: { p_user_id?: string }
         Returns: {
