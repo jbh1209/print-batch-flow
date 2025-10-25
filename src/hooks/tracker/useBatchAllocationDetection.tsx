@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useDivision } from '@/contexts/DivisionContext';
 import { AccessibleJob } from './useAccessibleJobs';
 
 interface BatchAllocationDetectionResult {
@@ -13,6 +14,7 @@ interface BatchAllocationDetectionResult {
  * Hook to detect and manage jobs that are in the Batch Allocation stage
  */
 export const useBatchAllocationDetection = (): BatchAllocationDetectionResult => {
+  const { selectedDivision } = useDivision();
   const [jobsInBatchAllocation, setJobsInBatchAllocation] = useState<AccessibleJob[]>([]);
   const [jobsByCategory, setJobsByCategory] = useState<Record<string, AccessibleJob[]>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -94,13 +96,17 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
         is_in_batch_processing: false,
         started_by: job.started_by,
         started_by_name: job.started_by_name,
-        proof_emailed_at: job.proof_emailed_at
+        proof_emailed_at: job.proof_emailed_at,
+        division: job.division || 'DIG'
       }));
 
-      setJobsInBatchAllocation(mappedJobs);
+      // Filter by selected division
+      const divisionFiltered = mappedJobs.filter(job => job.division === selectedDivision);
+
+      setJobsInBatchAllocation(divisionFiltered);
 
       // Group jobs by batch category for easier batch creation
-      const groupedByCategory = mappedJobs.reduce((acc, job) => {
+      const groupedByCategory = divisionFiltered.reduce((acc, job) => {
         const category = job.batch_category || 'uncategorized';
         if (!acc[category]) {
           acc[category] = [];
@@ -111,7 +117,7 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
 
       setJobsByCategory(groupedByCategory);
 
-      console.log(`✅ Found ${mappedJobs.length} jobs in Batch Allocation stage`);
+      console.log(`✅ Found ${divisionFiltered.length} jobs in Batch Allocation stage for ${selectedDivision}`);
       console.log('📋 Jobs by category:', Object.keys(groupedByCategory).map(cat => `${cat}: ${groupedByCategory[cat].length}`).join(', '));
       
     } catch (error) {
@@ -119,11 +125,11 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedDivision]);
 
   useEffect(() => {
     fetchBatchAllocationJobs();
-  }, [fetchBatchAllocationJobs]);
+  }, [fetchBatchAllocationJobs, selectedDivision]);
 
   return {
     jobsInBatchAllocation,

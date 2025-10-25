@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user, isLoading: authLoading } = useAuth();
+  const { selectedDivision } = useDivision();
   const [batches, setBatches] = useState<BaseBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,9 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
         query = query.eq("id", batchId);
       }
       
-      // Remove user filtering to show all batches
+      // Filter by selected division
+      query = query.eq("division", selectedDivision);
+      
       const { data, error: fetchError } = await query
         .order('created_at', { ascending: false });
 
@@ -67,12 +71,12 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
     }
   };
 
-  // Initial fetch when auth is ready
+  // Initial fetch when auth is ready or division changes
   useEffect(() => {
     if (!authLoading) {
       fetchBatches();
     }
-  }, [authLoading, batchId]);
+  }, [authLoading, batchId, selectedDivision]);
 
   return { batches, isLoading, error, fetchBatches };
 }

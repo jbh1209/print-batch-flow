@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BaseJob, ProductConfig, LaminationType, ExistingTableName } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
+import { useDivision } from "@/contexts/DivisionContext";
 import { generateBatchName } from "@/utils/batch/batchNameGenerator";
 import { validateTableConfig } from "@/utils/batch/tableValidator";
 import { 
@@ -19,6 +20,7 @@ import { addBusinessDays } from "date-fns";
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
+  const { selectedDivision } = useDivision();
 
   const createBatchWithSelectedJobs = async (
     selectedJobs: BaseJob[],
@@ -105,7 +107,8 @@ export function useBatchCreation(productType: string, tableName: string) {
         .from("batches")
         .insert({
           ...batchData,
-          lamination_type: laminationType as any // Type assertion to bypass type check
+          lamination_type: laminationType as any, // Type assertion to bypass type check
+          division: selectedDivision // Set division from context
         })
         .select()
         .single();

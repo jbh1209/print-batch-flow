@@ -227,6 +227,7 @@ export type Database = {
           created_at: string
           created_by: string
           date_created: string
+          division: string
           due_date: string
           front_pdf_url: string | null
           id: string
@@ -248,6 +249,7 @@ export type Database = {
           created_at?: string
           created_by: string
           date_created?: string
+          division?: string
           due_date: string
           front_pdf_url?: string | null
           id?: string
@@ -269,6 +271,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           date_created?: string
+          division?: string
           due_date?: string
           front_pdf_url?: string | null
           id?: string
