@@ -369,7 +369,8 @@ export const parseAndPrepareProductionReadyJobs = async (
   logger: ExcelImportDebugger,
   userId: string,
   generateQRCodes: boolean = true,
-  availableSpecs: any[] = []
+  availableSpecs: any[] = [],
+  division: string = 'DIG'
 ): Promise<any> => {
   logger.addDebugInfo(`Starting Phase 4 enhanced job preparation for file: ${file.name}`);
   
@@ -415,7 +416,7 @@ export const parseAndPrepareProductionReadyJobs = async (
   logger.addDebugInfo(`ENHANCED RESULT: Found ${userApprovedStageMappings.length} user-approved stage mappings`);
   
   // Step 3: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes, division);
   await jobCreator.initialize();
   
   // Step 4: Prepare jobs with mappings AND user-approved stage mappings
@@ -443,7 +444,8 @@ export const parseAndCreateProductionReadyJobs = async (
   logger: ExcelImportDebugger,
   userId: string,
   generateQRCodes: boolean = true,
-  availableSpecs: any[] = []
+  availableSpecs: any[] = [],
+  division: string = 'DIG'
 ): Promise<any> => {
   logger.addDebugInfo(`Starting Phase 4 enhanced job creation for file: ${file.name}`);
   
@@ -460,7 +462,7 @@ export const parseAndCreateProductionReadyJobs = async (
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
   
   // Step 2: Create enhanced job creator with Excel data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes, division);
   await jobCreator.initialize();
   
   // Step 3: Create production-ready jobs with workflows, passing Excel data
@@ -481,7 +483,8 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   logger: ExcelImportDebugger,
   userId: string,
   generateQRCodes: boolean = true,
-  availableSpecs: any[] = []
+  availableSpecs: any[] = [],
+  division: string = 'DIG'
 ): Promise<any> => {
   logger.addDebugInfo(`Starting Phase 4 enhanced matrix job preparation for file: ${file.name}`);
   
@@ -490,7 +493,7 @@ export const parseMatrixAndPrepareProductionReadyJobs = async (
   const jobs = parseResult.jobs;
   
   // Step 2: Create enhanced job creator with matrix data
-  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes, division);
   await jobCreator.initialize();
   
   // Step 3: Prepare jobs with mappings but DON'T save to database yet

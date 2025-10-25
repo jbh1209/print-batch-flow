@@ -37,7 +37,8 @@ export class EnhancedJobCreator {
   constructor(
     private logger: ExcelImportDebugger,
     private userId: string,
-    private generateQRCodes: boolean = true
+    private generateQRCodes: boolean = true,
+    private division: string = 'DIG'
   ) {
     this.stageMapper = new ProductionStageMapper(logger);
     this.enhancedStageMapper = new EnhancedStageMapper(logger);
@@ -839,6 +840,7 @@ export class EnhancedJobCreator {
       date: job.date,
       user_id: this.userId,
       category_id: categoryId,
+      division: this.division,
       status: 'pending',
       has_custom_workflow: categoryId === null, // Custom workflow if no category
       printing_specifications: job.printing_specifications || null,

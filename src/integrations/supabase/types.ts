@@ -4278,15 +4278,90 @@ export type Database = {
           validation_status: string
         }[]
       }
-      initialize_custom_job_stages: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_stage_ids: string[]
-          p_stage_orders: number[]
-        }
-        Returns: boolean
-      }
+      initialize_custom_job_stages:
+        | {
+            Args: {
+              p_category_id: string
+              p_division?: string
+              p_job_id: string
+              p_job_table_name: string
+              p_stage_ids: string[]
+            }
+            Returns: {
+              actual_duration_minutes: number | null
+              allocated_machine_id: string | null
+              category_id: string | null
+              client_email: string | null
+              client_name: string | null
+              completed_at: string | null
+              completed_by: string | null
+              completion_percentage: number | null
+              configuration_completeness_score: number | null
+              created_at: string
+              dependency_group: string | null
+              division: string
+              estimated_duration_minutes: number | null
+              held_at: string | null
+              held_by: string | null
+              hold_reason: string | null
+              hp12000_paper_size_id: string | null
+              id: string
+              is_rework: boolean | null
+              is_split_job: boolean | null
+              job_id: string
+              job_order_in_stage: number
+              job_table_name: string
+              notes: string | null
+              part_assignment: string | null
+              part_name: string | null
+              part_type: string | null
+              previous_stage_id: string | null
+              print_files_sent_by: string | null
+              print_files_sent_to_printer_at: string | null
+              printer_id: string | null
+              production_stage_id: string
+              proof_approved_manually_at: string | null
+              proof_emailed_at: string | null
+              proof_pdf_url: string | null
+              qr_scan_data: Json | null
+              quantity: number | null
+              queue_position: number | null
+              remaining_minutes: number | null
+              rework_count: number | null
+              rework_reason: string | null
+              schedule_status: string | null
+              scheduled_by_user_id: string | null
+              scheduled_end_at: string | null
+              scheduled_minutes: number | null
+              scheduled_start_at: string | null
+              scheduling_method: string | null
+              setup_time_minutes: number | null
+              split_job_part: number | null
+              split_job_total_parts: number | null
+              stage_order: number
+              stage_specification_id: string | null
+              started_at: string | null
+              started_by: string | null
+              status: string
+              unique_stage_key: string | null
+              updated_at: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "job_stage_instances"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: {
+              p_job_id: string
+              p_job_table_name: string
+              p_stage_ids: string[]
+              p_stage_orders: number[]
+            }
+            Returns: boolean
+          }
       initialize_custom_job_stages_with_specs:
         | {
             Args: {
@@ -4305,22 +4380,170 @@ export type Database = {
             }
             Returns: boolean
           }
-      initialize_job_stages: {
-        Args: {
-          p_category_id: string
-          p_job_id: string
-          p_job_table_name: string
-        }
-        Returns: boolean
-      }
-      initialize_job_stages_auto: {
-        Args: {
-          p_category_id: string
-          p_job_id: string
-          p_job_table_name: string
-        }
-        Returns: boolean
-      }
+      initialize_job_stages:
+        | {
+            Args: {
+              p_category_id: string
+              p_job_id: string
+              p_job_table_name: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_category_id: string
+              p_division?: string
+              p_job_id: string
+              p_job_table_name: string
+            }
+            Returns: {
+              actual_duration_minutes: number | null
+              allocated_machine_id: string | null
+              category_id: string | null
+              client_email: string | null
+              client_name: string | null
+              completed_at: string | null
+              completed_by: string | null
+              completion_percentage: number | null
+              configuration_completeness_score: number | null
+              created_at: string
+              dependency_group: string | null
+              division: string
+              estimated_duration_minutes: number | null
+              held_at: string | null
+              held_by: string | null
+              hold_reason: string | null
+              hp12000_paper_size_id: string | null
+              id: string
+              is_rework: boolean | null
+              is_split_job: boolean | null
+              job_id: string
+              job_order_in_stage: number
+              job_table_name: string
+              notes: string | null
+              part_assignment: string | null
+              part_name: string | null
+              part_type: string | null
+              previous_stage_id: string | null
+              print_files_sent_by: string | null
+              print_files_sent_to_printer_at: string | null
+              printer_id: string | null
+              production_stage_id: string
+              proof_approved_manually_at: string | null
+              proof_emailed_at: string | null
+              proof_pdf_url: string | null
+              qr_scan_data: Json | null
+              quantity: number | null
+              queue_position: number | null
+              remaining_minutes: number | null
+              rework_count: number | null
+              rework_reason: string | null
+              schedule_status: string | null
+              scheduled_by_user_id: string | null
+              scheduled_end_at: string | null
+              scheduled_minutes: number | null
+              scheduled_start_at: string | null
+              scheduling_method: string | null
+              setup_time_minutes: number | null
+              split_job_part: number | null
+              split_job_total_parts: number | null
+              stage_order: number
+              stage_specification_id: string | null
+              started_at: string | null
+              started_by: string | null
+              status: string
+              unique_stage_key: string | null
+              updated_at: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "job_stage_instances"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
+      initialize_job_stages_auto:
+        | {
+            Args: {
+              p_category_id: string
+              p_job_id: string
+              p_job_table_name: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_category_id: string
+              p_division?: string
+              p_job_id: string
+              p_job_table_name: string
+            }
+            Returns: {
+              actual_duration_minutes: number | null
+              allocated_machine_id: string | null
+              category_id: string | null
+              client_email: string | null
+              client_name: string | null
+              completed_at: string | null
+              completed_by: string | null
+              completion_percentage: number | null
+              configuration_completeness_score: number | null
+              created_at: string
+              dependency_group: string | null
+              division: string
+              estimated_duration_minutes: number | null
+              held_at: string | null
+              held_by: string | null
+              hold_reason: string | null
+              hp12000_paper_size_id: string | null
+              id: string
+              is_rework: boolean | null
+              is_split_job: boolean | null
+              job_id: string
+              job_order_in_stage: number
+              job_table_name: string
+              notes: string | null
+              part_assignment: string | null
+              part_name: string | null
+              part_type: string | null
+              previous_stage_id: string | null
+              print_files_sent_by: string | null
+              print_files_sent_to_printer_at: string | null
+              printer_id: string | null
+              production_stage_id: string
+              proof_approved_manually_at: string | null
+              proof_emailed_at: string | null
+              proof_pdf_url: string | null
+              qr_scan_data: Json | null
+              quantity: number | null
+              queue_position: number | null
+              remaining_minutes: number | null
+              rework_count: number | null
+              rework_reason: string | null
+              schedule_status: string | null
+              scheduled_by_user_id: string | null
+              scheduled_end_at: string | null
+              scheduled_minutes: number | null
+              scheduled_start_at: string | null
+              scheduling_method: string | null
+              setup_time_minutes: number | null
+              split_job_part: number | null
+              split_job_total_parts: number | null
+              stage_order: number
+              stage_specification_id: string | null
+              started_at: string | null
+              started_by: string | null
+              status: string
+              unique_stage_key: string | null
+              updated_at: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "job_stage_instances"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
       initialize_job_stages_concurrent: {
         Args: {
           p_category_id: string
@@ -4329,14 +4552,88 @@ export type Database = {
         }
         Returns: boolean
       }
-      initialize_job_stages_with_multi_specs: {
-        Args: {
-          p_consolidated_stages: Json
-          p_job_id: string
-          p_job_table_name: string
-        }
-        Returns: boolean
-      }
+      initialize_job_stages_with_multi_specs:
+        | {
+            Args: {
+              p_consolidated_stages: Json
+              p_job_id: string
+              p_job_table_name: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_category_id: string
+              p_division?: string
+              p_job_id: string
+              p_job_table_name: string
+            }
+            Returns: {
+              actual_duration_minutes: number | null
+              allocated_machine_id: string | null
+              category_id: string | null
+              client_email: string | null
+              client_name: string | null
+              completed_at: string | null
+              completed_by: string | null
+              completion_percentage: number | null
+              configuration_completeness_score: number | null
+              created_at: string
+              dependency_group: string | null
+              division: string
+              estimated_duration_minutes: number | null
+              held_at: string | null
+              held_by: string | null
+              hold_reason: string | null
+              hp12000_paper_size_id: string | null
+              id: string
+              is_rework: boolean | null
+              is_split_job: boolean | null
+              job_id: string
+              job_order_in_stage: number
+              job_table_name: string
+              notes: string | null
+              part_assignment: string | null
+              part_name: string | null
+              part_type: string | null
+              previous_stage_id: string | null
+              print_files_sent_by: string | null
+              print_files_sent_to_printer_at: string | null
+              printer_id: string | null
+              production_stage_id: string
+              proof_approved_manually_at: string | null
+              proof_emailed_at: string | null
+              proof_pdf_url: string | null
+              qr_scan_data: Json | null
+              quantity: number | null
+              queue_position: number | null
+              remaining_minutes: number | null
+              rework_count: number | null
+              rework_reason: string | null
+              schedule_status: string | null
+              scheduled_by_user_id: string | null
+              scheduled_end_at: string | null
+              scheduled_minutes: number | null
+              scheduled_start_at: string | null
+              scheduling_method: string | null
+              setup_time_minutes: number | null
+              split_job_part: number | null
+              split_job_total_parts: number | null
+              stage_order: number
+              stage_specification_id: string | null
+              started_at: string | null
+              started_by: string | null
+              status: string
+              unique_stage_key: string | null
+              updated_at: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "job_stage_instances"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
       initialize_queue_state: { Args: never; Returns: number }
       inject_batch_allocation_stage_for_existing_jobs: {
         Args: never

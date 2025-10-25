@@ -13,7 +13,8 @@ export const assignJobCategory = async (
   jobId: string,
   selectedCategoryId: string,
   requiresPartAssignment: boolean,
-  partAssignments: Record<string, string>
+  partAssignments: Record<string, string>,
+  division?: string
 ): Promise<boolean> => {
   
   // Check if job already has workflow stages
@@ -43,10 +44,10 @@ export const assignJobCategory = async (
     throw new Error(`Category fetch failed: ${categoryError.message}`);
   }
 
-  // Get job's created_at date
+  // Get job's created_at date and division
   const { data: jobData, error: jobError } = await supabase
     .from('production_jobs')
-    .select('created_at')
+    .select('created_at, division')
     .eq('id', jobId)
     .single();
 
@@ -82,7 +83,8 @@ export const assignJobCategory = async (
     const { error: initError } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: selectedCategoryId
+      p_category_id: selectedCategoryId,
+      p_division: division || jobData.division || 'DIG'
     });
 
     if (initError) {
@@ -94,7 +96,8 @@ export const assignJobCategory = async (
     const { error: standardError } = await supabase.rpc('initialize_job_stages_auto', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: selectedCategoryId
+      p_category_id: selectedCategoryId,
+      p_division: division || jobData.division || 'DIG'
     });
 
     if (standardError) {

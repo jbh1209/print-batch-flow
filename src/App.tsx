@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/auth/AuthProvider";
+import { DivisionProvider } from "@/contexts/DivisionContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import { TrackerErrorBoundary } from "@/components/tracker/TrackerErrorBoundary";
@@ -98,11 +99,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <BrowserRouter>
-            <TrackerErrorBoundary>
-              <Routes>
+        <DivisionProvider>
+          <TooltipProvider>
+            <Toaster />
+            <BrowserRouter>
+              <TrackerErrorBoundary>
+                <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 
@@ -264,10 +266,11 @@ function App() {
                 {/* Legacy test routes removed */}
                 {/* Removed scheduler routes */}
 
-              </Routes>
-            </TrackerErrorBoundary>
-          </BrowserRouter>
-        </TooltipProvider>
+                </Routes>
+              </TrackerErrorBoundary>
+            </BrowserRouter>
+          </TooltipProvider>
+        </DivisionProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

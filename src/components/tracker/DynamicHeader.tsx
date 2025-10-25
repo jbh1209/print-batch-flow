@@ -10,6 +10,7 @@ import { RefreshIndicator } from "./RefreshIndicator";
 import { useDataManager } from "@/hooks/tracker/useDataManager";
 import { OrderSearchModal } from "./modals/OrderSearchModal";
 import { MasterOrderModal } from "./modals/MasterOrderModal";
+import { DivisionSelector } from "./DivisionSelector";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface DynamicHeaderProps {
@@ -80,6 +81,8 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
               Tracker
             </h1>
           </div>
+
+          <DivisionSelector />
           
           <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto min-h-[36px]">
             <TabsList className="grid grid-cols-7 w-auto bg-gray-100 px-0 py-0 gap-0 min-h-[36px]">
