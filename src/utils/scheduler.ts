@@ -102,12 +102,16 @@ export async function getSchedulingValidation(): Promise<SchedulerValidation[]> 
 
 /**
  * Schedule specific jobs
+ * @param jobIds - Array of job IDs to schedule
+ * @param forceReschedule - If true, force a reschedule even if already scheduled
+ * @param division - Optional division filter (e.g., 'DIG', 'OFF')
  */
-export async function scheduleJobs(jobIds: string[], forceReschedule = false): Promise<SchedulerResult | null> {
+export async function scheduleJobs(jobIds: string[], forceReschedule = false, division?: string): Promise<SchedulerResult | null> {
   try {
     const { data, error } = await supabase.rpc('scheduler_append_jobs', {
       p_job_ids: jobIds,
-      p_only_if_unset: !forceReschedule
+      p_only_if_unset: !forceReschedule,
+      p_division: division // Pass division parameter
     });
     
     if (error) {

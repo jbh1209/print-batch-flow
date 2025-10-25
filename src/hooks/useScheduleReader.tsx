@@ -122,11 +122,11 @@ export function useScheduleReader() {
   const [scheduleDays, setScheduleDays] = useState<ScheduleDayData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchSchedule = useCallback(async () => {
+  const fetchSchedule = useCallback(async (division?: string) => {
     setIsLoading(true);
     try {
       // 1) Pull scheduled stage instances (+ minute fields we need + HP12000 paper size)
-      const { data: stageInstances, error: stagesError } = await supabase
+      const query = supabase
         .from("job_stage_instances")
         .select(
           `
@@ -456,16 +456,17 @@ export function useScheduleReader() {
   }, []);
 
   // Canonical path: UI -> Edge Function -> DB wrapper
-  const triggerReschedule = useCallback(async () => {
+  const triggerReschedule = useCallback(async (division?: string) => {
     try {
-      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...");
+      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...", { division });
       const { data, error } = await supabase.functions.invoke('simple-scheduler', {
         body: {
           commit: true,
           proposed: false,
           onlyIfUnset: false,
           nuclear: true,
-          wipeAll: true
+          wipeAll: true,
+          division // Pass division parameter
         }
       });
       if (error) {

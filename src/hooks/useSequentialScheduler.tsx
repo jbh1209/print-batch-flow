@@ -6,14 +6,16 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { rescheduleAll, scheduleJobs } from "@/utils/scheduler";
+import { useDivision } from "@/contexts/DivisionContext";
 
 export function useSequentialScheduler() {
   const [isLoading, setIsLoading] = useState(false);
+  const { selectedDivision } = useDivision();
 
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await rescheduleAll();
+      const result = await rescheduleAll(selectedDivision);
       if (!result) return;
       
       const violationCount = result.violations.length;
@@ -57,12 +59,12 @@ export function useSequentialScheduler() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedDivision]);
 
   const appendJobs = useCallback(async (jobIds: string[]) => {
     setIsLoading(true);
     try {
-      const result = await scheduleJobs(jobIds, false);
+      const result = await scheduleJobs(jobIds, false, selectedDivision);
       if (!result) return;
       
       toast.success(`Successfully scheduled ${result.updated_jsi} stages for ${jobIds.length} jobs`);
@@ -72,7 +74,7 @@ export function useSequentialScheduler() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedDivision]);
 
   const carryForwardOverdueJobs = useCallback(async () => {
     setIsLoading(true);
