@@ -3,9 +3,11 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { UserPlus, Edit, Trash2, RefreshCw, MoreVertical, KeyRound, Mail } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserPlus, Edit, Trash2, RefreshCw, MoreVertical, KeyRound, Mail, Search, X } from "lucide-react";
 import { useUserManagement } from "@/contexts/UserManagementContext";
 import { UserForm } from "./UserForm";
 import { PasswordChangeForm } from "./PasswordChangeForm";
@@ -28,6 +30,9 @@ export const EnhancedUserManagement = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [divisions, setDivisions] = useState<Division[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [divisionFilter, setDivisionFilter] = useState<string>('all');
 
   useEffect(() => {
     const fetchDivisions = async () => {
@@ -101,18 +106,22 @@ export const EnhancedUserManagement = () => {
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
+      case 'sys_dev': return 'bg-orange-100 text-orange-800 border-orange-300';
       case 'admin': return 'bg-red-100 text-red-800 border-red-200';
       case 'manager': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'dtp_operator': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'operator': return 'bg-green-100 text-green-800 border-green-200';
+      case 'packaging_operator': return 'bg-amber-100 text-amber-800 border-amber-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
+      case 'sys_dev': return 'System Developer';
       case 'dtp_operator': return 'DTP Operator';
       case 'operator': return 'Operator';
+      case 'packaging_operator': return 'Packaging Operator';
       case 'manager': return 'Manager';
       case 'admin': return 'Administrator';
       default: return 'User';
@@ -129,6 +138,26 @@ export const EnhancedUserManagement = () => {
       primary_division: user.primary_division
     };
   };
+
+  // Filter users based on search query, role filter, and division filter
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = searchQuery === '' || 
+      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.role.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    
+    const matchesDivision = divisionFilter === 'all' || 
+      (user.divisions && user.divisions.includes(divisionFilter));
+    
+    return matchesSearch && matchesRole && matchesDivision;
+  });
+
+  const activeFiltersCount = 
+    (searchQuery !== '' ? 1 : 0) +
+    (roleFilter !== 'all' ? 1 : 0) +
+    (divisionFilter !== 'all' ? 1 : 0);
 
   if (isLoading) {
     return (
@@ -160,10 +189,115 @@ export const EnhancedUserManagement = () => {
               </Button>
             </div>
           </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-wrap gap-3">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, email, or role..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="sys_dev">System Developer</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="operator">Operator</SelectItem>
+                  <SelectItem value="dtp_operator">DTP Operator</SelectItem>
+                  <SelectItem value="packaging_operator">Packaging Operator</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by division" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Divisions</SelectItem>
+                  {divisions.map((division) => (
+                    <SelectItem key={division.code} value={division.code}>
+                      {division.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Active Filters Display */}
+            {activeFiltersCount > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">
+                  {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''} active:
+                </span>
+                {searchQuery && (
+                  <Badge variant="secondary" className="gap-1">
+                    Search: {searchQuery}
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {roleFilter !== 'all' && (
+                  <Badge variant="secondary" className="gap-1">
+                    Role: {getRoleDisplayName(roleFilter)}
+                    <button
+                      onClick={() => setRoleFilter('all')}
+                      className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {divisionFilter !== 'all' && (
+                  <Badge variant="secondary" className="gap-1">
+                    Division: {divisions.find(d => d.code === divisionFilter)?.name}
+                    <button
+                      onClick={() => setDivisionFilter('all')}
+                      className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setRoleFilter('all');
+                    setDivisionFilter('all');
+                  }}
+                  className="h-7"
+                >
+                  Clear all
+                </Button>
+              </div>
+            )}
+
+            <div className="text-sm text-muted-foreground">
+              Showing {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <Card key={user.id} className="border">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -243,9 +377,11 @@ export const EnhancedUserManagement = () => {
             ))}
           </div>
 
-          {users.length === 0 && (
+          {filteredUsers.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              No users found. Create your first user to get started.
+              {users.length === 0 
+                ? 'No users found. Create your first user to get started.'
+                : 'No users match your filters.'}
             </div>
           )}
         </CardContent>

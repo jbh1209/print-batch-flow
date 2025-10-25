@@ -64,8 +64,10 @@ const roleOptions = [
   { value: 'user', label: 'User' },
   { value: 'operator', label: 'Operator' },
   { value: 'dtp_operator', label: 'DTP Operator' },
+  { value: 'packaging_operator', label: 'Packaging Operator' },
   { value: 'manager', label: 'Manager' },
-  { value: 'admin', label: 'Administrator' }
+  { value: 'admin', label: 'Administrator' },
+  { value: 'sys_dev', label: 'System Developer' }
 ];
 
 export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
