@@ -36,10 +36,11 @@ function getFactoryBaseTime(): string {
 
 /**
  * Main reschedule function - routes through edge function to avoid DB timeouts
+ * @param division - Optional division filter (e.g., 'DIG', 'OFF')
  */
-export async function rescheduleAll(): Promise<SchedulerResult | null> {
+export async function rescheduleAll(division?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via Edge Function simple-scheduler...');
+    console.log('🔄 Starting reschedule via Edge Function simple-scheduler...', { division });
 
     const { data, error } = await supabase.functions.invoke('simple-scheduler', {
       body: {
@@ -47,7 +48,8 @@ export async function rescheduleAll(): Promise<SchedulerResult | null> {
         proposed: false,
         onlyIfUnset: false,
         nuclear: true,
-        wipeAll: true
+        wipeAll: true,
+        division
       }
     });
 
@@ -108,11 +110,12 @@ export async function getSchedulingValidation(): Promise<SchedulerValidation[]> 
  */
 export async function scheduleJobs(jobIds: string[], forceReschedule = false, division?: string): Promise<SchedulerResult | null> {
   try {
+    // TypeScript types haven't regenerated yet - use type assertion
     const { data, error } = await supabase.rpc('scheduler_append_jobs', {
       p_job_ids: jobIds,
       p_only_if_unset: !forceReschedule,
-      p_division: division // Pass division parameter
-    });
+      p_division: division
+    } as any);
     
     if (error) {
       console.error('Error scheduling jobs:', error);
