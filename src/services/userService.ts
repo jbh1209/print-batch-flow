@@ -133,10 +133,32 @@ export async function createUser(userData: UserFormData): Promise<User> {
       throw new Error('User creation failed - no user data returned');
     }
     
+    const newUserId = data.user.id;
     console.log('User created successfully:', data.user);
     
+    // Add division assignments
+    if (userData.divisions && userData.divisions.length > 0) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const divisionAssignments = userData.divisions.map((divCode, index) => ({
+        user_id: newUserId,
+        division_code: divCode,
+        is_primary: divCode === userData.primary_division || index === 0,
+        assigned_by: currentUser?.id
+      }));
+      
+      const { error: divError } = await supabase
+        .from('user_division_assignments')
+        .insert(divisionAssignments);
+        
+      if (divError) {
+        console.error('Error assigning divisions:', divError);
+        throw divError;
+      }
+      console.log('✅ Division assignments created');
+    }
+    
     return {
-      id: data.user.id,
+      id: newUserId,
       email: data.user.email
     };
   } catch (error: any) {
@@ -188,6 +210,33 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.role) {
       await updateUserRole(userId, userData.role);
       console.log('✅ Role updated successfully');
+    }
+    
+    // Update division assignments if provided
+    if (userData.divisions !== undefined) {
+      console.log('🔄 Updating division assignments:', userData.divisions);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Delete existing assignments
+      await supabase
+        .from('user_division_assignments')
+        .delete()
+        .eq('user_id', userId);
+      
+      // Insert new assignments
+      if (userData.divisions.length > 0) {
+        const divisionAssignments = userData.divisions.map((divCode, index) => ({
+          user_id: userId,
+          division_code: divCode,
+          is_primary: divCode === userData.primary_division || index === 0,
+          assigned_by: currentUser?.id
+        }));
+        
+        await supabase
+          .from('user_division_assignments')
+          .insert(divisionAssignments);
+      }
+      console.log('✅ Division assignments updated successfully');
     }
     
     // Update group memberships if provided

@@ -12,6 +12,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle } from "lucide-react";
 import { UserFormData } from "@/types/user-types";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 interface UserFormProps {
   initialData?: UserFormData;
@@ -25,6 +26,13 @@ interface UserGroup {
   description: string;
 }
 
+interface Division {
+  code: string;
+  name: string;
+  color: string;
+  icon: string;
+}
+
 // Define form schema based on whether we're editing or creating
 const createUserSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -35,7 +43,9 @@ const createUserSchema = z.object({
     .max(100),
   confirmPassword: z.string(),
   role: z.string().default("user"),
-  groups: z.array(z.string()).optional()
+  groups: z.array(z.string()).optional(),
+  divisions: z.array(z.string()).optional(),
+  primary_division: z.string().optional()
 }).refine((data) => data.password === data.confirmPassword, {
   path: ["confirmPassword"],
   message: "Passwords do not match",
@@ -45,7 +55,9 @@ const editUserSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   role: z.string().default("user"),
-  groups: z.array(z.string()).optional()
+  groups: z.array(z.string()).optional(),
+  divisions: z.array(z.string()).optional(),
+  primary_division: z.string().optional()
 });
 
 const roleOptions = [
@@ -60,6 +72,9 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  const [availableDivisions, setAvailableDivisions] = useState<Division[]>([]);
+  const [selectedDivisions, setSelectedDivisions] = useState<string[]>([]);
+  const [primaryDivision, setPrimaryDivision] = useState<string>('');
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
   
@@ -70,6 +85,8 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
       full_name: initialData?.full_name || "",
       role: initialData?.role || "user",
       groups: initialData?.groups || [],
+      divisions: initialData?.divisions || [],
+      primary_division: initialData?.primary_division || "",
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });
@@ -77,18 +94,18 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
   // Update form when initialData changes (important for edit mode)
   useEffect(() => {
     if (initialData) {
-      console.log('🔄 UserForm initialData updated:', {
-        email: initialData.email,
-        full_name: initialData.full_name,
-        role: initialData.role,
-        groups: initialData.groups
-      });
+      console.log('🔄 UserForm initialData updated:', initialData);
+      
+      setSelectedDivisions(initialData.divisions || []);
+      setPrimaryDivision(initialData.primary_division || '');
       
       form.reset({
         email: initialData.email || "",
         full_name: initialData.full_name || "",
         role: initialData.role || "user",
         groups: initialData.groups || [],
+        divisions: initialData.divisions || [],
+        primary_division: initialData.primary_division || "",
         ...(isEditing ? {} : { password: "", confirmPassword: "" })
       });
     }
@@ -96,6 +113,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
 
   useEffect(() => {
     fetchUserGroups();
+    fetchDivisions();
   }, []);
 
   const fetchUserGroups = async () => {
@@ -113,15 +131,39 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
     }
   };
 
+  const fetchDivisions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('divisions')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (error) throw error;
+      setAvailableDivisions(data || []);
+      console.log('📋 Fetched divisions:', data?.length || 0);
+    } catch (error) {
+      console.error('Error fetching divisions:', error);
+    }
+  };
+
   const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
     setServerError("");
     
     try {
-      await onSubmit(data);
+      // Add division data to the submission
+      const submissionData = {
+        ...data,
+        divisions: selectedDivisions,
+        primary_division: primaryDivision
+      };
+      await onSubmit(submissionData);
       // Reset form after successful creation
       if (!isEditing) {
         form.reset();
+        setSelectedDivisions([]);
+        setPrimaryDivision('');
       }
     } catch (error: any) {
       setServerError(error.message || "An unexpected error occurred");
@@ -216,6 +258,76 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
           )}
         />
 
+        {availableDivisions.length > 0 && (
+          <FormField
+            control={form.control}
+            name="divisions"
+            render={() => (
+              <FormItem>
+                <FormLabel>Divisions</FormLabel>
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                  {availableDivisions.map((division) => {
+                    const isChecked = selectedDivisions.includes(division.code);
+                    const isPrimary = primaryDivision === division.code;
+                    
+                    return (
+                      <div key={division.code} className="flex items-center justify-between space-x-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                const newDivisions = [...selectedDivisions, division.code];
+                                setSelectedDivisions(newDivisions);
+                                form.setValue('divisions', newDivisions);
+                                if (!primaryDivision) {
+                                  setPrimaryDivision(division.code);
+                                  form.setValue('primary_division', division.code);
+                                }
+                              } else {
+                                const newDivisions = selectedDivisions.filter(c => c !== division.code);
+                                setSelectedDivisions(newDivisions);
+                                form.setValue('divisions', newDivisions);
+                                if (primaryDivision === division.code) {
+                                  const newPrimary = newDivisions[0] || '';
+                                  setPrimaryDivision(newPrimary);
+                                  form.setValue('primary_division', newPrimary);
+                                }
+                              }
+                            }}
+                          />
+                          <Badge style={{ backgroundColor: division.color }} className="text-white">
+                            {division.code}
+                          </Badge>
+                          <span className="text-sm">{division.name}</span>
+                          {isPrimary && (
+                            <Badge variant="outline" className="text-xs">Primary</Badge>
+                          )}
+                        </div>
+                        {isChecked && !isPrimary && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setPrimaryDivision(division.code);
+                              form.setValue('primary_division', division.code);
+                            }}
+                            className="text-xs h-7"
+                          >
+                            Set Primary
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         {userGroups.length > 0 && (
           <FormField
             control={form.control}
@@ -231,7 +343,6 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
                       name="groups"
                       render={({ field }) => {
                         const isChecked = field.value?.includes(group.id) || false;
-                        console.log(`🔍 Group ${group.name} (${group.id}) checked: ${isChecked}`);
                         
                         return (
                           <FormItem

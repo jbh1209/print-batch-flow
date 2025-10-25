@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,13 @@ import { PasswordChangeForm } from "./PasswordChangeForm";
 import { UserFormData, UserWithRole } from "@/types/user-types";
 import { toast } from "sonner";
 import { resetUserPasswordAdmin, sendPasswordResetEmail } from "@/services/passwordService";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Division {
+  code: string;
+  name: string;
+  color: string;
+}
 
 export const EnhancedUserManagement = () => {
   const { users, isLoading, fetchUsers, createUser, updateUser, deleteUser } = useUserManagement();
@@ -20,6 +27,18 @@ export const EnhancedUserManagement = () => {
   const [passwordResetUser, setPasswordResetUser] = useState<UserWithRole | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [divisions, setDivisions] = useState<Division[]>([]);
+
+  useEffect(() => {
+    const fetchDivisions = async () => {
+      const { data } = await supabase
+        .from('divisions')
+        .select('code, name, color')
+        .eq('is_active', true);
+      setDivisions(data || []);
+    };
+    fetchDivisions();
+  }, []);
 
   const handleCreateUser = async (userData: UserFormData) => {
     await createUser(userData);
@@ -105,7 +124,9 @@ export const EnhancedUserManagement = () => {
       email: user.email,
       full_name: user.full_name,
       role: user.role as any,
-      groups: user.groups || []
+      groups: user.groups || [],
+      divisions: user.divisions || [],
+      primary_division: user.primary_division
     };
   };
 
@@ -157,8 +178,25 @@ export const EnhancedUserManagement = () => {
                       <p className="text-xs text-gray-500 mt-1">
                         Created: {new Date(user.created_at).toLocaleDateString()}
                       </p>
-                      {user.groups && user.groups.length > 0 && (
+                      {user.divisions && user.divisions.length > 0 && (
                         <div className="flex gap-1 mt-2">
+                          {user.divisions.map((divCode) => {
+                            const division = divisions.find(d => d.code === divCode);
+                            const isPrimary = user.primary_division === divCode;
+                            return (
+                              <Badge 
+                                key={divCode}
+                                style={{ backgroundColor: division?.color || '#6B7280' }}
+                                className="text-white text-xs"
+                              >
+                                {divCode} {isPrimary && '(Primary)'}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {user.groups && user.groups.length > 0 && (
+                        <div className="flex gap-1 mt-1">
                           {user.groups.map((groupId) => (
                             <Badge key={groupId} variant="outline" className="text-xs">
                               Group {groupId.slice(0, 8)}

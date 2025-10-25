@@ -3209,6 +3209,41 @@ export type Database = {
           },
         ]
       }
+      user_division_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          division_code: string
+          id: string
+          is_primary: boolean | null
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          division_code: string
+          id?: string
+          is_primary?: boolean | null
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          division_code?: string
+          id?: string
+          is_primary?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_division_assignments_division_code_fkey"
+            columns: ["division_code"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       user_group_memberships: {
         Row: {
           assigned_at: string
@@ -4324,6 +4359,7 @@ export type Database = {
           max_concurrent_jobs: number
         }[]
       }
+      get_user_divisions: { Args: { p_user_id: string }; Returns: string[] }
       get_user_role_safe: { Args: { user_id_param: string }; Returns: string }
       get_workflow_metrics: {
         Args: { p_job_id: string }

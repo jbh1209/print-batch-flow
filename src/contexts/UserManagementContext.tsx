@@ -44,27 +44,39 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       const fetchedUsers = await userService.fetchUsers();
       
-      // Enhance users with group information
+      // Enhance users with group and division information
       const usersWithGroups = await Promise.all(
         fetchedUsers.map(async (user) => {
           try {
-            const { data: groupMemberships, error } = await supabase
+            // Fetch group memberships
+            const { data: groupMemberships, error: groupError } = await supabase
               .from('user_group_memberships')
               .select('group_id')
               .eq('user_id', user.id);
             
-            if (error) {
-              console.warn(`Could not fetch groups for user ${user.id}:`, error);
-              return { ...user, groups: [] };
+            if (groupError) {
+              console.warn(`Could not fetch groups for user ${user.id}:`, groupError);
+            }
+            
+            // Fetch division assignments
+            const { data: divisionAssignments, error: divError } = await supabase
+              .from('user_division_assignments')
+              .select('division_code, is_primary')
+              .eq('user_id', user.id);
+            
+            if (divError) {
+              console.warn(`Could not fetch divisions for user ${user.id}:`, divError);
             }
             
             return {
               ...user,
-              groups: groupMemberships?.map(membership => membership.group_id) || []
+              groups: groupMemberships?.map(membership => membership.group_id) || [],
+              divisions: divisionAssignments?.map(d => d.division_code) || [],
+              primary_division: divisionAssignments?.find(d => d.is_primary)?.division_code
             };
           } catch (error) {
-            console.warn(`Error fetching groups for user ${user.id}:`, error);
-            return { ...user, groups: [] };
+            console.warn(`Error fetching data for user ${user.id}:`, error);
+            return { ...user, groups: [], divisions: [], primary_division: undefined };
           }
         })
       );

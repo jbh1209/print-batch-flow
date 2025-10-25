@@ -35,15 +35,14 @@ export const DivisionProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       try {
-        // Get user's allowed divisions from their groups
-        const { data: userGroups } = await supabase
-          .from('user_group_memberships')
-          .select('user_groups(allowed_divisions)')
+        // Get user's division assignments directly
+        const { data: userDivisions } = await supabase
+          .from('user_division_assignments')
+          .select('division_code, is_primary')
           .eq('user_id', user.id);
 
-        const divisionCodes = Array.from(new Set(
-          userGroups?.flatMap(ug => (ug.user_groups as any)?.allowed_divisions || []) || ['DIG']
-        ));
+        const divisionCodes = userDivisions?.map(ud => ud.division_code) || ['DIG'];
+        const primaryDivision = userDivisions?.find(ud => ud.is_primary)?.division_code;
 
         // Fetch division details
         const { data: divisions } = await supabase
@@ -55,9 +54,9 @@ export const DivisionProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         setAvailableDivisions(divisions || []);
         
-        // If selected division is not accessible, switch to first available
+        // If selected division is not accessible, switch to primary or first available
         if (!divisionCodes.includes(selectedDivision)) {
-          setSelectedDivisionState(divisions?.[0]?.code || 'DIG');
+          setSelectedDivisionState(primaryDivision || divisions?.[0]?.code || 'DIG');
         }
       } catch (error) {
         console.error('Failed to fetch divisions:', error);
