@@ -24,10 +24,10 @@ export const useSmartPermissionDetectionSimple = () => {
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .eq('role', 'admin')
+          .in('role', ['admin', 'sys_dev'])
           .single();
 
-        if (adminCheck?.role === 'admin') {
+        if (adminCheck?.role === 'admin' || adminCheck?.role === 'sys_dev') {
           console.log('👑 Admin user - using manage permission');
           setHighestPermission('manage');
           setIsLoading(false);

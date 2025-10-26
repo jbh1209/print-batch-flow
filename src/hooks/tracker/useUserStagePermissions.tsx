@@ -30,10 +30,10 @@ export const useUserStagePermissions = (userId?: string) => {
           .from('user_roles')
           .select('role')
           .eq('user_id', userId)
-          .eq('role', 'admin')
+          .in('role', ['admin', 'sys_dev'])
           .single();
 
-        const userIsAdmin = !adminError && adminCheck?.role === 'admin';
+        const userIsAdmin = !adminError && (adminCheck?.role === 'admin' || adminCheck?.role === 'sys_dev');
         setIsAdmin(userIsAdmin);
 
         console.log("🔍 User permissions check:", {

@@ -77,7 +77,7 @@ export async function checkAdminExists(): Promise<boolean> {
     const { data, error } = await supabase
       .from('user_roles')
       .select('user_id')
-      .eq('role', 'admin')
+      .in('role', ['admin', 'sys_dev'])
       .limit(1);
     
     if (error) {

@@ -18,7 +18,7 @@ import { UserRole } from "@/hooks/tracker/useUserRole";
  * @returns true if user can edit any job, false if restricted to own jobs
  */
 export const canEditAllJobs = (userRole: UserRole): boolean => {
-  return userRole === 'admin' || userRole === 'manager' || userRole === 'dtp_operator';
+  return userRole === 'admin' || userRole === 'sys_dev' || userRole === 'manager' || userRole === 'dtp_operator';
 };
 
 /**
@@ -27,7 +27,7 @@ export const canEditAllJobs = (userRole: UserRole): boolean => {
  * @returns true if user can delete jobs
  */
 export const canDeleteJobs = (userRole: UserRole): boolean => {
-  return userRole === 'admin' || userRole === 'manager';
+  return userRole === 'admin' || userRole === 'sys_dev' || userRole === 'manager';
 };
 
 /**
@@ -36,7 +36,7 @@ export const canDeleteJobs = (userRole: UserRole): boolean => {
  * @returns true if user can create batches
  */
 export const canCreateBatches = (userRole: UserRole): boolean => {
-  return userRole === 'admin' || userRole === 'manager' || userRole === 'dtp_operator';
+  return userRole === 'admin' || userRole === 'sys_dev' || userRole === 'manager' || userRole === 'dtp_operator';
 };
 
 /**
