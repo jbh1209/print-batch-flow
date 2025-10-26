@@ -3628,14 +3628,22 @@ export type Database = {
       v_scheduler_stages_ready: {
         Row: {
           actual_duration_minutes: number | null
+          allocated_machine_id: string | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
           completed_at: string | null
           completed_by: string | null
+          completion_percentage: number | null
+          configuration_completeness_score: number | null
           created_at: string | null
           dependency_group: string | null
+          division: string | null
           estimated_duration_minutes: number | null
+          held_at: string | null
+          held_by: string | null
+          hold_reason: string | null
+          hp12000_paper_size_id: string | null
           id: string | null
           is_rework: boolean | null
           is_split_job: boolean | null
@@ -3647,6 +3655,8 @@ export type Database = {
           part_name: string | null
           part_type: string | null
           previous_stage_id: string | null
+          print_files_sent_by: string | null
+          print_files_sent_to_printer_at: string | null
           printer_id: string | null
           production_stage_id: string | null
           proof_approved_manually_at: string | null
@@ -3655,6 +3665,7 @@ export type Database = {
           qr_scan_data: Json | null
           quantity: number | null
           queue_position: number | null
+          remaining_minutes: number | null
           rework_count: number | null
           rework_reason: string | null
           schedule_status: string | null
@@ -3692,10 +3703,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_stage_instances_allocated_machine_id_fkey"
+            columns: ["allocated_machine_id"]
+            isOneToOne: false
+            referencedRelation: "die_cutting_machines"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "job_stage_instances_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_division_fkey"
+            columns: ["division"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_hp12000_paper_size_id_fkey"
+            columns: ["hp12000_paper_size_id"]
+            isOneToOne: false
+            referencedRelation: "hp12000_paper_sizes"
             referencedColumns: ["id"]
           },
           {
@@ -4976,14 +5008,23 @@ export type Database = {
         Args: { job_ids: string[] }
         Returns: number
       }
-      scheduler_reschedule_all_parallel_aware: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
+      scheduler_reschedule_all_parallel_aware:
+        | {
+            Args: { p_division?: string }
+            Returns: {
+              updated_jsi: number
+              violations: string[]
+              wrote_slots: number
+            }[]
+          }
+        | {
+            Args: { p_start_from?: string }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
       scheduler_reschedule_all_sequential_enhanced: {
         Args: { p_start_from?: string }
         Returns: {
@@ -5069,10 +5110,9 @@ export type Database = {
               win_start: string
             }[]
           }
-      simple_scheduler_wrapper: {
-        Args: { p_mode?: string; p_start_from?: string }
-        Returns: Json
-      }
+      simple_scheduler_wrapper:
+        | { Args: { p_division?: string }; Returns: Json }
+        | { Args: { p_mode?: string; p_start_from?: string }; Returns: Json }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
         Returns: {
