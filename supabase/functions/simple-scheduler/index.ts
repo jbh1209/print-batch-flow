@@ -98,9 +98,13 @@ async function runRealScheduler(
   }
 
   try {
-    // Clear existing slots if nuclear/wipeAll requested
-    if (payload.nuclear) {
-      console.log('💥 Nuclear mode: clearing existing stage_time_slots...');
+    // Determine which wrapper to use based on division parameter
+    const division = (payload as any).division;
+    const hasDivision = typeof division === 'string' && division.trim().length > 0;
+    
+    // Only clear slots if nuclear AND no division (global wipe only)
+    if (payload.nuclear && !hasDivision) {
+      console.log('💥 Nuclear mode (global): clearing ALL stage_time_slots...');
       const { error: clearError } = await sb
         .from('stage_time_slots')
         .delete()
@@ -110,15 +114,27 @@ async function runRealScheduler(
         console.error('❌ Error clearing slots:', clearError);
         throw clearError;
       }
+    } else if (payload.nuclear && hasDivision) {
+      console.log(`⚠️ Nuclear mode skipped: division-scoped cleanup will be handled by DB function (division: ${division})`);
     }
 
-    // Call the division-aware parallel scheduler (DTP/Proof excluded)
-    const division = payload.onlyJobIds ? null : (payload as any).division ?? null;
-    console.log(`📅 Calling simple_scheduler_wrapper(p_division) with division=${division ?? 'NULL'}`);
-    
-    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_division: division
-    });
+    // Call appropriate wrapper based on whether division is provided
+    let data, error;
+    if (hasDivision) {
+      // Use division-aware wrapper (new path)
+      console.log(`📅 Calling simple_scheduler_wrapper(p_division) with division='${division}'`);
+      ({ data, error } = await sb.rpc('simple_scheduler_wrapper', {
+        p_division: division
+      }));
+    } else {
+      // Use backward-compatible wrapper (old path for global scheduling)
+      console.log(`📅 Calling simple_scheduler_wrapper(p_mode) for GLOBAL scheduling (all divisions)`);
+      const startFrom = payload.startFrom || null;
+      ({ data, error } = await sb.rpc('simple_scheduler_wrapper', {
+        p_mode: 'reschedule_all',
+        p_start_from: startFrom
+      }));
+    }
 
     if (error) {
       console.error('❌ Scheduler error:', error);

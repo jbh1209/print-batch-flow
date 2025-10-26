@@ -5009,14 +5009,7 @@ export type Database = {
         Returns: number
       }
       scheduler_reschedule_all_parallel_aware:
-        | {
-            Args: { p_division?: string }
-            Returns: {
-              updated_jsi: number
-              violations: string[]
-              wrote_slots: number
-            }[]
-          }
+        | { Args: { p_division?: string }; Returns: Json }
         | {
             Args: { p_start_from?: string }
             Returns: {
@@ -5110,7 +5103,9 @@ export type Database = {
               win_start: string
             }[]
           }
-      simple_scheduler_wrapper: { Args: { p_division?: string }; Returns: Json }
+      simple_scheduler_wrapper:
+        | { Args: { p_division?: string }; Returns: Json }
+        | { Args: { p_mode?: string; p_start_from?: string }; Returns: Json }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
         Returns: {
