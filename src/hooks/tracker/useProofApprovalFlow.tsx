@@ -15,9 +15,25 @@ export const useProofApprovalFlow = () => {
     try {
       console.log(`🎯 Triggering scheduling for job ${jobId} after proof approval`);
       
-      // Force reschedule this specific job to clear any stale scheduling data
+      // Fetch job division for division-aware scheduling
+      const { data: job, error: fetchError } = await supabase
+        .from('production_jobs')
+        .select('division')
+        .eq('id', jobId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching job division:', fetchError);
+        toast.error('Failed to fetch job details');
+        return false;
+      }
+
+      const division = job?.division;
+      console.log(`📋 Job division: ${division || 'NULL'}`);
+      
+      // Force reschedule this specific job with division awareness
       // This appends to existing schedule tails without disrupting other jobs
-      const result = await scheduleJobs([jobId], true);
+      const result = await scheduleJobs([jobId], true, division);
 
       if (!result) {
         console.error('Error triggering scheduler: No result returned');
@@ -38,12 +54,14 @@ export const useProofApprovalFlow = () => {
 
   /**
    * Complete proof stage WITHOUT auto-activating next stage - for manual factory floor control
+   * Division awareness is handled by the database trigger automatically
    */
   const completeProofStage = useCallback(async (jobId: string, stageId: string) => {
     try {
       console.log(`📋 Completing proof stage for job ${jobId} - NO auto-activation`);
       
       // Complete the proof stage - database trigger will handle scheduling automatically
+      // The trigger will fetch division and pass it to scheduler_append_jobs
       const { error: completeError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -59,8 +77,8 @@ export const useProofApprovalFlow = () => {
       }
       
       // CRITICAL: DO NOT manually call scheduler here - let trigger handle it
-      // The trg_schedule_on_proof_approval trigger will append this job to schedule
-      console.log(`✅ Proof stage completed for job ${jobId} - trigger will append to schedule`);
+      // The trg_schedule_on_proof_approval trigger will append this job to schedule with division awareness
+      console.log(`✅ Proof stage completed for job ${jobId} - trigger will append to schedule (division-aware)`);
 
       toast.success('Proof approved - job will be appended to production schedule');
       return true;
