@@ -24,6 +24,7 @@ type ScheduleRequest = {
   startFrom?: string | null;
   onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
   baseStart?: string | null;      // reserved (append)
+  division?: string | null;       // division filter for scheduler
 };
 
 type ScheduleResult = {
@@ -111,18 +112,12 @@ async function runRealScheduler(
       }
     }
 
-    // Call the parallel-aware scheduler function directly
-    console.log('📅 Running simple_scheduler_wrapper(reschedule_all)...');
-    
-    // CRITICAL: Pass current time if no startFrom specified to ensure "TODAY" scheduling
-    // When cron calls at 3 AM, we want to schedule from 3 AM (becomes 8 AM same day),
-    // not from tomorrow. The scheduler's next_working_start() handles the conversion.
-    const effectiveStartFrom = payload.startFrom || new Date().toISOString();
-    console.log('🔍 Using startFrom:', effectiveStartFrom);
+    // Call the division-aware parallel scheduler (DTP/Proof excluded)
+    const division = payload.onlyJobIds ? null : (payload as any).division ?? null;
+    console.log(`📅 Calling simple_scheduler_wrapper(p_division) with division=${division ?? 'NULL'}`);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_mode: 'reschedule_all',
-      p_start_from: effectiveStartFrom
+      p_division: division
     });
 
     if (error) {
@@ -177,13 +172,14 @@ Deno.serve(async (req: Request) => {
 
   // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
-    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> & { division?: string | null } = {
     commit: !!body.commit,
     proposed: !!body.proposed,
     onlyIfUnset: !!body.onlyIfUnset,
     nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
     onlyJobIds: onlyJobIds || null,
+    division: typeof body.division === "string" ? body.division.trim() || null : null,
   };
 
   // Supabase client (service key, runs server-side)
