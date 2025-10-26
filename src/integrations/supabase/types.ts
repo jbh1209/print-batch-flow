@@ -4988,14 +4988,27 @@ export type Database = {
           scheduled_start: string
         }[]
       }
-      scheduler_append_jobs: {
-        Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
+      scheduler_append_jobs:
+        | {
+            Args: {
+              p_division?: string
+              p_job_ids: string[]
+              p_only_if_unset?: boolean
+            }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
+        | {
+            Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
       scheduler_completely_sequential: {
         Args: { p_start_from?: string }
         Returns: {
