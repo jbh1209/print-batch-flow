@@ -4747,17 +4747,17 @@ export type Database = {
         }[]
       }
       is_admin:
-        | { Args: { _user_id: string }; Returns: boolean }
         | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
       is_admin_secure_fixed:
-        | { Args: { _user_id: string }; Returns: boolean }
         | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
       is_admin_simple: { Args: never; Returns: boolean }
       is_hp12000_stage: { Args: { stage_name: string }; Returns: boolean }
       is_public_holiday: { Args: { check_date: string }; Returns: boolean }
       is_user_admin:
-        | { Args: never; Returns: boolean }
         | { Args: { check_user_id?: string }; Returns: boolean }
+        | { Args: never; Returns: boolean }
       is_working_day: { Args: { p_date: string }; Returns: boolean }
       jsi_minutes: {
         Args: {
