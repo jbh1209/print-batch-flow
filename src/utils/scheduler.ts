@@ -23,15 +23,21 @@ export interface SchedulerValidation {
 
 /**
  * Get factory timezone base time for scheduling
+ * Returns next working day at 08:00 UTC
  */
 export function getFactoryBaseTime(): string {
   const now = new Date();
-  // Factory timezone (Africa/Johannesburg) - get start of next working day
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(8, 0, 0, 0); // 8 AM factory time
-  
-  return tomorrow.toISOString();
+  // Base = UTC midnight today
+  const baseUTC = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  ));
+  // Next workday 08:00 UTC
+  const next0800UTC = new Date(baseUTC);
+  next0800UTC.setUTCDate(baseUTC.getUTCDate() + 1);
+  next0800UTC.setUTCHours(8, 0, 0, 0);
+  return next0800UTC.toISOString();
 }
 
 /**
