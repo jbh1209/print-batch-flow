@@ -98,11 +98,11 @@ export async function getSchedulingValidation(): Promise<SchedulerValidation[]> 
  */
 export async function scheduleJobs(jobIds: string[], forceReschedule = false, division?: string): Promise<SchedulerResult | null> {
   try {
-    // TypeScript types haven't regenerated yet - use type assertion
+    // Call scheduler_append_jobs with latest DB signature (no p_only_if_unset)
     const { data, error } = await supabase.rpc('scheduler_append_jobs', {
       p_job_ids: jobIds,
-      p_only_if_unset: !forceReschedule,
-      p_division: division
+      p_division: division,
+      p_start_from: null
     } as any);
     
     if (error) {
@@ -111,10 +111,11 @@ export async function scheduleJobs(jobIds: string[], forceReschedule = false, di
       return null;
     }
     
-    const result = (data as any)?.[0] || {};
+    // Parse TABLE return: (wrote_slots INT, updated_jsi INT)
+    const row: any = Array.isArray(data) ? (data[0] ?? {}) : (data ?? {});
     return {
-      wrote_slots: result?.wrote_slots ?? 0,
-      updated_jsi: result?.updated_jsi ?? 0,
+      wrote_slots: Number(row.wrote_slots || 0),
+      updated_jsi: Number(row.updated_jsi || 0),
       violations: []
     };
   } catch (error) {
