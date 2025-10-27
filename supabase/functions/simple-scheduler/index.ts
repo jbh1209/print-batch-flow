@@ -24,7 +24,7 @@ type ScheduleRequest = {
   startFrom?: string | null;
   onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
   baseStart?: string | null;      // reserved (append)
-  division?: string | null;       // division filter for scheduler
+  division: string;                // REQUIRED - division filter for scheduler
 };
 
 type ScheduleResult = {
@@ -87,54 +87,29 @@ function serverError(msg: string, extra?: unknown) {
 async function runRealScheduler(
   sb: SupabaseClient,
   payload: Required<Pick<ScheduleRequest,
-    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds" | "division">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running PARALLEL-AWARE scheduler with payload:', payload);
+  console.log('🚀 Running division-scoped scheduler with payload:', payload);
   
-  // Only proceed if commit is true (dry run protection)
+  // Nuclear mode: division-scoped cleanup will be handled by DB function
+  if (payload.nuclear) {
+    console.log(`💥 Nuclear mode for division '${payload.division}': cleanup will be handled by DB function`);
+  }
+
+  // Dry run protection
   if (!payload.commit) {
     console.log('⚠️ Dry run mode - no actual scheduling performed');
     return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
   }
 
   try {
-    // Determine which wrapper to use based on division parameter
-    const division = (payload as any).division;
-    const hasDivision = typeof division === 'string' && division.trim().length > 0;
+    // Call the division-scoped database function
+    console.log(`📅 Calling simple_scheduler_wrapper(p_division='${payload.division}', p_start_from=${payload.startFrom || 'NULL'})`);
     
-    // Only clear slots if nuclear AND no division (global wipe only)
-    if (payload.nuclear && !hasDivision) {
-      console.log('💥 Nuclear mode (global): clearing ALL stage_time_slots...');
-      const { error: clearError } = await sb
-        .from('stage_time_slots')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (clearError) {
-        console.error('❌ Error clearing slots:', clearError);
-        throw clearError;
-      }
-    } else if (payload.nuclear && hasDivision) {
-      console.log(`⚠️ Nuclear mode skipped: division-scoped cleanup will be handled by DB function (division: ${division})`);
-    }
-
-    // Call appropriate wrapper based on whether division is provided
-    let data, error;
-    if (hasDivision) {
-      // Use division-aware wrapper (new path)
-      console.log(`📅 Calling simple_scheduler_wrapper(p_division) with division='${division}'`);
-      ({ data, error } = await sb.rpc('simple_scheduler_wrapper', {
-        p_division: division
-      }));
-    } else {
-      // Use backward-compatible wrapper (old path for global scheduling)
-      console.log(`📅 Calling simple_scheduler_wrapper(p_mode) for GLOBAL scheduling (all divisions)`);
-      const startFrom = payload.startFrom || null;
-      ({ data, error } = await sb.rpc('simple_scheduler_wrapper', {
-        p_mode: 'reschedule_all',
-        p_start_from: startFrom
-      }));
-    }
+    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
+      p_division: payload.division,
+      p_start_from: payload.startFrom || null
+    });
 
     if (error) {
       console.error('❌ Scheduler error:', error);
@@ -154,7 +129,7 @@ async function runRealScheduler(
       applied: { updated: updatedJsi }
     };
   } catch (error) {
-    console.error('💥 Parallel scheduler execution failed:', error);
+    console.error('💥 Division-scoped scheduler execution failed:', error);
     throw error;
   }
 }
@@ -174,9 +149,19 @@ Deno.serve(async (req: Request) => {
   const rawText = await req.text();
   const body = safeJson<any>(rawText) ?? {};
 
-  // Hard requirement
+  // Hard requirement: commit
   if (!("commit" in body)) {
     return badRequest("Body must include { commit: boolean, ... }");
+  }
+
+  // Hard requirement: division (users must have one selected)
+  const division = typeof body.division === "string" && body.division.trim().length
+    ? body.division.trim()
+    : null;
+  
+  if (!division) {
+    console.error("❌ Division is required but was not provided");
+    return badRequest("Division parameter is required. Please select a division.");
   }
 
   // Sanitize inputs
@@ -188,14 +173,14 @@ Deno.serve(async (req: Request) => {
 
   // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
-    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> & { division?: string | null } = {
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds" | "division">> = {
     commit: !!body.commit,
     proposed: !!body.proposed,
     onlyIfUnset: !!body.onlyIfUnset,
     nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
     onlyJobIds: onlyJobIds || null,
-    division: typeof body.division === "string" ? body.division.trim() || null : null,
+    division,
   };
 
   // Supabase client (service key, runs server-side)
