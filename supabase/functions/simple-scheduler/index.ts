@@ -194,14 +194,7 @@ Deno.serve(async (req: Request) => {
   });
 
   try {
-    // If nuclear/wipeAll was requested, you can clear slots up front.
-    // (Safe to keep as no-op until you connect the real engine.)
-    if (sanitizedPayload.nuclear) {
-      // Example pattern if you choose to wipe here:
-      // await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    }
-
-    // >>> Call your actual scheduler here (currently a stub):
+    // Nuclear cleanup is handled by the DB function itself
     const core = await runRealScheduler(sb, sanitizedPayload);
 
     const result: ScheduleResult = {
@@ -213,7 +206,14 @@ Deno.serve(async (req: Request) => {
       sanitized: { onlyJobIds, startFrom },
     };
     return json(result, 200);
-  } catch (err) {
+  } catch (err: any) {
+    // Special handling for schema mismatch errors
+    if (err?.code === '42703') {
+      return serverError(
+        "Schema mismatch: Database function expects columns (scheduled_minutes, estimated_duration_minutes, remaining_minutes, completion_percentage). Please contact support.",
+        err
+      );
+    }
     return serverError("Unhandled scheduler error", err);
   }
 });
