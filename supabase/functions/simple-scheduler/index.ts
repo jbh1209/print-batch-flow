@@ -133,10 +133,10 @@ async function runRealScheduler(
   }
 
   try {
-    // Call scheduler_reschedule_all_by_division directly (matches latest DB signature)
-    console.log(`📅 Calling scheduler_reschedule_all_by_division(p_division='${payload.division}', p_start_from=${payload.startFrom || 'NULL'})`);
+    // Call simple_scheduler_wrapper (returns JSONB with validation)
+    console.log(`📅 Calling simple_scheduler_wrapper(p_division='${payload.division}', p_start_from=${payload.startFrom || 'NULL'})`);
     
-    const { data, error } = await sb.rpc('scheduler_reschedule_all_by_division', {
+    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
       p_division: payload.division,
       p_start_from: payload.startFrom ?? null
     });
@@ -147,10 +147,10 @@ async function runRealScheduler(
       throw error;
     }
 
-    // Parse TABLE return: (wrote_slots INT, updated_jsi INT)
-    const row = Array.isArray(data) ? (data[0] ?? {}) : (data ?? {});
-    const wroteSlots = Number(row.wrote_slots || 0);
-    const updatedJsi = Number(row.updated_jsi || 0);
+    // Parse JSONB result (flexible for future changes)
+    const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
+    const wroteSlots = Number(core?.wrote_slots ?? core?.slots_written ?? 0);
+    const updatedJsi = Number(core?.updated_jsi ?? core?.jobs_touched ?? 0);
 
     console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
     

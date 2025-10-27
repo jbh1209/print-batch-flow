@@ -98,29 +98,29 @@ export async function getSchedulingValidation(): Promise<SchedulerValidation[]> 
  */
 export async function scheduleJobs(jobIds: string[], forceReschedule = false, division?: string): Promise<SchedulerResult | null> {
   try {
-    // Call scheduler_append_jobs with latest DB signature (no p_only_if_unset)
+    // Call restored scheduler_append_jobs (JSONB return)
     const { data, error } = await supabase.rpc('scheduler_append_jobs', {
       p_job_ids: jobIds,
-      p_division: division,
-      p_start_from: null
+      p_only_if_unset: !forceReschedule,
+      p_division: division ?? null
     } as any);
     
     if (error) {
-      console.error('Error scheduling jobs:', error);
-      toast.error(`Failed to schedule jobs: ${error.message}`);
+      console.error('Failed to schedule jobs:', error);
+      toast.error('Failed to schedule jobs');
       return null;
     }
     
-    // Parse TABLE return: (wrote_slots INT, updated_jsi INT)
+    // Parse JSONB result (flexible for both shapes)
     const row: any = Array.isArray(data) ? (data[0] ?? {}) : (data ?? {});
     return {
-      wrote_slots: Number(row.wrote_slots || 0),
-      updated_jsi: Number(row.updated_jsi || 0),
+      wrote_slots: Number(row?.wrote_slots ?? row?.slots_written ?? 0),
+      updated_jsi: Number(row?.updated_jsi ?? row?.jobs_touched ?? 0),
       violations: []
     };
   } catch (error) {
     console.error('Error scheduling jobs:', error);
-    toast.error(`Failed to schedule jobs: ${error}`);
+    toast.error('An error occurred while scheduling jobs');
     return null;
   }
 }

@@ -4993,17 +4993,6 @@ export type Database = {
             Args: {
               p_division?: string
               p_job_ids: string[]
-              p_start_from?: string
-            }
-            Returns: {
-              updated_jsi: number
-              wrote_slots: number
-            }[]
-          }
-        | {
-            Args: {
-              p_division?: string
-              p_job_ids: string[]
               p_only_if_unset?: boolean
             }
             Returns: Json
@@ -5029,11 +5018,8 @@ export type Database = {
         Returns: number
       }
       scheduler_reschedule_all_by_division: {
-        Args: { p_division: string; p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          wrote_slots: number
-        }[]
+        Args: { p_division?: string; p_start_from?: string }
+        Returns: Json
       }
       scheduler_reschedule_all_parallel_aware:
         | { Args: { p_division?: string }; Returns: Json }
