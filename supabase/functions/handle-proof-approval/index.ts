@@ -637,22 +637,33 @@ serve(async (req) => {
 
         console.log('✅ Proof stage marked as completed');
 
-        // Append this job to the production schedule
+        // Fetch job division for division-aware scheduling
+        const { data: jobData } = await supabase
+          .from('production_jobs')
+          .select('division')
+          .eq('id', rawLink.job_id)
+          .single();
+
+        console.log('📋 Job division:', jobData?.division || 'null');
+
+        // Append this job to the production schedule (with explicit division parameter)
         const { error: scheduleError } = await supabase.rpc('scheduler_append_jobs', {
           p_job_ids: [rawLink.job_id],
-          p_only_if_unset: true
+          p_only_if_unset: true,
+          p_division: jobData?.division ?? null
         });
 
         if (scheduleError) {
           console.error('⚠️ Failed to append to schedule:', {
             error: scheduleError,
             jobId: rawLink.job_id,
+            division: jobData?.division,
             message: scheduleError.message,
             details: scheduleError.details
           });
           // Don't fail the whole operation - proof is still approved
         } else {
-          console.log('✅ Job appended to production schedule');
+          console.log('✅ Job appended to production schedule (division: ' + (jobData?.division || 'null') + ')');
         }
 
         // Query estimated completion date
