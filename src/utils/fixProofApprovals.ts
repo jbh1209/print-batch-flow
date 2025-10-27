@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { getFactoryBaseTime } from "./scheduler";
 
 /**
  * Utility to fix jobs with completed proof stages but missing proof_approved_at timestamps
@@ -78,8 +77,7 @@ export const fixProofApprovals = async (division: string) => {
             onlyIfUnset: false,
             nuclear: true,
             wipeAll: true,
-            division,
-            startFrom: getFactoryBaseTime()
+            division
           }
         });
 

@@ -137,8 +137,7 @@ async function runRealScheduler(
     console.log(`📅 Calling simple_scheduler_wrapper(p_division='${payload.division}', p_start_from=${payload.startFrom || 'NULL'})`);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_division: payload.division,
-      p_start_from: payload.startFrom || null
+      p_division: payload.division
     });
 
     if (error) {

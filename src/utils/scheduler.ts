@@ -21,24 +21,6 @@ export interface SchedulerValidation {
   violation_details: string;
 }
 
-/**
- * Get factory timezone base time for scheduling
- * Returns next working day at 08:00 UTC
- */
-export function getFactoryBaseTime(): string {
-  const now = new Date();
-  // Base = UTC midnight today
-  const baseUTC = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  ));
-  // Next workday 08:00 UTC
-  const next0800UTC = new Date(baseUTC);
-  next0800UTC.setUTCDate(baseUTC.getUTCDate() + 1);
-  next0800UTC.setUTCHours(8, 0, 0, 0);
-  return next0800UTC.toISOString();
-}
 
 /**
  * Main reschedule function - routes through edge function to avoid DB timeouts
@@ -50,13 +32,12 @@ export async function rescheduleAll(division?: string): Promise<SchedulerResult 
 
     const { data, error } = await supabase.functions.invoke('simple-scheduler', {
       body: {
-        commit: true,
-        proposed: false,
-        onlyIfUnset: false,
-        nuclear: true,
-        wipeAll: true,
-        division,
-        startFrom: getFactoryBaseTime()
+      commit: true,
+      proposed: false,
+      onlyIfUnset: false,
+      nuclear: true,
+      wipeAll: true,
+      division
       }
     });
 
