@@ -24,7 +24,7 @@ export interface SchedulerValidation {
 /**
  * Get factory timezone base time for scheduling
  */
-function getFactoryBaseTime(): string {
+export function getFactoryBaseTime(): string {
   const now = new Date();
   // Factory timezone (Africa/Johannesburg) - get start of next working day
   const tomorrow = new Date(now);
@@ -49,7 +49,8 @@ export async function rescheduleAll(division?: string): Promise<SchedulerResult 
         onlyIfUnset: false,
         nuclear: true,
         wipeAll: true,
-        division
+        division,
+        startFrom: getFactoryBaseTime()
       }
     });
 

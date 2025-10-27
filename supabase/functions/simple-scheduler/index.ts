@@ -91,9 +91,39 @@ async function runRealScheduler(
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
   console.log('🚀 Running division-scoped scheduler with payload:', payload);
   
-  // Nuclear mode: division-scoped cleanup will be handled by DB function
+  // Nuclear mode: division-scoped cleanup
   if (payload.nuclear) {
-    console.log(`💥 Nuclear mode for division '${payload.division}': cleanup will be handled by DB function`);
+    console.log(`💥 Nuclear mode for division '${payload.division}': performing division-scoped cleanup`);
+    
+    // Get all production stages for this division
+    const { data: stages, error: stagesErr } = await sb
+      .from('production_stages')
+      .select('id')
+      .eq('division', payload.division);
+    
+    if (stagesErr) {
+      console.error('❌ Failed to fetch stages for nuclear cleanup:', stagesErr);
+      throw stagesErr;
+    }
+    
+    const stageIds = (stages ?? []).map(s => s.id);
+    
+    if (stageIds.length > 0) {
+      // Delete all slots for these stages
+      const { error: delErr } = await sb
+        .from('stage_time_slots')
+        .delete()
+        .in('production_stage_id', stageIds);
+      
+      if (delErr) {
+        console.error('❌ Failed to delete slots:', delErr);
+        throw delErr;
+      }
+      
+      console.log(`🧹 Wiped slots for ${stageIds.length} stages in division ${payload.division}`);
+    } else {
+      console.log(`⚠️ No stages found for division ${payload.division}`);
+    }
   }
 
   // Dry run protection

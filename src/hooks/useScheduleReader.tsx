@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
+import { getFactoryBaseTime } from "@/utils/scheduler";
 
 /* ------------------------- types ------------------------- */
 
@@ -474,7 +475,8 @@ export function useScheduleReader() {
           onlyIfUnset: false,
           nuclear: true,
           wipeAll: true,
-          division // Pass division parameter
+          division,
+          startFrom: getFactoryBaseTime()
         }
       });
       if (error) {
