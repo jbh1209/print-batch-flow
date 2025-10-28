@@ -163,15 +163,10 @@ Deno.serve(async (req: Request) => {
     return badRequest("Body must include { commit: boolean, ... }");
   }
 
-  // Hard requirement: division (users must have one selected)
+  // Optional division parameter (null = all divisions, like pre-division behavior)
   const division = typeof body.division === "string" && body.division.trim().length
     ? body.division.trim()
     : null;
-  
-  if (!division) {
-    console.error("❌ Division is required but was not provided");
-    return badRequest("Division parameter is required. Please select a division.");
-  }
 
   // Sanitize inputs
   const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
