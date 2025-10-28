@@ -5012,6 +5012,10 @@ export type Database = {
         Args: { job_ids: string[] }
         Returns: number
       }
+      scheduler_reschedule_all_by_division: {
+        Args: { p_division?: string; p_start_from?: string }
+        Returns: Json
+      }
       scheduler_reschedule_all_parallel_aware:
         | {
             Args: {
