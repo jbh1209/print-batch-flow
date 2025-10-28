@@ -4988,23 +4988,18 @@ export type Database = {
           scheduled_start: string
         }[]
       }
-      scheduler_append_jobs:
-        | {
-            Args: {
-              p_division?: string
-              p_job_ids: string[]
-              p_only_if_unset?: boolean
-            }
-            Returns: Json
-          }
-        | {
-            Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
-            Returns: {
-              updated_jsi: number
-              violations: Json
-              wrote_slots: number
-            }[]
-          }
+      scheduler_append_jobs: {
+        Args: {
+          p_division?: string
+          p_job_ids: string[]
+          p_only_if_unset?: boolean
+        }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
       scheduler_completely_sequential: {
         Args: { p_start_from?: string }
         Returns: {
@@ -5017,33 +5012,14 @@ export type Database = {
         Args: { job_ids: string[] }
         Returns: number
       }
-      scheduler_reschedule_all_by_division:
-        | {
-            Args: {
-              p_commit?: boolean
-              p_division?: string
-              p_nuclear?: boolean
-              p_only_if_unset?: boolean
-              p_only_job_ids?: string[]
-              p_proposed?: boolean
-              p_start_from?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: { p_division?: string; p_start_from?: string }
-            Returns: Json
-          }
-      scheduler_reschedule_all_parallel_aware:
-        | { Args: { p_division?: string }; Returns: Json }
-        | {
-            Args: { p_start_from?: string }
-            Returns: {
-              updated_jsi: number
-              violations: Json
-              wrote_slots: number
-            }[]
-          }
+      scheduler_reschedule_all_parallel_aware: {
+        Args: { p_division?: string; p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
       scheduler_reschedule_all_sequential_enhanced: {
         Args: { p_start_from?: string }
         Returns: {
@@ -5130,7 +5106,15 @@ export type Database = {
             }[]
           }
       simple_scheduler_wrapper: {
-        Args: { p_division?: string; p_start_from?: string }
+        Args: {
+          p_commit?: boolean
+          p_division?: string
+          p_nuclear?: boolean
+          p_only_if_unset?: boolean
+          p_only_job_ids?: string[]
+          p_proposed?: boolean
+          p_start_from?: string
+        }
         Returns: Json
       }
       split_batch_at_packaging: {
