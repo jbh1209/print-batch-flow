@@ -5012,14 +5012,23 @@ export type Database = {
         Args: { job_ids: string[] }
         Returns: number
       }
-      scheduler_reschedule_all_parallel_aware: {
-        Args: { p_division?: string; p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
+      scheduler_reschedule_all_parallel_aware:
+        | {
+            Args: { p_division?: string; p_start_from?: string }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
+        | {
+            Args: {
+              p_division?: string
+              p_nuclear?: boolean
+              p_start_from?: string
+            }
+            Returns: Json
+          }
       scheduler_reschedule_all_sequential_enhanced: {
         Args: { p_start_from?: string }
         Returns: {
