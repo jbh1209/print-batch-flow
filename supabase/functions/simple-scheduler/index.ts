@@ -102,8 +102,13 @@ async function runRealScheduler(
     console.log(`📅 Calling simple_scheduler_wrapper(p_division='${payload.division}', p_start_from=${payload.startFrom || 'NULL'})`);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_division: payload.division,
-      p_start_from: payload.startFrom ?? null
+      p_commit: payload.commit,
+      p_proposed: payload.proposed,
+      p_only_if_unset: payload.onlyIfUnset,
+      p_nuclear: payload.nuclear,
+      p_start_from: payload.startFrom ?? null,
+      p_only_job_ids: payload.onlyJobIds ?? null,
+      p_division: payload.division ?? null,
     });
 
     if (error) {
@@ -112,10 +117,18 @@ async function runRealScheduler(
       throw error;
     }
 
-    // Parse JSONB result (flexible for future changes)
+    // Parse JSONB result (flexible for both legacy and new keys)
     const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
-    const wroteSlots = Number(core?.wrote_slots ?? core?.slots_written ?? 0);
-    const updatedJsi = Number(core?.updated_jsi ?? core?.jobs_touched ?? 0);
+    const wroteSlots = Number(
+      core?.wrote_slots ?? core?.slots_written ?? core?.scheduled ?? 0
+    );
+    const updatedJsi = Number(
+      core?.updated_jsi ??
+        core?.jobs_touched ??
+        core?.jobs_considered ??
+        core?.applied?.updated ??
+        0
+    );
 
     console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
     
