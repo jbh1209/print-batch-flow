@@ -54,14 +54,13 @@ export const useProofApprovalFlow = () => {
 
   /**
    * Complete proof stage WITHOUT auto-activating next stage - for manual factory floor control
-   * Division awareness is handled by the database trigger automatically
+   * Client-side fallback triggers scheduling directly; database trigger provides redundancy
    */
   const completeProofStage = useCallback(async (jobId: string, stageId: string) => {
     try {
       console.log(`📋 Completing proof stage for job ${jobId} - NO auto-activation`);
       
-      // Complete the proof stage - database trigger will handle scheduling automatically
-      // The trigger will fetch division and pass it to scheduler_append_jobs
+      // Complete the proof stage
       const { error: completeError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -76,11 +75,18 @@ export const useProofApprovalFlow = () => {
         throw completeError;
       }
       
-      // CRITICAL: DO NOT manually call scheduler here - let trigger handle it
-      // The trg_schedule_on_proof_approval trigger will append this job to schedule with division awareness
-      console.log(`✅ Proof stage completed for job ${jobId} - trigger will append to schedule (division-aware)`);
+      console.log(`✅ Proof stage completed for job ${jobId}`);
 
-      toast.success('Proof approved - job will be appended to production schedule');
+      // Client-side fallback: Trigger division-aware scheduling immediately
+      // This ensures operator-approved jobs are appended even if trigger fails
+      const scheduleSuccess = await triggerQueueBasedCalculation(jobId);
+      
+      if (scheduleSuccess) {
+        toast.success('Proof approved - job appended to production schedule');
+      } else {
+        toast.success('Proof approved - scheduling in progress');
+      }
+      
       return true;
 
     } catch (error) {
@@ -88,7 +94,7 @@ export const useProofApprovalFlow = () => {
       toast.error('Failed to complete proof stage');
       return false;
     }
-  }, []);
+  }, [triggerQueueBasedCalculation]);
 
   /**
    * Trigger 3 AM recalculation for all jobs
