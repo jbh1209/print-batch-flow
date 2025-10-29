@@ -5110,16 +5110,12 @@ export type Database = {
             }[]
           }
       simple_scheduler_wrapper: {
-        Args: {
-          p_commit?: boolean
-          p_division?: string
-          p_nuclear?: boolean
-          p_only_if_unset?: boolean
-          p_only_job_ids?: string[]
-          p_proposed?: boolean
-          p_start_from?: string
-        }
-        Returns: Json
+        Args: { p_mode?: string; p_start_from?: string }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
       }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }

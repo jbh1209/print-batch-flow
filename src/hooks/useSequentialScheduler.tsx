@@ -15,66 +15,38 @@ export function useSequentialScheduler() {
   const generateSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await rescheduleAll(selectedDivision);
-      if (!result) return;
+      const result = await rescheduleAll();
       
-      const violationCount = result.violations.length;
-      
-      // Check if there were any gap-filled stages (broaden filter for both reschedule_all and append_jobs)
-      const { data: gapFillData } = await supabase
-        .from('schedule_gap_fills')
-        .select('*')
-        .in('scheduler_run_type', ['reschedule_all', 'append_jobs'])
-        .order('created_at', { ascending: false })
-        .limit(100);
-      
-      const recentGapFills = (gapFillData || []).filter((gf: any) => {
-        const timeDiff = Date.now() - new Date(gf.created_at).getTime();
-        return timeDiff < 10000; // Within last 10 seconds
-      });
-      
-      const gapFilledCount = recentGapFills.length;
-      const totalDaysSaved = recentGapFills.reduce((sum: number, gf: any) => sum + (gf.days_saved || 0), 0);
-      
-      if (violationCount === 0 && gapFilledCount === 0) {
-        toast.success(`✅ Perfect schedule: ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created, 0 validation notes!`);
-      } else if (gapFilledCount > 0) {
+      if (result) {
         toast.success(
-          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. 🔀 Gap-filled ${gapFilledCount} stages (saved ${totalDaysSaved.toFixed(1)} days total)!`,
-          {
-            description: violationCount > 0 ? `${violationCount} parallel processing info items (normal for cover/text stages)` : undefined
-          }
-        );
-      } else {
-        toast.message(
-          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. ${violationCount} parallel processing info items (normal for cover/text stages)`,
-          {
-            description: "Click on any job to see 'Why scheduled here?' details"
-          }
+          `Schedule generated successfully! ${result.wrote_slots} slots written, ${result.updated_jsi} jobs updated.`
         );
       }
-    } catch (error) {
-      console.error('Error generating schedule:', error);
-      toast.error('Failed to generate schedule');
+    } catch (error: any) {
+      console.error('Failed to generate schedule:', error);
+      toast.error(error.message || 'Failed to generate schedule');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDivision]);
+  }, []);
 
   const appendJobs = useCallback(async (jobIds: string[]) => {
     setIsLoading(true);
     try {
-      const result = await scheduleJobs(jobIds, false, selectedDivision);
-      if (!result) return;
+      const result = await scheduleJobs(jobIds, false);
       
-      toast.success(`Successfully scheduled ${result.updated_jsi} stages for ${jobIds.length} jobs`);
-    } catch (error) {
-      console.error('Error appending jobs:', error);
-      toast.error('Failed to schedule jobs');
+      if (result) {
+        toast.success(
+          `Jobs scheduled successfully! ${result.wrote_slots} slots written.`
+        );
+      }
+    } catch (error: any) {
+      console.error('Failed to append jobs:', error);
+      toast.error(error.message || 'Failed to append jobs');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDivision]);
+  }, []);
 
   const carryForwardOverdueJobs = useCallback(async () => {
     setIsLoading(true);
@@ -115,20 +87,16 @@ export function useSequentialScheduler() {
   const rescheduleJobs = useCallback(async (jobIds: string[]) => {
     setIsLoading(true);
     try {
-      console.log('🔄 Rescheduling specific jobs:', jobIds);
+      const result = await scheduleJobs(jobIds, true);
       
-      const result = await scheduleJobs(jobIds, true); // Force reschedule
-      if (!result) return null;
-      
-      toast.success(`✅ Rescheduled ${jobIds.length} job(s): ${result.updated_jsi} stages scheduled, ${result.wrote_slots} time slots created`);
-      console.log('✅ Job reschedule completed:', result);
-      
-      return result;
-    } catch (err) {
-      console.error('❌ Error in job reschedule operation:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to reschedule jobs';
-      toast.error(errorMessage);
-      return null;
+      if (result) {
+        toast.success(
+          `Jobs rescheduled successfully! ${result.wrote_slots} slots written.`
+        );
+      }
+    } catch (error: any) {
+      console.error('Failed to reschedule jobs:', error);
+      toast.error(error.message || 'Failed to reschedule jobs');
     } finally {
       setIsLoading(false);
     }
