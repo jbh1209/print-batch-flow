@@ -47,9 +47,10 @@ export const useAccessibleJobs = ({
         throw error;
       }
 
-      // Apply division filter on client side if specified
+      // Apply division filter on client side if specified (unless divisions are disabled)
       let filteredData = data || [];
-      if (divisionFilter) {
+      const divisionsDisabled = import.meta.env.VITE_DISABLE_DIVISIONS === 'true';
+      if (divisionFilter && !divisionsDisabled) {
         filteredData = filteredData.filter((job: any) => job.division === divisionFilter);
       }
 

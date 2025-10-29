@@ -47,8 +47,9 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
         query = query.eq('user_id', user.id);
       }
 
-      // Apply division filter if specified
-      if (divisionFilter) {
+      // Apply division filter if specified (unless divisions are disabled)
+      const divisionsDisabled = import.meta.env.VITE_DISABLE_DIVISIONS === 'true';
+      if (divisionFilter && !divisionsDisabled) {
         query = query.eq('division', divisionFilter);
       }
 
