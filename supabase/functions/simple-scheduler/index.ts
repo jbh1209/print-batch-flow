@@ -22,9 +22,8 @@ type ScheduleRequest = {
   nuclear?: boolean;
   wipeAll?: boolean;
   startFrom?: string | null;
-  onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
-  baseStart?: string | null;      // reserved (append)
-  division?: string | null;        // OPTIONAL - division filter for scheduler (null = all divisions)
+  onlyJobIds?: string[] | null;
+  baseStart?: string | null;
 };
 
 type ScheduleResult = {
@@ -87,48 +86,32 @@ function serverError(msg: string, extra?: unknown) {
 async function runRealScheduler(
   sb: SupabaseClient,
   payload: Required<Pick<ScheduleRequest,
-    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds" | "division">>,
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running division-scoped scheduler with payload:', payload);
+  console.log('🚀 Running scheduler with payload:', payload);
   
-  // Dry run protection
   if (!payload.commit) {
     console.log('⚠️ Dry run mode - no actual scheduling performed');
     return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
   }
 
   try {
-    // Call simple_scheduler_wrapper (returns JSONB with validation)
-    console.log(`📅 Calling simple_scheduler_wrapper(p_division='${payload.division}', p_start_from=${payload.startFrom || 'NULL'})`);
+    const mode = payload.onlyIfUnset ? 'append' : 'reflow';
+    console.log(`📅 Calling simple_scheduler_wrapper(p_mode='${mode}', p_start_from=${payload.startFrom || 'NULL'})`);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_commit: payload.commit,
-      p_proposed: payload.proposed,
-      p_only_if_unset: payload.onlyIfUnset,
-      p_nuclear: payload.nuclear,
-      p_start_from: payload.startFrom ?? null,
-      p_only_job_ids: payload.onlyJobIds ?? null,
-      p_division: payload.division ?? null,
+      p_mode: mode,
+      p_start_from: payload.startFrom ?? null
     });
 
     if (error) {
       console.error('❌ Scheduler error:', error);
-      console.error('❌ Error details:', error.message, error.details, error.hint);
       throw error;
     }
 
-    // Parse JSONB result (flexible for both legacy and new keys)
     const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
-    const wroteSlots = Number(
-      core?.wrote_slots ?? core?.slots_written ?? core?.scheduled ?? 0
-    );
-    const updatedJsi = Number(
-      core?.updated_jsi ??
-        core?.jobs_touched ??
-        core?.jobs_considered ??
-        core?.applied?.updated ??
-        0
-    );
+    const wroteSlots = Number(core?.wrote_slots ?? core?.scheduled ?? 0);
+    const updatedJsi = Number(core?.updated_jsi ?? core?.jobs_touched ?? 0);
 
     console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
     
@@ -138,7 +121,7 @@ async function runRealScheduler(
       applied: { updated: updatedJsi }
     };
   } catch (error) {
-    console.error('💥 Division-scoped scheduler execution failed:', error);
+    console.error('💥 Scheduler execution failed:', error);
     throw error;
   }
 }
@@ -163,11 +146,6 @@ Deno.serve(async (req: Request) => {
     return badRequest("Body must include { commit: boolean, ... }");
   }
 
-  // Optional division parameter (null/undefined = all divisions, pre-division behavior)
-  const division = typeof body.division === "string" && body.division.trim().length
-    ? body.division.trim()
-    : null;
-
   // Sanitize inputs
   const onlyJobIds = sanitizeOnlyIds(body.onlyJobIds);
   const startFrom =
@@ -175,16 +153,14 @@ Deno.serve(async (req: Request) => {
       ? body.startFrom.trim()
       : undefined;
 
-  // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
-    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds" | "division">> = {
+    "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
     commit: !!body.commit,
     proposed: !!body.proposed,
     onlyIfUnset: !!body.onlyIfUnset,
     nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
     onlyJobIds: onlyJobIds || null,
-    division: division ?? null,  // Ensure division is always null or string (never undefined)
   };
 
   // Supabase client (service key, runs server-side)
