@@ -24,7 +24,7 @@ type ScheduleRequest = {
   startFrom?: string | null;
   onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
   baseStart?: string | null;      // reserved (append)
-  division: string;                // REQUIRED - division filter for scheduler
+  division?: string | null;        // OPTIONAL - division filter for scheduler (null = all divisions)
 };
 
 type ScheduleResult = {
@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
     return badRequest("Body must include { commit: boolean, ... }");
   }
 
-  // Optional division parameter (null = all divisions, like pre-division behavior)
+  // Optional division parameter (null/undefined = all divisions, pre-division behavior)
   const division = typeof body.division === "string" && body.division.trim().length
     ? body.division.trim()
     : null;
@@ -184,7 +184,7 @@ Deno.serve(async (req: Request) => {
     nuclear: !!(body.nuclear || body.wipeAll),
     startFrom,
     onlyJobIds: onlyJobIds || null,
-    division,
+    division: division ?? null,  // Ensure division is always null or string (never undefined)
   };
 
   // Supabase client (service key, runs server-side)
