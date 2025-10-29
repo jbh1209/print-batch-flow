@@ -20,11 +20,11 @@ export function useSequentialScheduler() {
       
       const violationCount = result.violations.length;
       
-      // Check if there were any gap-filled stages
+      // Check if there were any gap-filled stages (broaden filter for both reschedule_all and append_jobs)
       const { data: gapFillData } = await supabase
         .from('schedule_gap_fills')
         .select('*')
-        .eq('scheduler_run_type', 'reschedule_all')
+        .in('scheduler_run_type', ['reschedule_all', 'append_jobs'])
         .order('created_at', { ascending: false })
         .limit(100);
       

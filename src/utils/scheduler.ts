@@ -26,17 +26,21 @@ export interface SchedulerValidation {
  * Main reschedule function - routes through edge function to avoid DB timeouts
  * @param division - Optional division filter (e.g., 'DIG', 'OFF')
  */
+/**
+ * Main reschedule function - uses APPEND MODE for tailing and gap-filling
+ * @param division - Optional division filter (e.g., 'DIG', 'OFF')
+ */
 export async function rescheduleAll(division?: string): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via Edge Function simple-scheduler...', { division });
+    console.log('🔄 Starting reschedule (append mode) via Edge Function simple-scheduler...', { division });
 
     const { data, error } = await supabase.functions.invoke('simple-scheduler', {
       body: {
       commit: true,
       proposed: false,
-      onlyIfUnset: false,
-      nuclear: true,
-      wipeAll: true,
+      onlyIfUnset: true,   // APPEND MODE: enables tailing and gap-filling
+      nuclear: false,       // Don't wipe everything
+      wipeAll: false,       // Don't wipe everything
       division
       }
     });
@@ -87,6 +91,55 @@ export async function getSchedulingValidation(): Promise<SchedulerValidation[]> 
   } catch (error) {
     console.error('Validation check failed:', error);
     return [];
+  }
+}
+
+/**
+ * Full reflow reschedule - ADMIN ONLY - wipes all future schedules and rebuilds from scratch
+ * @param division - Optional division filter (e.g., 'DIG', 'OFF')
+ */
+export async function rescheduleAllFullReflow(division?: string): Promise<SchedulerResult | null> {
+  try {
+    console.log('🔄 Starting FULL REFLOW reschedule (nuclear mode) via Edge Function simple-scheduler...', { division });
+
+    const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+      body: {
+      commit: true,
+      proposed: false,
+      onlyIfUnset: false,  // REFLOW MODE: ignore existing schedules
+      nuclear: true,        // Full wipe and rebuild
+      wipeAll: true,
+      division
+      }
+    });
+
+    if (error) {
+      console.error('Full reflow reschedule error:', error);
+      toast.error(`Full reflow reschedule failed: ${error.message}`);
+      return null;
+    }
+
+    const result: any = (data as any) || {};
+    const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
+    const updatedJSI = result?.applied?.updated ?? result?.jobs_considered ?? 0;
+
+    const violations = Array.isArray(result?.violations) ? result.violations : [];
+
+    console.log('🔄 Full reflow reschedule completed via Edge Function:', {
+      wroteSlots,
+      updatedJSI,
+      violations: violations.length,
+    });
+
+    return {
+      wrote_slots: wroteSlots,
+      updated_jsi: updatedJSI,
+      violations,
+    };
+  } catch (error) {
+    console.error('Full reflow reschedule failed:', error);
+    toast.error(`Full reflow reschedule failed: ${error}`);
+    return null;
   }
 }
 
