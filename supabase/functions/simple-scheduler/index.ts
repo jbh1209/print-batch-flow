@@ -22,8 +22,8 @@ type ScheduleRequest = {
   nuclear?: boolean;
   wipeAll?: boolean;
   startFrom?: string | null;
-  onlyJobIds?: string[] | null;
-  baseStart?: string | null;
+  onlyJobIds?: string[] | null;   // may be [""] from UI; we sanitize below
+  baseStart?: string | null;      // reserved (append)
 };
 
 type ScheduleResult = {
@@ -88,30 +88,52 @@ async function runRealScheduler(
   payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
 ): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
-  console.log('🚀 Running scheduler with payload:', payload);
+  console.log('🚀 Running PARALLEL-AWARE scheduler with payload:', payload);
   
+  // Only proceed if commit is true (dry run protection)
   if (!payload.commit) {
     console.log('⚠️ Dry run mode - no actual scheduling performed');
     return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
   }
 
   try {
-    const mode = payload.onlyIfUnset ? 'append' : 'reflow';
-    console.log(`📅 Calling simple_scheduler_wrapper(p_mode='${mode}', p_start_from=${payload.startFrom || 'NULL'})`);
+    // Clear existing slots if nuclear/wipeAll requested
+    if (payload.nuclear) {
+      console.log('💥 Nuclear mode: clearing existing stage_time_slots...');
+      const { error: clearError } = await sb
+        .from('stage_time_slots')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (clearError) {
+        console.error('❌ Error clearing slots:', clearError);
+        throw clearError;
+      }
+    }
+
+    // Call the parallel-aware scheduler function directly
+    console.log('📅 Running simple_scheduler_wrapper(reschedule_all)...');
+    
+    // CRITICAL: Pass current time if no startFrom specified to ensure "TODAY" scheduling
+    // When cron calls at 3 AM, we want to schedule from 3 AM (becomes 8 AM same day),
+    // not from tomorrow. The scheduler's next_working_start() handles the conversion.
+    const effectiveStartFrom = payload.startFrom || new Date().toISOString();
+    console.log('🔍 Using startFrom:', effectiveStartFrom);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_mode: mode,
-      p_start_from: payload.startFrom ?? null
+      p_mode: 'reschedule_all',
+      p_start_from: effectiveStartFrom
     });
 
     if (error) {
       console.error('❌ Scheduler error:', error);
+      console.error('❌ Error details:', error.message, error.details, error.hint);
       throw error;
     }
 
     const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
-    const wroteSlots = Number(core?.wrote_slots ?? core?.scheduled ?? 0);
-    const updatedJsi = Number(core?.updated_jsi ?? core?.jobs_touched ?? 0);
+    const wroteSlots = core?.wrote_slots ?? core?.applied?.wrote_slots ?? 0;
+    const updatedJsi = core?.updated_jsi ?? core?.applied?.updated ?? 0;
 
     console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
     
@@ -121,7 +143,7 @@ async function runRealScheduler(
       applied: { updated: updatedJsi }
     };
   } catch (error) {
-    console.error('💥 Scheduler execution failed:', error);
+    console.error('💥 Parallel scheduler execution failed:', error);
     throw error;
   }
 }
@@ -141,7 +163,7 @@ Deno.serve(async (req: Request) => {
   const rawText = await req.text();
   const body = safeJson<any>(rawText) ?? {};
 
-  // Hard requirement: commit
+  // Hard requirement
   if (!("commit" in body)) {
     return badRequest("Body must include { commit: boolean, ... }");
   }
@@ -153,6 +175,7 @@ Deno.serve(async (req: Request) => {
       ? body.startFrom.trim()
       : undefined;
 
+  // Build sanitized payload (fill defaults)
   const sanitizedPayload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">> = {
     commit: !!body.commit,
@@ -174,7 +197,14 @@ Deno.serve(async (req: Request) => {
   });
 
   try {
-    // Nuclear cleanup is handled by the DB function itself
+    // If nuclear/wipeAll was requested, you can clear slots up front.
+    // (Safe to keep as no-op until you connect the real engine.)
+    if (sanitizedPayload.nuclear) {
+      // Example pattern if you choose to wipe here:
+      // await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    }
+
+    // >>> Call your actual scheduler here (currently a stub):
     const core = await runRealScheduler(sb, sanitizedPayload);
 
     const result: ScheduleResult = {
@@ -186,14 +216,7 @@ Deno.serve(async (req: Request) => {
       sanitized: { onlyJobIds, startFrom },
     };
     return json(result, 200);
-  } catch (err: any) {
-    // Special handling for schema mismatch errors
-    if (err?.code === '42703') {
-      return serverError(
-        "Schema mismatch: Database function expects columns (scheduled_minutes, estimated_duration_minutes, remaining_minutes, completion_percentage). Please contact support.",
-        err
-      );
-    }
+  } catch (err) {
     return serverError("Unhandled scheduler error", err);
   }
 });

@@ -122,11 +122,11 @@ export function useScheduleReader() {
   const [scheduleDays, setScheduleDays] = useState<ScheduleDayData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchSchedule = useCallback(async (division?: string) => {
+  const fetchSchedule = useCallback(async () => {
     setIsLoading(true);
     try {
       // 1) Pull scheduled stage instances (+ minute fields we need + HP12000 paper size)
-      let query = supabase
+      const { data: stageInstances, error: stagesError } = await supabase
         .from("job_stage_instances")
         .select(
           `
@@ -161,16 +161,8 @@ export function useScheduleReader() {
         )
         .not("scheduled_start_at", "is", null)
         .not("scheduled_end_at", "is", null)
-        .not("status", "eq", "completed");
-      
-      // Apply division filter if provided
-      if (division) {
-        query = query.eq("division", division);
-      }
-      
-      query = query.order("scheduled_start_at", { ascending: true });
-      
-      const { data: stageInstances, error: stagesError } = await query;
+        .not("status", "eq", "completed")
+        .order("scheduled_start_at", { ascending: true });
 
       if (stagesError) {
         console.error("Error fetching scheduled stages:", stagesError);
@@ -185,8 +177,8 @@ export function useScheduleReader() {
       }
 
       // 2) get unique lookups
-      const stageIds = [...new Set(stageInstances.map((s: any) => s.production_stage_id))] as string[];
-      const jobIds = [...new Set(stageInstances.map((s: any) => s.job_id))] as string[];
+      const stageIds = [...new Set(stageInstances.map((s) => s.production_stage_id))];
+      const jobIds = [...new Set(stageInstances.map((s) => s.job_id))];
 
       // 3) stage lookup
       const { data: productionStages, error: stagesLookupError } = await supabase
@@ -464,17 +456,16 @@ export function useScheduleReader() {
   }, []);
 
   // Canonical path: UI -> Edge Function -> DB wrapper
-  const triggerReschedule = useCallback(async (division?: string) => {
+  const triggerReschedule = useCallback(async () => {
     try {
-      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...", { division });
+      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...");
       const { data, error } = await supabase.functions.invoke('simple-scheduler', {
         body: {
           commit: true,
           proposed: false,
           onlyIfUnset: false,
           nuclear: true,
-          wipeAll: true,
-          division
+          wipeAll: true
         }
       });
       if (error) {

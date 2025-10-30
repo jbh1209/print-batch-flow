@@ -12,8 +12,7 @@ export interface CategoryAssignmentResult {
 export const batchAssignJobCategory = async (
   jobIds: string[],
   categoryId: string,
-  partAssignments?: Record<string, string>,
-  division?: string
+  partAssignments?: Record<string, string>
 ): Promise<CategoryAssignmentResult> => {
   console.log('🔄 Starting atomic batch category assignment...', {
     jobCount: jobIds.length,
@@ -52,8 +51,7 @@ export const batchAssignJobCategory = async (
         jobId,
         categoryId,
         categoryData.sla_target_days || 3,
-        partAssignments,
-        division
+        partAssignments
       );
 
       result.successCount++;
@@ -74,8 +72,7 @@ const processJobCategoryAssignment = async (
   jobId: string,
   categoryId: string,
   slaTargetDays: number,
-  partAssignments?: Record<string, string>,
-  division?: string
+  partAssignments?: Record<string, string>
 ): Promise<void> => {
   // Step 1: Force delete ALL existing workflow stages (bulletproof reset)
   console.log(`🧹 Force cleaning existing stages for job ${jobId}...`);
@@ -89,10 +86,10 @@ const processJobCategoryAssignment = async (
     throw new Error(`Failed to clean existing stages: ${deleteError.message}`);
   }
 
-  // Step 2: Get job's created_at date and division for due date calculation
+  // Step 2: Get job's created_at date for due date calculation
   const { data: jobData, error: jobError } = await supabase
     .from('production_jobs')
-    .select('created_at, wo_no, division')
+    .select('created_at, wo_no')
     .eq('id', jobId)
     .single();
 
@@ -141,8 +138,7 @@ const processJobCategoryAssignment = async (
     const { error: initError } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: categoryId,
-      p_division: division || jobData.division || 'DIG'
+      p_category_id: categoryId
     });
 
     if (initError) {
@@ -153,8 +149,7 @@ const processJobCategoryAssignment = async (
     const { error: standardError } = await supabase.rpc('initialize_job_stages_auto', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: categoryId,
-      p_division: division || jobData.division || 'DIG'
+      p_category_id: categoryId
     });
 
     if (standardError) {

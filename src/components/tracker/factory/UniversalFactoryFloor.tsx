@@ -4,7 +4,6 @@ import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
-import { useDivision } from "@/contexts/DivisionContext";
 import { OperatorHeader } from "./OperatorHeader";
 import { QueueFilters } from "./QueueFilters";
 import { JobGroupsDisplay } from "./JobGroupsDisplay";
@@ -17,12 +16,10 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 export const UniversalFactoryFloor = () => {
   const { isDtpOperator, isOperator } = useUserRole();
   const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
-  const { selectedDivision } = useDivision();
   
-  // Use smart permission detection for optimal job access with division filtering
+  // Use smart permission detection for optimal job access
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: highestPermission,
-    divisionFilter: selectedDivision
+    permissionType: highestPermission // Let the database function handle all the filtering
   });
   
   const { startJob, completeJob } = useJobActions(refreshJobs);

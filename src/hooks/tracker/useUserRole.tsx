@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 /**
  * Represents the available user roles in the system
  */
-export type UserRole = 'sys_dev' | 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'packaging_operator' | 'user';
+export type UserRole = 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'packaging_operator' | 'user';
 
 /**
  * Response from the useUserRole hook
@@ -88,7 +88,7 @@ export const useUserRole = (): UserRoleResponse => {
           return;
         }
 
-        const hasAdminRole = userRoles?.some(r => r.role === 'admin' || r.role === 'sys_dev');
+        const hasAdminRole = userRoles?.some(r => r.role === 'admin');
         if (hasAdminRole) {
           console.log('🔑 User determined as admin');
           setUserRole('admin');
@@ -265,8 +265,8 @@ export const useUserRole = (): UserRoleResponse => {
   }, [user?.id, authLoading]);
 
   // Derived properties for convenient access
-  const isAdmin = userRole === 'admin' || userRole === 'sys_dev';
-  const isManager = userRole === 'manager' || userRole === 'admin' || userRole === 'sys_dev';
+  const isAdmin = userRole === 'admin';
+  const isManager = userRole === 'manager' || userRole === 'admin';
   // IMPORTANT: isOperator should NOT include admin/manager - only actual operators
   const isOperator = userRole === 'operator' || userRole === 'dtp_operator' || userRole === 'packaging_operator';
   const isDtpOperator = userRole === 'dtp_operator';

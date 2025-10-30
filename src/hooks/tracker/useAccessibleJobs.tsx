@@ -8,8 +8,7 @@ import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJob
 
 export const useAccessibleJobs = ({ 
   permissionType = 'work', 
-  statusFilter = null,
-  divisionFilter = null
+  statusFilter = null 
 }: UseAccessibleJobsOptions = {}) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -22,7 +21,7 @@ export const useAccessibleJobs = ({
     refetch: refetchJobs,
     dataUpdatedAt
   } = useQuery({
-    queryKey: ['accessible-jobs', user?.id, permissionType, statusFilter, divisionFilter],
+    queryKey: ['accessible-jobs', user?.id, permissionType, statusFilter],
     queryFn: async () => {
       if (!user?.id) {
         throw new Error('User not authenticated');
@@ -31,8 +30,7 @@ export const useAccessibleJobs = ({
       console.log('🔄 Fetching accessible jobs with params:', {
         userId: user.id,
         permissionType,
-        statusFilter,
-        divisionFilter
+        statusFilter
       });
 
       const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
@@ -47,14 +45,7 @@ export const useAccessibleJobs = ({
         throw error;
       }
 
-      // Apply division filter on client side if specified (unless divisions are disabled)
-      let filteredData = data || [];
-      const divisionsDisabled = import.meta.env.VITE_DISABLE_DIVISIONS === 'true';
-      if (divisionFilter && !divisionsDisabled) {
-        filteredData = filteredData.filter((job: any) => job.division === divisionFilter);
-      }
-
-      return filteredData;
+      return data || [];
     },
     enabled: !!user?.id,
     staleTime: 30000,
@@ -171,7 +162,6 @@ export const useAccessibleJobs = ({
         total_stages: job.total_stages || 0,
         completed_stages: job.completed_stages || 0,
         qty: job.qty || 0,
-        division: (job as any).division || null,
         started_by: job.started_by || null,
         started_by_name: job.started_by_name || null,
         proof_emailed_at: job.proof_emailed_at || null,

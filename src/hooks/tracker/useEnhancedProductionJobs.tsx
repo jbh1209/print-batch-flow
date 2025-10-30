@@ -7,7 +7,6 @@ import { processJobsArray, RawJobData } from "./useAccessibleJobs/jobDataProcess
 
 interface UseEnhancedProductionJobsOptions {
   fetchAllJobs?: boolean; // New option to fetch all jobs instead of user-specific
-  divisionFilter?: string | null; // Filter by division
 }
 
 export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOptions = {}) => {
@@ -15,19 +14,15 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { fetchAllJobs = false, divisionFilter = null } = options;
+  const { fetchAllJobs = false } = options;
 
   const fetchJobs = useCallback(async () => {
     try {
       setError(null);
       setIsLoading(true);
-      console.log("🔍 Fetching enhanced production jobs with centralized processor...", { 
-        fetchAllJobs, 
-        userId: user?.id,
-        divisionFilter 
-      });
+      console.log("🔍 Fetching enhanced production jobs with centralized processor...", { fetchAllJobs, userId: user?.id });
 
-      // Build the query - conditionally add user and division filters
+      // Build the query - conditionally add user filter
       let query = supabase
         .from('production_jobs')
         .select(`
@@ -45,12 +40,6 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
       // Only filter by user if fetchAllJobs is false
       if (!fetchAllJobs && user?.id) {
         query = query.eq('user_id', user.id);
-      }
-
-      // Apply division filter if specified (unless divisions are disabled)
-      const divisionsDisabled = import.meta.env.VITE_DISABLE_DIVISIONS === 'true';
-      if (divisionFilter && !divisionsDisabled) {
-        query = query.eq('division', divisionFilter);
       }
 
       const { data: jobsData, error: fetchError } = await query;
@@ -200,7 +189,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
     } finally {
       setIsLoading(false);
     }
-  }, [fetchAllJobs, user?.id, divisionFilter]);
+  }, [fetchAllJobs, user?.id]);
 
   const startStage = useCallback(async (jobId: string, stageId: string) => {
     try {

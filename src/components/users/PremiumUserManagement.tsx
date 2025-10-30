@@ -229,7 +229,7 @@ export const PremiumUserManagement = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-red-700 dark:text-red-300">Administrators</p>
                 <p className="text-2xl font-bold text-red-900 dark:text-red-100">
-                  {users.filter(u => u.role === 'admin' || u.role === 'sys_dev').length}
+                  {users.filter(u => u.role === 'admin').length}
                 </p>
               </div>
             </div>

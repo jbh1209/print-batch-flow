@@ -13,7 +13,7 @@ export interface UserProfile {
 }
 
 // Updated to include all roles that the system actually uses
-export type UserRole = 'sys_dev' | 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'packaging_operator' | 'user';
+export type UserRole = 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'packaging_operator' | 'user';
 
 export interface UserFormData {
   email?: string;
@@ -22,8 +22,6 @@ export interface UserFormData {
   confirmPassword?: string;
   role: UserRole;
   groups?: string[];
-  divisions?: string[];
-  primary_division?: string;
 }
 
 export interface UserWithRole {
@@ -33,8 +31,6 @@ export interface UserWithRole {
   role: string;
   created_at: string;
   groups?: string[];
-  divisions?: string[];
-  primary_division?: string;
 }
 
 export interface UserGroup {
@@ -50,13 +46,4 @@ export interface UserGroupMembership {
   group_id: string;
   assigned_at: string;
   assigned_by?: string;
-}
-
-export interface UserDivisionAssignment {
-  id: string;
-  user_id: string;
-  division_code: string;
-  assigned_at: string;
-  assigned_by?: string;
-  is_primary: boolean;
 }

@@ -34,11 +34,6 @@ const roleOptions: { value: UserRole; label: string; description: string }[] = [
     value: 'admin', 
     label: 'Administrator', 
     description: 'Full system access and user management' 
-  },
-  { 
-    value: 'sys_dev', 
-    label: 'System Developer', 
-    description: 'Super admin with full system development access' 
   }
 ];
 

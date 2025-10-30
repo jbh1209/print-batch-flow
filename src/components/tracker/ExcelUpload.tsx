@@ -10,7 +10,6 @@ import { Upload, FileSpreadsheet, Check, X, QrCode, Download, AlertTriangle, Inf
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useDivision } from "@/contexts/DivisionContext";
 import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator";
 import { 
   parseExcelFile, 
@@ -46,7 +45,6 @@ interface JobDataWithQR extends ParsedJob {
 
 export const ExcelUpload = () => {
   const { user } = useAuth();
-  const { selectedDivision } = useDivision();
   const [parsedJobs, setParsedJobs] = useState<ParsedJob[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -139,9 +137,7 @@ export const ExcelUpload = () => {
         mapping, 
         debugLogger,
         user.id,
-        generateQRCodes,
-        [],
-        selectedDivision
+        generateQRCodes
       );
       
       setEnhancedResult(result);
@@ -174,9 +170,7 @@ export const ExcelUpload = () => {
         mapping, 
         debugLogger,
         user.id,
-        generateQRCodes,
-        [],
-        selectedDivision
+        generateQRCodes
       );
       
       setEnhancedResult(result);

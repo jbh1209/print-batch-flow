@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertTriangle, Package } from "lucide-react";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { useDivision } from "@/contexts/DivisionContext";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
 import { ProductionManagerHeader } from "./components/ProductionManagerHeader";
@@ -16,15 +15,13 @@ import { toast } from "sonner";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 export const ProductionManagerView = () => {
-  const { selectedDivision } = useDivision();
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('due_date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs, invalidateCache } = useAccessibleJobs({
     permissionType: 'manage',
-    statusFilter,
-    divisionFilter: selectedDivision
+    statusFilter
   });
   const { categories } = useCategories();
   const { isAdmin } = useUserRole();

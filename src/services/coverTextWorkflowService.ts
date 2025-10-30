@@ -64,15 +64,7 @@ export class CoverTextWorkflowService {
         categoryId
       );
 
-      // Create 'both' stage instances with the same dependency_group
-      const bothStageInstances = await this.createBothStageInstances(
-        jobId,
-        categoryStages || [],
-        detection.dependencyGroupId!,
-        categoryId
-      );
-
-      this.logger.addDebugInfo(`Created ${coverStageInstances.length} cover stages, ${textStageInstances.length} text stages, and ${bothStageInstances.length} 'both' stages`);
+      this.logger.addDebugInfo(`Created ${coverStageInstances.length} cover stages and ${textStageInstances.length} text stages`);
 
       return {
         success: true,
@@ -107,17 +99,6 @@ export class CoverTextWorkflowService {
     const stageInstances: any[] = [];
     const hasCoverAndText = true; // We know this is a book job with both
 
-    // Identify merge points: where the next 'both' stage begins
-    const mergePoints = new Set<number>();
-    for (let i = 0; i < categoryStages.length; i++) {
-      const stage = categoryStages[i].production_stages;
-      const componentForStage = determineComponentForStage(stage.name, hasCoverAndText);
-      
-      if (componentForStage === 'both') {
-        mergePoints.add(categoryStages[i].stage_order);
-      }
-    }
-
     for (const [index, categoryStage] of categoryStages.entries()) {
       const stage = categoryStage.production_stages;
       const isFirstStage = index === 0;
@@ -135,13 +116,8 @@ export class CoverTextWorkflowService {
         continue;
       }
       
-      // Determine if this component stage is the last before a merge point
-      const isLastBeforeMerge = this.isLastPartStageBeforeMerge(
-        categoryStages,
-        index,
-        component.type,
-        hasCoverAndText
-      );
+      // Phase 3: Fix Stage Instance Creation - Only assign dependency groups to true synchronization points
+      const needsSynchronization = this.shouldWaitForDependency(stage.supports_parts);
       
       const stageInstance = {
         job_id: jobId,
@@ -152,8 +128,8 @@ export class CoverTextWorkflowService {
         part_name: componentName,
         part_type: 'printing_component',
         part_assignment: componentName.toLowerCase(), // Cover or Text
-        // Assign dependency_group ONLY to the last cover/text stage before a merge
-        dependency_group: isLastBeforeMerge ? dependencyGroupId : null,
+        // Independent finishing stages get null dependency_group, synchronization stages get the group
+        dependency_group: needsSynchronization ? dependencyGroupId : null,
         quantity: component.printing.wo_qty,
         status: isFirstStage ? 'active' : 'pending',
         started_at: isFirstStage ? new Date().toISOString() : null,
@@ -171,87 +147,15 @@ export class CoverTextWorkflowService {
       }
 
       stageInstances.push(insertedStage);
-      this.logger.addDebugInfo(`Created ${componentName} stage: ${stage.name} (order: ${categoryStage.stage_order}, dep_group: ${isLastBeforeMerge ? 'assigned' : 'null'})`);
+      this.logger.addDebugInfo(`Created ${componentName} stage: ${stage.name} (order: ${categoryStage.stage_order})`);
     }
 
     return stageInstances;
   }
 
-  private isLastPartStageBeforeMerge(
-    categoryStages: any[],
-    currentIndex: number,
-    componentType: string,
-    hasCoverAndText: boolean
-  ): boolean {
-    // Look ahead to find the next 'both' stage
-    for (let i = currentIndex + 1; i < categoryStages.length; i++) {
-      const nextStage = categoryStages[i].production_stages;
-      const nextComponentForStage = determineComponentForStage(nextStage.name, hasCoverAndText);
-      
-      // If we find a 'both' stage, this is the last part stage before merge
-      if (nextComponentForStage === 'both') {
-        return true;
-      }
-      
-      // If we find another stage for this component, it's not the last
-      if (nextComponentForStage === componentType) {
-        return false;
-      }
-    }
-    
-    // No merge point found ahead
-    return false;
-  }
-
-  private async createBothStageInstances(
-    jobId: string,
-    categoryStages: any[],
-    dependencyGroupId: string,
-    categoryId: string
-  ): Promise<any[]> {
-    const stageInstances: any[] = [];
-    const hasCoverAndText = true;
-
-    for (const categoryStage of categoryStages) {
-      const stage = categoryStage.production_stages;
-      const componentForStage = determineComponentForStage(stage.name, hasCoverAndText);
-      
-      // Only create 'both' stages
-      if (componentForStage !== 'both') {
-        continue;
-      }
-      
-      const stageInstance = {
-        job_id: jobId,
-        job_table_name: 'production_jobs',
-        category_id: categoryId,
-        production_stage_id: stage.id,
-        stage_order: categoryStage.stage_order,
-        part_name: 'Both',
-        part_type: 'printing_component',
-        part_assignment: 'both',
-        // Assign the shared dependency_group for synchronization
-        dependency_group: dependencyGroupId,
-        quantity: null, // 'Both' stages don't have individual quantities
-        status: 'pending',
-        started_at: null,
-        started_by: null
-      };
-
-      const { data: insertedStage, error } = await supabase
-        .from('job_stage_instances')
-        .insert(stageInstance)
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to create 'both' stage instance: ${error.message}`);
-      }
-
-      stageInstances.push(insertedStage);
-      this.logger.addDebugInfo(`Created 'both' stage: ${stage.name} (order: ${categoryStage.stage_order}) with dependency_group`);
-    }
-
-    return stageInstances;
+  private shouldWaitForDependency(stageSupportsparts: boolean): boolean {
+    // If stage supports parts (independent finishing stages), no dependency group needed
+    // If stage doesn't support parts (complete job stages), dependency group needed for synchronization
+    return !stageSupportsparts;
   }
 }

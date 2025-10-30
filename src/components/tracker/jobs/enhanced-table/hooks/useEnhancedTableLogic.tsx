@@ -7,7 +7,6 @@ import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useResponsiveJobsTable } from "../../hooks/useResponsiveJobsTable";
 import { useJobsTableFilters } from "../../JobsTableFilters";
 import { useJobsTableSorting } from "../../JobsTableSorting";
-import { useDivision } from "@/contexts/DivisionContext";
 import { toast } from "sonner";
 
 interface UseEnhancedTableLogicProps {
@@ -15,8 +14,7 @@ interface UseEnhancedTableLogicProps {
 }
 
 export const useEnhancedTableLogic = ({ statusFilter }: UseEnhancedTableLogicProps) => {
-  const { selectedDivision } = useDivision();
-  const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs({ divisionFilter: selectedDivision });
+  const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useProductionCategories();
   const { markJobCompleted } = useJobActions(refreshJobs);
 

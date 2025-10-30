@@ -4,7 +4,7 @@ import { toast } from "sonner";
 /**
  * Utility to fix jobs with completed proof stages but missing proof_approved_at timestamps
  */
-export const fixProofApprovals = async (division: string) => {
+export const fixProofApprovals = async () => {
   try {
     console.log('🔄 Starting proof approval fix process...');
     
@@ -76,8 +76,7 @@ export const fixProofApprovals = async (division: string) => {
             proposed: false,
             onlyIfUnset: false,
             nuclear: true,
-            wipeAll: true,
-            division
+            wipeAll: true
           }
         });
 
