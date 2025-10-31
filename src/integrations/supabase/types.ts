@@ -4983,14 +4983,23 @@ export type Database = {
             Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
             Returns: {
               updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
+        | {
+            Args: { p_job_ids: string[] }
+            Returns: {
+              updated_jsi: number
+              violations: Json
               wrote_slots: number
             }[]
           }
         | {
             Args: {
-              p_division?: string
+              p_division: string
               p_job_ids: string[]
-              p_only_if_unset?: boolean
+              p_only_if_unset: boolean
             }
             Returns: {
               updated_jsi: number
