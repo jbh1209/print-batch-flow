@@ -4980,20 +4980,20 @@ export type Database = {
       }
       scheduler_append_jobs:
         | {
-            Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
-            Returns: {
-              updated_jsi: number
-              violations: Json
-              wrote_slots: number
-            }[]
-          }
-        | {
             Args: {
               p_base_start?: string
               p_commit?: boolean
               p_job_ids: string[]
             }
             Returns: Json
+          }
+        | {
+            Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
           }
         | {
             Args: { p_job_ids: string[] }
@@ -5043,6 +5043,18 @@ export type Database = {
           }
         | {
             Args: { p_start_from?: string }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
+        | {
+            Args: {
+              p_base_start?: string
+              p_lookback_days?: number
+              p_only_job_ids?: string[]
+            }
             Returns: {
               updated_jsi: number
               violations: Json
