@@ -17,16 +17,26 @@ const Index = () => {
       return;
     }
 
-    // If user is authenticated and role is loaded, check for operator redirect
+    // If user is authenticated and role is loaded, redirect to role-specific workspace
     if (!authLoading && !roleLoading && user) {
       // Redirect DTP operators to their specialized workflow
       if (userRole === 'dtp_operator') {
         navigate('/tracker/dtp-workflow');
         return;
       }
+      // Redirect Packaging operators to Packaging & Shipping
+      if (userRole === 'packaging_operator') {
+        navigate('/tracker/packaging-shipping');
+        return;
+      }
       // Redirect regular operators to factory floor
       if (userRole === 'operator') {
         navigate('/tracker/factory-floor');
+        return;
+      }
+      // Redirect admins and managers to tracker dashboard
+      if (userRole === 'admin' || userRole === 'manager') {
+        navigate('/tracker/dashboard');
         return;
       }
     }
@@ -45,7 +55,7 @@ const Index = () => {
   }
 
   // Don't render anything if redirecting
-  if (!user || userRole === 'operator' || userRole === 'dtp_operator') {
+  if (!user || userRole === 'operator' || userRole === 'dtp_operator' || userRole === 'packaging_operator' || userRole === 'admin' || userRole === 'manager') {
     return null;
   }
 
