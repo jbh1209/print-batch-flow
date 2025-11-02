@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Settings, Info, RefreshCw } from 'lucide-react';
 import { FinishingStageSelector } from './FinishingStageSelector';
 import { EnhancedScheduledOperatorJobCard } from './EnhancedScheduledOperatorJobCard';
 import { useScheduledJobs, ScheduledJobStage } from '@/hooks/tracker/useScheduledJobs';
+import ColumnViewToggle from '@/components/tracker/multistage-kanban/ColumnViewToggle';
 
 interface MultiStageFinishingViewProps {
   availableStages: Array<{ id: string; name: string }>;
@@ -19,6 +20,8 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
   onStageSelectionChange,
   onJobClick
 }) => {
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  
   // Fetch all scheduled jobs across finishing stages
   const { scheduledJobs, isLoading, error, refreshJobs } = useScheduledJobs({ 
     include_all_stages: true 
@@ -162,8 +165,9 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
         onSelectionChange={onStageSelectionChange}
       />
 
-      {/* Aggregate Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Header with Stats and View Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="grid grid-cols-4 gap-4 flex-1">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-3">
             <p className="text-xs font-medium text-blue-700">Total Jobs</p>
@@ -191,10 +195,13 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
             <p className="text-xl font-bold text-gray-900">{stats.waitingCount}</p>
           </CardContent>
         </Card>
+        </div>
+        
+        <ColumnViewToggle viewMode={viewMode} onChange={setViewMode} />
       </div>
 
-      {/* Multi-Column Kanban */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* Multi-Column View */}
+      <div className="flex gap-3 overflow-x-auto pb-2 h-[90vh]">
         {selectedStageIds.map(stageId => {
           const stage = availableStages.find(s => s.id === stageId);
           if (!stage) return null;
@@ -216,13 +223,13 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
                 </div>
 
                 {/* Column Body */}
-                <CardContent className="p-3 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                <CardContent className="p-3 space-y-2 flex-1 overflow-y-auto">
                   {stageJobs.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No jobs in queue</p>
                     </div>
-                  ) : (
+                  ) : viewMode === "card" ? (
                     stageJobs.map(job => (
                       <EnhancedScheduledOperatorJobCard
                         key={job.id}
@@ -233,6 +240,32 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
                         compact={false}
                       />
                     ))
+                  ) : (
+                    <div className="space-y-1">
+                      {stageJobs.map(job => (
+                        <div
+                          key={job.id}
+                          onClick={() => onJobClick(job)}
+                          className="p-2 border rounded hover:bg-accent cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{job.wo_no}</p>
+                              <p className="text-xs text-muted-foreground truncate">{job.customer}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {job.status === 'active' && (
+                                <Badge variant="default" className="text-xs">Active</Badge>
+                              )}
+                              {job.is_ready_now && job.status === 'pending' && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Ready</Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">{job.qty}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
