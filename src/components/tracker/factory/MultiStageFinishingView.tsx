@@ -5,6 +5,7 @@ import { DtpKanbanColumnWithBoundary } from './DtpKanbanColumnWithBoundary';
 import { FinishingStageSelector } from './FinishingStageSelector';
 import { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 import { sortJobsByWorkflowPriority } from '@/utils/tracker/workflowStateUtils';
+import { shouldJobAppearInWorkflowStage } from '@/utils/productionWorkflowUtils';
 
 interface MultiStageFinishingViewProps {
   availableStages: Array<{ id: string; name: string }>;
@@ -37,10 +38,27 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
       const stageJobs = jobs.filter(job => {
         if (job.status === 'completed' || job.status === 'cancelled') return false;
         const matchesCurrent = job.current_stage_id === stageId;
+
+        let appearsInWorkflow = false;
+        try {
+          // @ts-expect-error: AccessibleJob is compatible with workflow utils input shape
+          appearsInWorkflow = shouldJobAppearInWorkflowStage(job, stageId);
+        } catch {
+          appearsInWorkflow = false;
+        }
+
         const matchesParallel = Array.isArray(job.parallel_stages) && job.parallel_stages.some(ps => ps.stage_id === stageId);
-        return matchesCurrent || matchesParallel;
+
+        return matchesCurrent || appearsInWorkflow || matchesParallel;
       });
-      stageMap[stageId] = sortJobsByWorkflowPriority(stageJobs);
+
+      const sorted = sortJobsByWorkflowPriority(stageJobs);
+      // Debug: verify counts per column
+      try {
+        const stageName = availableStages?.find(s => s.id === stageId)?.name || stageId;
+        console.info('[Finishing Kanban] Column %s (%s) jobs: %d', stageName, stageId, sorted.length);
+      } catch {}
+      stageMap[stageId] = sorted;
     });
     
     return stageMap;
