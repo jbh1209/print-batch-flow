@@ -3807,10 +3807,7 @@ export type Database = {
       }
       create_stage_availability_tracker: { Args: never; Returns: undefined }
       cron_nightly_reschedule: { Args: never; Returns: undefined }
-      cron_nightly_reschedule_with_carryforward: {
-        Args: never
-        Returns: undefined
-      }
+      cron_nightly_reschedule_with_carryforward: { Args: never; Returns: Json }
       delete_production_jobs: { Args: { job_ids: string[] }; Returns: Json }
       expedite_job_factory_wide: {
         Args: {
