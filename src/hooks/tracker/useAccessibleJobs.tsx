@@ -85,7 +85,7 @@ export const useAccessibleJobs = ({
         `)
         .in('job_id', jobIds)
         .eq('job_table_name', 'production_jobs')
-        .in('status', ['pending', 'active', 'awaiting_approval', 'changes_requested', 'completed']);
+        .in('status', ['pending', 'active', 'awaiting_approval', 'changes_requested']);
 
       if (error) {
         console.error('❌ Error fetching job stages:', error);
@@ -211,15 +211,6 @@ export const useAccessibleJobs = ({
       processedJobs.push(job);
     });
 
-    console.info('[Finishing] Accessible jobs:', processedJobs.length);
-    if (processedJobs[0]?.parallel_stages?.length) {
-      console.info('[Finishing] Example workflow stages for first job:', processedJobs[0].parallel_stages.map(s => ({
-        name: s.stage_name,
-        id: s.stage_id,
-        order: s.stage_order,
-        status: s.stage_status
-      })));
-    }
     return processedJobs;
   }, [rawJobs, jobStages]);
 

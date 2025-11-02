@@ -218,7 +218,7 @@ export const EnhancedFinishingDashboard = () => {
     setSelectedPrinterInfo(printerInfo);
   };
 
-  const handleJobClick = (job: any) => {
+  const handleJobClick = (job: ScheduledJobStage | AccessibleJob) => {
     setSelectedJobForDetails(job);
     setShowJobDetailsModal(true);
     setScanCompleted(false);
@@ -321,26 +321,6 @@ export const EnhancedFinishingDashboard = () => {
     }
   };
 
-  // Multi-stage specific handlers
-  const openModalForStart = async (jobId: string, stageId: string): Promise<boolean> => {
-    const jobToOpen = accessibleJobs.find(j => j.job_id === jobId);
-    if (jobToOpen) {
-      setSelectedJobForDetails(jobToOpen);
-      setShowJobDetailsModal(true);
-      setScanCompleted(false);
-    }
-    return true;
-  };
-
-  const openModalForComplete = async (jobId: string, stageId: string): Promise<boolean> => {
-    const jobToOpen = accessibleJobs.find(j => j.job_id === jobId);
-    if (jobToOpen) {
-      setSelectedJobForDetails(jobToOpen);
-      setShowJobDetailsModal(true);
-      setScanCompleted(false);
-    }
-    return true;
-  };
 
   const isLoading = rolesLoading || (viewMode === 'single-stage' ? scheduledLoading : accessibleLoading);
   const error = viewMode === 'single-stage' ? scheduledError : accessibleError;
@@ -455,11 +435,8 @@ export const EnhancedFinishingDashboard = () => {
           <MultiStageFinishingView
             availableStages={allFinishingStages}
             selectedStageIds={selectedStageIds}
-            jobs={accessibleJobs}
             onStageSelectionChange={setSelectedStageIds}
             onJobClick={handleJobClick}
-            onStart={openModalForStart}
-            onComplete={openModalForComplete}
           />
         )}
       </div>

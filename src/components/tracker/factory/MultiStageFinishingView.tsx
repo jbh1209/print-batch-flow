@@ -1,85 +1,93 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Settings, Info } from 'lucide-react';
-import { DtpKanbanColumnWithBoundary } from './DtpKanbanColumnWithBoundary';
+import { Badge } from '@/components/ui/badge';
+import { Settings, Info, RefreshCw } from 'lucide-react';
 import { FinishingStageSelector } from './FinishingStageSelector';
-import { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
-import { sortJobsByWorkflowPriority } from '@/utils/tracker/workflowStateUtils';
-import { shouldJobAppearInWorkflowStage } from '@/utils/productionWorkflowUtils';
+import { EnhancedScheduledOperatorJobCard } from './EnhancedScheduledOperatorJobCard';
+import { useScheduledJobs, ScheduledJobStage } from '@/hooks/tracker/useScheduledJobs';
 
 interface MultiStageFinishingViewProps {
   availableStages: Array<{ id: string; name: string }>;
   selectedStageIds: string[];
-  jobs: AccessibleJob[];
   onStageSelectionChange: (stageIds: string[]) => void;
-  onJobClick: (job: AccessibleJob) => void;
-  onStart: (jobId: string, stageId: string) => Promise<boolean>;
-  onComplete: (jobId: string, stageId: string) => Promise<boolean>;
+  onJobClick: (job: ScheduledJobStage) => void;
 }
 
 export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = ({
   availableStages,
   selectedStageIds,
-  jobs,
   onStageSelectionChange,
-  onJobClick,
-  onStart,
-  onComplete
+  onJobClick
 }) => {
-  // Calculate aggregate stats
-  // Stats computed after jobsByStage to reflect selected columns
+  // Fetch all scheduled jobs across finishing stages
+  const { scheduledJobs, isLoading, error, refreshJobs } = useScheduledJobs({ 
+    include_all_stages: true 
+  });
 
-
-  // Organize jobs by stage
+  // Filter and group jobs by selected stages
   const jobsByStage = useMemo(() => {
-    const stageMap: Record<string, AccessibleJob[]> = {};
+    const stageMap: Record<string, ScheduledJobStage[]> = {};
     
     selectedStageIds.forEach(stageId => {
-      const stageJobs = jobs.filter(job => {
-        if (job.status === 'completed' || job.status === 'cancelled') return false;
-        const matchesCurrent = job.current_stage_id === stageId;
+      // Filter jobs for this stage
+      const stageJobs = scheduledJobs.filter(job => 
+        job.production_stage_id === stageId
+      );
 
-        let appearsInWorkflow = false;
-        try {
-          const workflowStages = Array.isArray((job as any).parallel_stages) ? (job as any).parallel_stages : [];
-          appearsInWorkflow = shouldJobAppearInWorkflowStage(workflowStages, stageId);
-        } catch {
-          appearsInWorkflow = false;
+      // Sort by scheduling priority
+      const sorted = stageJobs.sort((a, b) => {
+        // 1. Active jobs first
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (b.status === 'active' && a.status !== 'active') return 1;
+
+        // 2. Scheduled start time (nulls last)
+        if (a.scheduled_start_at && !b.scheduled_start_at) return -1;
+        if (!a.scheduled_start_at && b.scheduled_start_at) return 1;
+        if (a.scheduled_start_at && b.scheduled_start_at) {
+          const timeCompare = new Date(a.scheduled_start_at).getTime() - new Date(b.scheduled_start_at).getTime();
+          if (timeCompare !== 0) return timeCompare;
         }
 
-        const matchesParallel = Array.isArray(job.parallel_stages) && job.parallel_stages.some(ps => ps.stage_id === stageId);
+        // 3. Queue position (nulls last)
+        if (a.queue_position !== undefined && b.queue_position === undefined) return -1;
+        if (a.queue_position === undefined && b.queue_position !== undefined) return 1;
+        if (a.queue_position !== undefined && b.queue_position !== undefined) {
+          const queueCompare = a.queue_position - b.queue_position;
+          if (queueCompare !== 0) return queueCompare;
+        }
 
-        return matchesCurrent || appearsInWorkflow || matchesParallel;
+        // 4. Stage order
+        return a.stage_order - b.stage_order;
       });
 
-      const sorted = sortJobsByWorkflowPriority(stageJobs);
-      // Debug: verify counts per column
-      try {
-        const stageName = availableStages?.find(s => s.id === stageId)?.name || stageId;
-        console.info('[Finishing Kanban] Column %s (%s) jobs: %d', stageName, stageId, sorted.length);
-      } catch {}
       stageMap[stageId] = sorted;
+      console.info(`[Multi-Stage Kanban] ${availableStages.find(s => s.id === stageId)?.name || stageId}: ${sorted.length} jobs`);
     });
     
     return stageMap;
-  }, [jobs, selectedStageIds]);
+  }, [scheduledJobs, selectedStageIds, availableStages]);
 
+  // Calculate aggregate stats across selected stages
   const stats = useMemo(() => {
-    const unique = new Map<string, AccessibleJob>();
-    selectedStageIds.forEach(id => {
-      (jobsByStage[id] || []).forEach(j => unique.set((j.id || j.job_id), j));
+    const uniqueJobs = new Map<string, ScheduledJobStage>();
+    
+    selectedStageIds.forEach(stageId => {
+      (jobsByStage[stageId] || []).forEach(job => {
+        uniqueJobs.set(job.job_id, job);
+      });
     });
-    const all = Array.from(unique.values());
-    const totalJobs = all.length;
-    let activeCount = 0, readyCount = 0, waitingCount = 0;
-    all.forEach(j => {
-      const status = (j.current_stage_status || j.status || '').toLowerCase();
-      if (status === 'active') activeCount++;
-      else if (status === 'ready') readyCount++;
-      else if (status === 'pending' || status === 'waiting' || status === 'on_hold') waitingCount++;
-    });
+    
+    const allJobs = Array.from(uniqueJobs.values());
+    const totalJobs = allJobs.length;
+    const activeCount = allJobs.filter(j => j.status === 'active').length;
+    const readyCount = allJobs.filter(j => j.is_ready_now && j.status === 'pending').length;
+    const waitingCount = allJobs.filter(j => j.is_waiting_for_dependencies).length;
+    
     return { totalJobs, activeCount, readyCount, waitingCount };
   }, [jobsByStage, selectedStageIds]);
+
+  console.info('[Multi-Stage Kanban] Total scheduled jobs fetched:', scheduledJobs.length);
+  console.info('[Multi-Stage Kanban] Stats:', stats);
 
   if (selectedStageIds.length === 0) {
     return (
@@ -102,6 +110,43 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
             <p className="text-sm text-gray-500">
               Use the preset options for quick selection or customize your view.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <FinishingStageSelector
+          availableStages={availableStages}
+          selectedStageIds={selectedStageIds}
+          onSelectionChange={onStageSelectionChange}
+        />
+        <Card>
+          <CardContent className="p-12 text-center">
+            <RefreshCw className="h-12 w-12 mx-auto mb-4 text-blue-500 animate-spin" />
+            <p className="text-gray-600">Loading jobs...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <FinishingStageSelector
+          availableStages={availableStages}
+          selectedStageIds={selectedStageIds}
+          onSelectionChange={onStageSelectionChange}
+        />
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Info className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <p className="text-red-600 font-semibold mb-2">Error Loading Jobs</p>
+            <p className="text-gray-600">{error}</p>
           </CardContent>
         </Card>
       </div>
@@ -158,20 +203,45 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
 
           return (
             <div key={stageId} className="min-w-[320px] max-w-[380px] flex-shrink-0">
-              <DtpKanbanColumnWithBoundary
-                title={stage.name}
-                jobs={stageJobs}
-                onStart={onStart}
-                onComplete={onComplete}
-                onJobClick={onJobClick}
-                colorClass="bg-purple-600"
-                icon={<Settings className="h-4 w-4" />}
-              />
+              <Card className="h-full">
+                {/* Column Header */}
+                <div className="bg-purple-600 text-white p-3 flex items-center justify-between rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    <span className="font-semibold">{stage.name}</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-white/20 text-white">
+                    {stageJobs.length}
+                  </Badge>
+                </div>
+
+                {/* Column Body */}
+                <CardContent className="p-3 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                  {stageJobs.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No jobs in queue</p>
+                    </div>
+                  ) : (
+                    stageJobs.map(job => (
+                      <EnhancedScheduledOperatorJobCard
+                        key={job.id}
+                        job={job}
+                        onClick={() => onJobClick(job)}
+                        onRefresh={refreshJobs}
+                        showActions={true}
+                        compact={false}
+                      />
+                    ))
+                  )}
+                </CardContent>
+              </Card>
             </div>
           );
         })}
       </div>
 
+      {/* Empty State */}
       {Object.values(jobsByStage).every(jobs => jobs.length === 0) && (
         <Card>
           <CardContent className="p-8 text-center">
