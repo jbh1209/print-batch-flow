@@ -110,7 +110,7 @@ export const EnhancedFinishingDashboard = () => {
     error: accessibleError,
     refreshJobs: refreshAccessibleJobs
   } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: 'manage'
   });
 
   const { startJob, completeJob } = useJobActions(refreshAccessibleJobs);
