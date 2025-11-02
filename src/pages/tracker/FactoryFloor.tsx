@@ -1,9 +1,9 @@
 
 import React from "react";
-import { SchedulerAwareOperatorDashboard } from "@/components/tracker/factory/SchedulerAwareOperatorDashboard";
+import { EnhancedFinishingDashboard } from "@/components/tracker/factory/EnhancedFinishingDashboard";
 
 const FactoryFloor = () => {
-  return <SchedulerAwareOperatorDashboard />;
+  return <EnhancedFinishingDashboard />;
 };
 
 export default FactoryFloor;
