@@ -26,31 +26,42 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
   onComplete
 }) => {
   // Calculate aggregate stats
-  const stats = useMemo(() => {
-    const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
-    const totalJobs = activeJobs.length;
-    const activeCount = jobs.filter(j => j.status === 'active').length;
-    const readyCount = jobs.filter(j => j.status === 'ready').length;
-    const waitingCount = jobs.filter(j => j.status === 'pending' || j.status === 'waiting').length;
-    
-    return { totalJobs, activeCount, readyCount, waitingCount };
-  }, [jobs]);
+  // Stats computed after jobsByStage to reflect selected columns
+
 
   // Organize jobs by stage
   const jobsByStage = useMemo(() => {
     const stageMap: Record<string, AccessibleJob[]> = {};
     
     selectedStageIds.forEach(stageId => {
-      const stageJobs = jobs.filter(
-        job => job.current_stage_id === stageId && 
-               job.status !== 'completed' && 
-               job.status !== 'cancelled'
-      );
+      const stageJobs = jobs.filter(job => {
+        if (job.status === 'completed' || job.status === 'cancelled') return false;
+        const matchesCurrent = job.current_stage_id === stageId;
+        const matchesParallel = Array.isArray(job.parallel_stages) && job.parallel_stages.some(ps => ps.stage_id === stageId);
+        return matchesCurrent || matchesParallel;
+      });
       stageMap[stageId] = sortJobsByWorkflowPriority(stageJobs);
     });
     
     return stageMap;
   }, [jobs, selectedStageIds]);
+
+  const stats = useMemo(() => {
+    const unique = new Map<string, AccessibleJob>();
+    selectedStageIds.forEach(id => {
+      (jobsByStage[id] || []).forEach(j => unique.set((j.id || j.job_id), j));
+    });
+    const all = Array.from(unique.values());
+    const totalJobs = all.length;
+    let activeCount = 0, readyCount = 0, waitingCount = 0;
+    all.forEach(j => {
+      const status = (j.current_stage_status || j.status || '').toLowerCase();
+      if (status === 'active') activeCount++;
+      else if (status === 'ready') readyCount++;
+      else if (status === 'pending' || status === 'waiting' || status === 'on_hold') waitingCount++;
+    });
+    return { totalJobs, activeCount, readyCount, waitingCount };
+  }, [jobsByStage, selectedStageIds]);
 
   if (selectedStageIds.length === 0) {
     return (
