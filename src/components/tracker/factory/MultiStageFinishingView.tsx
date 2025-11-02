@@ -41,8 +41,8 @@ export const MultiStageFinishingView: React.FC<MultiStageFinishingViewProps> = (
 
         let appearsInWorkflow = false;
         try {
-          // @ts-expect-error: AccessibleJob is compatible with workflow utils input shape
-          appearsInWorkflow = shouldJobAppearInWorkflowStage(job, stageId);
+          const workflowStages = Array.isArray((job as any).parallel_stages) ? (job as any).parallel_stages : [];
+          appearsInWorkflow = shouldJobAppearInWorkflowStage(workflowStages, stageId);
         } catch {
           appearsInWorkflow = false;
         }

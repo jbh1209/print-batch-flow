@@ -17,6 +17,7 @@ import { FINISHING_STAGE_NAMES } from './FinishingStagePresets';
 import { useConcurrentJobManagement } from '@/hooks/tracker/useConcurrentJobManagement';
 import { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEY = 'finishing_dashboard_prefs_v1';
 
@@ -88,6 +89,36 @@ export const EnhancedFinishingDashboard = () => {
       }));
   }, [accessibleStages]);
 
+  // All finishing stages: from permissions if available, else fetched fallback
+  const [allFinishingStages, setAllFinishingStages] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    const loadFinishingStages = async () => {
+      try {
+        if (accessibleStages && accessibleStages.length > 0) {
+          const fromPermissions = accessibleStages
+            .filter(stage => FINISHING_STAGE_NAMES.includes(stage.stage_name))
+            .map(stage => ({ id: stage.stage_id, name: stage.stage_name }));
+          setAllFinishingStages(fromPermissions);
+          return;
+        }
+        const { data, error } = await supabase
+          .from('production_stages')
+          .select('id, name')
+          .in('name', FINISHING_STAGE_NAMES)
+          .eq('is_active', true);
+        if (!error && data) {
+          setAllFinishingStages(data.map(d => ({ id: d.id, name: d.name })));
+        } else if (error) {
+          console.warn('Failed to fetch finishing stages fallback', error);
+        }
+      } catch (e) {
+        console.warn('Failed to load finishing stages fallback', e);
+      }
+    };
+    loadFinishingStages();
+  }, [accessibleStages]);
+
   // Fetch data based on view mode
   const scheduledJobsOptions = useMemo(() => ({
     production_stage_id: viewMode === 'single-stage' ? selectedPrinterId : undefined
@@ -140,6 +171,13 @@ export const EnhancedFinishingDashboard = () => {
     }
   }, [viewMode, selectedPrinterId, selectedStageIds]);
 
+  // Default selection when entering multi-stage or when stages load
+  useEffect(() => {
+    if (viewMode === 'multi-stage' && selectedStageIds.length === 0 && allFinishingStages.length > 0) {
+      setSelectedStageIds(allFinishingStages.map(s => s.id));
+    }
+  }, [viewMode, selectedStageIds.length, allFinishingStages]);
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -171,7 +209,7 @@ export const EnhancedFinishingDashboard = () => {
     setViewMode(mode);
     if (mode === 'multi-stage' && selectedStageIds.length === 0) {
       // Set default to all finishing stages
-      setSelectedStageIds(finishingStages.map(s => s.id));
+      setSelectedStageIds(allFinishingStages.map(s => s.id));
     }
   };
 
@@ -308,7 +346,7 @@ export const EnhancedFinishingDashboard = () => {
   const error = viewMode === 'single-stage' ? scheduledError : accessibleError;
 
   // Show loading only if we have necessary data loading
-  if (isLoading && !finishingStages.length) {
+  if (isLoading && !allFinishingStages.length) {
     return (
       <div className="flex items-center justify-center p-8 min-h-screen bg-gray-50">
         <div className="text-center">
@@ -415,7 +453,7 @@ export const EnhancedFinishingDashboard = () => {
           />
         ) : (
           <MultiStageFinishingView
-            availableStages={finishingStages}
+            availableStages={allFinishingStages}
             selectedStageIds={selectedStageIds}
             jobs={accessibleJobs}
             onStageSelectionChange={setSelectedStageIds}
