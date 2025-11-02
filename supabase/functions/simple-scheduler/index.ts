@@ -111,19 +111,10 @@ async function runRealScheduler(
       }
     }
 
-    // Call the parallel-aware scheduler function directly
-    console.log('📅 Running simple_scheduler_wrapper(reschedule_all)...');
+    // Call the Oct 24th resource-fill scheduler directly
+    console.log('📅 Running scheduler_resource_fill_optimized()...');
     
-    // CRITICAL: Pass current time if no startFrom specified to ensure "TODAY" scheduling
-    // When cron calls at 3 AM, we want to schedule from 3 AM (becomes 8 AM same day),
-    // not from tomorrow. The scheduler's next_working_start() handles the conversion.
-    const effectiveStartFrom = payload.startFrom || new Date().toISOString();
-    console.log('🔍 Using startFrom:', effectiveStartFrom);
-    
-    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_mode: 'reschedule_all',
-      p_start_from: effectiveStartFrom
-    });
+    const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
 
     if (error) {
       console.error('❌ Scheduler error:', error);
