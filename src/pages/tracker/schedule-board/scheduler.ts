@@ -1,6 +1,13 @@
 // tracker/schedule-board/scheduler.ts
 export type UUID = string;
 
+// Non-schedulable stages - these are informational only and should never be scheduled
+const NON_SCHEDULABLE_STAGES = ['PROOF', 'DTP'];
+
+function isSchedulableStage(stage: StageRow): boolean {
+  return !NON_SCHEDULABLE_STAGES.some(ns => stage.stage_name.toUpperCase().includes(ns));
+}
+
 export interface SchedulerInput {
   meta: { generated_at: string; printing_stage_ids?: UUID[]; breaks?: { start_time: string; minutes: number }[] };
   shifts: { id: UUID; day_of_week: number; shift_start_time: string; shift_end_time: string; is_working_day: boolean; is_active: boolean; created_at: string; updated_at: string; }[];
@@ -137,7 +144,10 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
   const updates: PlacementUpdate[] = [];
 
   for (const job of jobs) {
-    const stages = [...job.stages].sort((a,b)=>{
+    // Filter out PROOF and DTP stages - they should never be scheduled
+    const schedulableStages = job.stages.filter(isSchedulableStage);
+    
+    const stages = [...schedulableStages].sort((a,b)=>{
       const ao=a.stage_order ?? 9999, bo=b.stage_order ?? 9999;
       if (ao!==bo) return ao-bo; return 0;
     });
@@ -152,6 +162,7 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
         let earliest = job.approvedAt;
         
         // Ensure dependencies from previous stages are met
+        // Only consider schedulable stages as barriers (PROOF/DTP excluded)
         for (const prev of stages) {
           if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
             const ended = endTimes.get(prev.id);

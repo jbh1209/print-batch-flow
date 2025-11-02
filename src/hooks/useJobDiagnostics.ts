@@ -134,28 +134,33 @@ export function useJobDiagnostics() {
       const currentPartAssignment = stageData.part_assignment;
       
       if (jobStages) {
-        // For this specific stage, calculate what it was waiting for
+      // For this specific stage, calculate what it was waiting for
+        // Exclude PROOF and DTP stages from barrier calculations
+        const NON_SCHEDULABLE_STAGES = ['PROOF', 'DTP'];
+        const productionStages = jobStages.filter(s => 
+          !NON_SCHEDULABLE_STAGES.some(ns => s.production_stages.name.toUpperCase().includes(ns))
+        );
         
         if (currentPartAssignment === 'cover') {
           // Cover stages wait for previous cover work
-          const lastCoverStage = jobStages
+          const lastCoverStage = productionStages
             .filter(s => s.part_assignment === 'cover' && s.stage_order < currentStageOrder)
             .sort((a, b) => b.stage_order - a.stage_order)[0];
           partBarriers.coverBarrier = lastCoverStage?.scheduled_end_at || eligibleTime;
           eligibleTime = partBarriers.coverBarrier;
         } else if (currentPartAssignment === 'text') {
           // Text stages wait for previous text work  
-          const lastTextStage = jobStages
+          const lastTextStage = productionStages
             .filter(s => s.part_assignment === 'text' && s.stage_order < currentStageOrder)
             .sort((a, b) => b.stage_order - a.stage_order)[0];
           partBarriers.textBarrier = lastTextStage?.scheduled_end_at || eligibleTime;
           eligibleTime = partBarriers.textBarrier;
         } else if (currentPartAssignment === 'both') {
           // 'Both' stages wait for ALL parts to be ready (convergence point)
-          const lastCoverStage = jobStages
+          const lastCoverStage = productionStages
             .filter(s => s.part_assignment === 'cover' && s.stage_order < currentStageOrder)
             .sort((a, b) => b.stage_order - a.stage_order)[0];
-          const lastTextStage = jobStages
+          const lastTextStage = productionStages
             .filter(s => s.part_assignment === 'text' && s.stage_order < currentStageOrder)
             .sort((a, b) => b.stage_order - a.stage_order)[0];
           
@@ -182,8 +187,13 @@ export function useJobDiagnostics() {
       const resourceAvailableTime = resourceData?.[0]?.slot_end_time || eligibleTime;
 
       // Calculate upstream dependencies with WHY blocking
+      // Exclude PROOF and DTP stages - they are not production barriers
+      const NON_SCHEDULABLE_STAGES = ['PROOF', 'DTP'];
       const upstreamDependencies = jobStages
-        ?.filter(s => s.stage_order < stageData.stage_order)
+        ?.filter(s => 
+          s.stage_order < stageData.stage_order &&
+          !NON_SCHEDULABLE_STAGES.some(ns => s.production_stages.name.toUpperCase().includes(ns))
+        )
         ?.map(dep => ({
           stageName: dep.production_stages.name,
           partAssignment: dep.part_assignment,
