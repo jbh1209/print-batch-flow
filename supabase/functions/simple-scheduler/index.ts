@@ -111,6 +111,36 @@ async function runRealScheduler(
       }
     }
 
+    // CRITICAL: Validate that no PROOF/DTP stages have scheduling data before running
+    console.log('🔍 Checking for PROOF/DTP stages with scheduling data...');
+    const { data: proofDtpCheck, error: checkError } = await sb
+      .from('v_non_schedulable_with_times')
+      .select('*')
+      .limit(10);
+
+    if (!checkError && proofDtpCheck && proofDtpCheck.length > 0) {
+      console.error('❌ CRITICAL: Found PROOF/DTP stages with scheduling data:', proofDtpCheck);
+      console.log('⚡ Auto-cleaning PROOF/DTP scheduled times...');
+      
+      // Auto-fix: Clear the scheduling data
+      const stageIds = proofDtpCheck.map(s => s.stage_instance_id);
+      const { error: cleanError } = await sb
+        .from('job_stage_instances')
+        .update({
+          scheduled_start_at: null,
+          scheduled_end_at: null,
+          scheduled_minutes: null,
+          schedule_status: null
+        })
+        .in('id', stageIds);
+      
+      if (cleanError) {
+        console.error('❌ Failed to clean PROOF/DTP scheduling data:', cleanError);
+      } else {
+        console.log('✅ Cleaned', stageIds.length, 'PROOF/DTP stages');
+      }
+    }
+
     // Call the Oct 24th resource-fill scheduler directly
     console.log('📅 Running scheduler_resource_fill_optimized()...');
     
