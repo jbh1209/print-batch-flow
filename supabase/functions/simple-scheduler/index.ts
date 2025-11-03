@@ -111,6 +111,44 @@ async function runRealScheduler(
       }
     }
 
+    // DEFENSIVE GUARD: Null out scheduled fields for PROOF/DTP/Batch Allocation stages
+    // This ensures these non-production stages are never scheduled
+    console.log('🛡️ Nulling scheduled fields for PROOF/DTP/Batch Allocation stages...');
+    
+    // First, get IDs of PROOF/DTP/Batch Allocation stages
+    const { data: excludedStages, error: stageQueryError } = await sb
+      .from('production_stages')
+      .select('id')
+      .or('name.ilike.%proof%,name.ilike.%dtp%,name.ilike.%batch%allocation%');
+    
+    if (stageQueryError) {
+      console.error('❌ Error querying excluded stages:', stageQueryError);
+      throw stageQueryError;
+    }
+    
+    if (excludedStages && excludedStages.length > 0) {
+      const excludedStageIds = excludedStages.map(s => s.id);
+      console.log(`🛡️ Found ${excludedStageIds.length} excluded stages to protect`);
+      
+      // Null out scheduled fields for these stages
+      const { error: guardError } = await sb
+        .from('job_stage_instances')
+        .update({
+          scheduled_start_at: null,
+          scheduled_end_at: null,
+          schedule_status: null
+        })
+        .in('production_stage_id', excludedStageIds);
+      
+      if (guardError) {
+        console.error('❌ Defensive guard error:', guardError);
+        throw guardError;
+      }
+      console.log('✅ Defensive guard applied');
+    } else {
+      console.log('ℹ️ No excluded stages found');
+    }
+
     // Call the Oct 24th resource-fill scheduler directly
     console.log('📅 Running scheduler_resource_fill_optimized()...');
     
