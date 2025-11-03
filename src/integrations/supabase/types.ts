@@ -2132,13 +2132,6 @@ export type Database = {
             foreignKeyName: "fk_proof_links_stage_instance"
             columns: ["stage_instance_id"]
             isOneToOne: false
-            referencedRelation: "v_non_schedulable_with_times"
-            referencedColumns: ["stage_instance_id"]
-          },
-          {
-            foreignKeyName: "fk_proof_links_stage_instance"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
             referencedRelation: "v_schedule_precedence_violations"
             referencedColumns: ["stage_instance_id"]
           },
@@ -2248,13 +2241,6 @@ export type Database = {
             columns: ["stage_instance_id"]
             isOneToOne: false
             referencedRelation: "v_job_stage_windows"
-            referencedColumns: ["stage_instance_id"]
-          },
-          {
-            foreignKeyName: "fk_gap_fills_stage_instance"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "v_non_schedulable_with_times"
             referencedColumns: ["stage_instance_id"]
           },
           {
@@ -2526,13 +2512,6 @@ export type Database = {
             columns: ["stage_instance_id"]
             isOneToOne: false
             referencedRelation: "v_job_stage_windows"
-            referencedColumns: ["stage_instance_id"]
-          },
-          {
-            foreignKeyName: "shipping_completions_stage_instance_id_fkey"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "v_non_schedulable_with_times"
             referencedColumns: ["stage_instance_id"]
           },
           {
@@ -2907,13 +2886,6 @@ export type Database = {
             columns: ["stage_instance_id"]
             isOneToOne: false
             referencedRelation: "v_job_stage_windows"
-            referencedColumns: ["stage_instance_id"]
-          },
-          {
-            foreignKeyName: "stage_sub_tasks_stage_instance_id_fkey"
-            columns: ["stage_instance_id"]
-            isOneToOne: false
-            referencedRelation: "v_non_schedulable_with_times"
             referencedColumns: ["stage_instance_id"]
           },
           {
@@ -3471,20 +3443,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      v_non_schedulable_with_times: {
-        Row: {
-          schedule_status: string | null
-          scheduled_end_at: string | null
-          scheduled_minutes: number | null
-          scheduled_start_at: string | null
-          stage_instance_id: string | null
-          stage_name: string | null
-          status: string | null
-          updated_at: string | null
-          wo_no: string | null
-        }
-        Relationships: []
       }
       v_schedule_precedence_violations: {
         Row: {
