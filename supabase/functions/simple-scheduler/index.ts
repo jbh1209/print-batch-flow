@@ -114,11 +114,11 @@ if (!payload.commit) {
       }
     }
 
-// Call the division-aware simple scheduler wrapper (DB authoritative)
-console.log('📅 Running simple_scheduler_wrapper()...');
+// Call the Oct 24 simple scheduler wrapper (NO DIVISIONS)
+console.log('📅 Running Oct 24 simple_scheduler_wrapper with p_mode...');
 
 const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-  p_division: null,
+  p_mode: 'reschedule_all',
   p_start_from: payload.startFrom ?? null,
 });
 

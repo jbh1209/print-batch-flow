@@ -465,7 +465,8 @@ export function useScheduleReader() {
           proposed: false,
           onlyIfUnset: false,
           nuclear: true,
-          wipeAll: true
+          wipeAll: true,
+          startFrom: new Date().toISOString() // Start from NOW, not tomorrow
         }
       });
       if (error) {
