@@ -1,6 +1,5 @@
 // tracker/schedule-board/apiHandler.ts
 import { createClient } from '@supabase/supabase-js';
-import { planSchedule, SchedulerInput } from './scheduler';
 
 export async function runScheduler(query: URLSearchParams) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
@@ -9,34 +8,23 @@ export async function runScheduler(query: URLSearchParams) {
 
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-  const { data: snap, error: exportErr } = await supabase.rpc('export_scheduler_input');
-  if (exportErr) return { status: 500, body: { error: 'export_scheduler_input failed', detail: exportErr } };
+  const mode = query.get('mode') ?? 'reschedule_all';
 
-  const input = snap as SchedulerInput;
-  const { updates } = planSchedule(input);
-  
-  // Guard: Filter out any PROOF/DTP updates that may have slipped through
-  const NON_SCHEDULABLE_STAGES = ['PROOF', 'DTP'];
-  const schedulableUpdates = updates.filter(u => {
-    const stageInstance = input.jobs
-      .flatMap(j => j.stages)
-      .find(s => s.id === u.id);
-    return stageInstance && !NON_SCHEDULABLE_STAGES.some(ns => 
-      stageInstance.stage_name.toUpperCase().includes(ns)
-    );
-  });
-
-  const commit      = (query.get('commit') ?? 'true') === 'true';
-  const proposed    = (query.get('proposed') ?? 'true') === 'true';
-  const onlyIfUnset = (query.get('onlyIfUnset') ?? 'true') === 'true';
-
-  let applied: any = { updated: 0 };
-  if (commit && schedulableUpdates.length) {
-    const { data, error } = await supabase.rpc('apply_stage_updates_safe', {
-      updates: schedulableUpdates, commit: true, only_if_unset: onlyIfUnset, as_proposed: proposed
-    });
-    if (error) return { status: 500, body: { error: 'apply_stage_updates_safe failed', detail: error } };
-    applied = data;
+  if (mode === 'reschedule_all') {
+    // Call DB scheduler (Oct 24 working version)
+    const { data, error } = await supabase.rpc('scheduler_resource_fill_optimized');
+    if (error) return { status: 500, body: { error: 'scheduler_resource_fill_optimized failed', detail: error } };
+    
+    return { 
+      status: 200, 
+      body: { 
+        ok: true, 
+        wrote_slots: data.wrote_slots,
+        updated_jsi: data.updated_jsi,
+        violations: data.violations 
+      } 
+    };
   }
-  return { status: 200, body: { ok: true, scheduled: schedulableUpdates.length, applied, updates: schedulableUpdates } };
+
+  return { status: 400, body: { error: 'Unknown mode' } };
 }

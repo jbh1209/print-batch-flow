@@ -1,21 +1,28 @@
 // tracker/schedule-board/ScheduleBoard.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
-type Update = { id: string; start_at: string; end_at: string; minutes: number };
-type ApiResponse = { ok: boolean; scheduled: number; applied?: any; updates: Update[] };
+type DbSchedulerResult = { 
+  ok: boolean; 
+  wrote_slots: number; 
+  updated_jsi: number; 
+  violations: Array<{ 
+    job_id: string; 
+    violation_type: string; 
+    stage1_name: string;
+    stage2_name: string;
+    violation_details: string;
+  }> 
+};
 
 export default function ScheduleBoard() {
-  const [data, setData] = useState<ApiResponse | null>(null);
+  const [data, setData] = useState<DbSchedulerResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [commit, setCommit] = useState(true);
-  const [proposed, setProposed] = useState(true);
-  const [onlyUnset, setOnlyUnset] = useState(true);
 
-  const run = async () => {
+  const runDbScheduler = async () => {
     setLoading(true); setError(null);
     try {
-      const q = new URLSearchParams({ commit: String(commit), proposed: String(proposed), onlyIfUnset: String(onlyUnset) }).toString();
+      const q = new URLSearchParams({ mode: 'reschedule_all' }).toString();
       const resp = await fetch('/api/scheduler/run?' + q);
       const json = await resp.json();
       if (!resp.ok) throw new Error(json?.error || 'Failed');
@@ -25,52 +32,55 @@ export default function ScheduleBoard() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { /* initial dry-run preview */ setCommit(false); setProposed(true); setOnlyUnset(true); }, []);
-
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Production Schedule</h1>
+        <h1 className="text-2xl font-semibold">Production Schedule (Oct 24 DB Engine)</h1>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={commit} onChange={e=>setCommit(e.target.checked)} /> Commit</label>
-          <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={proposed} onChange={e=>setProposed(e.target.checked)} /> As proposed</label>
-          <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={onlyUnset} onChange={e=>setOnlyUnset(e.target.checked)} /> Only unset</label>
-          <button onClick={run} className="px-3 py-2 rounded-md border hover:bg-gray-50">{loading ? 'Running…' : 'Run Scheduler'}</button>
+          <button 
+            onClick={runDbScheduler} 
+            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-medium"
+            disabled={loading}
+          >
+            {loading ? 'Running DB Scheduler…' : 'DB Reschedule (FIFO)'}
+          </button>
         </div>
       </div>
-      {error && <div className="text-red-600">{error}</div>}
-      {data && <UpdatesTable data={data} />}
-      <p className="text-xs text-gray-500">Tip: start in dry-run (Commit unchecked). When happy, tick Commit. \"As proposed\" writes schedule_status='proposed' instead of 'scheduled'.</p>
+      {error && <div className="p-3 rounded-md bg-red-50 text-red-800 border border-red-200">{error}</div>}
+      {data && <ResultsPanel data={data} />}
+      <p className="text-xs text-gray-500">
+        Using Oct 24 database scheduler: proper FIFO per job with per-resource queues. 
+        Stages schedule sequentially within each job, respecting proof_approved_at order.
+      </p>
     </div>
   );
 }
 
-function UpdatesTable({ data }: { data: ApiResponse }) {
+function ResultsPanel({ data }: { data: DbSchedulerResult }) {
   return (
-    <div className="border rounded-md overflow-hidden">
-      <div className="p-2 bg-gray-50 border-b text-sm">Planned {data.scheduled} stages {data.applied && `(applied: ${data.applied.updated ?? 0})`}</div>
-      <div className="max-h-[60vh] overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-white shadow-sm">
-            <tr>
-              <th className="text-left p-2">Stage Instance</th>
-              <th className="text-left p-2">Start</th>
-              <th className="text-left p-2">End</th>
-              <th className="text-left p-2">Minutes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.updates.map(u => (
-              <tr key={u.id} className="border-t">
-                <td className="p-2 font-mono">{u.id}</td>
-                <td className="p-2">{new Date(u.start_at).toLocaleString()}</td>
-                <td className="p-2">{new Date(u.end_at).toLocaleString()}</td>
-                <td className="p-2">{u.minutes}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="border rounded-md overflow-hidden bg-white">
+      <div className="p-3 bg-gray-50 border-b">
+        <div className="text-sm font-medium">
+          ✅ Wrote {data.wrote_slots} time slots, updated {data.updated_jsi} stage instances
+        </div>
+        {data.violations && data.violations.length > 0 && (
+          <div className="mt-2 text-sm text-amber-700">
+            ⚠️ {data.violations.length} precedence notes (review if unexpected)
+          </div>
+        )}
       </div>
+      {data.violations && data.violations.length > 0 && (
+        <div className="p-3 space-y-2 max-h-[40vh] overflow-auto">
+          <div className="text-xs font-medium text-gray-600">Validation Notes:</div>
+          {data.violations.map((v, idx) => (
+            <div key={idx} className="p-2 bg-amber-50 rounded text-xs border border-amber-200">
+              <div className="font-mono text-gray-700">{v.job_id}</div>
+              <div className="text-gray-600">{v.violation_type}: {v.stage1_name} → {v.stage2_name}</div>
+              <div className="text-gray-500">{v.violation_details}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
