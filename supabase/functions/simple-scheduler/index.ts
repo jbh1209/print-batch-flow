@@ -100,27 +100,10 @@ if (!payload.commit) {
 }
 
   try {
-    // Clear existing slots if nuclear/wipeAll requested
-    if (payload.nuclear) {
-      console.log('💥 Nuclear mode: clearing existing stage_time_slots...');
-      const { error: clearError } = await sb
-        .from('stage_time_slots')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (clearError) {
-        console.error('❌ Error clearing slots:', clearError);
-        throw clearError;
-      }
-    }
+    // Call the Oct 24 nuclear wipe scheduler - DB function handles full wipe + rebuild
+    console.log('📅 Running Oct 24 scheduler_resource_fill_optimized (nuclear wipe + rebuild)...');
 
-// Call the Oct 24 simple scheduler wrapper (NO DIVISIONS)
-console.log('📅 Running Oct 24 simple_scheduler_wrapper with p_mode...');
-
-const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-  p_mode: 'reschedule_all',
-  p_start_from: payload.startFrom ?? null,
-});
+    const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
 
     if (error) {
       console.error('❌ Scheduler error:', error);
@@ -198,14 +181,7 @@ Deno.serve(async (req: Request) => {
   });
 
   try {
-    // If nuclear/wipeAll was requested, you can clear slots up front.
-    // (Safe to keep as no-op until you connect the real engine.)
-    if (sanitizedPayload.nuclear) {
-      // Example pattern if you choose to wipe here:
-      // await sb.from("stage_time_slots").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    }
-
-    // >>> Call your actual scheduler here (currently a stub):
+    // Call the scheduler - DB function owns the full wipe + rebuild logic
     const core = await runRealScheduler(sb, sanitizedPayload);
 
 const result: ScheduleResult = {
