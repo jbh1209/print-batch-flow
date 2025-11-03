@@ -36,6 +36,9 @@ type ScheduleResult = {
     onlyJobIds: string[] | undefined;
     startFrom: string | undefined;
   };
+  // passthrough fields from DB wrapper when available
+  success?: boolean;
+  violations?: unknown[];
 };
 
 type ErrorResult = { ok: false; error: string };
@@ -87,14 +90,14 @@ async function runRealScheduler(
   sb: SupabaseClient,
   payload: Required<Pick<ScheduleRequest,
     "commit" | "proposed" | "onlyIfUnset" | "nuclear" | "startFrom" | "onlyJobIds">>,
-): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number } }> {
+): Promise<{ jobs_considered: number; scheduled: number; applied: { updated: number }; violations?: unknown[]; success?: boolean }> {
   console.log('🚀 Running PARALLEL-AWARE scheduler with payload:', payload);
   
   // Only proceed if commit is true (dry run protection)
-  if (!payload.commit) {
-    console.log('⚠️ Dry run mode - no actual scheduling performed');
-    return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 } };
-  }
+if (!payload.commit) {
+  console.log('⚠️ Dry run mode - no actual scheduling performed');
+  return { jobs_considered: 0, scheduled: 0, applied: { updated: 0 }, violations: [], success: false };
+}
 
   try {
     // Clear existing slots if nuclear/wipeAll requested
@@ -111,10 +114,13 @@ async function runRealScheduler(
       }
     }
 
-    // Call the Oct 24th resource-fill scheduler directly
-    console.log('📅 Running scheduler_resource_fill_optimized()...');
-    
-    const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
+// Call the division-aware simple scheduler wrapper (DB authoritative)
+console.log('📅 Running simple_scheduler_wrapper()...');
+
+const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
+  p_division: null,
+  p_start_from: payload.startFrom ?? null,
+});
 
     if (error) {
       console.error('❌ Scheduler error:', error);
@@ -122,17 +128,21 @@ async function runRealScheduler(
       throw error;
     }
 
-    const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
-    const wroteSlots = core?.wrote_slots ?? core?.applied?.wrote_slots ?? 0;
-    const updatedJsi = core?.updated_jsi ?? core?.applied?.updated ?? 0;
+const core: any = Array.isArray(data) ? (data as any[])[0] ?? {} : (data as any) ?? {};
+const wroteSlots = core?.wrote_slots ?? core?.applied?.wrote_slots ?? 0;
+const updatedJsi = core?.updated_jsi ?? core?.applied?.updated ?? 0;
+const violations = core?.violations ?? [];
+const success = core?.success ?? undefined;
 
-    console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
-    
-    return {
-      jobs_considered: updatedJsi,
-      scheduled: wroteSlots,
-      applied: { updated: updatedJsi }
-    };
+console.log(`✅ Scheduler complete: ${wroteSlots} slots, ${updatedJsi} stage instances updated`);
+
+return {
+  jobs_considered: updatedJsi,
+  scheduled: wroteSlots,
+  applied: { updated: updatedJsi },
+  violations: Array.isArray(violations) ? violations : [],
+  success: typeof success === 'boolean' ? success : undefined,
+};
   } catch (error) {
     console.error('💥 Parallel scheduler execution failed:', error);
     throw error;
@@ -198,14 +208,16 @@ Deno.serve(async (req: Request) => {
     // >>> Call your actual scheduler here (currently a stub):
     const core = await runRealScheduler(sb, sanitizedPayload);
 
-    const result: ScheduleResult = {
-      ok: true,
-      message: "scheduler-run OK",
-      jobs_considered: core.jobs_considered,
-      scheduled: core.scheduled,
-      applied: core.applied,
-      sanitized: { onlyJobIds, startFrom },
-    };
+const result: ScheduleResult = {
+  ok: true,
+  message: "scheduler-run OK",
+  jobs_considered: core.jobs_considered,
+  scheduled: core.scheduled,
+  applied: core.applied,
+  sanitized: { onlyJobIds, startFrom },
+  success: core.success,
+  violations: core.violations ?? [],
+};
     return json(result, 200);
   } catch (err) {
     return serverError("Unhandled scheduler error", err);
