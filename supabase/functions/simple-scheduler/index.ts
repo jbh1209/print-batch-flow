@@ -111,10 +111,12 @@ async function runRealScheduler(
       }
     }
 
-    // Call the Oct 24th resource-fill scheduler directly
-    console.log('📅 Running scheduler_resource_fill_optimized()...');
+    // Call the Oct 24th parallel-aware scheduler
+    console.log('📅 Running scheduler_reschedule_all_parallel_aware()...');
     
-    const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
+    const { data, error } = await sb.rpc('scheduler_reschedule_all_parallel_aware', {
+      p_start_from: payload.startFrom || null
+    });
 
     if (error) {
       console.error('❌ Scheduler error:', error);
