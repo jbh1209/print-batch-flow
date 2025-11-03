@@ -4496,18 +4496,16 @@ export type Database = {
           wrote_slots: number
         }[]
       }
-      scheduler_resource_fill_optimized:
-        | {
-            Args: never
-            Returns: Database["public"]["CompositeTypes"]["scheduler_result_type"]
-            SetofOptions: {
-              from: "*"
-              to: "scheduler_result_type"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | { Args: { p_start_from: string }; Returns: Json }
+      scheduler_resource_fill_optimized: {
+        Args: never
+        Returns: Database["public"]["CompositeTypes"]["scheduler_result_type"]
+        SetofOptions: {
+          from: "*"
+          to: "scheduler_result_type"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       scheduler_truly_sequential_v2: {
         Args: { p_start_from?: string }
         Returns: {
