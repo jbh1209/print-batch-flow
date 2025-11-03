@@ -1,8 +1,10 @@
 // tracker/schedule-board/ScheduleBoard.tsx
 import React, { useState } from 'react';
+import { supabase } from "@/integrations/supabase/client";
 
 type DbSchedulerResult = { 
-  ok: boolean; 
+  ok?: boolean; 
+  success?: boolean;
   wrote_slots: number; 
   updated_jsi: number; 
   violations: Array<{ 
@@ -22,13 +24,13 @@ export default function ScheduleBoard() {
   const runDbScheduler = async () => {
     setLoading(true); setError(null);
     try {
-      const q = new URLSearchParams({ mode: 'reschedule_all' }).toString();
-      const resp = await fetch('/api/scheduler/run?' + q);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json?.error || 'Failed');
-      setData(json);
+      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+        body: { commit: true, proposed: false, onlyIfUnset: false }
+      });
+      if (error) throw new Error(error.message || 'Scheduler failed');
+      setData(data as DbSchedulerResult);
     } catch (e:any) {
-      setError(e.message);
+      setError(e.message ?? String(e));
     } finally { setLoading(false); }
   };
 
