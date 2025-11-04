@@ -38,8 +38,13 @@ export interface GapFillRecord {
   scheduler_run_type: string;
   days_saved: number;
   created_at: string;
-  original_window_id: string | null;
-  new_window_id: string | null;
+  original_window_id?: string | null;
+  new_window_id?: string | null;
+  gap_filled_start?: string;
+  job_id?: string;
+  minutes_saved?: number;
+  original_scheduled_start?: string;
+  production_stage_id?: string;
 }
 
 export interface SchedulerResult {

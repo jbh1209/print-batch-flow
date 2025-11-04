@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
+import { SchedulerResult, isSchedulerResult, GapFillRecord } from "@/types/scheduler";
 
 /* ------------------------- types ------------------------- */
 
@@ -456,7 +457,7 @@ export function useScheduleReader() {
   }, []);
 
   // Canonical path: UI -> Edge Function -> DB wrapper
-  const triggerReschedule = useCallback(async () => {
+  const triggerReschedule = useCallback(async (): Promise<SchedulerResult | null> => {
     try {
       console.log("🔄 Triggering reschedule via edge function: simple-scheduler...");
       const { data, error } = await supabase.functions.invoke('simple-scheduler', {
@@ -471,24 +472,67 @@ export function useScheduleReader() {
       if (error) {
         console.error("Error triggering reschedule:", error);
         toast.error("Failed to trigger reschedule");
-        return false;
+        return null;
       }
-      const result: any = (data as any) || {};
-      const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
-      const updatedJsi = result?.applied?.updated ?? result?.jobs_considered ?? 0;
-      const violations = Array.isArray(result?.violations) ? result.violations.length : 0;
-      console.log("✅ Reschedule complete via edge function:", result);
-      toast.success(`Rescheduled: ${updatedJsi} stages, ${wroteSlots} slots${violations ? `, ${violations} notes` : ''}`);
+
+      // Type guard validation
+      if (!isSchedulerResult(data)) {
+        console.error("❌ Invalid scheduler response structure:", data);
+        toast.error("Invalid scheduler response format");
+        return null;
+      }
+
+      console.log("✅ Reschedule complete via edge function:", data);
+
+      // Fetch recent gap fills (within last 10 seconds)
+      const { data: gapFillData, error: gapFillError } = await supabase
+        .from('schedule_gap_fills')
+        .select('*')
+        .eq('scheduler_run_type', 'reschedule_all')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (gapFillError) {
+        console.error('Error fetching gap fills:', gapFillError);
+      }
+
+      const recentGapFills = (gapFillData || []).filter((gf: any) => {
+        const timeDiff = Date.now() - new Date(gf.created_at).getTime();
+        return timeDiff < 10000; // Within last 10 seconds
+      }) as GapFillRecord[];
+
+      const result: SchedulerResult = {
+        ...data,
+        gap_fills: recentGapFills
+      };
+
+      const violationCount = result.violations.length;
+      const gapFilledCount = recentGapFills.length;
+      const totalDaysSaved = recentGapFills.reduce((sum, gf) => sum + (gf.days_saved || 0), 0);
+
+      if (gapFilledCount > 0) {
+        toast.success(
+          `✅ Scheduled ${result.updated_jsi} stages with ${result.wrote_slots} slots. 🔀 Gap-filled ${gapFilledCount} stages (saved ${totalDaysSaved.toFixed(1)} days total)!`,
+          {
+            description: violationCount > 0 ? `${violationCount} parallel processing info items (normal for cover/text stages)` : undefined
+          }
+        );
+      } else {
+        toast.success(
+          `✅ Rescheduled: ${result.updated_jsi} stages, ${result.wrote_slots} slots${violationCount > 0 ? `, ${violationCount} notes` : ''}`
+        );
+      }
 
       // Refresh after a moment
       setTimeout(() => {
         fetchSchedule();
       }, 1500);
-      return true;
+      
+      return result;
     } catch (error) {
       console.error("Error triggering reschedule:", error);
       toast.error("Failed to trigger reschedule");
-      return false;
+      return null;
     }
   }, [fetchSchedule]);
 

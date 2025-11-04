@@ -21,29 +21,14 @@ export default function ScheduleBoardPage() {
     try {
       toast.message("Rebuilding schedule with parallel-aware scheduler…");
 
-      const ok = await triggerReschedule();
-      if (!ok) return;
+      const result = await triggerReschedule();
+      if (!result) return;
 
-      // TODO: Capture full scheduler result from triggerReschedule
-      // For now, clear previous results
-      setSchedulerResult(null);
+      // Store full result for observability components
+      setSchedulerResult(result);
 
-      await fetchSchedule();
-      
-      // Get post-reschedule validation
-      const validationResults = await getSchedulingValidation();
-      
-      if (validationResults.length > 0) {
-        toast.message(
-          `✅ Parallel scheduler ran. ${validationResults.length} precedence notes (normal for cover/text stages)`,
-          {
-            description: "Click on any job to see 'Why scheduled here?' details"
-          }
-        );
-        console.log('Parallel processing validation info:', validationResults);
-      } else {
-        toast.success(`✅ Perfect schedule: 0 validation notes`);
-      }
+      // Note: triggerReschedule already calls fetchSchedule internally
+      // No need to call getSchedulingValidation separately - result already has violations
     } catch (e: any) {
       console.error("Reschedule failed:", e);
       toast.error(`Reschedule failed: ${e?.message ?? e}`);
