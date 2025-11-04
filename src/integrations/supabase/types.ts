@@ -4466,11 +4466,7 @@ export type Database = {
       }
       scheduler_reschedule_all_parallel_aware: {
         Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
+        Returns: Json
       }
       scheduler_reschedule_all_sequential_enhanced: {
         Args: { p_start_from?: string }
