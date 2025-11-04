@@ -19,6 +19,7 @@ export interface ScheduledStageData {
   estimated_duration_minutes: number; // used as "minutes" to render the chip
   start_hhmm: string;         // formatted for display (factory-local)
   end_hhmm: string;           // formatted for display (factory-local)
+  scheduled_start_at?: string; // Full ISO timestamp for scheduling context
   status: string;
   stage_color?: string;
   paper_type?: string;
@@ -355,6 +356,7 @@ export function useScheduleReader() {
             estimated_duration_minutes: Math.max(0, minutes),
             start_hhmm: dispStartISO,
             end_hhmm: dispEndISO,
+            scheduled_start_at: row.scheduled_start_at,
             status: row.status,
             stage_color: stage?.color || "#6B7280",
             paper_type: paperSpecs?.paper_type,
