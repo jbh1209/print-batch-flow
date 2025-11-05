@@ -4,7 +4,22 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { SchedulerResult, SchedulerValidation, isSchedulerResult } from "@/types/scheduler";
+
+export interface SchedulerResult {
+  wrote_slots: number;
+  updated_jsi: number;
+  violations: any[];
+}
+
+export interface SchedulerValidation {
+  job_id: string;
+  violation_type: string;
+  stage1_name: string;
+  stage1_order: number;
+  stage2_name: string;
+  stage2_order: number;
+  violation_details: string;
+}
 
 /**
  * Get factory timezone base time for scheduling
@@ -42,20 +57,23 @@ export async function rescheduleAll(): Promise<SchedulerResult | null> {
       return null;
     }
 
-    // Type guard validation
-    if (!isSchedulerResult(data)) {
-      console.error('❌ Invalid scheduler response structure:', data);
-      toast.error('Invalid scheduler response format');
-      return null;
-    }
+    const result: any = (data as any) || {};
+    const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
+    const updatedJSI = result?.applied?.updated ?? result?.jobs_considered ?? 0;
 
-    console.log('✅ Reschedule completed via Edge Function:', {
-      wrote_slots: data.wrote_slots,
-      updated_jsi: data.updated_jsi,
-      violations: data.violations.length,
+    const violations = Array.isArray(result?.violations) ? result.violations : [];
+
+    console.log('🔄 Reschedule completed via Edge Function:', {
+      wroteSlots,
+      updatedJSI,
+      violations: violations.length,
     });
 
-    return data;
+    return {
+      wrote_slots: wroteSlots,
+      updated_jsi: updatedJSI,
+      violations,
+    };
   } catch (error) {
     console.error('Reschedule failed:', error);
     toast.error(`Reschedule failed: ${error}`);
@@ -98,14 +116,12 @@ export async function scheduleJobs(jobIds: string[], forceReschedule = false): P
       return null;
     }
     
-    // Type guard validation
-    if (!isSchedulerResult(data)) {
-      console.error('❌ Invalid scheduler response structure:', data);
-      toast.error('Invalid scheduler response format');
-      return null;
-    }
-    
-    return data;
+    const result = (data as any)?.[0] || {};
+    return {
+      wrote_slots: result?.wrote_slots ?? 0,
+      updated_jsi: result?.updated_jsi ?? 0,
+      violations: []
+    };
   } catch (error) {
     console.error('Error scheduling jobs:', error);
     toast.error(`Failed to schedule jobs: ${error}`);

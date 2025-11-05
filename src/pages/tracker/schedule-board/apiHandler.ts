@@ -1,9 +1,3 @@
-// ===================================================================================
-// ⚠️ DIAGNOSTIC PLANNER - LOCAL DRY-RUN TESTING ONLY
-// This API handler uses the local TypeScript planner for testing and visualization.
-// All production scheduling MUST go through Edge Function 'simple-scheduler'.
-// ===================================================================================
-
 // tracker/schedule-board/apiHandler.ts
 import { createClient } from '@supabase/supabase-js';
 import { planSchedule, SchedulerInput } from './scheduler';

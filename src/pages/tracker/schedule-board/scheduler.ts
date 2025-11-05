@@ -1,9 +1,3 @@
-// ===================================================================================
-// ⚠️ DIAGNOSTIC PLANNER - LOCAL DRY-RUN TESTING ONLY
-// This TypeScript planner is for testing and visualization purposes only.
-// All production scheduling MUST go through Edge Function 'simple-scheduler'.
-// ===================================================================================
-
 // tracker/schedule-board/scheduler.ts
 export type UUID = string;
 

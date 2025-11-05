@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, GripVertical, Lock } from "lucide-react";
 import type { ScheduledStageData } from "@/hooks/useScheduleReader";
 import { EnhancedDueDateDisplay } from "@/components/tracker/production/EnhancedDueDateDisplay";
-import { WhyScheduledHere } from "@/components/scheduler/WhyScheduledHere";
 
 interface SortableScheduleStageCardProps {
   stage: ScheduledStageData;
@@ -84,21 +83,9 @@ export const SortableScheduleStageCard: React.FC<SortableScheduleStageCardProps>
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            <Badge variant="outline" className="text-xs">
-              {stage.estimated_duration_minutes}m
-            </Badge>
-            {stage.scheduled_start_at && (
-              <div onClick={(e) => e.stopPropagation()}>
-                <WhyScheduledHere
-                  stageId={stage.id}
-                  stageName={stage.stage_name}
-                  scheduledStart={stage.scheduled_start_at}
-                  factors={{}}
-                />
-              </div>
-            )}
-          </div>
+          <Badge variant="outline" className="text-xs">
+            {stage.estimated_duration_minutes}m
+          </Badge>
         </div>
         
         <div className="text-xs font-medium text-muted-foreground">

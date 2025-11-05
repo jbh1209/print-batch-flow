@@ -6,7 +6,6 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { rescheduleAll, scheduleJobs } from "@/utils/scheduler";
-import { SchedulerResult, GapFillRecord } from "@/types/scheduler";
 
 export function useSequentialScheduler() {
   const [isLoading, setIsLoading] = useState(false);

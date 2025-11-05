@@ -1,9 +1,3 @@
-// ===================================================================================
-// ⚠️ DIAGNOSTIC DRY-RUN ONLY - NOT FOR PRODUCTION USE
-// This component uses the local TypeScript planner for testing and visualization.
-// All production scheduling MUST go through Edge Function 'simple-scheduler'.
-// ===================================================================================
-
 // tracker/schedule-board/ScheduleBoard.tsx
 import React, { useEffect, useState } from 'react';
 
