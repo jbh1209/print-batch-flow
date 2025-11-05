@@ -48,6 +48,7 @@ export interface StageRow {
   schedule_status: string | null;
   previous_stage_id: UUID | null;
   dependency_group: string | null;
+  part_assignment: string | null;
   production_stage_id: UUID;
 }
 
@@ -161,13 +162,30 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
         const resource = st.production_stage_id;
         let earliest = job.approvedAt;
         
-        // Ensure dependencies from previous stages are met
-        // Only consider schedulable stages as barriers (PROOF/DTP excluded)
+        // PARALLEL PROCESSING FIX: Respect part_assignment and dependency_group
+        // Only wait for stages that are ACTUAL dependencies
         for (const prev of stages) {
-          if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
-            const ended = endTimes.get(prev.id);
-            if (ended && ended > earliest) earliest = ended;
+          // Skip if previous stage is not earlier in workflow
+          if ((prev.stage_order ?? 9999) >= (st.stage_order ?? 9999)) continue;
+          
+          // If both stages have part_assignment, they must match to be dependencies
+          // Cover stages don't wait for text stages and vice versa
+          if (st.part_assignment && prev.part_assignment) {
+            if (st.part_assignment !== prev.part_assignment && 
+                st.part_assignment !== 'both' && 
+                prev.part_assignment !== 'both') {
+              continue; // Different parts run in parallel - not a dependency
+            }
           }
+          
+          // If current stage has dependency_group, it waits for ALL stages regardless of part
+          // This handles synchronization points like collating/binding
+          if (st.dependency_group) {
+            // This stage waits for everything before it - no early exit
+          }
+          
+          const ended = endTimes.get(prev.id);
+          if (ended && ended > earliest) earliest = ended;
         }
         
         // FIXED: Enforce FIFO - resource must wait until this job's turn
