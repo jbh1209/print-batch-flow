@@ -36,34 +36,54 @@ Deno.serve(async (req: Request) => {
 
     const sb = createClient(supabaseUrl, serviceKey);
 
-    console.log('Calling scheduler_resource_fill_optimized...');
+    console.log('Calling simple_scheduler_wrapper...');
     
-    const { data, error } = await sb.rpc('scheduler_resource_fill_optimized');
+    const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
+      p_division: null,
+      p_start_from: null
+    });
 
+    // Always return 200 with structured response
     if (error) {
-      console.error('Scheduler error:', error);
+      console.error('Scheduler RPC error:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'Scheduler failed', 
+          success: false,
           message: error.message,
-          details: error 
+          details: error,
+          wrote_slots: 0,
+          updated_jsi: 0,
+          violations: []
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const result = data as SchedulerResultType;
-    
-    console.log('Scheduler completed:', result);
+    // Check if wrapper returned success: false
+    if (data && data.success === false) {
+      console.warn('Scheduler reported failure:', data);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: data.error || 'Scheduler reported a failure',
+          wrote_slots: data.wrote_slots || 0,
+          updated_jsi: data.updated_jsi || 0,
+          violations: Array.isArray(data.violations) ? data.violations : []
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Scheduler completed successfully:', data);
 
     return new Response(
       JSON.stringify({
         success: true,
-        wrote_slots: result.wrote_slots,
-        updated_jsi: result.updated_jsi,
-        violations: result.violations || [],
-        scheduled: result.wrote_slots,
-        applied: { updated: result.updated_jsi }
+        wrote_slots: data.wrote_slots || 0,
+        updated_jsi: data.updated_jsi || 0,
+        violations: Array.isArray(data.violations) ? data.violations : [],
+        scheduled: data.wrote_slots || 0,
+        applied: { updated: data.updated_jsi || 0 }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
