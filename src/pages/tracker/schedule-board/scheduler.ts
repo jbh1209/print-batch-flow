@@ -162,28 +162,47 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
         const resource = st.production_stage_id;
         let earliest = job.approvedAt;
         
-        // PARALLEL PROCESSING FIX: Respect part_assignment and dependency_group
-        // Only wait for stages that are ACTUAL dependencies
+        // CRITICAL: Part-assignment dependency logic matches advance_parallel_job_stage
+        // Cover and Text stages run in PARALLEL unless explicitly synchronized
         for (const prev of stages) {
-          // Skip if previous stage is not earlier in workflow
-          if ((prev.stage_order ?? 9999) >= (st.stage_order ?? 9999)) continue;
+          const prevOrder = prev.stage_order ?? 9999;
+          const currOrder = st.stage_order ?? 9999;
           
-          // If both stages have part_assignment, they must match to be dependencies
-          // Cover stages don't wait for text stages and vice versa
-          if (st.part_assignment && prev.part_assignment) {
-            if (st.part_assignment !== prev.part_assignment && 
-                st.part_assignment !== 'both' && 
-                prev.part_assignment !== 'both') {
-              continue; // Different parts run in parallel - not a dependency
-            }
+          // Rule 1: Previous stage must be earlier in workflow order
+          if (prevOrder >= currOrder) continue;
+          
+          // Normalize part assignments to lowercase for comparison
+          const currPart = st.part_assignment?.toLowerCase() ?? null;
+          const prevPart = prev.part_assignment?.toLowerCase() ?? null;
+          
+          // Rule 2: Determine if previous stage is a LOGICAL dependency
+          // This MUST match the exact logic from advance_parallel_job_stage function
+          const isLogicalDependency =
+            // Case A: Previous stage is 'both' → it feeds ALL downstream paths
+            (prevPart === 'both') ||
+            
+            // Case B: Current stage is 'both' → it waits for ALL upstream paths (cover/text/null)
+            (currPart === 'both' && (prevPart === null || prevPart === 'cover' || prevPart === 'text')) ||
+            
+            // Case C: Both stages are on the SAME specific part (cover→cover or text→text)
+            (currPart !== null && currPart !== 'both' && prevPart === currPart) ||
+            
+            // Case D: Either has no part assignment → single-part job, all stages chain
+            (currPart === null || prevPart === null);
+          
+          // Rule 3: Explicit synchronization via dependency_group overrides part logic
+          const sameDependencyGroup = 
+            !!st.dependency_group && 
+            !!prev.dependency_group &&
+            st.dependency_group === prev.dependency_group;
+          
+          // Rule 4: Skip this predecessor if it's NOT a logical dependency AND no explicit sync
+          // Example: Cover UV should NOT wait for Text T250 (different parts, no dependency_group)
+          if (!isLogicalDependency && !sameDependencyGroup) {
+            continue; // This predecessor does not block the current stage
           }
           
-          // If current stage has dependency_group, it waits for ALL stages regardless of part
-          // This handles synchronization points like collating/binding
-          if (st.dependency_group) {
-            // This stage waits for everything before it - no early exit
-          }
-          
+          // Apply the dependency: current stage must wait for previous stage to finish
           const ended = endTimes.get(prev.id);
           if (ended && ended > earliest) earliest = ended;
         }
