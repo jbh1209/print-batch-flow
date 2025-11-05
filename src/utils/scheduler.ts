@@ -39,10 +39,10 @@ function getFactoryBaseTime(): string {
  */
 export async function rescheduleAll(): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via scheduler_resource_fill_optimized...');
+    console.log('🔄 Starting reschedule via scheduler-run...');
 
-    const { data, error } = await supabase.functions.invoke('simple-scheduler', {
-      body: {}
+    const { data, error } = await supabase.functions.invoke('scheduler-run', {
+      body: { commit: true, proposed: false, onlyIfUnset: true }
     });
 
     if (error) {
