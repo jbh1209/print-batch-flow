@@ -3827,7 +3827,9 @@ export type Database = {
           stage_name: string
         }[]
       }
-      export_scheduler_input: { Args: never; Returns: Json }
+      export_scheduler_input:
+        | { Args: { p_division?: string }; Returns: Json }
+        | { Args: never; Returns: Json }
       find_available_gaps: {
         Args: {
           p_align_at?: string
