@@ -206,11 +206,6 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
           const ended = endTimes.get(prev.id);
           if (ended && ended > earliest) earliest = ended;
         }
-        
-        // FIXED: Enforce FIFO - resource must wait until this job's turn
-        // Only use resource availability if it's AFTER this job's earliest possible start
-        const resAvail = avail.get(resource);
-        if (resAvail && resAvail > earliest) earliest = resAvail;
 
         const mins = Math.max(0, Math.round((st.estimated_minutes||0) + (st.setup_minutes||0)));
         const segments = mins>0 ? placeDuration(input, earliest, mins) : [{start: earliest, end: earliest}];
