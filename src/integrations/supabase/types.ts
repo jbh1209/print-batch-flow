@@ -4452,49 +4452,9 @@ export type Database = {
           wrote_slots: number
         }[]
       }
-      scheduler_completely_sequential: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
       scheduler_delete_slots_for_jobs: {
         Args: { job_ids: string[] }
         Returns: number
-      }
-      scheduler_reschedule_all_parallel_aware: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_sequential_enhanced: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_sequential_fixed: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
-      }
-      scheduler_reschedule_all_sequential_fixed_v2: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
       }
       scheduler_resource_fill_optimized: {
         Args: never
@@ -4505,14 +4465,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      scheduler_truly_sequential_v2: {
-        Args: { p_start_from?: string }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
       }
       scheduler_truncate_slots: { Args: never; Returns: undefined }
       set_user_role: {
@@ -4548,10 +4500,6 @@ export type Database = {
               win_start: string
             }[]
           }
-      simple_scheduler_wrapper: {
-        Args: { p_mode?: string; p_start_from?: string }
-        Returns: Json
-      }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
         Returns: {
