@@ -123,12 +123,6 @@ export function useScheduleReader() {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchSchedule = useCallback(async () => {
-    // Route-aware guard: skip on /auth when not logged in
-    if (typeof window !== 'undefined' && window.location.pathname === '/auth') {
-      console.log('🚫 useScheduleReader: skipping fetch on /auth route');
-      return;
-    }
-    
     setIsLoading(true);
     try {
       // 1) Pull scheduled stage instances (+ minute fields we need + HP12000 paper size)
@@ -146,7 +140,6 @@ export function useScheduleReader() {
           scheduled_minutes,
           scheduled_start_at,
           scheduled_end_at,
-          schedule_status,
           status,
           job_table_name,
           notes,
@@ -168,7 +161,6 @@ export function useScheduleReader() {
         )
         .not("scheduled_start_at", "is", null)
         .not("scheduled_end_at", "is", null)
-        .eq("schedule_status", "scheduled")
         .not("status", "eq", "completed")
         .order("scheduled_start_at", { ascending: true });
 
@@ -198,10 +190,10 @@ export function useScheduleReader() {
         console.error("Error fetching production stages:", stagesLookupError);
       }
 
-      // 4) job lookup (include due date fields AND proof_approved_at for filtering)
+      // 4) job lookup (include due date fields)
       const { data: productionJobs, error: jobsError } = await supabase
         .from("production_jobs")
-        .select("id, wo_no, finishing_specifications, due_date, original_committed_due_date, proof_approved_at")
+        .select("id, wo_no, finishing_specifications, due_date, original_committed_due_date")
         .in("id", jobIds);
 
       if (jobsError) {
@@ -299,11 +291,6 @@ export function useScheduleReader() {
 
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
-        
-        // CRITICAL FILTER: Skip any stage whose parent job is not proof-approved
-        if (!job || !job.proof_approved_at) {
-          continue; // This stage belongs to an unapproved job; do not display it
-        }
         
         // Extract specifications using the same logic as SubSpecificationBadge
         const stageType = stage ? getStageType(stage.name) : 'other';
@@ -468,15 +455,17 @@ export function useScheduleReader() {
     }
   }, []);
 
-  // Trigger reschedule with reflow (onlyIfUnset: false)
+  // Canonical path: UI -> Edge Function -> DB wrapper
   const triggerReschedule = useCallback(async () => {
     try {
-      console.log("🔄 Triggering reschedule via scheduler-run (reflow mode)...");
-      const { data, error } = await supabase.functions.invoke('scheduler', {
+      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...");
+      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
         body: {
           commit: true,
           proposed: false,
-          onlyIfUnset: false  // Enable reflow to actually change schedules
+          onlyIfUnset: false,
+          nuclear: true,
+          wipeAll: true
         }
       });
       if (error) {
@@ -485,10 +474,16 @@ export function useScheduleReader() {
         return false;
       }
       const result: any = (data as any) || {};
-      const wroteSlots = result?.wrote_slots ?? 0;
-      const updatedJsi = result?.updated_jsi ?? 0;
+      const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
+      const updatedJsi = result?.applied?.updated ?? result?.jobs_considered ?? 0;
       const violations = Array.isArray(result?.violations) ? result.violations.length : 0;
-      console.log("✅ Reschedule complete:", { wroteSlots, updatedJsi, violations });
+      console.log("✅ Reschedule complete via edge function:", result);
+      toast.success(`Rescheduled: ${updatedJsi} stages, ${wroteSlots} slots${violations ? `, ${violations} notes` : ''}`);
+
+      // Refresh after a moment
+      setTimeout(() => {
+        fetchSchedule();
+      }, 1500);
       return true;
     } catch (error) {
       console.error("Error triggering reschedule:", error);

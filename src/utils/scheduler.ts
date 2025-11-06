@@ -36,18 +36,18 @@ function getFactoryBaseTime(): string {
 
 /**
  * Main reschedule function - routes through edge function to avoid DB timeouts
- * @param wipeAll - If true, deletes all existing slots before rescheduling (full rebuild)
  */
-export async function rescheduleAll(wipeAll: boolean = false): Promise<SchedulerResult | null> {
+export async function rescheduleAll(): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via scheduler-run (reflow mode)...', { wipeAll });
+    console.log('🔄 Starting reschedule via Edge Function simple-scheduler...');
 
-    const { data, error } = await supabase.functions.invoke('scheduler-run', {
-      body: { 
-        commit: true, 
-        proposed: false, 
+    const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+      body: {
+        commit: true,
+        proposed: false,
         onlyIfUnset: false,
-        wipeAll
+        nuclear: true,
+        wipeAll: true
       }
     });
 
@@ -58,11 +58,12 @@ export async function rescheduleAll(wipeAll: boolean = false): Promise<Scheduler
     }
 
     const result: any = (data as any) || {};
-    const wroteSlots = result?.wrote_slots ?? 0;
-    const updatedJSI = result?.updated_jsi ?? 0;
+    const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
+    const updatedJSI = result?.applied?.updated ?? result?.jobs_considered ?? 0;
+
     const violations = Array.isArray(result?.violations) ? result.violations : [];
 
-    console.log('🔄 Reschedule completed:', {
+    console.log('🔄 Reschedule completed via Edge Function:', {
       wroteSlots,
       updatedJSI,
       violations: violations.length,

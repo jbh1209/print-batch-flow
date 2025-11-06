@@ -1,8 +1,5 @@
 project_id = "kgizusgqexmlfcqfjopk"
 
-[functions.reset-user-password-admin]
-verify_jwt = true
-
 [functions.handle-proof-approval]
 verify_jwt = false
 

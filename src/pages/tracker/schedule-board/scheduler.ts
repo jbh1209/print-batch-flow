@@ -1,13 +1,6 @@
 // tracker/schedule-board/scheduler.ts
 export type UUID = string;
 
-// Non-schedulable stages - these are informational only and should never be scheduled
-const NON_SCHEDULABLE_STAGES = ['PROOF', 'DTP'];
-
-function isSchedulableStage(stage: StageRow): boolean {
-  return !NON_SCHEDULABLE_STAGES.some(ns => stage.stage_name.toUpperCase().includes(ns));
-}
-
 export interface SchedulerInput {
   meta: { generated_at: string; printing_stage_ids?: UUID[]; breaks?: { start_time: string; minutes: number }[] };
   shifts: { id: UUID; day_of_week: number; shift_start_time: string; shift_end_time: string; is_working_day: boolean; is_active: boolean; created_at: string; updated_at: string; }[];
@@ -48,7 +41,6 @@ export interface StageRow {
   schedule_status: string | null;
   previous_stage_id: UUID | null;
   dependency_group: string | null;
-  part_assignment: string | null;
   production_stage_id: UUID;
 }
 
@@ -145,10 +137,7 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
   const updates: PlacementUpdate[] = [];
 
   for (const job of jobs) {
-    // Filter out PROOF and DTP stages - they should never be scheduled
-    const schedulableStages = job.stages.filter(isSchedulableStage);
-    
-    const stages = [...schedulableStages].sort((a,b)=>{
+    const stages = [...job.stages].sort((a,b)=>{
       const ao=a.stage_order ?? 9999, bo=b.stage_order ?? 9999;
       if (ao!==bo) return ao-bo; return 0;
     });
@@ -162,50 +151,18 @@ export function planSchedule(input: SchedulerInput): ScheduleResult {
         const resource = st.production_stage_id;
         let earliest = job.approvedAt;
         
-        // CRITICAL: Part-assignment dependency logic matches advance_parallel_job_stage
-        // Cover and Text stages run in PARALLEL unless explicitly synchronized
+        // Ensure dependencies from previous stages are met
         for (const prev of stages) {
-          const prevOrder = prev.stage_order ?? 9999;
-          const currOrder = st.stage_order ?? 9999;
-          
-          // Rule 1: Previous stage must be earlier in workflow order
-          if (prevOrder >= currOrder) continue;
-          
-          // Normalize part assignments to lowercase for comparison
-          const currPart = st.part_assignment?.toLowerCase() ?? null;
-          const prevPart = prev.part_assignment?.toLowerCase() ?? null;
-          
-          // Rule 2: Determine if previous stage is a LOGICAL dependency
-          // This MUST match the exact logic from advance_parallel_job_stage function
-          const isLogicalDependency =
-            // Case A: Previous stage is 'both' → it feeds ALL downstream paths
-            (prevPart === 'both') ||
-            
-            // Case B: Current stage is 'both' → it waits for ALL upstream paths (cover/text/null)
-            (currPart === 'both' && (prevPart === null || prevPart === 'cover' || prevPart === 'text')) ||
-            
-            // Case C: Both stages are on the SAME specific part (cover→cover or text→text)
-            (currPart !== null && currPart !== 'both' && prevPart === currPart) ||
-            
-            // Case D: Either has no part assignment → single-part job, all stages chain
-            (currPart === null || prevPart === null);
-          
-          // Rule 3: Explicit synchronization via dependency_group overrides part logic
-          const sameDependencyGroup = 
-            !!st.dependency_group && 
-            !!prev.dependency_group &&
-            st.dependency_group === prev.dependency_group;
-          
-          // Rule 4: Skip this predecessor if it's NOT a logical dependency AND no explicit sync
-          // Example: Cover UV should NOT wait for Text T250 (different parts, no dependency_group)
-          if (!isLogicalDependency && !sameDependencyGroup) {
-            continue; // This predecessor does not block the current stage
+          if ((prev.stage_order ?? 9999) < (st.stage_order ?? 9999)) {
+            const ended = endTimes.get(prev.id);
+            if (ended && ended > earliest) earliest = ended;
           }
-          
-          // Apply the dependency: current stage must wait for previous stage to finish
-          const ended = endTimes.get(prev.id);
-          if (ended && ended > earliest) earliest = ended;
         }
+        
+        // FIXED: Enforce FIFO - resource must wait until this job's turn
+        // Only use resource availability if it's AFTER this job's earliest possible start
+        const resAvail = avail.get(resource);
+        if (resAvail && resAvail > earliest) earliest = resAvail;
 
         const mins = Math.max(0, Math.round((st.estimated_minutes||0) + (st.setup_minutes||0)));
         const segments = mins>0 ? placeDuration(input, earliest, mins) : [{start: earliest, end: earliest}];

@@ -4,7 +4,6 @@ import { useScheduleReader } from "@/hooks/useScheduleReader";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { toast } from "sonner";
 import { getSchedulingValidation } from "@/utils/scheduler";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function ScheduleBoardPage() {
   const { scheduleDays, isLoading, fetchSchedule, triggerReschedule } = useScheduleReader();
@@ -16,41 +15,26 @@ export default function ScheduleBoardPage() {
 
   const handleReschedule = async () => {
     try {
-      toast.message("Rebuilding schedule with Oct 24 scheduler (FIFO, proof-approved)…");
+      toast.message("Rebuilding schedule with parallel-aware scheduler…");
 
-      // Full reschedule using Oct 24 scheduler
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
-        body: {
-          commit: true,
-          proposed: false,
-          onlyIfUnset: false,
-          wipeAll: false, // Oct 24 scheduler clears non-completed slots automatically
-          onlyJobIds: null // Trigger full reschedule
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Reschedule failed');
-      }
+      const ok = await triggerReschedule();
+      if (!ok) return;
 
       await fetchSchedule();
       
       // Get post-reschedule validation
       const validationResults = await getSchedulingValidation();
       
-      const wroteSlots = data?.wrote_slots ?? 0;
-      const updatedJsi = data?.updated_jsi ?? 0;
-      
       if (validationResults.length > 0) {
         toast.message(
-          `✅ Oct 24 scheduler ran: ${wroteSlots} slots, ${updatedJsi} stages. ${validationResults.length} precedence notes`,
+          `✅ Parallel scheduler ran. ${validationResults.length} precedence notes (normal for cover/text stages)`,
           {
             description: "Click on any job to see 'Why scheduled here?' details"
           }
         );
-        console.log('Scheduling validation info:', validationResults);
+        console.log('Parallel processing validation info:', validationResults);
       } else {
-        toast.success(`✅ Perfect schedule: ${wroteSlots} slots, ${updatedJsi} stages, 0 validation notes`);
+        toast.success(`✅ Perfect schedule: 0 validation notes`);
       }
     } catch (e: any) {
       console.error("Reschedule failed:", e);
