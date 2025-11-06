@@ -9,10 +9,13 @@ import { ScheduleWorkflowHeader } from "./header/ScheduleWorkflowHeader";
 import { ScheduleDayColumn } from "./day-columns/ScheduleDayColumn";
 import { WeekNavigation } from "./navigation/WeekNavigation";
 import { JobDiagnosticsModal } from "./JobDiagnosticsModal";
+import { ScheduleDiagnosticsModal } from "./ScheduleDiagnosticsModal";
 import type { ScheduleDayData, ScheduledStageData } from "@/hooks/useScheduleReader";
 import { useJobDiagnostics } from "@/hooks/useJobDiagnostics";
+import { useScheduleDiagnostics } from "@/hooks/useScheduleDiagnostics";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Activity } from "lucide-react";
 
 interface ScheduleBoardProps {
   scheduleDays: ScheduleDayData[];
@@ -33,7 +36,13 @@ export function ScheduleBoard({
   const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [scheduleDiagnosticsOpen, setScheduleDiagnosticsOpen] = useState(false);
   const { isLoading: diagnosticsLoading, diagnostics, getDiagnostics } = useJobDiagnostics();
+  const { 
+    isLoading: scheduleDiagnosticsLoading, 
+    diagnostics: scheduleDiagnostics, 
+    fetchDiagnostics 
+  } = useScheduleDiagnostics();
 
   // Filter schedule days to only show the current week (Monday to Friday)
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday
@@ -56,17 +65,37 @@ export function ScheduleBoard({
     await getDiagnostics(job.id);
   };
 
+  const handleScheduleDiagnostics = async () => {
+    setScheduleDiagnosticsOpen(true);
+    await fetchDiagnostics();
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b bg-background p-4">
-        <ScheduleWorkflowHeader
-          scheduleDays={weekScheduleDays}
-          selectedStageName={selectedStageName}
-          isLoading={isLoading}
-          onRefresh={onRefresh}
-          onReschedule={onReschedule}
-        />
+        <div className="flex items-center justify-between mb-4">
+          <ScheduleWorkflowHeader
+            scheduleDays={weekScheduleDays}
+            selectedStageName={selectedStageName}
+            isLoading={isLoading}
+            onRefresh={onRefresh}
+            onReschedule={onReschedule}
+          />
+          
+          {/* Admin Diagnostics Button */}
+          {isAdminUser && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleScheduleDiagnostics}
+              className="ml-4"
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Diagnostics
+            </Button>
+          )}
+        </div>
         
         {/* Week Navigation */}
         <div className="mt-4 flex justify-center">
@@ -124,6 +153,14 @@ export function ScheduleBoard({
         onOpenChange={setDiagnosticsOpen}
         diagnostics={diagnostics}
         isLoading={diagnosticsLoading}
+      />
+
+      {/* Schedule Diagnostics Modal */}
+      <ScheduleDiagnosticsModal
+        open={scheduleDiagnosticsOpen}
+        onOpenChange={setScheduleDiagnosticsOpen}
+        diagnostics={scheduleDiagnostics}
+        isLoading={scheduleDiagnosticsLoading}
       />
     </div>
   );

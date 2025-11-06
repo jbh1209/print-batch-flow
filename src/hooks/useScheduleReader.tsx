@@ -140,6 +140,7 @@ export function useScheduleReader() {
           scheduled_minutes,
           scheduled_start_at,
           scheduled_end_at,
+          schedule_status,
           status,
           job_table_name,
           notes,
@@ -161,6 +162,7 @@ export function useScheduleReader() {
         )
         .not("scheduled_start_at", "is", null)
         .not("scheduled_end_at", "is", null)
+        .eq("schedule_status", "scheduled")
         .not("status", "eq", "completed")
         .order("scheduled_start_at", { ascending: true });
 

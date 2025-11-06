@@ -150,11 +150,24 @@ serve(async (req) => {
     }
 
     // Step 3: Run the scheduler
-    console.log("🔄 Running scheduler_append_jobs...");
-    const { data: scheduleData, error: scheduleError } = await supabase.rpc("scheduler_append_jobs", {
-      p_job_ids: onlyJobIds,
-      p_only_if_unset: onlyIfUnset,
-    });
+    let scheduleData, scheduleError;
+    
+    if (!onlyJobIds || onlyJobIds.length === 0) {
+      // Full reschedule: use Oct 24 scheduler (FIFO, proof-approved only)
+      console.log("🔄 Running scheduler_resource_fill_optimized (Oct 24 scheduler)...");
+      const { data, error } = await supabase.rpc("scheduler_resource_fill_optimized");
+      scheduleData = data;
+      scheduleError = error;
+    } else {
+      // Targeted reschedule: use append-based scheduler
+      console.log(`🔄 Running scheduler_append_jobs for ${onlyJobIds.length} jobs...`);
+      const { data, error } = await supabase.rpc("scheduler_append_jobs", {
+        p_job_ids: onlyJobIds,
+        p_only_if_unset: onlyIfUnset,
+      });
+      scheduleData = data;
+      scheduleError = error;
+    }
 
     if (scheduleError) {
       console.error("scheduler_append_jobs failed:", scheduleError);
