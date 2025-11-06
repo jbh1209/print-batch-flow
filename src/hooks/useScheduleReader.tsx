@@ -459,7 +459,7 @@ export function useScheduleReader() {
   const triggerReschedule = useCallback(async () => {
     try {
       console.log("🔄 Triggering reschedule via scheduler-run (reflow mode)...");
-      const { data, error } = await supabase.functions.invoke('scheduler-run', {
+      const { data, error } = await supabase.functions.invoke('scheduler', {
         body: {
           commit: true,
           proposed: false,

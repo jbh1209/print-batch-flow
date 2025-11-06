@@ -39,9 +39,9 @@ function getFactoryBaseTime(): string {
  */
 export async function rescheduleAll(): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via scheduler-run (reflow mode)...');
+    console.log('🔄 Starting reschedule via scheduler (reflow mode)...');
 
-    const { data, error } = await supabase.functions.invoke('scheduler-run', {
+    const { data, error } = await supabase.functions.invoke('scheduler', {
       body: { commit: true, proposed: false, onlyIfUnset: false }  // Enable reflow
     });
 
