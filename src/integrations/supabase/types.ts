@@ -4458,7 +4458,16 @@ export type Database = {
         Args: { job_ids: string[] }
         Returns: number
       }
-      scheduler_resource_fill_optimized: { Args: never; Returns: Json }
+      scheduler_resource_fill_optimized:
+        | { Args: never; Returns: Json }
+        | {
+            Args: { p_only_if_unset?: boolean }
+            Returns: {
+              updated_jsi: number
+              violations: Json
+              wrote_slots: number
+            }[]
+          }
       scheduler_truncate_slots: { Args: never; Returns: undefined }
       scheduler_unschedule_jobs_if_unapproved: {
         Args: { p_job_ids: string[] }
