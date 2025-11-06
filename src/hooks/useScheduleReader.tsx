@@ -190,10 +190,10 @@ export function useScheduleReader() {
         console.error("Error fetching production stages:", stagesLookupError);
       }
 
-      // 4) job lookup (include due date fields)
+      // 4) job lookup (include due date fields AND proof_approved_at for filtering)
       const { data: productionJobs, error: jobsError } = await supabase
         .from("production_jobs")
-        .select("id, wo_no, finishing_specifications, due_date, original_committed_due_date")
+        .select("id, wo_no, finishing_specifications, due_date, original_committed_due_date, proof_approved_at")
         .in("id", jobIds);
 
       if (jobsError) {
@@ -291,6 +291,11 @@ export function useScheduleReader() {
 
         const stage = stageMap.get(row.production_stage_id);
         const job = jobMap.get(row.job_id);
+        
+        // CRITICAL FILTER: Skip any stage whose parent job is not proof-approved
+        if (!job || !job.proof_approved_at) {
+          continue; // This stage belongs to an unapproved job; do not display it
+        }
         
         // Extract specifications using the same logic as SubSpecificationBadge
         const stageType = stage ? getStageType(stage.name) : 'other';

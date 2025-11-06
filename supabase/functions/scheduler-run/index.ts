@@ -119,6 +119,36 @@ serve(async (req) => {
       console.log("✅ Job slots deleted");
     }
 
+    // Step 2.5: Pre-schedule cleanup - unschedule any unapproved jobs' stages
+    if (commit) {
+      if (onlyJobIds && onlyJobIds.length > 0) {
+        // Targeted cleanup for specific job IDs (only if they're unapproved)
+        console.log(`🧹 Unscheduling unapproved jobs in list of ${onlyJobIds.length} jobs...`);
+        const { data: unscheduledData, error: unscheduleError } = await supabase.rpc(
+          "scheduler_unschedule_jobs_if_unapproved",
+          { p_job_ids: onlyJobIds }
+        );
+        if (unscheduleError) {
+          console.error("scheduler_unschedule_jobs_if_unapproved failed:", unscheduleError);
+        } else {
+          const unscheduledCount = Array.isArray(unscheduledData) ? unscheduledData[0]?.unscheduled_jsi : unscheduledData?.unscheduled_jsi ?? 0;
+          console.log(`✅ Unscheduled ${unscheduledCount} stage instances from unapproved jobs`);
+        }
+      } else {
+        // Full cleanup for all unapproved jobs
+        console.log("🧹 Unscheduling all unapproved jobs' stage instances...");
+        const { data: unscheduledData, error: unscheduleError } = await supabase.rpc(
+          "scheduler_unschedule_unapproved"
+        );
+        if (unscheduleError) {
+          console.error("scheduler_unschedule_unapproved failed:", unscheduleError);
+        } else {
+          const unscheduledCount = Array.isArray(unscheduledData) ? unscheduledData[0]?.unscheduled_jsi : unscheduledData?.unscheduled_jsi ?? 0;
+          console.log(`✅ Unscheduled ${unscheduledCount} stage instances from unapproved jobs`);
+        }
+      }
+    }
+
     // Step 3: Run the scheduler
     console.log("🔄 Running scheduler_append_jobs...");
     const { data: scheduleData, error: scheduleError } = await supabase.rpc("scheduler_append_jobs", {

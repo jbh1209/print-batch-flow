@@ -4459,6 +4459,18 @@ export type Database = {
       }
       scheduler_resource_fill_optimized: { Args: never; Returns: Json }
       scheduler_truncate_slots: { Args: never; Returns: undefined }
+      scheduler_unschedule_jobs_if_unapproved: {
+        Args: { p_job_ids: string[] }
+        Returns: {
+          unscheduled_jsi: number
+        }[]
+      }
+      scheduler_unschedule_unapproved: {
+        Args: never
+        Returns: {
+          unscheduled_jsi: number
+        }[]
+      }
       set_user_role: {
         Args: { new_role: string; target_user_id: string }
         Returns: boolean
