@@ -36,13 +36,19 @@ function getFactoryBaseTime(): string {
 
 /**
  * Main reschedule function - routes through edge function to avoid DB timeouts
+ * @param wipeAll - If true, deletes all existing slots before rescheduling (full rebuild)
  */
-export async function rescheduleAll(): Promise<SchedulerResult | null> {
+export async function rescheduleAll(wipeAll: boolean = false): Promise<SchedulerResult | null> {
   try {
-    console.log('🔄 Starting reschedule via scheduler (reflow mode)...');
+    console.log('🔄 Starting reschedule via scheduler-run (reflow mode)...', { wipeAll });
 
-    const { data, error } = await supabase.functions.invoke('scheduler', {
-      body: { commit: true, proposed: false, onlyIfUnset: false }  // Enable reflow
+    const { data, error } = await supabase.functions.invoke('scheduler-run', {
+      body: { 
+        commit: true, 
+        proposed: false, 
+        onlyIfUnset: false,
+        wipeAll
+      }
     });
 
     if (error) {

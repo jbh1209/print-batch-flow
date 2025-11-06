@@ -4447,12 +4447,8 @@ export type Database = {
         }[]
       }
       scheduler_append_jobs: {
-        Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
-        Returns: {
-          updated_jsi: number
-          violations: Json
-          wrote_slots: number
-        }[]
+        Args: { p_job_ids?: string[]; p_only_if_unset?: boolean }
+        Returns: Json
       }
       scheduler_delete_slots_for_jobs: {
         Args: { job_ids: string[] }
