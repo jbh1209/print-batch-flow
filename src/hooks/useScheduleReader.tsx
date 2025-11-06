@@ -455,17 +455,15 @@ export function useScheduleReader() {
     }
   }, []);
 
-  // Canonical path: UI -> Edge Function -> DB wrapper
+  // Trigger reschedule with reflow (onlyIfUnset: false)
   const triggerReschedule = useCallback(async () => {
     try {
-      console.log("🔄 Triggering reschedule via edge function: simple-scheduler...");
-      const { data, error } = await supabase.functions.invoke('simple-scheduler', {
+      console.log("🔄 Triggering reschedule via scheduler-run (reflow mode)...");
+      const { data, error } = await supabase.functions.invoke('scheduler-run', {
         body: {
           commit: true,
           proposed: false,
-          onlyIfUnset: false,
-          nuclear: true,
-          wipeAll: true
+          onlyIfUnset: false  // Enable reflow to actually change schedules
         }
       });
       if (error) {
@@ -474,16 +472,10 @@ export function useScheduleReader() {
         return false;
       }
       const result: any = (data as any) || {};
-      const wroteSlots = result?.scheduled ?? result?.applied?.wrote_slots ?? 0;
-      const updatedJsi = result?.applied?.updated ?? result?.jobs_considered ?? 0;
+      const wroteSlots = result?.wrote_slots ?? 0;
+      const updatedJsi = result?.updated_jsi ?? 0;
       const violations = Array.isArray(result?.violations) ? result.violations.length : 0;
-      console.log("✅ Reschedule complete via edge function:", result);
-      toast.success(`Rescheduled: ${updatedJsi} stages, ${wroteSlots} slots${violations ? `, ${violations} notes` : ''}`);
-
-      // Refresh after a moment
-      setTimeout(() => {
-        fetchSchedule();
-      }, 1500);
+      console.log("✅ Reschedule complete:", { wroteSlots, updatedJsi, violations });
       return true;
     } catch (error) {
       console.error("Error triggering reschedule:", error);

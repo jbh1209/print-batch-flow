@@ -31,41 +31,24 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json();
-    const division = body.division ?? null;
 
-    console.log("simple-scheduler: Validating export_scheduler_input with division:", division);
+    console.log("simple-scheduler: Forwarding to scheduler-run");
 
-    // FIX AMBIGUOUS RPC: Call with explicit parameter name to avoid PGRST203
-    const { data: exportData, error: exportError } = await supabase.rpc(
-      "export_scheduler_input",
-      { p_division: division }
-    );
+    // Forward to scheduler-run using Supabase client
+    const { data, error } = await supabase.functions.invoke("scheduler-run", {
+      body,
+    });
 
-    if (exportError) {
-      console.error("export_scheduler_input failed:", exportError);
+    if (error) {
+      console.error("scheduler-run invocation failed:", error);
       return new Response(
-        JSON.stringify({ error: "export_scheduler_input failed", detail: exportError }),
+        JSON.stringify({ error: "scheduler-run failed", detail: error }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("simple-scheduler: export validated, forwarding to scheduler-run");
-
-    // Forward the original body to scheduler-run (unified execution engine)
-    const schedulerRunUrl = `${supabaseUrl}/functions/v1/scheduler-run`;
-    const forwardResponse = await fetch(schedulerRunUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${serviceKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    const result = await forwardResponse.json();
-
-    return new Response(JSON.stringify(result), {
-      status: forwardResponse.status,
+    return new Response(JSON.stringify(data), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
