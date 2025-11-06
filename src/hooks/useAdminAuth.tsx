@@ -18,8 +18,9 @@ export const useAdminAuth = (): AdminAuthState => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Early return when no user - prevents 406 errors
-  if (!user?.id) {
+  // Early return on /auth page when no user - prevents 406 errors
+  const isAuthPage = window.location.pathname === '/auth';
+  if (isAuthPage && !user?.id) {
     return {
       isAdmin: false,
       adminExists: false,
