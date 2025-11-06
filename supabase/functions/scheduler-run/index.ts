@@ -150,18 +150,20 @@ serve(async (req) => {
     }
 
     // Step 3: Run the scheduler
-    let scheduleData, scheduleError;
+    let scheduleData, scheduleError, rpcCalled;
     
     if (!onlyJobIds || onlyJobIds.length === 0) {
       // Full reschedule: use Oct 24 scheduler (FIFO, proof-approved only)
-      console.log("🔄 Running scheduler_resource_fill_optimized (Oct 24 scheduler)...");
-      const { data, error } = await supabase.rpc("scheduler_resource_fill_optimized");
+      rpcCalled = 'scheduler_resource_fill_optimized';
+      console.log(`🔄 Running ${rpcCalled} (Oct 24 scheduler)...`);
+      const { data, error } = await supabase.rpc(rpcCalled);
       scheduleData = data;
       scheduleError = error;
     } else {
       // Targeted reschedule: use append-based scheduler
-      console.log(`🔄 Running scheduler_append_jobs for ${onlyJobIds.length} jobs...`);
-      const { data, error } = await supabase.rpc("scheduler_append_jobs", {
+      rpcCalled = 'scheduler_append_jobs';
+      console.log(`🔄 Running ${rpcCalled} for ${onlyJobIds.length} jobs...`);
+      const { data, error } = await supabase.rpc(rpcCalled, {
         p_job_ids: onlyJobIds,
         p_only_if_unset: onlyIfUnset,
       });
@@ -170,9 +172,22 @@ serve(async (req) => {
     }
 
     if (scheduleError) {
-      console.error("scheduler_append_jobs failed:", scheduleError);
+      console.error(`❌ ${rpcCalled} failed:`, {
+        rpc: rpcCalled,
+        code: scheduleError.code,
+        message: scheduleError.message,
+        details: scheduleError.details,
+        hint: scheduleError.hint,
+        rawError: scheduleError
+      });
       return new Response(
-        JSON.stringify({ error: "Scheduler failed", detail: scheduleError }),
+        JSON.stringify({ 
+          error: `${rpcCalled} failed`, 
+          rpc: rpcCalled,
+          detail: scheduleError,
+          code: scheduleError.code,
+          message: scheduleError.message
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

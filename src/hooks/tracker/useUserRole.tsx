@@ -58,6 +58,15 @@ export const useUserRole = (): UserRoleResponse => {
 
   useEffect(() => {
     const determineUserRole = async () => {
+      // Route-aware guard: skip RPC calls on /auth when logged out
+      if (typeof window !== 'undefined' && window.location.pathname === '/auth' && !user?.id) {
+        console.log('🚫 useUserRole: skipping role fetch on /auth without user');
+        setUserRole('user');
+        setIsLoading(false);
+        setAccessibleStages([]);
+        return;
+      }
+      
       // Wait for auth to complete first
       if (authLoading) {
         console.log('🔄 Auth still loading, waiting...');

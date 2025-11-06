@@ -123,6 +123,12 @@ export function useScheduleReader() {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchSchedule = useCallback(async () => {
+    // Route-aware guard: skip on /auth when not logged in
+    if (typeof window !== 'undefined' && window.location.pathname === '/auth') {
+      console.log('🚫 useScheduleReader: skipping fetch on /auth route');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       // 1) Pull scheduled stage instances (+ minute fields we need + HP12000 paper size)
