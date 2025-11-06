@@ -64,10 +64,12 @@ export const useUserRole = (): UserRoleResponse => {
         return;
       }
 
+      // Early return when no user - prevents 406 errors
       if (!user?.id) {
         console.log('🔄 No user found, setting default role');
         setUserRole('user');
         setIsLoading(false);
+        setAccessibleStages([]);
         return;
       }
 

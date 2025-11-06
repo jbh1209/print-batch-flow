@@ -4447,9 +4447,10 @@ export type Database = {
         }[]
       }
       scheduler_append_jobs: {
-        Args: { p_job_ids?: string[]; p_only_if_unset?: boolean }
+        Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
         Returns: {
           updated_jsi: number
+          violations: Json
           wrote_slots: number
         }[]
       }
@@ -4504,10 +4505,6 @@ export type Database = {
               win_start: string
             }[]
           }
-      simple_scheduler_wrapper: {
-        Args: { p_division?: string; p_start_from?: string }
-        Returns: Json
-      }
       split_batch_at_packaging: {
         Args: { p_master_job_id: string; p_split_by?: string }
         Returns: {

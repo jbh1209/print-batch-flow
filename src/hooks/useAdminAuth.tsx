@@ -18,6 +18,17 @@ export const useAdminAuth = (): AdminAuthState => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Early return when no user - prevents 406 errors
+  if (!user?.id) {
+    return {
+      isAdmin: false,
+      adminExists: false,
+      isLoading: false,
+      error: null,
+      refreshAdminStatus: async () => {}
+    };
+  }
+
   const checkAdminStatus = async (): Promise<{ isAdmin: boolean; adminExists: boolean }> => {
     try {
       console.log('🔍 Checking admin status...');
