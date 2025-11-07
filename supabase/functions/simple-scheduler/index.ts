@@ -149,7 +149,13 @@ async function runRealScheduler(
 }
 
 // ---------- HTTP entry ----------
+// Redeployed: 2025-01-XX to pickup environment variables
 Deno.serve(async (req: Request) => {
+  console.log('🔧 Edge function environment check:', {
+    hasSupabaseUrl: !!Deno.env.get("SUPABASE_URL"),
+    hasServiceRoleKey: !!(Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))
+  });
+
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
