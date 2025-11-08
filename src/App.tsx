@@ -87,6 +87,7 @@ import ExcelMapping from "@/pages/admin/ExcelMapping";
 import AdminSchedulePage from "@/pages/admin/AdminSchedulePage";
 import ScheduleBoardPage from "@/pages/ScheduleBoardPage";
 import Layout from "@/components/Layout";
+import BackfillPaperSpecs from "@/pages/BackfillPaperSpecs";
 // Removed legacy test components
 // Removed scheduler components
 
@@ -251,6 +252,13 @@ function App() {
                   <ProtectedRoute>
                     <AdminRoute>
                       <ExcelMapping />
+                    </AdminRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/backfill-paper-specs" element={
+                  <ProtectedRoute>
+                    <AdminRoute>
+                      <BackfillPaperSpecs />
                     </AdminRoute>
                   </ProtectedRoute>
                 } />
