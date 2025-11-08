@@ -11,6 +11,8 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('🏠 Index - authLoading:', authLoading, 'roleLoading:', roleLoading, 'user:', !!user, 'userRole:', userRole);
+    
     // Redirect to auth if not logged in
     if (!authLoading && !user) {
       navigate("/auth");
@@ -34,6 +36,7 @@ const Index = () => {
 
   // Show loading while checking auth and role
   if (authLoading || roleLoading) {
+    console.log('⏳ Index rendering loading state - authLoading:', authLoading, 'roleLoading:', roleLoading);
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">

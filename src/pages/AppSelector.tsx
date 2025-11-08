@@ -12,6 +12,11 @@ const AppSelector = () => {
     loading
   } = useAuth();
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    console.log('🎯 AppSelector - loading:', loading, 'user:', !!user);
+  }, [loading, user]);
+  
   useEffect(() => {
     // Redirect to auth if not logged in
     if (!loading && !user) {
@@ -21,6 +26,7 @@ const AppSelector = () => {
 
   // Show loading while checking auth
   if (loading) {
+    console.log('⏳ AppSelector rendering loading state');
     return <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
           <LoadingSpinner />
