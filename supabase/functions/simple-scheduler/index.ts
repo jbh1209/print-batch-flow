@@ -121,7 +121,7 @@ async function runRealScheduler(
     console.log('🔍 Using startFrom:', effectiveStartFrom);
     
     const { data, error } = await sb.rpc('simple_scheduler_wrapper', {
-      p_action: 'reschedule_all',
+      p_mode: 'reschedule_all',
       p_start_from: effectiveStartFrom
     });
 
