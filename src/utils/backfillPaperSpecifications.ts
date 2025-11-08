@@ -55,14 +55,29 @@ export async function backfillPaperSpecifications() {
           continue;
         }
 
-        // Extract paper type and weight from JSONB
+        // Extract paper type and weight from JSONB keys
+        // Format: "FBB Board, 300gsm, White, 480x750"
         const paperSpecs = job.paper_specifications as any;
         let paperType: string | undefined;
         let paperWeight: string | undefined;
 
-        if (paperSpecs?.parsed_paper) {
-          paperType = paperSpecs.parsed_paper.type;
-          paperWeight = paperSpecs.parsed_paper.weight;
+        if (paperSpecs && typeof paperSpecs === 'object') {
+          const paperKeys = Object.keys(paperSpecs);
+          
+          // Find the first paper spec key that contains "gsm" (weight indicator)
+          const primaryPaperKey = paperKeys.find(key => 
+            key.toLowerCase().includes('gsm')
+          );
+          
+          if (primaryPaperKey) {
+            // Parse format: "Type, Weight, Color, Size"
+            const parts = primaryPaperKey.split(',').map(p => p.trim());
+            
+            if (parts.length >= 2) {
+              paperType = parts[0]; // e.g., "FBB Board", "Bond"
+              paperWeight = parts[1]; // e.g., "300gsm", "80gsm"
+            }
+          }
         }
 
         if (!paperType && !paperWeight) {
