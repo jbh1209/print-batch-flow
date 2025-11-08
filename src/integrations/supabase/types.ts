@@ -4472,18 +4472,10 @@ export type Database = {
       }
       scheduler_reschedule_all_parallel_aware:
         | {
-            Args: { p_start_from?: string }
-            Returns: {
-              gap_filled_count: number
-              updated_jsi: number
-              violations: Json
-              wrote_slots: number
-            }[]
-          }
-        | {
             Args: { p_start_from?: string; p_wipe_all?: boolean }
             Returns: Json
           }
+        | { Args: { p_start_from?: string }; Returns: Json }
       scheduler_truncate_slots: { Args: never; Returns: undefined }
       scheduler_unschedule_jobs_if_unapproved: {
         Args: { p_job_ids: string[] }
