@@ -449,6 +449,24 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${woNo}: ${errorMsg}`);
     }
 
+    // 5a. Save paper specifications to job_print_specifications table
+    if (originalJob.paper_specifications?.parsed_paper) {
+      const paperType = originalJob.paper_specifications.parsed_paper.type;
+      const paperWeight = originalJob.paper_specifications.parsed_paper.weight;
+      
+      if (paperType || paperWeight) {
+        const { PaperSpecificationSaver } = await import('@/services/PaperSpecificationSaver');
+        const paperSaver = new PaperSpecificationSaver(this.logger);
+        await paperSaver.savePaperSpecifications(
+          insertedJob.id,
+          'production_jobs',
+          paperType,
+          paperWeight
+        );
+        this.logger.addDebugInfo(`📋 Paper specs saved for job ${woNo}: ${paperWeight} ${paperType}`);
+      }
+    }
+
     // 6. Initialize workflow using the new unified workflow initializer
     try {
       this.logger.addDebugInfo(`🚀 Initializing workflow for job ${woNo} (${insertedJob.id})`);

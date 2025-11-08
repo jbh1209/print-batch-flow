@@ -96,7 +96,7 @@ const BusinessCardJobNew = () => {
       }
 
       // 3. Insert job data into the database
-      const { error: insertError } = await supabase
+      const { data: createdJob, error: insertError } = await supabase
         .from("business_card_jobs")
         .insert({
           job_number: data.jobNumber,
@@ -109,10 +109,24 @@ const BusinessCardJobNew = () => {
           file_name: selectedFile.name,
           pdf_url: urlData.publicUrl,
           user_id: user.id,
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) {
         throw new Error(insertError.message);
+      }
+
+      // Save paper specifications
+      if (createdJob?.id && data.paperType) {
+        const { PaperSpecificationSaver } = await import('@/services/PaperSpecificationSaver');
+        const paperSaver = new PaperSpecificationSaver();
+        await paperSaver.savePaperSpecifications(
+          createdJob.id,
+          'business_card_jobs',
+          data.paperType,
+          undefined // Business cards don't have separate weight field
+        );
       }
 
       toast.success("Job created successfully");

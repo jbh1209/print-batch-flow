@@ -92,6 +92,18 @@ export const useFlyerJobForm = () => {
           console.error('Update error:', error);
           throw error;
         }
+
+        // Update paper specifications
+        if (data.paper_type || data.paper_weight) {
+          const { PaperSpecificationSaver } = await import('@/services/PaperSpecificationSaver');
+          const paperSaver = new PaperSpecificationSaver();
+          await paperSaver.savePaperSpecifications(
+            jobId,
+            'flyer_jobs',
+            data.paper_type,
+            data.paper_weight
+          );
+        }
         
         toast.success("Flyer job updated successfully");
       } else {
@@ -116,13 +128,27 @@ export const useFlyerJobForm = () => {
 
         console.log('Creating new flyer job with data:', insertData);
 
-        const { error } = await supabase
+        const { data: createdJob, error } = await supabase
           .from('flyer_jobs')
-          .insert(insertData);
+          .insert(insertData)
+          .select()
+          .single();
 
         if (error) {
           console.error('Create error:', error);
           throw error;
+        }
+
+        // Save paper specifications
+        if (createdJob?.id && (data.paper_type || data.paper_weight)) {
+          const { PaperSpecificationSaver } = await import('@/services/PaperSpecificationSaver');
+          const paperSaver = new PaperSpecificationSaver();
+          await paperSaver.savePaperSpecifications(
+            createdJob.id,
+            'flyer_jobs',
+            data.paper_type,
+            data.paper_weight
+          );
         }
 
         toast.success("Flyer job created successfully");
