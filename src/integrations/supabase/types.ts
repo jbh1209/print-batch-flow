@@ -3807,10 +3807,7 @@ export type Database = {
       }
       create_stage_availability_tracker: { Args: never; Returns: undefined }
       cron_nightly_reschedule: { Args: never; Returns: undefined }
-      cron_nightly_reschedule_with_carryforward: {
-        Args: never
-        Returns: undefined
-      }
+      cron_nightly_reschedule_with_carryforward: { Args: never; Returns: Json }
       delete_production_jobs: { Args: { job_ids: string[] }; Returns: Json }
       expedite_job_factory_wide: {
         Args: {
@@ -4472,14 +4469,7 @@ export type Database = {
       }
       scheduler_reschedule_all_parallel_aware:
         | { Args: { p_base_start?: string; p_commit?: boolean }; Returns: Json }
-        | {
-            Args: { p_start_from?: string }
-            Returns: {
-              updated_jsi: number
-              violations: Json
-              wrote_slots: number
-            }[]
-          }
+        | { Args: { p_start_from?: string }; Returns: Json }
       scheduler_truncate_slots: { Args: never; Returns: undefined }
       scheduler_unschedule_jobs_if_unapproved: {
         Args: { p_job_ids: string[] }
@@ -4527,7 +4517,7 @@ export type Database = {
             }[]
           }
       simple_scheduler_wrapper: {
-        Args: { p_action: string; p_start_from?: string }
+        Args: { p_mode?: string; p_start_from?: string }
         Returns: Json
       }
       split_batch_at_packaging: {
