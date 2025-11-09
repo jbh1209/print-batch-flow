@@ -521,6 +521,37 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
               </CardContent>
             </Card>
 
+            {/* Job Context Information */}
+            {currentOrder && result?.categoryAssignments[currentOrder]?.originalJob && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Job Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Customer</div>
+                      <div className="font-medium">
+                        {result.categoryAssignments[currentOrder].originalJob.customer || 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Reference</div>
+                      <div className="font-medium">
+                        {result.categoryAssignments[currentOrder].originalJob.reference || 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Quantity</div>
+                      <div className="font-medium">
+                        {result.categoryAssignments[currentOrder].originalJob.qty || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Current Order Status */}
             <Card>
               <CardHeader>
