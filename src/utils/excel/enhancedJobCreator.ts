@@ -449,54 +449,52 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${woNo}: ${errorMsg}`);
     }
 
-    // 5a. Save paper specifications using Excel import mappings
-    if (originalJob.paper_specifications && typeof originalJob.paper_specifications === 'object') {
+    // 5a. Save paper specifications from userApprovedMappings
+    if (userApprovedMappings && userApprovedMappings.length > 0) {
       try {
-        const paperSpecs = originalJob.paper_specifications as any;
-        const paperKeys = Object.keys(paperSpecs);
+        // Extract unique paper specifications from printing stages
+        const paperSpecsSet = new Set<string>();
+        userApprovedMappings
+          .filter(m => m.category === 'printing' && (m as any).paperSpecification)
+          .forEach(m => paperSpecsSet.add((m as any).paperSpecification));
         
-        // Find the primary paper spec key (usually contains "gsm")
-        const primaryPaperKey = paperKeys.find(key => 
-          key.toLowerCase().includes('gsm')
-        );
-        
-        if (primaryPaperKey) {
-          this.logger.addDebugInfo(`🔍 Looking up mapping for paper spec: "${primaryPaperKey}"`);
+        if (paperSpecsSet.size > 0) {
+          this.logger.addDebugInfo(`🔍 Found ${paperSpecsSet.size} unique paper specs in user mappings: ${Array.from(paperSpecsSet).join(', ')}`);
           
-          // Query excel_import_mappings for this exact paper specification
-          const { data: mapping, error: mappingError } = await supabase
-            .from('excel_import_mappings')
-            .select('paper_type_specification_id, paper_weight_specification_id')
-            .eq('excel_text', primaryPaperKey)
-            .maybeSingle();
+          // Delete existing paper specs for idempotency
+          await supabase
+            .from('job_print_specifications')
+            .delete()
+            .eq('job_id', insertedJob.id)
+            .eq('job_table_name', 'production_jobs')
+            .in('specification_category', ['paper_type', 'paper_weight']);
           
-          if (mappingError) {
-            this.logger.addDebugInfo(`❌ Error querying paper spec mapping: ${mappingError.message}`);
-          } else if (mapping && (mapping.paper_type_specification_id || mapping.paper_weight_specification_id)) {
-            this.logger.addDebugInfo(`✅ Found mapping: type=${mapping.paper_type_specification_id}, weight=${mapping.paper_weight_specification_id}`);
+          // For each unique paper spec display name, find the corresponding records
+          for (const paperDisplayName of paperSpecsSet) {
+            this.logger.addDebugInfo(`🔍 Looking up print_specifications for: "${paperDisplayName}"`);
             
-            // Insert paper specifications directly using the mapped IDs
-            const specsToInsert: any[] = [];
+            // Query print_specifications to find paper_type and paper_weight by display_name
+            const { data: specs, error: specError } = await supabase
+              .from('print_specifications')
+              .select('id, category, display_name')
+              .eq('display_name', paperDisplayName)
+              .in('category', ['paper_type', 'paper_weight']);
             
-            if (mapping.paper_type_specification_id) {
-              specsToInsert.push({
-                job_id: insertedJob.id,
-                job_table_name: 'production_jobs',
-                specification_category: 'paper_type',
-                specification_id: mapping.paper_type_specification_id
-              });
+            if (specError) {
+              this.logger.addDebugInfo(`❌ Error querying print_specifications: ${specError.message}`);
+              continue;
             }
             
-            if (mapping.paper_weight_specification_id) {
-              specsToInsert.push({
+            if (specs && specs.length > 0) {
+              this.logger.addDebugInfo(`✅ Found ${specs.length} specifications for "${paperDisplayName}"`);
+              
+              const specsToInsert = specs.map(spec => ({
                 job_id: insertedJob.id,
                 job_table_name: 'production_jobs',
-                specification_category: 'paper_weight',
-                specification_id: mapping.paper_weight_specification_id
-              });
-            }
-            
-            if (specsToInsert.length > 0) {
+                specification_category: spec.category,
+                specification_id: spec.id
+              }));
+              
               const { error: insertError } = await supabase
                 .from('job_print_specifications')
                 .insert(specsToInsert);
@@ -504,12 +502,14 @@ export class EnhancedJobCreator {
               if (insertError) {
                 this.logger.addDebugInfo(`❌ Error saving paper specs: ${insertError.message}`);
               } else {
-                this.logger.addDebugInfo(`✅ Paper specs saved for job ${woNo} using Excel mapping`);
+                this.logger.addDebugInfo(`✅ Saved ${specsToInsert.length} paper specs for job ${woNo}`);
               }
+            } else {
+              this.logger.addDebugInfo(`⚠️ No print_specifications found for display_name: "${paperDisplayName}"`);
             }
-          } else {
-            this.logger.addDebugInfo(`⚠️ No Excel mapping found for paper spec: "${primaryPaperKey}"`);
           }
+        } else {
+          this.logger.addDebugInfo(`ℹ️ No paper specifications in user mappings for job ${woNo}`);
         }
       } catch (error) {
         this.logger.addDebugInfo(`❌ Error processing paper specifications: ${error instanceof Error ? error.message : String(error)}`);
@@ -1038,11 +1038,41 @@ private async calculateTimingForJob(
       this.logger.addDebugInfo(`⏱️ Calculating timing for stage instance ${stageInstance.id} with quantity ${quantity}`);
       
       try {
-        // Update the stage instance with quantity first
+        // Check if this is a printing stage
+        const isPrintingStage = userApprovedMappings?.find(m => 
+          m.mappedStageId === stageInstance.production_stage_id && m.category === 'printing'
+        );
+        
+        // Fetch paper specs if it's a printing stage
+        let paperNote: string | null = null;
+        if (isPrintingStage) {
+          const { data: paperSpecs } = await supabase
+            .from('job_print_specifications')
+            .select(`
+              specification_category,
+              print_specifications!inner(display_name)
+            `)
+            .eq('job_id', jobId)
+            .eq('job_table_name', 'production_jobs')
+            .in('specification_category', ['paper_type', 'paper_weight']);
+          
+          if (paperSpecs && paperSpecs.length > 0) {
+            const weight = paperSpecs.find(s => s.specification_category === 'paper_weight')?.print_specifications?.display_name;
+            const type = paperSpecs.find(s => s.specification_category === 'paper_type')?.print_specifications?.display_name;
+            
+            if (weight && type) {
+              paperNote = `Paper: ${weight} ${type}`;
+              this.logger.addDebugInfo(`📝 Generated paper note for stage ${stageInstance.id}: "${paperNote}"`);
+            }
+          }
+        }
+        
+        // Update the stage instance with quantity and paper note
         const { error: updateError } = await supabase
           .from('job_stage_instances')
           .update({
             quantity,
+            notes: paperNote,
             updated_at: new Date().toISOString()
           })
           .eq('id', stageInstance.id);
