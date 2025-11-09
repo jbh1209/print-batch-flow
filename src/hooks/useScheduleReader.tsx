@@ -200,6 +200,43 @@ export function useScheduleReader() {
         console.error("Error fetching production jobs:", jobsError);
       }
 
+      // 4b) Fetch job print specifications for all jobs to get mapped paper values
+      const { data: jobSpecs, error: jobSpecsError } = await supabase
+        .from("job_print_specifications")
+        .select(`
+          job_id,
+          specification_category,
+          print_specifications (
+            id,
+            name,
+            display_name,
+            category
+          )
+        `)
+        .in("job_id", jobIds)
+        .eq("job_table_name", "production_jobs")
+        .in("specification_category", ["paper_type", "paper_weight"]);
+
+      if (jobSpecsError) {
+        console.error("Error fetching job print specifications:", jobSpecsError);
+      }
+
+      // Build a map of job_id -> { paper_type, paper_weight }
+      const jobPaperMap = new Map<string, { paper_type?: string; paper_weight?: string }>();
+      if (jobSpecs) {
+        for (const spec of jobSpecs) {
+          if (!jobPaperMap.has(spec.job_id)) {
+            jobPaperMap.set(spec.job_id, {});
+          }
+          const jobPaper = jobPaperMap.get(spec.job_id)!;
+          if (spec.specification_category === "paper_type" && spec.print_specifications) {
+            jobPaper.paper_type = (spec.print_specifications as any).display_name;
+          } else if (spec.specification_category === "paper_weight" && spec.print_specifications) {
+            jobPaper.paper_weight = (spec.print_specifications as any).display_name;
+          }
+        }
+      }
+
       // 5) Helper function to determine stage type
       const getStageType = (stageName: string) => {
         const name = stageName.toLowerCase();
@@ -302,15 +339,29 @@ export function useScheduleReader() {
         const hp12000PaperSizeName = row.hp12000_paper_sizes?.name;
         const hp12000PaperSize = hp12000PaperSizeName ? extractPaperSize(hp12000PaperSizeName) : undefined;
         
-        // Priority 1: For printing stages, extract paper specs from THIS stage's notes
-        if (stageType === 'printing' && row.notes?.toLowerCase().includes('paper:')) {
-          const parsedPaper = parsePaperSpecsFromNotes(row.notes);
-          if (parsedPaper.fullPaperSpec) {
-            displaySpec = formatPaperDisplay(parsedPaper);
+        // Priority 1: For printing stages, use MAPPED specs from job_print_specifications
+        if (stageType === 'printing') {
+          const jobPaper = jobPaperMap.get(row.job_id);
+          if (jobPaper?.paper_type || jobPaper?.paper_weight) {
+            // Use mapped values for consistent grouping
+            const weight = jobPaper.paper_weight || '';
+            const type = jobPaper.paper_type || '';
+            displaySpec = weight && type ? `${weight} ${type}` : (weight || type);
             paperSpecs = {
-              paper_type: parsedPaper.paperType,
-              paper_weight: parsedPaper.paperWeight
+              paper_type: jobPaper.paper_type,
+              paper_weight: jobPaper.paper_weight
             };
+          }
+          // Fallback: parse from notes if no mapped specs found
+          else if (row.notes?.toLowerCase().includes('paper:')) {
+            const parsedPaper = parsePaperSpecsFromNotes(row.notes);
+            if (parsedPaper.fullPaperSpec) {
+              displaySpec = formatPaperDisplay(parsedPaper);
+              paperSpecs = {
+                paper_type: parsedPaper.paperType,
+                paper_weight: parsedPaper.paperWeight
+              };
+            }
           }
         }
         // Priority 2: stage_specifications.description (for non-printing stages or printing without paper specs)
