@@ -104,7 +104,7 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
           {consolidatedStages
             .sort((a, b) => a.stage_name.localeCompare(b.stage_name))
             .map(stage => {
-              const jobCount = getJobCountForStage(stage.stage_name);
+              const jobCount = stage.job_count ?? getJobCountForStage(stage.stage_name);
               const isSelected = selectedStageId === stage.stage_id;
               return (
                 <Button 

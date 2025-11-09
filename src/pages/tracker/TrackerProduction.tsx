@@ -15,6 +15,7 @@ import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/Trac
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
+import { getJobWorkflowStages, shouldJobAppearInWorkflowStage } from "@/utils/productionWorkflowUtils";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface TrackerProductionContext {
@@ -45,6 +46,32 @@ const TrackerProduction = () => {
   // Get real-time stage data
   const { jobStages, isLoading: stagesLoading } = useRealTimeJobStages(jobs);
 
+  // Build per-job stage map for workflow computation
+  const jobStagesMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    (jobStages ?? []).forEach((s: any) => {
+      const arr = map.get(s.job_id) || [];
+      arr.push(s);
+      map.set(s.job_id, arr);
+    });
+    return map;
+  }, [jobStages]);
+
+  // Compute actionable workflow stages per job (parallel-aware)
+  const actionableStagesByJob = useMemo(() => {
+    const map = new Map<string, any[]>();
+    (jobs ?? []).forEach((job: any) => {
+      const stagesForJob = jobStagesMap.get(job.id) || [];
+      try {
+        const workflowStages = getJobWorkflowStages(stagesForJob, job.id);
+        map.set(job.id, workflowStages);
+      } catch (e) {
+        console.warn('⚠️ Failed to compute workflow stages for job', job?.id, e);
+        map.set(job.id, []);
+      }
+    });
+    return map;
+  }, [jobs, jobStagesMap]);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -54,12 +81,18 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Filter jobs by current stage selection (restore-point behavior)
+  // Filter jobs by selected queue using actionable workflow stages
   const filteredJobs = useMemo(() => {
     if (!selectedStageId) return jobs;
-    return jobs.filter(job => (job as any).current_stage_id === selectedStageId);
-  }, [jobs, selectedStageId]);
-
+    return jobs.filter((job: any) => {
+      const workflowStages = actionableStagesByJob.get(job.id) || [];
+      try {
+        return shouldJobAppearInWorkflowStage(workflowStages as any[], selectedStageId);
+      } catch {
+        return false;
+      }
+    });
+  }, [jobs, selectedStageId, actionableStagesByJob]);
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
@@ -84,23 +117,25 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Build consolidated stages from current jobs' active stage
+  // Build consolidated queues from actionable workflow stages (with accurate counts)
   const consolidatedStages = useMemo(() => {
-    const map = new Map<string, { stage_id: string; stage_name: string; stage_color: string }>();
-    (jobs as any[]).forEach((j: any) => {
-      const id = j?.current_stage_id;
-      const name = j?.display_stage_name || j?.current_stage_name;
-      if (id && name && !map.has(id)) {
-        map.set(id, {
-          stage_id: id,
-          stage_name: name,
-          stage_color: j?.current_stage_color || '#6B7280',
-        });
-      }
+    const agg = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
+    actionableStagesByJob.forEach((workflowStages) => {
+      (workflowStages as any[]).forEach((ws: any) => {
+        const id: string =
+          ws.stage_id ?? ws.production_stage_id ?? ws.unique_stage_key ?? ws.name ?? ws.stage_name;
+        const name: string = ws.stage_name ?? ws.name ?? 'Unknown Stage';
+        const color: string = ws.stage_color ?? '#6B7280';
+        const existing = agg.get(id);
+        if (existing) {
+          existing.job_count += 1;
+        } else {
+          agg.set(id, { stage_id: id, stage_name: name, stage_color: color, job_count: 1 });
+        }
+      });
     });
-    return Array.from(map.values()).sort((a, b) => a.stage_name.localeCompare(b.stage_name));
-  }, [jobs]);
-
+    return Array.from(agg.values()).sort((a, b) => a.stage_name.localeCompare(b.stage_name));
+  }, [actionableStagesByJob]);
   const handleSidebarStageSelect = (stageId: string | null) => {
     if (!stageId) {
       setSelectedStageId(null);
