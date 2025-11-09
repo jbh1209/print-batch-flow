@@ -471,41 +471,73 @@ export class EnhancedJobCreator {
           
           // For each unique paper spec display name, find the corresponding records
           for (const paperDisplayName of paperSpecsSet) {
-            this.logger.addDebugInfo(`🔍 Looking up print_specifications for: "${paperDisplayName}"`);
+            this.logger.addDebugInfo(`🔍 Looking up excel_import_mappings for: "${paperDisplayName}"`);
             
-            // Query print_specifications to find paper_type and paper_weight by display_name
-            const { data: specs, error: specError } = await supabase
-              .from('print_specifications')
-              .select('id, category, display_name')
-              .eq('display_name', paperDisplayName)
-              .in('category', ['paper_type', 'paper_weight']);
+            // Query excel_import_mappings to get the paper spec IDs
+            let { data: mapping, error: mappingError } = await supabase
+              .from('excel_import_mappings')
+              .select('paper_type_specification_id, paper_weight_specification_id')
+              .eq('excel_text', paperDisplayName)
+              .eq('mapping_type', 'paper_specification')
+              .maybeSingle();
             
-            if (specError) {
-              this.logger.addDebugInfo(`❌ Error querying print_specifications: ${specError.message}`);
+            if (mappingError) {
+              this.logger.addDebugInfo(`❌ Error querying excel_import_mappings: ${mappingError.message}`);
               continue;
             }
             
-            if (specs && specs.length > 0) {
-              this.logger.addDebugInfo(`✅ Found ${specs.length} specifications for "${paperDisplayName}"`);
+            // If exact match fails, try with normalized spacing
+            if (!mapping) {
+              const normalizedText = paperDisplayName.replace(/\s*,\s*/g, ', ');
+              this.logger.addDebugInfo(`🔍 Trying normalized text: "${normalizedText}"`);
               
-              const specsToInsert = specs.map(spec => ({
-                job_id: insertedJob.id,
-                job_table_name: 'production_jobs',
-                specification_category: spec.category,
-                specification_id: spec.id
-              }));
+              const { data: normalizedMapping } = await supabase
+                .from('excel_import_mappings')
+                .select('paper_type_specification_id, paper_weight_specification_id')
+                .ilike('excel_text', normalizedText)
+                .eq('mapping_type', 'paper_specification')
+                .maybeSingle();
               
-              const { error: insertError } = await supabase
-                .from('job_print_specifications')
-                .insert(specsToInsert);
+              if (normalizedMapping) {
+                mapping = normalizedMapping;
+                this.logger.addDebugInfo(`✅ Found mapping with normalized text`);
+              }
+            }
+            
+            if (mapping && (mapping.paper_type_specification_id || mapping.paper_weight_specification_id)) {
+              this.logger.addDebugInfo(`✅ Found mapping for "${paperDisplayName}"`);
               
-              if (insertError) {
-                this.logger.addDebugInfo(`❌ Error saving paper specs: ${insertError.message}`);
-              } else {
-                this.logger.addDebugInfo(`✅ Saved ${specsToInsert.length} paper specs for job ${woNo}`);
+              const specsToInsert = [];
+              if (mapping.paper_type_specification_id) {
+                specsToInsert.push({
+                  job_id: insertedJob.id,
+                  job_table_name: 'production_jobs',
+                  specification_category: 'paper_type',
+                  specification_id: mapping.paper_type_specification_id
+                });
+              }
+              if (mapping.paper_weight_specification_id) {
+                specsToInsert.push({
+                  job_id: insertedJob.id,
+                  job_table_name: 'production_jobs',
+                  specification_category: 'paper_weight',
+                  specification_id: mapping.paper_weight_specification_id
+                });
+              }
+              
+              if (specsToInsert.length > 0) {
+                const { error: insertError } = await supabase
+                  .from('job_print_specifications')
+                  .insert(specsToInsert);
+                
+                if (insertError) {
+                  this.logger.addDebugInfo(`❌ Error saving paper specs: ${insertError.message}`);
+                } else {
+                  this.logger.addDebugInfo(`✅ Saved ${specsToInsert.length} paper specs for job ${woNo}`);
+                }
               }
             } else {
-              this.logger.addDebugInfo(`⚠️ No print_specifications found for display_name: "${paperDisplayName}"`);
+              this.logger.addDebugInfo(`⚠️ No excel_import_mapping found for: "${paperDisplayName}"`);
             }
           }
         } else {
