@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getJobWorkflowStages } from "@/utils/productionWorkflowUtils";
+import { useRealtimeSubscription } from "./useAccessibleJobs/useRealtimeSubscription";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
 
 export const useAccessibleJobs = ({ 
@@ -111,6 +112,17 @@ export const useAccessibleJobs = ({
 
   const isLoading = jobsLoading || stagesLoading;
   const error = jobsError || stagesError;
+
+  // Combined refresh function for real-time updates
+  const refreshJobsAndStages = useCallback(async () => {
+    console.log('🔄 Real-time update detected, refreshing data...');
+    await Promise.all([refetchJobs(), refetchStages()]);
+  }, [refetchJobs, refetchStages]);
+
+  // Set up real-time subscriptions for both production_jobs and job_stage_instances
+  useRealtimeSubscription(refreshJobsAndStages, {
+    batchDelay: 500 // 500ms delay for batching updates
+  });
 
   // Enhanced job processing with parallel stages support
   const jobs: AccessibleJob[] = useMemo(() => {
