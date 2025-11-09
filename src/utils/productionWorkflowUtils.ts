@@ -61,13 +61,23 @@ export const getJobWorkflowStages = (
     ? Math.max(...completedStages.map(s => s.stage_order))
     : -1;
   
-  // Group stages by type
-  const partBasedStages = allJobStages.filter(stage => 
-    stage.production_stages?.supports_parts === true
-  );
-  const sequentialStages = allJobStages.filter(stage => 
-    !stage.production_stages?.supports_parts
-  );
+  // Group stages by type - normalize supports_parts check
+  const partBasedStages = allJobStages.filter(stage => {
+    const supportsParts = 
+      stage.production_stages?.supports_parts ?? 
+      stage.production_stage?.supports_parts ?? 
+      stage.supports_parts ?? 
+      false;
+    return supportsParts === true;
+  });
+  const sequentialStages = allJobStages.filter(stage => {
+    const supportsParts = 
+      stage.production_stages?.supports_parts ?? 
+      stage.production_stage?.supports_parts ?? 
+      stage.supports_parts ?? 
+      false;
+    return !supportsParts;
+  });
   
   // Determine current workflow phase
   const pendingPartBasedStages = partBasedStages.filter(s => 
@@ -120,6 +130,7 @@ export const getJobWorkflowStages = (
   
   // PHASE 2: Parallel part-based stages (only when prerequisites complete)
   if (allPrerequisitesComplete && pendingPartBasedStages.length > 0) {
+    console.debug('[Workflow]', jobId, 'parallel phase:', partBasedStages.length, 'part-based stages available');
     const availableStages: any[] = [];
     
     // Group part-based stages by part assignment

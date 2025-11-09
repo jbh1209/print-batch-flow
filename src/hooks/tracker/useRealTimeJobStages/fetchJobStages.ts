@@ -48,7 +48,7 @@ export async function fetchJobStagesFromSupabase(
         `
         *,
         production_stage:production_stages(
-          id, name, color, description
+          id, name, color, description, supports_parts
         )
       `
       )
@@ -77,11 +77,13 @@ export async function fetchJobStagesFromSupabase(
         }
         
         const dueDate: string | undefined = computeDueDate(job);
+        const productionStage = stage.production_stage;
 
         return {
           ...stage,
           status: stage.status as "pending" | "active" | "completed" | "skipped" | "on_hold" | "changes_requested",
-          production_stage: stage.production_stage,
+          production_stage: productionStage,
+          production_stages: productionStage, // Normalize for workflow utils compatibility
           production_job: {
             id: job.job_id || job.id,
             wo_no: job.wo_no,

@@ -31,13 +31,13 @@ export const useRealTimeQueueUpdates = () => {
       // Get active jobs count
       const { count: activeJobs } = await supabase
         .from('job_stage_instances')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'active');
 
       // Get stages in progress
       const { count: stagesInProgress } = await supabase
         .from('job_stage_instances')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .in('status', ['active', 'started']);
 
       // Get completed today
@@ -45,7 +45,7 @@ export const useRealTimeQueueUpdates = () => {
       today.setHours(0, 0, 0, 0);
       const { count: completedToday } = await supabase
         .from('job_stage_instances')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'completed')
         .gte('completed_at', today.toISOString());
 
@@ -54,7 +54,7 @@ export const useRealTimeQueueUpdates = () => {
       next24Hours.setHours(next24Hours.getHours() + 24);
       const { count: upcomingDeadlines } = await supabase
         .from('job_stage_instances')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'pending')
         .lte('scheduled_start_at', next24Hours.toISOString())
         .not('scheduled_start_at', 'is', null);

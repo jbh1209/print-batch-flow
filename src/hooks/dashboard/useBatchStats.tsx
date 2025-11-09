@@ -42,7 +42,7 @@ export const useBatchStats = () => {
     try {
       const { count, error } = await supabase
         .from(tableName)
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
 
       if (error) throw error;
       return count || 0;
