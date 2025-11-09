@@ -63,11 +63,12 @@ export const JobListView: React.FC<JobListViewProps> = ({
                          {state.label}
                        </Badge>
                        
-                       <SubSpecificationBadge 
-                         jobId={job.job_id}
-                         stageId={job.current_stage_id}
-                         compact={true}
-                       />
+                        <SubSpecificationBadge 
+                          jobId={job.job_id}
+                          stageId={job.current_stage_id}
+                          stageName={job.current_stage_name || ""}
+                          compact={true}
+                        />
                      </div>
                   
                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">

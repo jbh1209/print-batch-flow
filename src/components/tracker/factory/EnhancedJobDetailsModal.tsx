@@ -410,7 +410,8 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                         <>
                           <SubSpecificationBadge 
                             jobId={job.job_id} 
-                            stageId={job.id} 
+                            stageId={job.id}
+                            stageName={job.stage_name}
                             partAssignment={job.part_assignment}
                           />
                           {jobSpecs.sheet_size && (
@@ -554,7 +555,8 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                     {/* Use the same spec source as MasterOrderModal via SubSpecificationBadge */}
                     <SubSpecificationBadge 
                       jobId={job.job_id} 
-                      stageId={job.id} 
+                      stageId={job.id}
+                      stageName={job.stage_name}
                       partAssignment={job.part_assignment}
                     />
 

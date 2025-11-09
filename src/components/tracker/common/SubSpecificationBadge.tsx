@@ -8,6 +8,7 @@ import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecU
 interface SubSpecificationBadgeProps {
   jobId: string;
   stageId?: string | null;
+  stageName?: string;
   compact?: boolean;
   className?: string;
   partAssignment?: string | null;
@@ -22,9 +23,31 @@ interface JobPrintSpecification {
   properties: any;
 }
 
+// Helper functions to detect stage types
+const isPrintingStage = (stageName: string): boolean => {
+  const name = stageName.toLowerCase();
+  return name.includes('print') || 
+         name.includes('7900') || 
+         name.includes('t250') || 
+         name.includes('hp12000') || 
+         name.includes('hp 12000') ||
+         name.includes('large format');
+};
+
+const isLaminationStage = (stageName: string): boolean => {
+  const name = stageName.toLowerCase();
+  return name.includes('laminat');
+};
+
+const isUVVarnishStage = (stageName: string): boolean => {
+  const name = stageName.toLowerCase();
+  return name.includes('uv') || name.includes('varnish');
+};
+
 export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   jobId,
   stageId,
+  stageName = "",
   compact = false,
   className = "",
   partAssignment = null,
@@ -36,7 +59,14 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const [paperDisplayOverride, setPaperDisplayOverride] = useState<string | null>(null);
 
   // Fetch paper specifications for the job - use HP12000 stages data when partAssignment is provided
+  // Only fetch paper specs for printing stages
   useEffect(() => {
+    // Early return if this stage doesn't need paper specifications
+    if (!isPrintingStage(stageName)) {
+      setPaperSpecs([]);
+      setPaperDisplayOverride(null);
+      return;
+    }
     const fetchPaperSpecs = async () => {
       if (!jobId) return;
       
@@ -137,7 +167,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     };
 
     fetchPaperSpecs();
-  }, [jobId, partAssignment, stageNotes]);
+  }, [jobId, partAssignment, stageNotes, stageName]);
 
   if (isLoading || paperLoading) {
     return (
@@ -147,12 +177,9 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
+  // Don't show badge if no specifications match this stage type
   if (!specifications || !specifications.length) {
-    return (
-      <Badge variant="secondary" className={`text-xs ${className}`}>
-        No specs
-      </Badge>
-    );
+    return null;
   }
 
   // Get paper details for display - prefer override from HP12000 RPC when available

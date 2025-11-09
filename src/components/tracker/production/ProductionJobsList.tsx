@@ -180,6 +180,7 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
                 <SubSpecificationBadge 
                   jobId={job.job_id}
                   stageId={stageContext.stageId}
+                  stageName={stageContext.stageName}
                   compact={true}
                 />
               </div>

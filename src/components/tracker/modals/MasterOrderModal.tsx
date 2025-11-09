@@ -395,15 +395,16 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                {getStageStatusIcon(stage.status)}
                                <div className="flex-1">
                                  <div className="flex items-center gap-2 mb-1">
-                                   <h4 className="font-medium">{stage.production_stage.name}</h4>
-                                    <SubSpecificationBadge 
-                                       jobId={job.job_id}
-                                       stageId={stage.id}
-                                       compact={true}
-                                       className="ml-2"
-                                       partAssignment={stage.part_assignment}
-                                       stageNotes={stage.notes}
-                                     />
+                                    <h4 className="font-medium">{stage.production_stage.name}</h4>
+                                     <SubSpecificationBadge 
+                                        jobId={job.job_id}
+                                        stageId={stage.id}
+                                        stageName={stage.production_stage.name}
+                                        compact={true}
+                                        className="ml-2"
+                                        partAssignment={stage.part_assignment}
+                                        stageNotes={stage.notes}
+                                      />
                                       <SubTaskList
                                         stageInstanceId={stage.id}
                                         mode="compact"

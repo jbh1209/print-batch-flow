@@ -199,6 +199,7 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
           <SubSpecificationBadge 
             jobId={job.job_id}
             stageId={stageContext.stageId}
+            stageName={stageContext.stageName}
             compact={false}
           />
         </div>

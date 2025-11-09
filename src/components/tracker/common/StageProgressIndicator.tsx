@@ -122,11 +122,12 @@ export const StageProgressIndicator: React.FC<StageProgressIndicatorProps> = ({
                   {stage.status}
                 </Badge>
               </div>
-              {jobId && (
+               {jobId && (
                 <div className="ml-5">
                   <SubSpecificationBadge 
                     jobId={jobId}
                     stageId={stage.id}
+                    stageName={stage.name}
                     compact={true}
                     className="text-xs"
                   />

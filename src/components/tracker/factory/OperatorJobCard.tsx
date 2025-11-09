@@ -73,6 +73,7 @@ export const OperatorJobCard: React.FC<OperatorJobCardProps> = ({
                   <SubSpecificationBadge 
                     jobId={job.job_id}
                     stageId={job.current_stage_id}
+                    stageName={job.current_stage_name || ""}
                     compact={true}
                   />
                 </div>
