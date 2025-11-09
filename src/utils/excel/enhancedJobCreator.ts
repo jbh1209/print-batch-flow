@@ -449,21 +449,70 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${woNo}: ${errorMsg}`);
     }
 
-    // 5a. Save paper specifications to job_print_specifications table
-    if (originalJob.paper_specifications?.parsed_paper) {
-      const paperType = originalJob.paper_specifications.parsed_paper.type;
-      const paperWeight = originalJob.paper_specifications.parsed_paper.weight;
-      
-      if (paperType || paperWeight) {
-        const { PaperSpecificationSaver } = await import('@/services/PaperSpecificationSaver');
-        const paperSaver = new PaperSpecificationSaver(this.logger);
-        await paperSaver.savePaperSpecifications(
-          insertedJob.id,
-          'production_jobs',
-          paperType,
-          paperWeight
+    // 5a. Save paper specifications using Excel import mappings
+    if (originalJob.paper_specifications && typeof originalJob.paper_specifications === 'object') {
+      try {
+        const paperSpecs = originalJob.paper_specifications as any;
+        const paperKeys = Object.keys(paperSpecs);
+        
+        // Find the primary paper spec key (usually contains "gsm")
+        const primaryPaperKey = paperKeys.find(key => 
+          key.toLowerCase().includes('gsm')
         );
-        this.logger.addDebugInfo(`📋 Paper specs saved for job ${woNo}: ${paperWeight} ${paperType}`);
+        
+        if (primaryPaperKey) {
+          this.logger.addDebugInfo(`🔍 Looking up mapping for paper spec: "${primaryPaperKey}"`);
+          
+          // Query excel_import_mappings for this exact paper specification
+          const { data: mapping, error: mappingError } = await supabase
+            .from('excel_import_mappings')
+            .select('paper_type_specification_id, paper_weight_specification_id')
+            .eq('excel_text', primaryPaperKey)
+            .maybeSingle();
+          
+          if (mappingError) {
+            this.logger.addDebugInfo(`❌ Error querying paper spec mapping: ${mappingError.message}`);
+          } else if (mapping && (mapping.paper_type_specification_id || mapping.paper_weight_specification_id)) {
+            this.logger.addDebugInfo(`✅ Found mapping: type=${mapping.paper_type_specification_id}, weight=${mapping.paper_weight_specification_id}`);
+            
+            // Insert paper specifications directly using the mapped IDs
+            const specsToInsert: any[] = [];
+            
+            if (mapping.paper_type_specification_id) {
+              specsToInsert.push({
+                job_id: insertedJob.id,
+                job_table_name: 'production_jobs',
+                specification_category: 'paper_type',
+                specification_id: mapping.paper_type_specification_id
+              });
+            }
+            
+            if (mapping.paper_weight_specification_id) {
+              specsToInsert.push({
+                job_id: insertedJob.id,
+                job_table_name: 'production_jobs',
+                specification_category: 'paper_weight',
+                specification_id: mapping.paper_weight_specification_id
+              });
+            }
+            
+            if (specsToInsert.length > 0) {
+              const { error: insertError } = await supabase
+                .from('job_print_specifications')
+                .insert(specsToInsert);
+              
+              if (insertError) {
+                this.logger.addDebugInfo(`❌ Error saving paper specs: ${insertError.message}`);
+              } else {
+                this.logger.addDebugInfo(`✅ Paper specs saved for job ${woNo} using Excel mapping`);
+              }
+            }
+          } else {
+            this.logger.addDebugInfo(`⚠️ No Excel mapping found for paper spec: "${primaryPaperKey}"`);
+          }
+        }
+      } catch (error) {
+        this.logger.addDebugInfo(`❌ Error processing paper specifications: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
