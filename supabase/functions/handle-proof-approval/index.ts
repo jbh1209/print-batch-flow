@@ -10,6 +10,125 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
+// Branded email template for Impress Print
+const generateBrandedEmail = (params: {
+  heading: string;
+  clientName: string;
+  woNumber: string;
+  proofUrl: string;
+  expiresAt?: Date;
+  message: string;
+  includeNextSteps?: boolean;
+  isReminder?: boolean;
+}) => {
+  const { heading, clientName, woNumber, proofUrl, expiresAt, message, includeNextSteps, isReminder } = params;
+  const logoUrl = 'https://printstream.impressweb.co.za/impress-logo-colour.png';
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${heading}</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; background-color: #f5f5f5;">
+      <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
+        <tr>
+          <td align="center" style="padding: 40px 20px;">
+            <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+              <!-- Header with logo and brand color -->
+              <tr>
+                <td style="background-color: #00B8D4; padding: 30px 40px; text-align: center;">
+                  <img src="${logoUrl}" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 15px auto;" />
+                  <h1 style="color: #ffffff; font-size: 24px; font-weight: 600; margin: 0; padding: 0;">
+                    Online Approval System
+                  </h1>
+                </td>
+              </tr>
+              
+              <!-- Main content -->
+              <tr>
+                <td style="padding: 40px 40px 30px 40px;">
+                  <h2 style="color: #1a1a1a; font-size: 22px; font-weight: 600; margin: 0 0 20px 0;">
+                    ${heading}
+                  </h2>
+                  
+                  <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 15px 0;">
+                    Hello ${clientName},
+                  </p>
+                  
+                  <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                    ${message}
+                  </p>
+                  
+                  <!-- CTA Button -->
+                  <table role="presentation" style="margin: 30px 0;">
+                    <tr>
+                      <td align="center">
+                        <a href="${proofUrl}" style="background-color: #00B8D4; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600; font-size: 16px;">
+                          View Proof
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                    Or copy and paste this link into your browser:
+                  </p>
+                  <p style="color: #00B8D4; font-size: 14px; line-height: 1.6; margin: 5px 0 25px 0; word-break: break-all;">
+                    <a href="${proofUrl}" style="color: #00B8D4; text-decoration: none;">${proofUrl}</a>
+                  </p>
+                  
+                  ${expiresAt ? `
+                    <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 20px 0;">
+                      ⏰ This link will expire on <strong>${expiresAt.toLocaleDateString('en-ZA', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}</strong>.
+                    </p>
+                  ` : ''}
+                  
+                  ${includeNextSteps ? `
+                    <div style="background-color: #f8f9fa; border-left: 4px solid #00B8D4; padding: 20px; margin: 25px 0;">
+                      <p style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0 0 12px 0;">
+                        Next Steps:
+                      </p>
+                      <ul style="color: #333333; font-size: 15px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                        <li>Review the proof carefully</li>
+                        <li>Click "Approve" if everything looks good - we'll schedule your job immediately</li>
+                        <li>Click "Request Changes" if you need any modifications</li>
+                      </ul>
+                    </div>
+                  ` : ''}
+                  
+                  <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
+                    Thank you for your business!
+                  </p>
+                </td>
+              </tr>
+              
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8f9fa; padding: 25px 40px; text-align: center; border-top: 1px solid #e0e0e0;">
+                  <p style="color: #666666; font-size: 13px; line-height: 1.6; margin: 0;">
+                    <strong style="color: #1a1a1a;">PrintStream by ImpressWeb</strong>
+                  </p>
+                  <p style="color: #999999; font-size: 12px; line-height: 1.6; margin: 8px 0 0 0;">
+                    Professional printing services you can trust
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -143,23 +262,15 @@ serve(async (req) => {
             from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
             to: [clientEmail],
             subject: `Proof Ready for Review - WO ${jobDetails?.wo_no || 'N/A'}`,
-            html: `
-              <h2>Your proof is ready for review</h2>
-              <p>Hello ${clientName || 'valued client'},</p>
-              <p>Your proof for Work Order <strong>${jobDetails?.wo_no || 'N/A'}</strong> is now ready for your review and approval.</p>
-              <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
-              <p>Or copy and paste this link into your browser:</p>
-              <p><a href="${proofUrl}">${proofUrl}</a></p>
-              <p>This link will expire on ${expiresAt.toLocaleDateString()}.</p>
-              <p><strong>Next Steps:</strong></p>
-              <ul>
-                <li>Review the proof carefully</li>
-                <li>Click "Approve" if everything looks good - we'll schedule your job immediately</li>
-                <li>Click "Request Changes" if you need any modifications</li>
-              </ul>
-              <p>Thank you for your business!</p>
-              <p style="color: #666; font-size: 12px; margin-top: 20px;">PrintStream by ImpressWeb</p>
-            `,
+            html: generateBrandedEmail({
+              heading: 'Your proof is ready for review',
+              clientName: clientName || 'valued client',
+              woNumber: jobDetails?.wo_no || 'N/A',
+              proofUrl,
+              expiresAt,
+              message: `Your proof for Work Order <strong>${jobDetails?.wo_no || 'N/A'}</strong> is now ready for your review and approval.`,
+              includeNextSteps: true
+            }),
           });
           
           console.log('✅ Proof email sent successfully!', emailResult);
@@ -275,15 +386,15 @@ serve(async (req) => {
             from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
             to: [clientEmail],
             subject: `[RESEND] Proof Ready for Review - WO ${jobDetails.wo_no}`,
-            html: `
-              <h2>Reminder: Your proof is ready for review</h2>
-              <p>Hello ${clientName || 'valued client'},</p>
-              <p>This is a reminder that your proof for Work Order <strong>${jobDetails.wo_no}</strong> is awaiting your review.</p>
-              <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
-              <p>Or copy and paste this link into your browser:</p>
-              <p><a href="${proofUrl}">${proofUrl}</a></p>
-              <p>Thank you for your prompt attention!</p>
-            `,
+            html: generateBrandedEmail({
+              heading: 'Reminder: Your proof is ready for review',
+              clientName: clientName || 'valued client',
+              woNumber: jobDetails.wo_no,
+              proofUrl,
+              message: `This is a reminder that your proof for Work Order <strong>${jobDetails.wo_no}</strong> is awaiting your review. We look forward to your feedback so we can proceed with your order.`,
+              includeNextSteps: true,
+              isReminder: true
+            }),
           });
           
           console.log('✅ Email sent successfully:', emailResult);
@@ -375,14 +486,14 @@ serve(async (req) => {
             from: 'PrintStream Proofing <proofing@notifications.jaimar.dev>',
             to: [jobDetails.contact_email],
             subject: `Updated Proof Link - WO ${jobDetails.wo_no}`,
-            html: `
-              <h2>Your proof link has been updated</h2>
-              <p>Hello ${jobDetails.customer || 'valued client'},</p>
-              <p>A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>.</p>
-              <p><a href="${proofUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Proof</a></p>
-              <p>Or copy and paste this link into your browser:</p>
-              <p><a href="${proofUrl}">${proofUrl}</a></p>
-            `,
+            html: generateBrandedEmail({
+              heading: 'Your proof link has been updated',
+              clientName: jobDetails.customer || 'valued client',
+              woNumber: jobDetails.wo_no,
+              proofUrl,
+              message: `A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>. Please use this updated link to review your proof.`,
+              includeNextSteps: false
+            }),
           });
           console.log('✅ Email sent successfully:', emailResult);
         } catch (emailError: any) {
