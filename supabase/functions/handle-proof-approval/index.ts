@@ -38,16 +38,9 @@ const generateBrandedEmail = (params: {
             <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
               <!-- Header with brand color -->
               <tr>
-                <td style="background-color: #00B8D4; padding: 40px 40px; text-align: center;">
-                  <div style="margin-bottom: 8px;">
-                    <span style="color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
-                      IMPRESS
-                    </span>
-                    <span style="color: #ffffff; font-size: 16px; font-weight: 400; margin-left: 8px;">
-                      DIGITAL PRINTING SERVICES
-                    </span>
-                  </div>
-                  <h1 style="color: #ffffff; font-size: 22px; font-weight: 500; margin: 15px 0 0 0; padding: 0; border-top: 2px solid rgba(255, 255, 255, 0.3); padding-top: 15px;">
+                <td style="background-color: #00B8D4; padding: 30px 40px; text-align: center;">
+                  <img src="cid:impress-logo" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 10px;" />
+                  <h1 style="color: #ffffff; font-size: 22px; font-weight: 500; margin: 0; padding: 0;">
                     Online Approval System
                   </h1>
                 </td>
@@ -277,6 +270,13 @@ serve(async (req) => {
               message: `Your proof for Work Order <strong>${jobDetails?.wo_no || 'N/A'}</strong> is now ready for your review and approval.`,
               includeNextSteps: true
             }),
+            attachments: [
+              {
+                path: `${PRODUCTION_DOMAIN}/impress-logo-colour.png`,
+                filename: 'impress-logo-colour.png',
+                contentId: 'impress-logo'
+              }
+            ]
           });
           
           console.log('✅ Proof email sent successfully!', emailResult);
@@ -401,6 +401,13 @@ serve(async (req) => {
               includeNextSteps: true,
               isReminder: true
             }),
+            attachments: [
+              {
+                path: `${PRODUCTION_DOMAIN}/impress-logo-colour.png`,
+                filename: 'impress-logo-colour.png',
+                contentId: 'impress-logo'
+              }
+            ]
           });
           
           console.log('✅ Email sent successfully:', emailResult);
@@ -500,6 +507,13 @@ serve(async (req) => {
               message: `A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>. Please use this updated link to review your proof.`,
               includeNextSteps: false
             }),
+            attachments: [
+              {
+                path: `${PRODUCTION_DOMAIN}/impress-logo-colour.png`,
+                filename: 'impress-logo-colour.png',
+                contentId: 'impress-logo'
+              }
+            ]
           });
           console.log('✅ Email sent successfully:', emailResult);
         } catch (emailError: any) {
