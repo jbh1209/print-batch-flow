@@ -10,6 +10,9 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
+// Base64 encoded Impress logo for reliable email display
+const IMPRESS_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAABECAYAAAA3GCbCAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAABJmSURBVHgB7Z0JeFTVGcf/596ZJJNksu+QhbAkLAkQwr4vKrYuuFQtqFi1tlq1VltbtXVpqwVRq7VV61KXqq1VK1YFBBQQZBMCJGwJkLCEJGSf7HP7ne/ezCQBslAmYPi+5+Hh3jv3nnvuueec//nO+c65hBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEII+b8gH+IG5pwxyyRKWU9EYwlxHoBRRBRBRHYi8hJRPREVENF6Qtb6V1Y';
+
 // Branded email template for Impress Print
 const generateBrandedEmail = (params: {
   heading: string;
@@ -22,7 +25,6 @@ const generateBrandedEmail = (params: {
   isReminder?: boolean;
 }) => {
   const { heading, clientName, woNumber, proofUrl, expiresAt, message, includeNextSteps, isReminder } = params;
-  const logoUrl = 'https://printstream.impressweb.co.za/impress-logo-colour.png';
   
   return `
     <!DOCTYPE html>
@@ -40,7 +42,7 @@ const generateBrandedEmail = (params: {
               <!-- Header with logo and brand color -->
               <tr>
                 <td style="background-color: #00B8D4; padding: 30px 40px; text-align: center;">
-                  <img src="${logoUrl}" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 15px auto;" />
+                  <img src="${IMPRESS_LOGO_BASE64}" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 15px auto;" />
                   <h1 style="color: #ffffff; font-size: 24px; font-weight: 600; margin: 0; padding: 0;">
                     Online Approval System
                   </h1>
