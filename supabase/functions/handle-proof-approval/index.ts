@@ -10,9 +10,6 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
-// Base64 encoded Impress logo for reliable email display
-const IMPRESS_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAABECAYAAAA3GCbCAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAABJmSURBVHgB7Z0JeFTVGcf/596ZJJNksu+QhbAkLAkQwr4vKrYuuFQtqFi1tlq1VltbtXVpqwVRq7VV61KXqq1VK1YFBBQQZBMCJGwJkLCEJGSf7HP7ne/ezCQBslAmYPi+5+Hh3jv3nnvuueec//nO+c65hBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEII+b8gH+IG5pwxyyRKWU9EYwlxHoBRRBRBRHYi8hJRPREVENF6Qtb6V1Y';
-
 // Branded email template for Impress Print
 const generateBrandedEmail = (params: {
   heading: string;
@@ -39,11 +36,18 @@ const generateBrandedEmail = (params: {
         <tr>
           <td align="center" style="padding: 40px 20px;">
             <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-              <!-- Header with logo and brand color -->
+              <!-- Header with brand color -->
               <tr>
-                <td style="background-color: #00B8D4; padding: 30px 40px; text-align: center;">
-                  <img src="${IMPRESS_LOGO_BASE64}" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 15px auto;" />
-                  <h1 style="color: #ffffff; font-size: 24px; font-weight: 600; margin: 0; padding: 0;">
+                <td style="background-color: #00B8D4; padding: 40px 40px; text-align: center;">
+                  <div style="margin-bottom: 8px;">
+                    <span style="color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
+                      IMPRESS
+                    </span>
+                    <span style="color: #ffffff; font-size: 16px; font-weight: 400; margin-left: 8px;">
+                      DIGITAL PRINTING SERVICES
+                    </span>
+                  </div>
+                  <h1 style="color: #ffffff; font-size: 22px; font-weight: 500; margin: 15px 0 0 0; padding: 0; border-top: 2px solid rgba(255, 255, 255, 0.3); padding-top: 15px;">
                     Online Approval System
                   </h1>
                 </td>
