@@ -10,6 +10,21 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
+// Logo embedded as base64 for reliable email delivery
+// TO UPDATE: Convert src/assets/impress-logo-colour.png to base64 and paste here
+// Quick conversion: Use https://base64.guru/converter/encode/image or run: 
+// cat src/assets/impress-logo-colour.png | base64
+const LOGO_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='; // REPLACE WITH ACTUAL LOGO
+
+// Inline attachment configuration
+const LOGO_ATTACHMENT = {
+  filename: 'impress-logo-colour.png',
+  content: LOGO_BASE64,
+  contentId: 'impress-logo'
+};
+
+console.log('📸 Logo attachment configured. Base64 length:', LOGO_BASE64.length, 'chars');
+
 // Branded email template for Impress Print
 const generateBrandedEmail = (params: {
   heading: string;
@@ -270,13 +285,7 @@ serve(async (req) => {
               message: `Your proof for Work Order <strong>${jobDetails?.wo_no || 'N/A'}</strong> is now ready for your review and approval.`,
               includeNextSteps: true
             }),
-            attachments: [
-              {
-                path: `${PRODUCTION_DOMAIN}/impress-logo-colour.png`,
-                filename: 'impress-logo-colour.png',
-                contentId: 'impress-logo'
-              }
-            ]
+            attachments: [LOGO_ATTACHMENT]
           });
           
           console.log('✅ Proof email sent successfully!', emailResult);
@@ -401,13 +410,7 @@ serve(async (req) => {
               includeNextSteps: true,
               isReminder: true
             }),
-            attachments: [
-              {
-                path: `${PRODUCTION_DOMAIN}/impress-logo-colour.png`,
-                filename: 'impress-logo-colour.png',
-                contentId: 'impress-logo'
-              }
-            ]
+            attachments: [LOGO_ATTACHMENT]
           });
           
           console.log('✅ Email sent successfully:', emailResult);
@@ -507,13 +510,7 @@ serve(async (req) => {
               message: `A new proof link has been generated for Work Order <strong>${jobDetails.wo_no}</strong>. Please use this updated link to review your proof.`,
               includeNextSteps: false
             }),
-            attachments: [
-              {
-                path: `${PRODUCTION_DOMAIN}/impress-logo-colour.png`,
-                filename: 'impress-logo-colour.png',
-                contentId: 'impress-logo'
-              }
-            ]
+            attachments: [LOGO_ATTACHMENT]
           });
           console.log('✅ Email sent successfully:', emailResult);
         } catch (emailError: any) {
