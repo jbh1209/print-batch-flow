@@ -178,27 +178,21 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
     return 'unknown';
   };
 
-  const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => {
+  const handleUpdateMapping = (woNo: string, arrayIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      // CRITICAL: Read from state (prev), NOT from props to avoid stale data
       const mappings = prev[woNo];
-      if (mappings) {
-        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
-        if (mappingIndex >= 0) {
-          const mappingsCopy = [...mappings];
-          mappingsCopy[mappingIndex] = {
-            ...mappingsCopy[mappingIndex],
-            mappedStageId: stageId,
-            mappedStageName: stageName,
-            mappedStageSpecId: stageSpecId || null,
-            mappedStageSpecName: stageSpecName || null,
-            manualOverride: true,
-            confidence: 100,
-            isUnmapped: false
-          };
-          updated[woNo] = mappingsCopy;
-        }
+      if (mappings && arrayIndex >= 0 && arrayIndex < mappings.length) {
+        const mappingsCopy = [...mappings];
+        mappingsCopy[arrayIndex] = {
+          ...mappingsCopy[arrayIndex],
+          mappedStageId: stageId,
+          mappedStageName: stageName,
+          mappedStageSpecId: stageSpecId || null,
+          mappedStageSpecName: stageSpecName || null,
+          isUnmapped: false
+        };
+        updated[woNo] = mappingsCopy;
       }
       return updated;
     });
@@ -212,79 +206,67 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
     }
   };
 
-  const handleToggleManualOverride = (woNo: string, rowIndex: number) => {
+  const handleToggleManualOverride = (woNo: string, arrayIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      // CRITICAL: Read from state (prev), NOT from props
       const mappings = prev[woNo];
-      if (mappings) {
-        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
-        if (mappingIndex >= 0) {
-          const currentValue = mappings[mappingIndex].manualOverride;
-          const newValue = !currentValue;
-          
-          const mappingsCopy = [...mappings];
-          
-          // If opening edit mode (newValue = true), close all other rows first
-          if (newValue) {
-            mappingsCopy.forEach((m, idx) => {
-              if (idx !== mappingIndex) {
-                mappingsCopy[idx] = {
-                  ...m,
-                  manualOverride: false
-                };
-              }
-            });
-          }
-          
-          // Toggle the clicked row
-          mappingsCopy[mappingIndex] = {
-            ...mappingsCopy[mappingIndex],
-            manualOverride: newValue
-          };
-          
-          updated[woNo] = mappingsCopy;
+      if (mappings && arrayIndex >= 0 && arrayIndex < mappings.length) {
+        const currentValue = mappings[arrayIndex].manualOverride;
+        const newValue = !currentValue;
+        
+        const mappingsCopy = [...mappings];
+        
+        // If opening edit mode (newValue = true), close all other rows first
+        if (newValue) {
+          mappingsCopy.forEach((m, idx) => {
+            if (idx !== arrayIndex) {
+              mappingsCopy[idx] = {
+                ...m,
+                manualOverride: false
+              };
+            }
+          });
         }
+        
+        // Toggle the clicked row
+        mappingsCopy[arrayIndex] = {
+          ...mappingsCopy[arrayIndex],
+          manualOverride: newValue
+        };
+        
+        updated[woNo] = mappingsCopy;
       }
       return updated;
     });
   };
 
-  const handleIgnoreRow = (woNo: string, rowIndex: number) => {
+  const handleIgnoreRow = (woNo: string, arrayIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      // CRITICAL: Read from state (prev), NOT from props
       const mappings = prev[woNo];
-      if (mappings) {
-        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
-        if (mappingIndex >= 0) {
-          const mappingsCopy = [...mappings];
-          mappingsCopy[mappingIndex] = {
-            ...mappingsCopy[mappingIndex],
-            ignored: true
-          };
-          updated[woNo] = mappingsCopy;
-        }
+      if (mappings && arrayIndex >= 0 && arrayIndex < mappings.length) {
+        const mappingsCopy = [...mappings];
+        mappingsCopy[arrayIndex] = {
+          ...mappingsCopy[arrayIndex],
+          ignored: true
+        };
+        updated[woNo] = mappingsCopy;
       }
       return updated;
     });
   };
 
-  const handleRestoreRow = (woNo: string, rowIndex: number) => {
+  const handleRestoreRow = (woNo: string, arrayIndex: number) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      // CRITICAL: Read from state (prev), NOT from props
       const mappings = prev[woNo];
-      if (mappings) {
-        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
-        if (mappingIndex >= 0) {
-          const mappingsCopy = [...mappings];
-          mappingsCopy[mappingIndex] = {
-            ...mappingsCopy[mappingIndex],
-            ignored: false
-          };
-          updated[woNo] = mappingsCopy;
-        }
+      if (mappings && arrayIndex >= 0 && arrayIndex < mappings.length) {
+        const mappingsCopy = [...mappings];
+        mappingsCopy[arrayIndex] = {
+          ...mappingsCopy[arrayIndex],
+          ignored: false
+        };
+        updated[woNo] = mappingsCopy;
       }
       return updated;
     });
@@ -616,12 +598,12 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
                           availableStages={availableStages}
                           stageSpecifications={stageSpecifications}
                           workOrderNumber={currentOrder}
-                          onUpdateMapping={(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName) => 
-                            handleUpdateMapping(woNo, rowIndex, stageId, stageName, stageSpecId, stageSpecName)
+                          onUpdateMapping={(woNo, arrayIndex, stageId, stageName, stageSpecId, stageSpecName) => 
+                            handleUpdateMapping(woNo, arrayIndex, stageId, stageName, stageSpecId, stageSpecName)
                           }
-                          onToggleManualOverride={(woNo, rowIndex) => handleToggleManualOverride(woNo, rowIndex)}
-                          onIgnoreRow={(woNo, rowIndex) => handleIgnoreRow(woNo, rowIndex)}
-                          onRestoreRow={(woNo, rowIndex) => handleRestoreRow(woNo, rowIndex)}
+                          onToggleManualOverride={(woNo, arrayIndex) => handleToggleManualOverride(woNo, arrayIndex)}
+                          onIgnoreRow={(woNo, arrayIndex) => handleIgnoreRow(woNo, arrayIndex)}
+                          onRestoreRow={(woNo, arrayIndex) => handleRestoreRow(woNo, arrayIndex)}
                         />
                       </RowMappingErrorBoundary>
                       

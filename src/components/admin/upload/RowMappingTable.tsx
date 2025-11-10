@@ -17,10 +17,10 @@ interface RowMappingTableProps {
   availableStages: { id: string; name: string; category: string }[];
   stageSpecifications: { [stageId: string]: StageSpecification[] };
   workOrderNumber: string;
-  onUpdateMapping: (woNo: string, rowIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => void;
-  onToggleManualOverride: (woNo: string, rowIndex: number) => void;
-  onIgnoreRow?: (woNo: string, rowIndex: number) => void;
-  onRestoreRow?: (woNo: string, rowIndex: number) => void;
+  onUpdateMapping: (woNo: string, arrayIndex: number, stageId: string, stageName: string, stageSpecId?: string, stageSpecName?: string) => void;
+  onToggleManualOverride: (woNo: string, arrayIndex: number) => void;
+  onIgnoreRow?: (woNo: string, arrayIndex: number) => void;
+  onRestoreRow?: (woNo: string, arrayIndex: number) => void;
 }
 
 export const RowMappingTable: React.FC<RowMappingTableProps> = ({
@@ -56,20 +56,9 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
     return stageSpecifications[stageId] || [];
   };
 
-  // Create unique identifier for each row mapping to handle multi-rows correctly
-  // CRITICAL: customRowId MUST be prioritized to prevent duplicate keys for custom rows
-  // CRITICAL: Include workOrderNumber to prevent cross-order key collisions
-  const getUniqueRowId = (mapping: RowMappingResult, fallbackIndex: number) => {
-    // Always prefer customRowId for custom rows - this is guaranteed unique
-    if (mapping.customRowId) {
-      return `${workOrderNumber}-${mapping.customRowId}`;
-    }
-    // For Excel rows, create composite key with order prefix
-    if (mapping.excelRowIndex >= 0) {
-      return `${workOrderNumber}-excel-${mapping.excelRowIndex}-${mapping.mappedStageId || 'unmapped'}-${mapping.mappedStageSpecId || 'no-spec'}`;
-    }
-    // Absolute fallback: use array index (should never happen)
-    return `${workOrderNumber}-fallback-${fallbackIndex}-${Date.now()}`;
+  // Use stable array index for React keys to prevent re-render issues
+  const getUniqueRowId = (arrayIndex: number) => {
+    return `${workOrderNumber}-row-${arrayIndex}`;
   };
 
   const unmappedCount = rowMappings.filter(m => m.isUnmapped && !m.ignored).length;
@@ -119,7 +108,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
             
             return (
               <TableRow 
-                key={getUniqueRowId(mapping, index)} 
+                key={getUniqueRowId(index)} 
                 className={`${mapping.isUnmapped ? "bg-red-50" : ""} ${isIgnored ? "opacity-50" : ""}`}
               >
                 <TableCell className="font-mono text-sm">
@@ -167,7 +156,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                         const selectedStage = availableStages.find(s => s.id === stageId);
                         if (selectedStage) {
                           // Reset stage specification when changing stage
-                          onUpdateMapping(workOrderNumber, mapping.excelRowIndex, stageId, selectedStage.name);
+                          onUpdateMapping(workOrderNumber, index, stageId, selectedStage.name);
                         }
                       }}
                     >
@@ -197,7 +186,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                           const selectedSpec = specs.find(s => s.id === stageSpecId);
                           if (selectedSpec && mapping.mappedStageId) {
                             const stageName = availableStages.find(s => s.id === mapping.mappedStageId)?.name || '';
-                            onUpdateMapping(workOrderNumber, mapping.excelRowIndex, mapping.mappedStageId, stageName, stageSpecId, selectedSpec.name);
+                            onUpdateMapping(workOrderNumber, index, mapping.mappedStageId, stageName, stageSpecId, selectedSpec.name);
                           }
                         }}
                       >
@@ -267,7 +256,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onToggleManualOverride(workOrderNumber, mapping.excelRowIndex)}
+                        onClick={() => onToggleManualOverride(workOrderNumber, index)}
                         className="h-8 w-8 p-0"
                         title={`Edit row ${isCustom ? 'custom' : mapping.excelRowIndex + 1}: ${mapping.groupName}`}
                       >
@@ -281,7 +270,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => onIgnoreRow(workOrderNumber, mapping.excelRowIndex)}
+                          onClick={() => onIgnoreRow(workOrderNumber, index)}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           title="Ignore this row"
                         >
@@ -294,7 +283,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onRestoreRow(workOrderNumber, mapping.excelRowIndex)}
+                        onClick={() => onRestoreRow(workOrderNumber, index)}
                         className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         title="Restore this row"
                       >
