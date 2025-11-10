@@ -20,6 +20,7 @@ export const useAutoApprovedJobs = () => {
   const [jobs, setJobs] = useState<AutoApprovedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchJobs = async () => {
     try {
@@ -62,6 +63,7 @@ export const useAutoApprovedJobs = () => {
       }));
 
       setJobs(formattedJobs);
+      setLastUpdated(new Date());
     } catch (err: any) {
       console.error('Error fetching auto-approved jobs:', err);
       setError(err.message);
@@ -98,6 +100,7 @@ export const useAutoApprovedJobs = () => {
   useEffect(() => {
     fetchJobs();
 
+    // Real-time subscription for instant updates
     const channel = supabase
       .channel('auto_approved_jobs_changes')
       .on(
@@ -109,14 +112,21 @@ export const useAutoApprovedJobs = () => {
           filter: 'proof_approved_manually_at=not.is.null'
         },
         () => {
-          console.log('Auto-approved jobs changed, refreshing...');
+          console.log('✅ Auto-approved jobs changed (realtime), refreshing...');
           fetchJobs();
         }
       )
       .subscribe();
 
+    // Polling fallback - refresh every 5 minutes (300000ms)
+    const pollingInterval = setInterval(() => {
+      console.log('🔄 Auto-refresh: Polling auto-approved jobs...');
+      fetchJobs();
+    }, 300000); // 5 minutes
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollingInterval);
     };
   }, []);
 
@@ -125,6 +135,7 @@ export const useAutoApprovedJobs = () => {
     isLoading,
     error,
     refreshJobs: fetchJobs,
-    markFilesSent
+    markFilesSent,
+    lastUpdated
   };
 };
