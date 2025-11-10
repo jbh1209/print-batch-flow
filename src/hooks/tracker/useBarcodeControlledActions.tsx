@@ -55,21 +55,24 @@ export const useBarcodeControlledActions = () => {
     }
   }, [user?.id]);
 
-  // Verify barcode matches expected job - strict D###### format
+  // Verify barcode matches expected job - flexible prefix handling
   const verifyBarcode = useCallback((scannedData: string, expectedData: string): boolean => {
     const cleanScanned = scannedData.trim().toUpperCase();
     const cleanExpected = expectedData.trim().toUpperCase();
 
-    // Extract first D###### token if present
-    const tokenMatch = cleanScanned.match(/D\d{6}/i);
-    const token = tokenMatch ? tokenMatch[0].toUpperCase() : null;
+    // Extract numeric portion from both (remove any letter prefix like D, W, etc.)
+    const scannedNumbers = cleanScanned.replace(/^[A-Z]+/, '');
+    const expectedNumbers = cleanExpected.replace(/^[A-Z]+/, '');
 
-    // If a token exists, it must match expected exactly
-    if (token) {
-      return token === cleanExpected;
+    // Compare the numeric portions - this makes it flexible
+    // "427310" matches "D427310"
+    // "W427310" matches "D427310"
+    // "D427310" matches "D427310"
+    if (scannedNumbers && expectedNumbers && /^\d+$/.test(scannedNumbers) && /^\d+$/.test(expectedNumbers)) {
+      return scannedNumbers === expectedNumbers;
     }
 
-    // Otherwise require exact match only (no partial/contains)
+    // Fallback to exact match if no numbers found (backward compatibility)
     return cleanScanned === cleanExpected;
   }, []);
 
