@@ -220,11 +220,29 @@ export const PaginatedJobCreationDialog: React.FC<PaginatedJobCreationDialogProp
       if (mappings) {
         const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
         if (mappingIndex >= 0) {
+          const currentValue = mappings[mappingIndex].manualOverride;
+          const newValue = !currentValue;
+          
           const mappingsCopy = [...mappings];
+          
+          // If opening edit mode (newValue = true), close all other rows first
+          if (newValue) {
+            mappingsCopy.forEach((m, idx) => {
+              if (idx !== mappingIndex) {
+                mappingsCopy[idx] = {
+                  ...m,
+                  manualOverride: false
+                };
+              }
+            });
+          }
+          
+          // Toggle the clicked row
           mappingsCopy[mappingIndex] = {
             ...mappingsCopy[mappingIndex],
-            manualOverride: !mappingsCopy[mappingIndex].manualOverride
+            manualOverride: newValue
           };
+          
           updated[woNo] = mappingsCopy;
         }
       }
