@@ -17,7 +17,8 @@ import {
   Package,
   FileText,
   Shield,
-  Tags
+  Tags,
+  Mail
 } from "lucide-react";
 import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
@@ -461,6 +462,30 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                                   <div>
                                     <label className="font-medium text-gray-500">Completed At</label>
                                     <p>{new Date(stage.completed_at).toLocaleString()}</p>
+                                  </div>
+                                )}
+                                {stage.proof_emailed_at && (
+                                  <div>
+                                    <label className="font-medium text-gray-500 flex items-center gap-1">
+                                      <Mail className="h-3 w-3" />
+                                      Proof Emailed At
+                                    </label>
+                                    <p>{new Date(stage.proof_emailed_at).toLocaleString()}</p>
+                                    {stage.client_email && (
+                                      <p className="text-xs text-muted-foreground mt-1">To: {stage.client_email}</p>
+                                    )}
+                                  </div>
+                                )}
+                                {stage.proof_approved_manually_at && (
+                                  <div>
+                                    <label className="font-medium text-gray-500 flex items-center gap-1">
+                                      <CheckCircle className="h-3 w-3" />
+                                      Proof Approved At
+                                    </label>
+                                    <p>{new Date(stage.proof_approved_manually_at).toLocaleString()}</p>
+                                    {stage.client_name && (
+                                      <p className="text-xs text-muted-foreground mt-1">By: {stage.client_name}</p>
+                                    )}
                                   </div>
                                 )}
                                 {stage.started_by && (
