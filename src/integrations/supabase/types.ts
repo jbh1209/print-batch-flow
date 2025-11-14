@@ -4449,23 +4449,22 @@ export type Database = {
           scheduled_start: string
         }[]
       }
-      scheduler_append_jobs:
-        | {
-            Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
-            Returns: {
-              updated_jsi: number
-              violations: Json
-              wrote_slots: number
-            }[]
-          }
-        | {
-            Args: {
-              p_base_start?: string
-              p_commit?: boolean
-              p_job_ids: string[]
-            }
-            Returns: Json
-          }
+      scheduler_append_jobs: {
+        Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
+      scheduler_append_jobs_1: {
+        Args: { p_job_ids: string[]; p_only_if_unset?: boolean }
+        Returns: {
+          updated_jsi: number
+          violations: Json
+          wrote_slots: number
+        }[]
+      }
       scheduler_delete_slots_for_jobs: {
         Args: { job_ids: string[] }
         Returns: number
@@ -4476,6 +4475,14 @@ export type Database = {
           updated_jsi: number
           violations: Json
           wrote_slots: number
+        }[]
+      }
+      scheduler_reschedule_all_parallel_aware_OLD1: {
+        Args: { p_start_from?: string }
+        Returns: {
+          slots_written: number
+          stages_updated: number
+          violations: Json
         }[]
       }
       scheduler_truncate_slots: { Args: never; Returns: undefined }
