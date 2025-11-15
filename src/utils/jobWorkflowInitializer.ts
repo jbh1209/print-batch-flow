@@ -117,9 +117,10 @@ export const initializeJobWorkflowFromMappings = async (
 
     // Call the new multi-spec aware RPC function with enhanced error handling
     const { data, error } = await supabase.rpc('initialize_job_stages_with_multi_specs', {
+      p_category_id: null, // User-approved workflow bypasses category
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_consolidated_stages: consolidatedStages
+      p_stage_specifications: consolidatedStages
     });
 
     if (error) {

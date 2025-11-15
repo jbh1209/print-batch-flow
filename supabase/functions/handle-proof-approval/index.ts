@@ -354,8 +354,21 @@ serve(async (req) => {
         );
       }
       
+      // Add +1 business day buffer for client-facing date
+      const { data: bufferedDate, error: bufferError } = await supabase
+        .rpc('add_working_days_to_timestamp', {
+          p_start_timestamp: lastStage.scheduled_end_at,
+          p_days_to_add: 1
+        });
+      
+      if (bufferError) {
+        console.error('❌ Error adding buffer day:', bufferError);
+      } else {
+        console.log(`📅 Schedule estimate buffered: ${lastStage.scheduled_end_at} → ${bufferedDate}`);
+      }
+      
       return new Response(
-        JSON.stringify({ estimatedCompletion: lastStage.scheduled_end_at }),
+        JSON.stringify({ estimatedCompletion: bufferedDate || lastStage.scheduled_end_at }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -789,7 +802,24 @@ serve(async (req) => {
           .limit(1)
           .single();
 
-        estimatedCompletion = lastStage?.scheduled_end_at || null;
+        // Add +1 business day buffer for client-facing date
+        if (lastStage?.scheduled_end_at) {
+          const { data: bufferedDate, error: bufferError } = await supabase
+            .rpc('add_working_days_to_timestamp', {
+              p_start_timestamp: lastStage.scheduled_end_at,
+              p_days_to_add: 1
+            });
+          
+          if (bufferError) {
+            console.error('❌ Error adding buffer day:', bufferError);
+            estimatedCompletion = lastStage.scheduled_end_at; // Fallback to unbuffered
+          } else {
+            estimatedCompletion = bufferedDate;
+            console.log(`📅 Completion buffered: ${lastStage.scheduled_end_at} → ${bufferedDate}`);
+          }
+        } else {
+          estimatedCompletion = null;
+        }
 
         // Update proof_links with estimate
         await supabase
