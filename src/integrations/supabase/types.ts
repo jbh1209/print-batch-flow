@@ -3568,6 +3568,28 @@ export type Database = {
           },
         ]
       }
+      v_suspicious_printing_timing: {
+        Row: {
+          base_speed: number | null
+          estimated_duration_minutes: number | null
+          quantity: number | null
+          spec_speed: number | null
+          specification_name: string | null
+          stage_name: string | null
+          stage_specification_id: string | null
+          timing_status: string | null
+          wo_no: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_stage_instances_stage_specification_id_fkey"
+            columns: ["stage_specification_id"]
+            isOneToOne: false
+            referencedRelation: "stage_specifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _prev_stage_end: {
@@ -4223,11 +4245,12 @@ export type Database = {
       }
       initialize_job_stages_with_multi_specs: {
         Args: {
-          p_consolidated_stages: Json
+          p_category_id: string
           p_job_id: string
           p_job_table_name: string
+          p_stage_specifications: Json
         }
-        Returns: boolean
+        Returns: Json
       }
       initialize_queue_state: { Args: never; Returns: number }
       inject_batch_allocation_stage_for_existing_jobs: {
