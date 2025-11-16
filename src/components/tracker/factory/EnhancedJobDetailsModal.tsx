@@ -42,6 +42,7 @@ import { SubTaskList } from "../common/SubTaskList";
 import { supabase } from "@/integrations/supabase/client";
 import StageHoldDialog from "./StageHoldDialog";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
+import { useJobPaperSpecs } from "@/hooks/tracker/useJobPaperSpecs";
 
 // Normalize status variants from backend
 const normalizeStatus = (status?: string): 'pending' | 'active' | 'completed' | 'skipped' | 'on_hold' | 'changes_requested' => {
@@ -73,70 +74,20 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
   const [activeTab, setActiveTab] = useState("scanning");
   const [scanRequired, setScanRequired] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [jobSpecs, setJobSpecs] = useState<{
-    print_specs?: string;
-    paper_specs?: string; 
-    sheet_size?: string;
-  }>({});
-  const [specsLoading, setSpecsLoading] = useState(false);
   const [showHoldDialog, setShowHoldDialog] = useState(false);
   
   const { holdStage, resumeStage, isProcessing: stageActionsProcessing } = useStageActions();
+  const { generic: paperSpecs, sheetSize, isLoading: specsLoading } = useJobPaperSpecs(job?.job_id || "");
   
   // Use external scan state (managed by parent)
   const scanCompleted = externalScanCompleted;
 
-  // Fetch job specifications for this stage instance (simple)
-  const fetchJobSpecifications = async (jobId: string, stageInstanceId: string) => {
-    try {
-      setSpecsLoading(true);
-
-      const { data, error } = await supabase.rpc('get_job_hp12000_stages', { p_job_id: jobId });
-      if (error) throw error;
-
-      const row: any | undefined = data?.find((r: any) => r.stage_instance_id === stageInstanceId);
-
-      const sheetSize: string | undefined = row?.paper_size_name ?? row?.hp12000_paper_size_name ?? undefined;
-
-      const toSimpleText = (val: any): string => {
-        if (!val) return '';
-        if (typeof val === 'string') return val;
-        if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-        if (typeof val === 'object') {
-          const parts = Object.values(val)
-            .filter(v => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
-            .map(v => String(v).trim())
-            .filter(Boolean);
-          return parts.join(' ');
-        }
-        return '';
-      };
-
-      const paperSpec = toSimpleText(row?.filtered_paper_specs ?? row?.paper_specifications) || undefined;
-      const printSpec = toSimpleText(row?.filtered_printing_specs ?? row?.printing_specifications) || undefined;
-
-      setJobSpecs({
-        print_specs: printSpec,
-        paper_specs: paperSpec,
-        sheet_size: sheetSize,
-      });
-    } catch (error) {
-      console.error('Error fetching job specifications:', error);
-      setJobSpecs({});
-    } finally {
-      setSpecsLoading(false);
-    }
-  };
-
-  // Reset tab when modal opens and fetch specs
+  // Reset tab when modal opens
   useEffect(() => {
     if (isOpen) {
       setActiveTab("scanning");
-      if (job?.job_id && job?.id) {
-        fetchJobSpecifications(job.job_id, job.id);
-      }
     }
-  }, [isOpen, job?.job_id, job?.id]);
+  }, [isOpen]);
 
   if (!job) return null;
 
@@ -414,9 +365,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                             stageName={job.stage_name}
                             partAssignment={job.part_assignment}
                           />
-                          {jobSpecs.sheet_size && (
+                          {sheetSize && (
                             <PrintSpecsBadge 
-                              sheetSize={jobSpecs.sheet_size}
+                              sheetSize={sheetSize}
                               size="compact"
                             />
                           )}
@@ -561,9 +512,9 @@ export const EnhancedJobDetailsModal: React.FC<EnhancedJobDetailsModalProps> = (
                     />
 
                     {/* Keep existing sheet size display */}
-                    {jobSpecs.sheet_size && (
+                    {sheetSize && (
                       <PrintSpecsBadge 
-                        sheetSize={jobSpecs.sheet_size}
+                        sheetSize={sheetSize}
                         size="normal"
                       />
                     )}

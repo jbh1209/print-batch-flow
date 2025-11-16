@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
-import { parsePaperSpecsFromNotes, formatPaperDisplay, extractPaperDisplayFromSpecDetails } from "@/utils/paperSpecUtils";
+import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
+import { useJobPaperSpecs } from "@/hooks/tracker/useJobPaperSpecs";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
@@ -37,6 +38,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   stageNotes = null,
 }) => {
   const { specifications, isLoading } = useEnhancedStageSpecifications(jobId, stageId);
+  const { cover, text, generic, isLoading: paperLoading } = useJobPaperSpecs(jobId);
 
   const targetSpec = useMemo(() => {
     if (!specifications?.length) return undefined;
@@ -59,18 +61,28 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
   const paperDisplay = useMemo(() => {
     if (!isPrintingStage(stageName)) return undefined;
 
-    // A) Highest priority: matrix parser details
-    const fromDetails = extractPaperDisplayFromSpecDetails(targetSpec?.specification_details);
-    if (fromDetails) return fromDetails;
+    // A) Highest priority: Job-level paper specs from matrix parser
+    const normPart = (partAssignment || "").toLowerCase();
+    let paperFromJob: string | undefined;
+    
+    if (normPart.includes("cover")) {
+      paperFromJob = cover || generic;
+    } else if (normPart.includes("text")) {
+      paperFromJob = text || generic;
+    } else {
+      paperFromJob = generic;
+    }
+    
+    if (paperFromJob) return paperFromJob;
 
-    // B) Stage notes (prop)
+    // B) Fallback: Stage notes (prop)
     if (stageNotes && stageNotes.toLowerCase().includes("paper:")) {
       const parsed = parsePaperSpecsFromNotes(stageNotes);
       const disp = formatPaperDisplay(parsed);
       if (disp) return disp;
     }
 
-    // C) Target spec notes
+    // C) Fallback: Target spec notes
     if (targetSpec?.notes) {
       const parsed = parsePaperSpecsFromNotes(targetSpec.notes);
       const disp = formatPaperDisplay(parsed);
@@ -78,9 +90,9 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     }
 
     return undefined;
-  }, [targetSpec, stageNotes, stageName]);
+  }, [cover, text, generic, partAssignment, stageName, stageNotes, targetSpec]);
 
-  if (isLoading) {
+  if (isLoading || paperLoading) {
     return (
       <div className="animate-pulse">
         <div className="h-5 bg-gray-200 rounded w-16"></div>
@@ -103,8 +115,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
 
   if (compact) {
     // Show stage + sub-spec + paper in compact mode
-    const primary = specifications[0];
-    const subSpec = primary.sub_specification || primary.stage_name;
+    const subSpec = targetSpec?.sub_specification || targetSpec?.stage_name || stageName || "Specs";
     const displayText = paperDisplay ? `${subSpec} | ${paperDisplay}` : subSpec;
 
     return (
