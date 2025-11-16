@@ -54,59 +54,57 @@ export const useJobPaperSpecs = (jobId: string): UseJobPaperSpecsResult => {
   let generic: string | undefined;
   let sheetSize: string | undefined;
 
-  // Helper to normalize any value to a display string
-  const normalizeToString = (val: any): string | undefined => {
-    if (!val) return undefined;
-    if (typeof val === "string") return val.trim() || undefined;
-    if (typeof val === "number" || typeof val === "boolean") return String(val);
-    if (typeof val === "object" && !Array.isArray(val)) {
-      // Flatten object values
-      const parts = Object.values(val)
-        .filter((v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
-        .map(String)
-        .filter(Boolean);
-      return parts.length > 0 ? parts.join(" ") : undefined;
-    }
-    if (Array.isArray(val)) {
-      const parts = val
-        .filter((v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
-        .map(String)
-        .filter(Boolean);
-      return parts.length > 0 ? parts.join(" ") : undefined;
-    }
-    return undefined;
-  };
-
-  // Extract paper specs by part (cover/text)
+  // Extract paper specs
   if (paperSpecs) {
-    // Look for parsed_paper field (normalized by matrix parser)
-    if (paperSpecs.parsed_paper) {
-      generic = normalizeToString(paperSpecs.parsed_paper);
-    } else {
-      // Fallback: flatten entire paper_specifications
-      generic = normalizeToString(paperSpecs);
+    // Priority 1: Look for parsed_paper field (normalized by matrix parser)
+    if (paperSpecs.parsed_paper && typeof paperSpecs.parsed_paper === "string") {
+      generic = paperSpecs.parsed_paper.trim() || undefined;
+    } 
+    // Priority 2: Extract from object-of-objects structure (e.g., {"HI-Q Titan (Gloss), 350gsm, White, 640x915": {...}})
+    else if (typeof paperSpecs === "object" && !Array.isArray(paperSpecs)) {
+      const keys = Object.keys(paperSpecs);
+      
+      // Find key containing "gsm" (case-insensitive) or use first key
+      const primaryKey = keys.find((k) => /gsm/i.test(k)) || keys[0];
+      
+      if (primaryKey) {
+        // Try to extract description field if available
+        const paperEntry = paperSpecs[primaryKey];
+        if (paperEntry && typeof paperEntry === "object" && paperEntry.description && typeof paperEntry.description === "string") {
+          generic = paperEntry.description.trim() || undefined;
+        } else if (primaryKey.trim()) {
+          // Use the key itself as the paper spec
+          generic = primaryKey.trim();
+        }
+
+        // Extract sheet size from the string (e.g., 640x915)
+        if (generic) {
+          const sizeMatch = generic.match(/\b(\d{2,4})\s*x\s*(\d{2,4})(\s*mm)?\b/i);
+          if (sizeMatch) {
+            sheetSize = `${sizeMatch[1]}x${sizeMatch[2]}${sizeMatch[3] || ''}`;
+          }
+        }
+      }
+
+      // Debug log if extraction failed
+      if (!generic) {
+        console.debug('[useJobPaperSpecs] No paper could be derived', { jobId, keys });
+      }
     }
 
     // Check for part-specific entries in printing_specifications
-    if (printingSpecs && typeof printingSpecs === "object") {
+    if (generic && printingSpecs && typeof printingSpecs === "object") {
       const keys = Object.keys(printingSpecs);
       
       // Find cover and text keys
       const coverKey = keys.find((k) => k.toLowerCase().includes("cover"));
       const textKey = keys.find((k) => k.toLowerCase().includes("text"));
 
-      // If we have part-specific keys, try to match paper specs to them
+      // Assign generic paper spec to parts if they exist
       if (coverKey || textKey) {
-        // For now, use generic for both parts
-        // In future, could match by quantity if paper_specifications has part-specific entries
-        cover = generic;
-        text = generic;
+        if (coverKey) cover = generic;
+        if (textKey) text = generic;
       }
-    }
-
-    // Extract sheet size if present
-    if (paperSpecs.sheet_size) {
-      sheetSize = normalizeToString(paperSpecs.sheet_size);
     }
   }
 
