@@ -4245,12 +4245,11 @@ export type Database = {
       }
       initialize_job_stages_with_multi_specs: {
         Args: {
-          p_category_id: string
+          p_consolidated_stages: Json
           p_job_id: string
           p_job_table_name: string
-          p_stage_specifications: Json
         }
-        Returns: Json
+        Returns: boolean
       }
       initialize_queue_state: { Args: never; Returns: number }
       inject_batch_allocation_stage_for_existing_jobs: {
