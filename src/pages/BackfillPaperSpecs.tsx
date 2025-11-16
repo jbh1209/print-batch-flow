@@ -12,6 +12,8 @@ export default function BackfillPaperSpecs() {
     processed: number;
     failed: number;
     skipped: number;
+    unmapped: number;
+    unmappedKeys: string[];
     errors: Array<{ jobId: string; woNo: string; error: string }>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +91,23 @@ export default function BackfillPaperSpecs() {
                   <div>
                     <span className="font-semibold text-red-600">Failed:</span> {results.failed}
                   </div>
+                  <div>
+                    <span className="font-semibold text-amber-600">Unmapped:</span> {results.unmapped}
+                  </div>
                 </div>
+
+                {results.unmappedKeys && results.unmappedKeys.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-sm mb-2">Unmapped Paper Keys:</h4>
+                    <div className="space-y-1 text-xs max-h-60 overflow-y-auto">
+                      {results.unmappedKeys.map((key, idx) => (
+                        <div key={idx} className="p-2 bg-amber-50 rounded font-mono text-amber-900">
+                          {key}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {results.errors.length > 0 && (
                   <div className="mt-4">

@@ -11,6 +11,8 @@ export async function backfillPaperSpecifications() {
     processed: 0,
     failed: 0,
     skipped: 0,
+    unmapped: 0,
+    unmappedKeys: [] as string[],
     errors: [] as Array<{ jobId: string; woNo: string; error: string }>
   };
 
@@ -55,52 +57,86 @@ export async function backfillPaperSpecifications() {
           continue;
         }
 
-        // Extract paper type and weight from JSONB keys
-        // Format: "FBB Board, 300gsm, White, 480x750"
+        // Extract paper specifications from JSONB and look up mappings
         const paperSpecs = job.paper_specifications as any;
-        let paperType: string | undefined;
-        let paperWeight: string | undefined;
-
-        if (paperSpecs && typeof paperSpecs === 'object') {
-          const paperKeys = Object.keys(paperSpecs);
-          
-          // Find the first paper spec key that contains "gsm" (weight indicator)
-          const primaryPaperKey = paperKeys.find(key => 
-            key.toLowerCase().includes('gsm')
-          );
-          
-          if (primaryPaperKey) {
-            // Parse format: "Type, Weight, Color, Size"
-            const parts = primaryPaperKey.split(',').map(p => p.trim());
-            
-            if (parts.length >= 2) {
-              paperType = parts[0]; // e.g., "FBB Board", "Bond"
-              paperWeight = parts[1]; // e.g., "300gsm", "80gsm"
-            }
-          }
-        }
-
-        if (!paperType && !paperWeight) {
-          console.log(`⏭️  Skipping job ${job.wo_no} - no parsed paper data`);
+        
+        if (!paperSpecs || typeof paperSpecs !== 'object') {
+          console.log(`⏭️  Skipping job ${job.wo_no} - no paper specifications`);
           results.skipped++;
           continue;
         }
 
-        console.log(`📋 Processing job ${job.wo_no}: type="${paperType}", weight="${paperWeight}"`);
+        const paperKeys = Object.keys(paperSpecs);
+        if (paperKeys.length === 0) {
+          console.log(`⏭️  Skipping job ${job.wo_no} - empty paper specifications`);
+          results.skipped++;
+          continue;
+        }
 
-        // Save paper specifications
-        const success = await paperSaver.savePaperSpecifications(
-          job.id,
-          'production_jobs',
-          paperType,
-          paperWeight
-        );
+        console.log(`📋 Processing job ${job.wo_no} with ${paperKeys.length} paper key(s)`);
 
-        if (success) {
+        let anySuccess = false;
+
+        // Process each paper key (could be multiple for cover/text)
+        for (const paperKey of paperKeys) {
+          let paperType: string | undefined;
+          let paperWeight: string | undefined;
+          let usedMapping = false;
+
+          // Try to find mapping in excel_import_mappings
+          const { data: mapping } = await supabase
+            .from('excel_import_mappings')
+            .select(`
+              excel_text,
+              paper_type:print_specifications!paper_type_specification_id(id, display_name),
+              paper_weight:print_specifications!paper_weight_specification_id(id, display_name)
+            `)
+            .eq('excel_text', paperKey)
+            .maybeSingle();
+
+          if (mapping?.paper_type && mapping?.paper_weight) {
+            // Use mapped specifications
+            paperType = mapping.paper_type.display_name;
+            paperWeight = mapping.paper_weight.display_name;
+            usedMapping = true;
+            console.log(`  ✓ Mapped "${paperKey}" → "${paperType} ${paperWeight}"`);
+          } else {
+            // Fallback: extract from raw key
+            const parts = paperKey.split(',').map(p => p.trim());
+            if (parts.length >= 2 && parts[1].toLowerCase().includes('gsm')) {
+              paperType = parts[0];
+              paperWeight = parts[1];
+              console.log(`  ⚠ No mapping found for "${paperKey}", using fallback: "${paperType} ${paperWeight}"`);
+              
+              if (!results.unmappedKeys.includes(paperKey)) {
+                results.unmappedKeys.push(paperKey);
+                results.unmapped++;
+              }
+            } else {
+              console.log(`  ✗ Could not parse "${paperKey}"`);
+              continue;
+            }
+          }
+
+          if (paperType && paperWeight) {
+            const success = await paperSaver.savePaperSpecifications(
+              job.id,
+              'production_jobs',
+              paperType,
+              paperWeight
+            );
+
+            if (success) {
+              anySuccess = true;
+            }
+          }
+        }
+
+        if (anySuccess) {
           console.log(`✅ Successfully backfilled job ${job.wo_no}`);
           results.processed++;
         } else {
-          console.log(`⚠️  Could not resolve specs for job ${job.wo_no}`);
+          console.log(`⚠️  Could not resolve any specs for job ${job.wo_no}`);
           results.skipped++;
         }
 
@@ -124,6 +160,14 @@ export async function backfillPaperSpecifications() {
     console.log(`Processed: ${results.processed}`);
     console.log(`Skipped: ${results.skipped}`);
     console.log(`Failed: ${results.failed}`);
+    console.log(`Unmapped keys: ${results.unmapped}`);
+
+    if (results.unmappedKeys.length > 0) {
+      console.log('\n⚠️  Unmapped Paper Keys (need manual mapping):');
+      results.unmappedKeys.forEach(key => {
+        console.log(`  - "${key}"`);
+      });
+    }
 
     if (results.errors.length > 0) {
       console.log('\n❌ Errors:');
