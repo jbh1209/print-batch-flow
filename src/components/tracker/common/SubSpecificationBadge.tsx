@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEnhancedStageSpecifications } from "@/hooks/tracker/useEnhancedStageSpecifications";
 import { supabase } from "@/integrations/supabase/client";
-import { parsePaperSpecsFromNotes, formatPaperDisplay } from "@/utils/paperSpecUtils";
+import { parsePaperSpecsFromNotes, formatPaperDisplay, extractPaperDisplayFromSpecDetails } from "@/utils/paperSpecUtils";
 
 interface SubSpecificationBadgeProps {
   jobId: string;
@@ -88,6 +88,15 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
       setPaperLoading(true);
       setPaperDisplayOverride(null);
       try {
+        // Priority -1: Use specification_details from matrix parser if present
+        const targetSpec = (specifications || []).find(s => s.stage_id === stageId) || (specifications || [])[0];
+        const fromDetails = extractPaperDisplayFromSpecDetails(targetSpec?.specification_details);
+        if (fromDetails) {
+          setPaperDisplayOverride(fromDetails);
+          setPaperSpecs([]);
+          return;
+        }
+
         // Priority 0: If this specific stage instance has notes with Paper:, use that (matches schedule board logic)
         if (stageNotes && stageNotes.toLowerCase().includes('paper:')) {
           const parsed = parsePaperSpecsFromNotes(stageNotes);
@@ -177,7 +186,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     };
 
     fetchPaperSpecs();
-  }, [jobId, stageId, partAssignment, stageNotes, stageName]);
+  }, [jobId, stageId, partAssignment, stageNotes, stageName, specifications]);
 
   if (isLoading || paperLoading) {
     return (
