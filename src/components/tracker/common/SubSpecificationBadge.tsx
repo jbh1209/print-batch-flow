@@ -23,6 +23,21 @@ interface JobPrintSpecification {
   properties: any;
 }
 
+// Helper to normalize various paper spec formats to a simple string
+const toSimpleText = (val: unknown): string => {
+  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+    return String(val);
+  }
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    // Extract string/number/boolean values from object
+    return Object.values(val)
+      .filter(v => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
+      .map(String)
+      .join(' ');
+  }
+  return '';
+};
+
 // Helper functions to detect stage types
 const isPrintingStage = (stageName: string): boolean => {
   const name = stageName.toLowerCase();
@@ -83,70 +98,65 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
             return;
           }
         }
-        // If partAssignment is provided, use get_job_hp12000_stages for part-specific data
-        if (partAssignment && partAssignment !== 'both') {
-          const { data, error } = await supabase.rpc('get_job_hp12000_stages', {
-            p_job_id: jobId
-          });
+        // Priority 1: Use get_job_hp12000_stages, match by stage_instance_id first, then part_assignment
+        const { data: hp12000Data, error: hp12000Error } = await supabase.rpc('get_job_hp12000_stages', {
+          p_job_id: jobId
+        });
 
-          if (error) throw error;
+        if (hp12000Error) throw hp12000Error;
 
-          // Find the stage data that matches our part assignment (case-insensitive)
+        // Find exact match by stage_instance_id if available
+        let stageData: any = stageId 
+          ? (hp12000Data || []).find((stage: any) => stage.stage_instance_id === stageId)
+          : null;
+
+        // Fallback: match by part_assignment if no exact match
+        if (!stageData && partAssignment && partAssignment !== 'both') {
           const normPart = String(partAssignment).toLowerCase();
-          const stageData = (data || []).find((stage: any) => 
+          stageData = (hp12000Data || []).find((stage: any) => 
             String(stage.part_assignment || '').toLowerCase() === normPart
           );
+        }
 
-          if (stageData?.paper_specifications) {
-            const specs = stageData.paper_specifications as Record<string, any>;
-
-            // If RPC returns a keyed object of paper descriptions (most common),
-            // use the first key as a display override so Cover/Text differ correctly
-            const specKeys = Object.keys(specs || {});
-            if (specKeys.length > 0) {
-              setPaperDisplayOverride(specKeys[0]);
-            }
-
-            // Also support explicit paper_type / paper_weight if present
-            const localPaperSpecs: JobPrintSpecification[] = [];
-            if (specs.paper_type) {
-              localPaperSpecs.push({
-                category: 'paper_type',
-                specification_id: 'paper_type',
-                name: 'paper_type',
-                display_name: String(specs.paper_type),
-                properties: {}
-              });
-            }
-            if (specs.paper_weight) {
-              localPaperSpecs.push({
-                category: 'paper_weight',
-                specification_id: 'paper_weight',
-                name: 'paper_weight',
-                display_name: String(specs.paper_weight),
-                properties: {}
-              });
-            }
-
-            if (localPaperSpecs.length > 0) {
-              setPaperSpecs(localPaperSpecs);
+        if (stageData) {
+          // Prioritize filtered_paper_specs, fallback to paper_specifications
+          const rawPaperSpec = (stageData as any).filtered_paper_specs ?? stageData.paper_specifications;
+          
+          let paperText = '';
+          if (typeof rawPaperSpec === 'string') {
+            paperText = rawPaperSpec;
+          } else if (rawPaperSpec && typeof rawPaperSpec === 'object') {
+            if (Array.isArray(rawPaperSpec)) {
+              // Array: join non-empty text values
+              paperText = rawPaperSpec.map(toSimpleText).filter(Boolean).join(' ');
             } else {
-              // Ensure previous specs don't bleed across parts if only override is used
-              setPaperSpecs([]);
+              // Object: use first key if it's a keyed map, otherwise flatten
+              const keys = Object.keys(rawPaperSpec);
+              if (keys.length > 0) {
+                // For compact display, use first key (typically the full paper description)
+                paperText = keys[0];
+              } else {
+                paperText = toSimpleText(rawPaperSpec);
+              }
             }
+          }
+
+          if (paperText) {
+            setPaperDisplayOverride(paperText);
+            setPaperSpecs([]); // Clear to avoid mixing sources
             return;
           }
         }
 
         // Fallback to job-level specifications
-        const { data, error } = await supabase.rpc('get_job_specifications', {
+        const { data: jobSpecsData, error: jobSpecsError } = await supabase.rpc('get_job_specifications', {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs'
         });
 
-        if (error) throw error;
+        if (jobSpecsError) throw jobSpecsError;
         
-        let paperSpecs = (data || []).filter((spec: JobPrintSpecification) => 
+        let paperSpecs = (jobSpecsData || []).filter((spec: JobPrintSpecification) => 
           spec.category === 'paper_type' || spec.category === 'paper_weight'
         );
 
@@ -167,7 +177,7 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     };
 
     fetchPaperSpecs();
-  }, [jobId, partAssignment, stageNotes, stageName]);
+  }, [jobId, stageId, partAssignment, stageNotes, stageName]);
 
   if (isLoading || paperLoading) {
     return (
@@ -177,8 +187,17 @@ export const SubSpecificationBadge: React.FC<SubSpecificationBadgeProps> = ({
     );
   }
 
-  // Don't show badge if no specifications match this stage type
-  if (!specifications || !specifications.length) {
+  // Don't show badge if no specifications AND no paper display for printing stages
+  if ((!specifications || !specifications.length) && !paperDisplayOverride) {
+    // Debug logging for printing stages with no paper display
+    if (isPrintingStage(stageName)) {
+      console.debug('[SubSpecificationBadge] No paper display found for printing stage', {
+        jobId,
+        stageId,
+        stageName,
+        partAssignment
+      });
+    }
     return null;
   }
 
