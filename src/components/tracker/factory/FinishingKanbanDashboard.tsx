@@ -13,6 +13,8 @@ import { useJobActions } from '@/hooks/tracker/useAccessibleJobs/useJobActions';
 import { JobListLoading, JobErrorState } from '../common/JobLoadingStates';
 import { FinishingQueueToggleControls } from './FinishingQueueToggleControls';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserStagePermissions } from '@/hooks/tracker/useUserStagePermissions';
 
 interface QueueConfig {
   id: string;
@@ -20,18 +22,24 @@ interface QueueConfig {
   stageName: string;
   colorClass: string;
   icon: React.ReactNode;
+  stageId: string;
 }
 
-const QUEUE_CONFIGS: QueueConfig[] = [
-  { id: 'handwork', title: 'Handwork', stageName: 'Handwork', colorClass: 'bg-orange-600', icon: <Hand className="h-4 w-4" /> },
-  { id: 'padding', title: 'Padding', stageName: 'Padding', colorClass: 'bg-amber-600', icon: <Layers className="h-4 w-4" /> },
-  { id: 'round_corners', title: 'Round Corners', stageName: 'Round Corners', colorClass: 'bg-yellow-600', icon: <Circle className="h-4 w-4" /> },
-  { id: 'box_gluing', title: 'Box Gluing', stageName: 'Box Gluing', colorClass: 'bg-teal-600', icon: <Package className="h-4 w-4" /> },
-  { id: 'gathering', title: 'Gathering', stageName: 'Gathering', colorClass: 'bg-cyan-600', icon: <FolderOpen className="h-4 w-4" /> },
-  { id: 'wire_binding', title: 'Wire Binding', stageName: 'Wire Binding', colorClass: 'bg-blue-600', icon: <Book className="h-4 w-4" /> }
-];
+// Icon mapping for finishing stages
+const getFinishingIcon = (stageName: string): React.ReactNode => {
+  const name = stageName.toLowerCase();
+  if (name.includes('handwork') || name.includes('hand work')) return <Hand className="h-4 w-4" />;
+  if (name.includes('padding') || name.includes('pad')) return <Layers className="h-4 w-4" />;
+  if (name.includes('round') && name.includes('corner')) return <Circle className="h-4 w-4" />;
+  if (name.includes('box') && name.includes('glu')) return <Package className="h-4 w-4" />;
+  if (name.includes('gathering') || name.includes('gather')) return <FolderOpen className="h-4 w-4" />;
+  if (name.includes('wire') && name.includes('bind')) return <Book className="h-4 w-4" />;
+  if (name.includes('binding')) return <Book className="h-4 w-4" />;
+  return <Layers className="h-4 w-4" />; // Default icon
+};
 
 export const FinishingKanbanDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
     const saved = localStorage.getItem('finishing-view-mode');
@@ -41,11 +49,39 @@ export const FinishingKanbanDashboard: React.FC = () => {
   const [showJobModal, setShowJobModal] = useState(false);
   const [enabledStageNames, setEnabledStageNames] = useState<string[]>([]);
 
+  const { consolidatedStages, isLoading: permissionsLoading } = useUserStagePermissions(user?.id);
+  
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
     permissionType: 'view'
   });
 
   const { startJob, completeJob } = useJobActions(refreshJobs);
+
+  // Dynamically build queue configs from user's accessible stages
+  const QUEUE_CONFIGS: QueueConfig[] = useMemo(() => {
+    return consolidatedStages
+      .filter(stage => {
+        const name = stage.stage_name.toLowerCase();
+        // Include stages related to finishing operations
+        return name.includes('handwork') || 
+               name.includes('hand work') ||
+               name.includes('padding') || 
+               name.includes('round') ||
+               name.includes('corner') ||
+               name.includes('box') ||
+               name.includes('gluing') ||
+               name.includes('gathering') ||
+               name.includes('binding');
+      })
+      .map(stage => ({
+        id: stage.stage_id,
+        title: stage.stage_name,
+        stageName: stage.stage_name,
+        colorClass: stage.stage_color ? `bg-[${stage.stage_color}]` : 'bg-orange-600',
+        icon: getFinishingIcon(stage.stage_name),
+        stageId: stage.stage_id
+      }));
+  }, [consolidatedStages]);
 
   const handleViewModeChange = (mode: 'card' | 'list') => {
     setViewMode(mode);
@@ -127,12 +163,23 @@ export const FinishingKanbanDashboard: React.FC = () => {
   const activeJobs = filteredJobs.filter(job => job.current_stage_status === 'active').length;
   const enabledCount = enabledStageNames.length || QUEUE_CONFIGS.length;
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return <JobListLoading />;
   }
 
   if (error) {
     return <JobErrorState error={error} onRetry={handleRefresh} onRefresh={refreshJobs} />;
+  }
+
+  if (QUEUE_CONFIGS.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center text-muted-foreground">
+          <p>No finishing queues available.</p>
+          <p className="text-sm mt-2">Contact your administrator for access.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
