@@ -59,6 +59,16 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
     'Wire Binding'
   ];
   
+  // Scoring stages list
+  const SCORING_STAGES = [
+    'Scoring',
+    'Scoring & Folding',
+    'Perfing',
+    'Creasing',
+    'Manual Folding',
+    'Auto Folding'
+  ];
+  
   // Redirect finishing operators to dedicated finishing dashboard
   useEffect(() => {
     if (roleLoading) return;
@@ -80,6 +90,19 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
       if (allStagesAreFinishing) {
         console.log('🔄 Redirecting finishing operator to /tracker/finishing');
         navigate('/tracker/finishing', { replace: true });
+        return;
+      }
+      
+      // Check if user is operator with ONLY scoring stages
+      const allStagesAreScoring = accessibleStages.every(stage => 
+        SCORING_STAGES.some(scoringStage => 
+          stage.stage_name.toLowerCase().includes(scoringStage.toLowerCase())
+        )
+      );
+      
+      if (allStagesAreScoring) {
+        console.log('🔄 Redirecting scoring operator to /tracker/scoring');
+        navigate('/tracker/scoring', { replace: true });
       }
     }
   }, [roleLoading, isOperator, isAdmin, isManager, accessibleStages, production_stage_id, navigate]);
