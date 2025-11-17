@@ -6,6 +6,7 @@ import { RefreshCw, Hand, Layers, Circle, Package, FolderOpen, Book } from 'luci
 import { ViewToggle } from '../common/ViewToggle';
 import { DtpKanbanColumnWithBoundary } from './DtpKanbanColumnWithBoundary';
 import { DtpJobModal } from './DtpJobModal';
+import { JobListView } from '../common/JobListView';
 import { useAccessibleJobs, AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 import { useJobActions } from '@/hooks/tracker/useAccessibleJobs/useJobActions';
 import { JobListLoading, JobErrorState } from '../common/JobLoadingStates';
@@ -115,29 +116,40 @@ export const FinishingKanbanDashboard: React.FC = () => {
         <Badge variant="secondary">Enabled Queues: {enabledCount}</Badge>
       </div>
 
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-4 min-w-max">
-          {QUEUE_CONFIGS.map(config => {
-            if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
-              return null;
-            }
+      {viewMode === 'card' ? (
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-4 min-w-max">
+            {QUEUE_CONFIGS.map(config => {
+              if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
+                return null;
+              }
 
-            return (
-              <div key={config.id} className="w-80 flex-shrink-0">
-                <DtpKanbanColumnWithBoundary
-                  title={config.title}
-                  jobs={queueJobs[config.id] || []}
-                  onStart={startJob}
-                  onComplete={completeJob}
-                  onJobClick={handleJobClick}
-                  colorClass={config.colorClass}
-                  icon={config.icon}
-                />
-              </div>
-            );
-          })}
+              return (
+                <div key={config.id} className="w-80 flex-shrink-0">
+                  <DtpKanbanColumnWithBoundary
+                    title={config.title}
+                    jobs={queueJobs[config.id] || []}
+                    onStart={startJob}
+                    onComplete={completeJob}
+                    onJobClick={handleJobClick}
+                    colorClass={config.colorClass}
+                    icon={config.icon}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-4">
+          <JobListView
+            jobs={filteredJobs}
+            onStart={startJob}
+            onComplete={completeJob}
+            onJobClick={handleJobClick}
+          />
+        </div>
+      )}
 
       {selectedJob && (
         <DtpJobModal
