@@ -11,6 +11,7 @@ import { useAccessibleJobs, AccessibleJob } from '@/hooks/tracker/useAccessibleJ
 import { useJobActions } from '@/hooks/tracker/useAccessibleJobs/useJobActions';
 import { JobListLoading, JobErrorState } from '../common/JobLoadingStates';
 import { FinishingQueueToggleControls } from './FinishingQueueToggleControls';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface QueueConfig {
   id: string;
@@ -98,66 +99,95 @@ export const FinishingKanbanDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h2 className="text-2xl font-bold">Finishing Department</h2>
-        <div className="flex items-center gap-3 flex-wrap">
-          <Input
-            placeholder="Search jobs..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-64"
-          />
-          <div className="relative">
-            <FinishingQueueToggleControls onQueueFiltersChange={setEnabledStageNames} />
+    <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
+      <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-white border-b">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h2 className="text-2xl font-bold">Finishing Department</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Input
+              placeholder="Search jobs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-64"
+            />
+            <div className="relative">
+              <FinishingQueueToggleControls onQueueFiltersChange={setEnabledStageNames} />
+            </div>
+            <ViewToggle view={viewMode} onViewChange={handleViewModeChange} />
+            <Button onClick={handleRefresh} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
-          <ViewToggle view={viewMode} onViewChange={handleViewModeChange} />
-          <Button onClick={handleRefresh} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <Badge variant="secondary">Total: {totalJobs}</Badge>
+          <Badge variant="secondary">Active: {activeJobs}</Badge>
+          <Badge variant="secondary">Enabled Queues: {enabledCount}</Badge>
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <Badge variant="secondary">Total: {totalJobs}</Badge>
-        <Badge variant="secondary">Active: {activeJobs}</Badge>
-        <Badge variant="secondary">Enabled Queues: {enabledCount}</Badge>
-      </div>
+      <div className="flex-1 overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
+        {viewMode === 'card' ? (
+          <div key="card-view" className="overflow-x-auto pb-4 h-full">
+            <div className="flex gap-4 min-w-max">
+              {QUEUE_CONFIGS.map(config => {
+                if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
+                  return null;
+                }
 
-      {viewMode === 'card' ? (
-        <div key="card-view" className="overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-max">
+                return (
+                  <div key={config.id} className="w-80 flex-shrink-0">
+                    <DtpKanbanColumnWithBoundary
+                      title={config.title}
+                      jobs={queueJobs[config.id] || []}
+                      onStart={startJob}
+                      onComplete={completeJob}
+                      onJobClick={handleJobClick}
+                      colorClass={config.colorClass}
+                      icon={config.icon}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div key="list-view" className="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4 h-full overflow-hidden">
             {QUEUE_CONFIGS.map(config => {
               if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
                 return null;
               }
 
+              const jobsForQueue = queueJobs[config.id] || [];
+              
               return (
-                <div key={config.id} className="w-80 flex-shrink-0">
-                  <DtpKanbanColumnWithBoundary
-                    title={config.title}
-                    jobs={queueJobs[config.id] || []}
-                    onStart={startJob}
-                    onComplete={completeJob}
-                    onJobClick={handleJobClick}
-                    colorClass={config.colorClass}
-                    icon={config.icon}
-                  />
+                <div key={config.id} className="flex flex-col space-y-2 min-h-0">
+                  <div className={`flex-shrink-0 px-3 py-2 ${config.colorClass} text-white rounded-md`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {config.icon}
+                        <span className="font-medium text-sm truncate">{config.title} ({jobsForQueue.length})</span>
+                      </div>
+                      <span className="text-xs opacity-80">Sorted by: Priority</span>
+                    </div>
+                  </div>
+                  <ScrollArea className="flex-1">
+                    <div className="pr-4">
+                      <JobListView
+                        jobs={jobsForQueue}
+                        onStart={startJob}
+                        onComplete={completeJob}
+                        onJobClick={handleJobClick}
+                      />
+                    </div>
+                  </ScrollArea>
                 </div>
               );
             })}
           </div>
-        </div>
-      ) : (
-        <div key="list-view" className="mt-4">
-          <JobListView
-            jobs={filteredJobs}
-            onStart={startJob}
-            onComplete={completeJob}
-            onJobClick={handleJobClick}
-          />
-        </div>
-      )}
+        )}
+      </div>
 
       {selectedJob && (
         <DtpJobModal
