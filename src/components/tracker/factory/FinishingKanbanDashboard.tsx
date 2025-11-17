@@ -190,38 +190,40 @@ export const FinishingKanbanDashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div key="list-view" className="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4 h-full overflow-hidden">
-            {QUEUE_CONFIGS.map(config => {
-              if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
-                return null;
-              }
+          <div key="list-view" className="overflow-x-auto pb-4 h-full">
+            <div className="flex gap-4 min-w-max">
+              {QUEUE_CONFIGS.map(config => {
+                if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
+                  return null;
+                }
 
-              const jobsForQueue = queueJobs[config.id] || [];
-              
-              return (
-                <div key={config.id} className="flex flex-col space-y-2 min-h-0">
-                  <div className={`flex-shrink-0 px-3 py-2 ${config.colorClass} text-white rounded-md`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {config.icon}
-                        <span className="font-medium text-sm truncate">{config.title} ({jobsForQueue.length})</span>
+                const jobsForQueue = queueJobs[config.id] || [];
+                
+                return (
+                  <div key={config.id} className="w-80 flex-shrink-0 flex flex-col space-y-2">
+                    <div className={`flex-shrink-0 px-3 py-2 ${config.colorClass} text-white rounded-md`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {config.icon}
+                          <span className="font-medium text-sm truncate">{config.title} ({jobsForQueue.length})</span>
+                        </div>
+                        <span className="text-xs opacity-80">Sorted by: Priority</span>
                       </div>
-                      <span className="text-xs opacity-80">Sorted by: Priority</span>
                     </div>
+                    <ScrollArea className="flex-1">
+                      <div className="pr-4">
+                        <JobListView
+                          jobs={jobsForQueue}
+                          onStart={startJob}
+                          onComplete={completeJob}
+                          onJobClick={handleJobClick}
+                        />
+                      </div>
+                    </ScrollArea>
                   </div>
-                  <ScrollArea className="flex-1">
-                    <div className="pr-4">
-                      <JobListView
-                        jobs={jobsForQueue}
-                        onStart={startJob}
-                        onComplete={completeJob}
-                        onJobClick={handleJobClick}
-                      />
-                    </div>
-                  </ScrollArea>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
