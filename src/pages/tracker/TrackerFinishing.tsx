@@ -3,7 +3,7 @@ import { FinishingKanbanDashboardWithBoundary } from '@/components/tracker/facto
 
 const TrackerFinishing = () => {
   return (
-    <div className="container mx-auto p-6">
+    <div className="h-full">
       <FinishingKanbanDashboardWithBoundary />
     </div>
   );
