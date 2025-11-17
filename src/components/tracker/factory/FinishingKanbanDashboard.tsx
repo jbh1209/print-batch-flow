@@ -52,7 +52,7 @@ export const FinishingKanbanDashboard: React.FC = () => {
   const { consolidatedStages, isLoading: permissionsLoading } = useUserStagePermissions(user?.id);
   
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: 'view'
+    permissionType: 'manage'
   });
 
   const { startJob, completeJob } = useJobActions(refreshJobs);
