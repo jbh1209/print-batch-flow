@@ -31,7 +31,10 @@ const QUEUE_CONFIGS: QueueConfig[] = [
 
 export const FinishingKanbanDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
+    const saved = localStorage.getItem('finishing-view-mode');
+    return (saved === 'card' || saved === 'list') ? saved : 'card';
+  });
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
   const [enabledStageNames, setEnabledStageNames] = useState<string[]>([]);
@@ -41,6 +44,11 @@ export const FinishingKanbanDashboard: React.FC = () => {
   });
 
   const { startJob, completeJob } = useJobActions(refreshJobs);
+
+  const handleViewModeChange = (mode: 'card' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('finishing-view-mode', mode);
+  };
 
   const handleRefresh = async () => {
     await refreshJobs();
@@ -103,7 +111,7 @@ export const FinishingKanbanDashboard: React.FC = () => {
           <div className="relative">
             <FinishingQueueToggleControls onQueueFiltersChange={setEnabledStageNames} />
           </div>
-          <ViewToggle view={viewMode} onViewChange={setViewMode} />
+          <ViewToggle view={viewMode} onViewChange={handleViewModeChange} />
           <Button onClick={handleRefresh} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -117,7 +125,7 @@ export const FinishingKanbanDashboard: React.FC = () => {
       </div>
 
       {viewMode === 'card' ? (
-        <div className="overflow-x-auto pb-4">
+        <div key="card-view" className="overflow-x-auto pb-4">
           <div className="flex gap-4 min-w-max">
             {QUEUE_CONFIGS.map(config => {
               if (!enabledStageNames.includes(config.stageName) && enabledStageNames.length > 0) {
@@ -141,7 +149,7 @@ export const FinishingKanbanDashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="mt-4">
+        <div key="list-view" className="mt-4">
           <JobListView
             jobs={filteredJobs}
             onStart={startJob}
