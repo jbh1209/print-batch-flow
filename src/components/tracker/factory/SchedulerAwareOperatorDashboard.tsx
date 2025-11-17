@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useScheduledJobs, ScheduledJobStage } from "@/hooks/tracker/useScheduledJobs";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { EnhancedScheduledOperatorJobCard } from "./EnhancedScheduledOperatorJobCard";
 import { OperatorJobListView } from "./OperatorJobListView";
 import { ConcurrentJobSelector } from "./ConcurrentJobSelector";
@@ -40,10 +42,47 @@ export const SchedulerAwareOperatorDashboard: React.FC<SchedulerAwareOperatorDas
   department_filter
 }) => {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { userRole, accessibleStages, isLoading: roleLoading, isOperator, isAdmin, isManager } = useUserRole();
   const [refreshing, setRefreshing] = useState(false);
   const [concurrentMode, setConcurrentMode] = useState(false);
   const [supervisorOverrideJob, setSupervisorOverrideJob] = useState<any>(null);
   const [showBatchStartModal, setShowBatchStartModal] = useState(false);
+  
+  // Finishing stages list
+  const FINISHING_STAGES = [
+    'Handwork',
+    'Padding', 
+    'Round Corners',
+    'Box Gluing',
+    'Gathering',
+    'Wire Binding'
+  ];
+  
+  // Redirect finishing operators to dedicated finishing dashboard
+  useEffect(() => {
+    if (roleLoading) return;
+    
+    // Skip redirect if user is admin or manager
+    if (isAdmin || isManager) return;
+    
+    // Skip redirect if already on a specific stage (production_stage_id provided)
+    if (production_stage_id) return;
+    
+    // Check if user is operator with ONLY finishing stages
+    if (isOperator && accessibleStages.length > 0) {
+      const allStagesAreFinishing = accessibleStages.every(stage => 
+        FINISHING_STAGES.some(finishingStage => 
+          stage.stage_name.toLowerCase().includes(finishingStage.toLowerCase())
+        )
+      );
+      
+      if (allStagesAreFinishing) {
+        console.log('🔄 Redirecting finishing operator to /tracker/finishing');
+        navigate('/tracker/finishing', { replace: true });
+      }
+    }
+  }, [roleLoading, isOperator, isAdmin, isManager, accessibleStages, production_stage_id, navigate]);
   
   // Printer queue selection state - initialize from localStorage synchronously
   const [selectedPrinterId, setSelectedPrinterId] = useState<string | undefined>(() => {
