@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Scissors, FoldVertical, Repeat, Maximize, PenTool, Zap } from 'lucide-react';
+import { RefreshCw, Scissors, FoldVertical, Repeat, Maximize, PenTool, Zap, Layers } from 'lucide-react';
 import { ViewToggle } from '../common/ViewToggle';
 import { DtpKanbanColumnWithBoundary } from './DtpKanbanColumnWithBoundary';
 import { EnhancedJobDetailsModal } from './EnhancedJobDetailsModal';
@@ -13,6 +13,8 @@ import { useJobActions } from '@/hooks/tracker/useAccessibleJobs/useJobActions';
 import { JobListLoading, JobErrorState } from '../common/JobLoadingStates';
 import { ScoringQueueToggleControls } from './ScoringQueueToggleControls';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserStagePermissions } from '@/hooks/tracker/useUserStagePermissions';
 
 interface QueueConfig {
   id: string;
@@ -20,18 +22,23 @@ interface QueueConfig {
   stageName: string;
   colorClass: string;
   icon: React.ReactNode;
+  stageId: string;
 }
 
-const QUEUE_CONFIGS: QueueConfig[] = [
-  { id: 'scoring', title: 'Scoring', stageName: 'Scoring', colorClass: 'bg-purple-600', icon: <Scissors className="h-4 w-4" /> },
-  { id: 'scoring_folding', title: 'Scoring & Folding', stageName: 'Scoring & Folding', colorClass: 'bg-indigo-600', icon: <FoldVertical className="h-4 w-4" /> },
-  { id: 'perfing', title: 'Perfing', stageName: 'Perfing', colorClass: 'bg-violet-600', icon: <Repeat className="h-4 w-4" /> },
-  { id: 'creasing', title: 'Creasing', stageName: 'Creasing', colorClass: 'bg-fuchsia-600', icon: <Maximize className="h-4 w-4" /> },
-  { id: 'manual_folding', title: 'Manual Folding', stageName: 'Manual Folding', colorClass: 'bg-pink-600', icon: <PenTool className="h-4 w-4" /> },
-  { id: 'auto_folding', title: 'Auto Folding', stageName: 'Auto Folding', colorClass: 'bg-rose-600', icon: <Zap className="h-4 w-4" /> }
-];
+// Icon mapping for scoring stages
+const getScoringIcon = (stageName: string): React.ReactNode => {
+  const name = stageName.toLowerCase();
+  if (name.includes('scoring') && name.includes('folding')) return <FoldVertical className="h-4 w-4" />;
+  if (name.includes('scoring')) return <Scissors className="h-4 w-4" />;
+  if (name.includes('perfing') || name.includes('perf')) return <Repeat className="h-4 w-4" />;
+  if (name.includes('creasing') || name.includes('crease')) return <Maximize className="h-4 w-4" />;
+  if (name.includes('manual') && name.includes('fold')) return <PenTool className="h-4 w-4" />;
+  if (name.includes('auto') && name.includes('fold')) return <Zap className="h-4 w-4" />;
+  return <Layers className="h-4 w-4" />; // Default icon
+};
 
 export const ScoringKanbanDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
     const saved = localStorage.getItem('scoring-view-mode');
@@ -41,11 +48,36 @@ export const ScoringKanbanDashboard: React.FC = () => {
   const [showJobModal, setShowJobModal] = useState(false);
   const [enabledStageNames, setEnabledStageNames] = useState<string[]>([]);
 
+  const { consolidatedStages, isLoading: permissionsLoading } = useUserStagePermissions(user?.id);
+  
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
     permissionType: 'view'
   });
 
   const { startJob, completeJob } = useJobActions(refreshJobs);
+
+  // Dynamically build queue configs from user's accessible stages
+  const QUEUE_CONFIGS: QueueConfig[] = useMemo(() => {
+    return consolidatedStages
+      .filter(stage => {
+        const name = stage.stage_name.toLowerCase();
+        // Include stages related to scoring, folding, perfing, creasing
+        return name.includes('scoring') || 
+               name.includes('folding') || 
+               name.includes('perfing') || 
+               name.includes('perf') ||
+               name.includes('creasing') ||
+               name.includes('crease');
+      })
+      .map(stage => ({
+        id: stage.stage_id,
+        title: stage.stage_name,
+        stageName: stage.stage_name,
+        colorClass: stage.stage_color ? `bg-[${stage.stage_color}]` : 'bg-purple-600',
+        icon: getScoringIcon(stage.stage_name),
+        stageId: stage.stage_id
+      }));
+  }, [consolidatedStages]);
 
   const handleViewModeChange = (mode: 'card' | 'list') => {
     setViewMode(mode);
@@ -142,12 +174,23 @@ export const ScoringKanbanDashboard: React.FC = () => {
     (queueJobs[config.id]?.length || 0) > 0
   ).length;
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return <JobListLoading />;
   }
 
   if (error) {
     return <JobErrorState error={error} onRetry={handleRefresh} onRefresh={refreshJobs} />;
+  }
+
+  if (QUEUE_CONFIGS.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center text-muted-foreground">
+          <p>No scoring queues available.</p>
+          <p className="text-sm mt-2">Contact your administrator for access.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
