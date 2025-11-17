@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Hand, Layers, Circle, Package, FolderOpen, Book } from 'lucide-react';
 import { ViewToggle } from '../common/ViewToggle';
 import { DtpKanbanColumnWithBoundary } from './DtpKanbanColumnWithBoundary';
-import { DtpJobModal } from './DtpJobModal';
+import { EnhancedJobDetailsModal } from './EnhancedJobDetailsModal';
 import { JobListView } from '../common/JobListView';
 import { useAccessibleJobs, AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
+import { ScheduledJobStage } from '@/hooks/tracker/useScheduledJobs';
 import { useJobActions } from '@/hooks/tracker/useAccessibleJobs/useJobActions';
 import { JobListLoading, JobErrorState } from '../common/JobLoadingStates';
 import { FinishingQueueToggleControls } from './FinishingQueueToggleControls';
@@ -63,6 +64,42 @@ export const FinishingKanbanDashboard: React.FC = () => {
   const handleCloseModal = () => {
     setShowJobModal(false);
     setSelectedJob(null);
+  };
+
+  // Convert AccessibleJob to ScheduledJobStage for EnhancedJobDetailsModal
+  const convertToScheduledJobStage = (job: AccessibleJob): ScheduledJobStage => {
+    return {
+      id: job.current_stage_id || job.job_id,
+      job_id: job.job_id,
+      job_table_name: 'production_jobs',
+      production_stage_id: job.current_stage_id || '',
+      stage_name: job.current_stage_name,
+      stage_color: job.current_stage_color,
+      stage_order: job.current_stage_order || 0,
+      status: job.current_stage_status as any,
+      wo_no: job.wo_no,
+      customer: job.customer,
+      due_date: job.due_date,
+      qty: job.qty,
+      category_name: job.category_name,
+      category_color: job.category_color,
+      is_ready_now: true,
+      is_scheduled_later: false,
+      is_waiting_for_dependencies: false,
+    };
+  };
+
+  // Wrapper functions for start/complete that handle stageId
+  const handleStartJobWrapper = async (jobId: string): Promise<boolean> => {
+    const job = jobs.find(j => j.job_id === jobId);
+    if (!job?.current_stage_id) return false;
+    return await startJob(jobId, job.current_stage_id);
+  };
+
+  const handleCompleteJobWrapper = async (jobId: string): Promise<boolean> => {
+    const job = jobs.find(j => j.job_id === jobId);
+    if (!job?.current_stage_id) return false;
+    return await completeJob(jobId, job.current_stage_id);
   };
 
   const filteredJobs = useMemo(() => {
@@ -190,12 +227,12 @@ export const FinishingKanbanDashboard: React.FC = () => {
       </div>
 
       {selectedJob && (
-        <DtpJobModal
-          job={selectedJob}
+        <EnhancedJobDetailsModal
+          job={convertToScheduledJobStage(selectedJob)}
           isOpen={showJobModal}
           onClose={handleCloseModal}
-          onStart={startJob}
-          onComplete={completeJob}
+          onStartJob={handleStartJobWrapper}
+          onCompleteJob={handleCompleteJobWrapper}
         />
       )}
     </div>
