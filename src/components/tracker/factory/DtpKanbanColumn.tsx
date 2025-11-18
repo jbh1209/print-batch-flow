@@ -16,6 +16,7 @@ interface DtpKanbanColumnProps {
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
   onJobClick: (job: AccessibleJob) => void;
   colorClass: string;
+  backgroundColor?: string;
   icon: React.ReactNode;
 }
 
@@ -26,6 +27,7 @@ export const DtpKanbanColumn: React.FC<DtpKanbanColumnProps> = ({
   onComplete,
   onJobClick,
   colorClass,
+  backgroundColor,
   icon
 }) => {
   // Calculate proof status breakdown
@@ -62,7 +64,10 @@ export const DtpKanbanColumn: React.FC<DtpKanbanColumnProps> = ({
 
   return (
     <Card className="flex-1 flex flex-col h-full">
-      <CardHeader className={`${colorClass} text-white py-3`}>
+      <CardHeader 
+        className={cn("text-white py-3", !backgroundColor && colorClass)}
+        style={backgroundColor ? { backgroundColor } : undefined}
+      >
         <CardTitle className="flex items-center gap-2 text-lg">
           {icon}
           {title}
