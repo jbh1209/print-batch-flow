@@ -161,12 +161,12 @@ export const ScoringKanbanDashboard: React.FC = () => {
     
     QUEUE_CONFIGS.forEach(config => {
       queues[config.id] = filteredJobs.filter(job => 
-        job.current_stage_name.toLowerCase().includes(config.stageName.toLowerCase())
+        job.current_stage_id === config.stageId
       );
     });
     
     return queues;
-  }, [filteredJobs]);
+  }, [filteredJobs, QUEUE_CONFIGS]);
 
   // Count total jobs and queue groups
   const totalJobs = filteredJobs.length;

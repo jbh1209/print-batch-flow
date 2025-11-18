@@ -153,11 +153,11 @@ export const FinishingKanbanDashboard: React.FC = () => {
   const queueJobs = useMemo(() => {
     return QUEUE_CONFIGS.reduce((acc, config) => {
       acc[config.id] = filteredJobs.filter(job =>
-        job.current_stage_name === config.stageName
+        job.current_stage_id === config.stageId
       );
       return acc;
     }, {} as Record<string, AccessibleJob[]>);
-  }, [filteredJobs]);
+  }, [filteredJobs, QUEUE_CONFIGS]);
 
   const totalJobs = filteredJobs.length;
   const activeJobs = filteredJobs.filter(job => job.current_stage_status === 'active').length;
