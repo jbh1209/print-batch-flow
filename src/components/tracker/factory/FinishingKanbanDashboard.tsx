@@ -21,6 +21,7 @@ interface QueueConfig {
   title: string;
   stageName: string;
   colorClass: string;
+  backgroundColor: string;
   icon: React.ReactNode;
   stageId: string;
 }
@@ -77,7 +78,8 @@ export const FinishingKanbanDashboard: React.FC = () => {
         id: stage.stage_id,
         title: stage.stage_name,
         stageName: stage.stage_name,
-        colorClass: stage.stage_color ? `bg-[${stage.stage_color}]` : 'bg-orange-600',
+        colorClass: 'bg-orange-600',
+        backgroundColor: stage.stage_color || '#ea580c',
         icon: getFinishingIcon(stage.stage_name),
         stageId: stage.stage_id
       }));
@@ -229,6 +231,7 @@ export const FinishingKanbanDashboard: React.FC = () => {
                       onComplete={completeJob}
                       onJobClick={handleJobClick}
                       colorClass={config.colorClass}
+                      backgroundColor={config.backgroundColor}
                       icon={config.icon}
                     />
                   </div>
@@ -248,7 +251,10 @@ export const FinishingKanbanDashboard: React.FC = () => {
                 
                 return (
                   <div key={config.id} className="w-80 flex-shrink-0 flex flex-col space-y-2">
-                    <div className={`flex-shrink-0 px-3 py-2 ${config.colorClass} text-white rounded-md`}>
+                    <div 
+                      className="flex-shrink-0 px-3 py-2 text-white rounded-md"
+                      style={{ backgroundColor: config.backgroundColor }}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {config.icon}

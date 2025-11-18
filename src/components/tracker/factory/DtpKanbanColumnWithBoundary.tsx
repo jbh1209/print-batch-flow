@@ -12,6 +12,7 @@ interface DtpKanbanColumnWithBoundaryProps {
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
   onJobClick: (job: AccessibleJob) => void;
   colorClass: string;
+  backgroundColor?: string;
   icon: React.ReactNode;
 }
 
