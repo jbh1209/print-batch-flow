@@ -15,7 +15,7 @@ import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/Trac
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import JobPartAssignmentManager from "@/components/jobs/JobPartAssignmentManager";
-import { getJobWorkflowStages, shouldJobAppearInWorkflowStage } from "@/utils/productionWorkflowUtils";
+// Removed complex workflow utilities - using direct stage fields instead
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface TrackerProductionContext {
@@ -43,76 +43,8 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
-  // Get real-time stage data
+  // Get real-time stage data (for modal/details only)
   const { jobStages, isLoading: stagesLoading } = useRealTimeJobStages(jobs);
-
-  // Build per-job stage map for workflow computation
-  const jobStagesMap = useMemo(() => {
-    const map = new Map<string, any[]>();
-    (jobStages ?? []).forEach((s: any) => {
-      const arr = map.get(s.job_id) || [];
-      arr.push(s);
-      map.set(s.job_id, arr);
-    });
-    
-    console.log('[jobStagesMap] Built map with', map.size, 'jobs');
-    
-    // Log D428201 specifically
-    for (const [jobId, stages] of map.entries()) {
-      const woNo = stages[0]?.production_job?.wo_no;
-      if (woNo === 'D428201') {
-        console.log('[jobStagesMap] D428201 job_id:', jobId);
-        console.log('[jobStagesMap] D428201 stages in map:', stages.map(s => ({
-          stage_name: s.production_stages?.name || s.production_stage?.name,
-          status: s.status,
-          stage_order: s.stage_order,
-          part_assignment: s.part_assignment,
-          supports_parts: s.production_stages?.supports_parts || s.production_stage?.supports_parts
-        })));
-      }
-    }
-    
-    return map;
-  }, [jobStages]);
-
-  // Compute actionable workflow stages per job (parallel-aware)
-  const actionableStagesByJob = useMemo(() => {
-    const map = new Map<string, any[]>();
-    (jobs ?? []).forEach((job: any) => {
-      const stagesForJob = jobStagesMap.get(job.id) || [];
-      
-      // Log D428201 lookup
-      if (job.wo_no === 'D428201') {
-        console.log('[actionableStagesByJob] D428201 job.id:', job.id);
-        console.log('[actionableStagesByJob] D428201 stagesForJob count:', stagesForJob.length);
-        console.log('[actionableStagesByJob] D428201 stagesForJob:', stagesForJob.map(s => ({
-          stage_name: s.production_stages?.name || s.production_stage?.name,
-          status: s.status,
-          stage_order: s.stage_order,
-          part_assignment: s.part_assignment
-        })));
-      }
-      
-      try {
-        const workflowStages = getJobWorkflowStages(stagesForJob, job.id);
-        
-        // Log D428201 workflow result
-        if (job.wo_no === 'D428201') {
-          console.log('[actionableStagesByJob] D428201 workflowStages result:', workflowStages.map(ws => ({
-            stage_name: ws.stage_name,
-            stage_order: ws.stage_order,
-            stage_id: ws.stage_id
-          })));
-        }
-        
-        map.set(job.id, workflowStages);
-      } catch (e) {
-        console.warn('⚠️ Failed to compute workflow stages for job', job?.id, e);
-        map.set(job.id, []);
-      }
-    });
-    return map;
-  }, [jobs, jobStagesMap]);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -122,18 +54,11 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Filter jobs by selected queue using actionable workflow stages
+  // Simple filtering: show jobs in their current stage (Sept 24th working logic)
   const filteredJobs = useMemo(() => {
     if (!selectedStageId) return jobs;
-    return jobs.filter((job: any) => {
-      const workflowStages = actionableStagesByJob.get(job.id) || [];
-      try {
-        return shouldJobAppearInWorkflowStage(workflowStages as any[], selectedStageId);
-      } catch {
-        return false;
-      }
-    });
-  }, [jobs, selectedStageId, actionableStagesByJob]);
+    return jobs.filter((job: any) => job.current_stage_id === selectedStageId);
+  }, [jobs, selectedStageId]);
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
@@ -158,25 +83,31 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Build consolidated queues from actionable workflow stages (with accurate counts)
+  // Simple sidebar: build from job.current_stage_* fields (Sept 24th working logic)
   const consolidatedStages = useMemo(() => {
-    const agg = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
-    actionableStagesByJob.forEach((workflowStages) => {
-      (workflowStages as any[]).forEach((ws: any) => {
-        const id: string =
-          ws.stage_id ?? ws.production_stage_id ?? ws.unique_stage_key ?? ws.name ?? ws.stage_name;
-        const name: string = ws.stage_name ?? ws.name ?? 'Unknown Stage';
-        const color: string = ws.stage_color ?? '#6B7280';
-        const existing = agg.get(id);
+    const stageCounts = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
+    
+    jobs.forEach((job: any) => {
+      if (job.current_stage_id && 
+          (job.current_stage_status === 'active' || job.current_stage_status === 'pending')) {
+        const existing = stageCounts.get(job.current_stage_id);
         if (existing) {
           existing.job_count += 1;
         } else {
-          agg.set(id, { stage_id: id, stage_name: name, stage_color: color, job_count: 1 });
+          stageCounts.set(job.current_stage_id, {
+            stage_id: job.current_stage_id,
+            stage_name: job.current_stage_name || 'Unknown',
+            stage_color: job.current_stage_color || '#6B7280',
+            job_count: 1
+          });
         }
-      });
+      }
     });
-    return Array.from(agg.values()).sort((a, b) => a.stage_name.localeCompare(b.stage_name));
-  }, [actionableStagesByJob]);
+    
+    return Array.from(stageCounts.values()).sort((a, b) => 
+      a.stage_name.localeCompare(b.stage_name)
+    );
+  }, [jobs]);
   const handleSidebarStageSelect = (stageId: string | null) => {
     if (!stageId) {
       setSelectedStageId(null);
