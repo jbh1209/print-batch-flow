@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useActionableStages } from "@/hooks/tracker/useActionableStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
@@ -43,8 +44,11 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
-  // Get real-time stage data - needed for parallel stages support
-  const { jobStages, isLoading: stagesLoading } = useRealTimeJobStages(jobs);
+  // Get actionable stages map (prevents showing jobs in all future stages)
+  const { data: actionableStagesMap, isLoading: stagesLoading } = useActionableStages(jobs);
+  
+  // Get full stage data for display purposes
+  const { jobStages } = useRealTimeJobStages(jobs);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -58,36 +62,21 @@ const TrackerProduction = () => {
   const jobsByStage = useMemo(() => {
     const map = new Map<string, AccessibleJob[]>();
     
+    if (!actionableStagesMap) return map;
+    
     jobs.forEach(job => {
-      // Get all pending/active stage instances for this job
-      const jobStageInstances = jobStages.filter(
-        stage => stage.job_id === job.id && 
-        (stage.status === 'pending' || stage.status === 'active')
-      );
+      const actionableStageIds = actionableStagesMap.get(job.id) || [];
       
-      if (jobStageInstances.length === 0) return;
-      
-      // Find the minimum stage order (earliest actionable stage)
-      const minOrder = Math.min(...jobStageInstances.map(s => s.stage_order || 0));
-      
-      // Only include stages that are:
-      // 1. Active, OR
-      // 2. Pending and within 50 orders of the earliest stage (allows parallel processing)
-      const actionableStages = jobStageInstances.filter(stage => 
-        stage.status === 'active' || 
-        (stage.status === 'pending' && (stage.stage_order || 0) <= minOrder + 50)
-      );
-      
-      // Add job to EACH of its actionable stages (enables parallel stage visibility)
-      actionableStages.forEach(stageInstance => {
-        const stageJobs = map.get(stageInstance.production_stage_id) || [];
+      // Add job to each of its actionable stages
+      actionableStageIds.forEach(stageId => {
+        const stageJobs = map.get(stageId) || [];
         stageJobs.push(job);
-        map.set(stageInstance.production_stage_id, stageJobs);
+        map.set(stageId, stageJobs);
       });
     });
     
     return map;
-  }, [jobs, jobStages]);
+  }, [jobs, actionableStagesMap]);
 
   // Filter jobs based on selected stage
   const filteredJobs = useMemo(() => {

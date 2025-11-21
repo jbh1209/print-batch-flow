@@ -26,11 +26,7 @@ export const useBatchAwareStageActions = () => {
   ) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Starting batch-aware stage...', { 
-        stageId, 
-        options, 
-        qrData 
-      });
+      // Starting batch-aware stage
       
       // Start the stage for the job (batch master or individual)
       const { error: stageError } = await supabase
@@ -48,10 +44,7 @@ export const useBatchAwareStageActions = () => {
 
       // If this is a batch master job, update constituent jobs status
       if (options.isBatchMaster && options.constituentJobIds?.length) {
-        console.log('🔄 Updating constituent jobs for batch master stage start...', {
-          batchName: options.batchName,
-          constituentCount: options.constituentJobIds.length
-        });
+        // Updating constituent jobs for batch master
 
         // Update constituent jobs to reflect batch processing status
         const { error: statusError } = await supabase
@@ -63,7 +56,6 @@ export const useBatchAwareStageActions = () => {
           .in('id', options.constituentJobIds);
 
         if (statusError) {
-          console.warn('⚠️ Error updating constituent job status:', statusError);
           // Don't fail the operation for this
         }
       }
@@ -75,7 +67,6 @@ export const useBatchAwareStageActions = () => {
       );
       return true;
     } catch (err) {
-      console.error('❌ Error starting batch-aware stage:', err);
       toast.error("Failed to start stage");
       return false;
     } finally {
@@ -90,11 +81,7 @@ export const useBatchAwareStageActions = () => {
   ) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 [useBatchAwareStageActions] Completing batch-aware stage...', { 
-        stageId, 
-        options, 
-        notes 
-      });
+      // Completing batch-aware stage
       
       // Get stage info to check if it's a proof stage
       const { getStageInfoForProofCheck, triggerProofCompletionCalculation } = await import('../utils/proofStageUtils');
@@ -111,11 +98,7 @@ export const useBatchAwareStageActions = () => {
       const hasParallelComponents = parallelCheck && parallelCheck.length > 0;
       
       // Use parallel-aware advancement for jobs with cover/text components
-      console.log(`🔄 Job advancement decision`, {
-        hasParallelComponents,
-        parallelComponentsFound: parallelCheck?.length || 0,
-        functionToUse: hasParallelComponents ? 'advance_parallel_job_stage' : 'advance_job_stage'
-      });
+      // Deciding advancement method based on parallel components
       
       let advanceError;
       if (hasParallelComponents) {
@@ -149,10 +132,7 @@ export const useBatchAwareStageActions = () => {
 
       // If this is a batch master job, handle batch-specific completion logic
       if (options.isBatchMaster && options.constituentJobIds?.length) {
-        console.log('🔄 Handling batch master stage completion...', {
-          batchName: options.batchName,
-          constituentCount: options.constituentJobIds.length
-        });
+        // Handling batch master stage completion
 
         // Note: Constituent job updates are handled by the batch stage progression hook
         // This ensures proper coordination between batch and individual job states
@@ -165,7 +145,6 @@ export const useBatchAwareStageActions = () => {
       );
       return true;
     } catch (err) {
-      console.error('❌ [useBatchAwareStageActions] Error completing batch-aware stage:', err);
       toast.error("Failed to complete stage");
       return false;
     } finally {
@@ -181,12 +160,7 @@ export const useBatchAwareStageActions = () => {
   ) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Reworking batch-aware stage...', { 
-        currentStageId, 
-        targetStageId, 
-        options, 
-        reworkReason 
-      });
+      // Reworking batch-aware stage
 
       // Use the standard rework function
       const { error } = await supabase.rpc('rework_job_stage', {
@@ -202,10 +176,7 @@ export const useBatchAwareStageActions = () => {
 
       // If this is a batch master job, update constituent jobs
       if (options.isBatchMaster && options.constituentJobIds?.length) {
-        console.log('🔄 Updating constituent jobs for batch rework...', {
-          batchName: options.batchName,
-          constituentCount: options.constituentJobIds.length
-        });
+        // Updating constituent jobs for batch rework
 
         // Update constituent jobs to reflect rework status
         const { error: statusError } = await supabase
@@ -217,7 +188,7 @@ export const useBatchAwareStageActions = () => {
           .in('id', options.constituentJobIds);
 
         if (statusError) {
-          console.warn('⚠️ Error updating constituent job status for rework:', statusError);
+          // Error updating constituent job status
         }
       }
 
@@ -228,7 +199,6 @@ export const useBatchAwareStageActions = () => {
       );
       return true;
     } catch (err) {
-      console.error('❌ Error reworking batch-aware stage:', err);
       toast.error("Failed to rework stage");
       return false;
     } finally {
