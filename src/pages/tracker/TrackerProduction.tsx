@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
-import { useActionableStages } from "@/hooks/tracker/useActionableStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
@@ -44,9 +43,6 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
-  // Get actionable stages map (prevents showing jobs in all future stages)
-  const { data: actionableStagesMap, isLoading: stagesLoading } = useActionableStages(jobs);
-  
   // Get full stage data for display purposes
   const { jobStages } = useRealTimeJobStages(jobs);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
@@ -58,25 +54,21 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Build map of jobs by ACTIONABLE stages only (not all future pending stages)
+  // Build map of jobs by their CURRENT stage only (matches DTP Dashboard behavior)
   const jobsByStage = useMemo(() => {
     const map = new Map<string, AccessibleJob[]>();
     
-    if (!actionableStagesMap) return map;
-    
     jobs.forEach(job => {
-      const actionableStageIds = actionableStagesMap.get(job.id) || [];
-      
-      // Add job to each of its actionable stages
-      actionableStageIds.forEach(stageId => {
-        const stageJobs = map.get(stageId) || [];
+      // Only add job to its CURRENT stage
+      if (job.current_stage_id) {
+        const stageJobs = map.get(job.current_stage_id) || [];
         stageJobs.push(job);
-        map.set(stageId, stageJobs);
-      });
+        map.set(job.current_stage_id, stageJobs);
+      }
     });
     
     return map;
-  }, [jobs, actionableStagesMap]);
+  }, [jobs]);
 
   // Filter jobs based on selected stage
   const filteredJobs = useMemo(() => {
@@ -107,24 +99,21 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Build consolidated stages with accurate counts from jobsByStage map
+  // Build consolidated stages with accurate counts from current stages only
   const consolidatedStages = useMemo(() => {
     const stageCounts = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
     
     // Use jobsByStage map to build accurate stage counts
-    jobsByStage.forEach((jobs, stageId) => {
-      // Get stage details from first job's stage instance
-      const firstJob = jobs[0];
-      const stageInstance = jobStages.find(
-        s => s.production_stage_id === stageId && s.job_id === firstJob.id
-      );
+    jobsByStage.forEach((stageJobs, stageId) => {
+      // Get stage details from job's current stage
+      const firstJob = stageJobs[0];
       
-      if (stageInstance) {
+      if (firstJob.current_stage_name) {
         stageCounts.set(stageId, {
           stage_id: stageId,
-          stage_name: stageInstance.production_stage.name,
-          stage_color: stageInstance.production_stage.color || '#6B7280',
-          job_count: jobs.length
+          stage_name: firstJob.current_stage_name,
+          stage_color: firstJob.current_stage_color || '#6B7280',
+          job_count: stageJobs.length
         });
       }
     });
@@ -132,7 +121,7 @@ const TrackerProduction = () => {
     return Array.from(stageCounts.values()).sort((a, b) => 
       a.stage_name.localeCompare(b.stage_name)
     );
-  }, [jobsByStage, jobStages]);
+  }, [jobsByStage]);
   const handleSidebarStageSelect = (stageId: string | null) => {
     if (!stageId) {
       setSelectedStageId(null);
