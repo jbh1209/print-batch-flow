@@ -69,6 +69,24 @@ export async function fetchJobStagesFromSupabase(
       }
     });
 
+    console.log('[fetchJobStages] Fetched', data?.length, 'stages from Supabase');
+    
+    // Log D428201 specifically
+    const d428201Stages = (data || []).filter((s: any) => 
+      jobsById[s.job_id]?.wo_no === 'D428201'
+    );
+    if (d428201Stages.length > 0) {
+      console.log('[fetchJobStages] D428201 stages from Supabase:', 
+        d428201Stages.map((s: any) => ({
+          stage_name: s.production_stage?.name,
+          status: s.status,
+          stage_order: s.stage_order,
+          part_assignment: s.part_assignment,
+          supports_parts: s.production_stage?.supports_parts
+        }))
+      );
+    }
+
     return (data || [])
       .map((stage: any) => {
         const job = jobsById[stage.job_id];
