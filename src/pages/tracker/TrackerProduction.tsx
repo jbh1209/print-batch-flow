@@ -54,7 +54,7 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Build map of jobs by ALL their pending/active stages (supports parallel processing)
+  // Build map of jobs by ACTIONABLE stages only (not all future pending stages)
   const jobsByStage = useMemo(() => {
     const map = new Map<string, AccessibleJob[]>();
     
@@ -65,8 +65,21 @@ const TrackerProduction = () => {
         (stage.status === 'pending' || stage.status === 'active')
       );
       
-      // Add job to EACH of its pending/active stages (enables parallel stage visibility)
-      jobStageInstances.forEach(stageInstance => {
+      if (jobStageInstances.length === 0) return;
+      
+      // Find the minimum stage order (earliest actionable stage)
+      const minOrder = Math.min(...jobStageInstances.map(s => s.stage_order || 0));
+      
+      // Only include stages that are:
+      // 1. Active, OR
+      // 2. Pending and within 50 orders of the earliest stage (allows parallel processing)
+      const actionableStages = jobStageInstances.filter(stage => 
+        stage.status === 'active' || 
+        (stage.status === 'pending' && (stage.stage_order || 0) <= minOrder + 50)
+      );
+      
+      // Add job to EACH of its actionable stages (enables parallel stage visibility)
+      actionableStages.forEach(stageInstance => {
         const stageJobs = map.get(stageInstance.production_stage_id) || [];
         stageJobs.push(job);
         map.set(stageInstance.production_stage_id, stageJobs);
