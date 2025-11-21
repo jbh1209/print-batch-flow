@@ -42,11 +42,21 @@ export const getJobWorkflowStages = (
   jobStages: any[], 
   jobId: string
 ): WorkflowStageInfo[] => {
-  if (!jobStages || jobStages.length === 0) return [];
+  console.log('[getJobWorkflowStages] Called with jobId:', jobId, 'stages count:', jobStages.length);
+  
+  if (!jobStages || jobStages.length === 0) {
+    console.log('[getJobWorkflowStages]', jobId, 'No stages provided');
+    return [];
+  }
   
   // Get ALL stages for this job (completed, active, pending)
   const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
-  if (allJobStages.length === 0) return [];
+  console.log('[getJobWorkflowStages]', jobId, 'allJobStages count:', allJobStages.length);
+  
+  if (allJobStages.length === 0) {
+    console.log('[getJobWorkflowStages]', jobId, 'No stages match job_id');
+    return [];
+  }
   
   // Separate stages by status
   const completedStages = allJobStages.filter(stage => stage.status === 'completed');
@@ -78,6 +88,16 @@ export const getJobWorkflowStages = (
       false;
     return !supportsParts;
   });
+  
+  console.log('[getJobWorkflowStages]', jobId, 'partBasedStages:', partBasedStages.length);
+  console.log('[getJobWorkflowStages]', jobId, 'sequentialStages:', sequentialStages.length);
+  console.log('[getJobWorkflowStages]', jobId, 'partBasedStages details:', partBasedStages.map(s => ({
+    name: s.production_stages?.name || s.production_stage?.name,
+    order: s.stage_order,
+    status: s.status,
+    part: s.part_assignment,
+    supports_parts: s.production_stages?.supports_parts || s.production_stage?.supports_parts
+  })));
   
   // Determine current workflow phase
   const pendingPartBasedStages = partBasedStages.filter(s => 

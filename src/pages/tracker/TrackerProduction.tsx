@@ -54,6 +54,24 @@ const TrackerProduction = () => {
       arr.push(s);
       map.set(s.job_id, arr);
     });
+    
+    console.log('[jobStagesMap] Built map with', map.size, 'jobs');
+    
+    // Log D428201 specifically
+    for (const [jobId, stages] of map.entries()) {
+      const woNo = stages[0]?.production_job?.wo_no;
+      if (woNo === 'D428201') {
+        console.log('[jobStagesMap] D428201 job_id:', jobId);
+        console.log('[jobStagesMap] D428201 stages in map:', stages.map(s => ({
+          stage_name: s.production_stages?.name || s.production_stage?.name,
+          status: s.status,
+          stage_order: s.stage_order,
+          part_assignment: s.part_assignment,
+          supports_parts: s.production_stages?.supports_parts || s.production_stage?.supports_parts
+        })));
+      }
+    }
+    
     return map;
   }, [jobStages]);
 
@@ -62,8 +80,31 @@ const TrackerProduction = () => {
     const map = new Map<string, any[]>();
     (jobs ?? []).forEach((job: any) => {
       const stagesForJob = jobStagesMap.get(job.id) || [];
+      
+      // Log D428201 lookup
+      if (job.wo_no === 'D428201') {
+        console.log('[actionableStagesByJob] D428201 job.id:', job.id);
+        console.log('[actionableStagesByJob] D428201 stagesForJob count:', stagesForJob.length);
+        console.log('[actionableStagesByJob] D428201 stagesForJob:', stagesForJob.map(s => ({
+          stage_name: s.production_stages?.name || s.production_stage?.name,
+          status: s.status,
+          stage_order: s.stage_order,
+          part_assignment: s.part_assignment
+        })));
+      }
+      
       try {
         const workflowStages = getJobWorkflowStages(stagesForJob, job.id);
+        
+        // Log D428201 workflow result
+        if (job.wo_no === 'D428201') {
+          console.log('[actionableStagesByJob] D428201 workflowStages result:', workflowStages.map(ws => ({
+            stage_name: ws.stage_name,
+            stage_order: ws.stage_order,
+            stage_id: ws.stage_id
+          })));
+        }
+        
         map.set(job.id, workflowStages);
       } catch (e) {
         console.warn('⚠️ Failed to compute workflow stages for job', job?.id, e);
