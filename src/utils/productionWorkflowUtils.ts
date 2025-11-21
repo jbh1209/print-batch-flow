@@ -129,82 +129,61 @@ export const getJobWorkflowStages = (
   }
   
   // PHASE 2: Parallel part-based stages (only when prerequisites complete)
+  // Trust the scheduler's output - it already calculated parallel processing correctly
   if (allPrerequisitesComplete && pendingPartBasedStages.length > 0) {
-    console.log('[Workflow Debug]', jobId, 'PARALLEL PHASE - part-based stages:', partBasedStages.length);
+    console.log('[Workflow]', jobId, 'Parallel phase - trusting scheduler output');
     const availableStages: any[] = [];
     
-    // Group part-based stages by stage_order to find true parallel stages
-    const stageOrderGroups = partBasedStages.reduce((groups, stage) => {
-      if (!groups[stage.stage_order]) groups[stage.stage_order] = [];
-      groups[stage.stage_order].push(stage);
-      return groups;
-    }, {} as Record<number, any[]>);
-    
-    console.log('[Workflow Debug]', jobId, 'Stage order groups:', Object.keys(stageOrderGroups).map(Number).sort((a, b) => a - b));
-    
-    // Group part-based stages by part assignment
-    const partGroups = partBasedStages.reduce((groups, stage) => {
+    // Group pending stages by part assignment
+    const pendingPartGroups = pendingPartBasedStages.reduce((groups, stage) => {
       const partKey = stage.part_assignment || 'both';
       if (!groups[partKey]) groups[partKey] = [];
       groups[partKey].push(stage);
       return groups;
     }, {} as Record<string, any[]>);
     
-    console.log('[Workflow Debug]', jobId, 'Part groups:', Object.keys(partGroups));
+    console.log('[Workflow]', jobId, 'Pending part groups:', Object.keys(pendingPartGroups));
     
-    // For each part, find the next available stage
-    Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
-      const completedPartStages = partStages.filter(s => s.status === 'completed');
-      const pendingPartStages = partStages.filter(s => s.status === 'active' || s.status === 'pending');
-      
-      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'completed:', completedPartStages.length, 'pending:', pendingPartStages.length);
-      
-      if (pendingPartStages.length === 0) return;
-      
-      // Find highest completed order for this specific part
-      const partHighestCompleted = completedPartStages.length > 0 
-        ? Math.max(...completedPartStages.map(s => s.stage_order))
-        : -1; // Start from beginning if nothing completed
-      
-      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'highest completed order:', partHighestCompleted);
-      
-      // For parallel stages at the SAME order as completed ones, check if ALL parallel stages are complete
-      const minPendingOrder = Math.min(...pendingPartStages.map(s => s.stage_order));
-      
-      // Get all stages at the minimum pending order (potential parallel set)
-      const parallelStagesAtMinOrder = (Object.values(partGroups) as any[][])
-        .flat()
-        .filter((s: any) => s.stage_order === minPendingOrder);
-      
-      const allParallelComplete = parallelStagesAtMinOrder.every((s: any) => s.status === 'completed');
-      
-      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'min pending order:', minPendingOrder, 'parallel stages at that order:', parallelStagesAtMinOrder.length, 'all complete?', allParallelComplete);
-      
-      // Include pending stages at current order if not all parallel siblings are complete
-      // OR stages after the highest completed order
-      const nextPartStages = pendingPartStages.filter(s => 
-        (s.stage_order === minPendingOrder && !allParallelComplete) || 
-        (s.stage_order > partHighestCompleted && s.stage_order !== minPendingOrder)
-      );
-      
-      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'next actionable stages:', nextPartStages.map(s => `${s.stage_name || s.production_stages?.name}@order${s.stage_order}`));
-      
-      if (nextPartStages.length > 0) {
-        const minOrder = Math.min(...nextPartStages.map(s => s.stage_order));
-        const nextStages = nextPartStages.filter(s => s.stage_order === minOrder);
+    // For cover and text: return the LOWEST pending stage_order (scheduler already determined independence)
+    ['cover', 'text'].forEach(partKey => {
+      if (pendingPartGroups[partKey]?.length > 0) {
+        const minOrder = Math.min(...pendingPartGroups[partKey].map(s => s.stage_order));
+        const nextStages = pendingPartGroups[partKey].filter(s => s.stage_order === minOrder);
+        console.log('[Workflow]', jobId, `Part ${partKey}: next stage order ${minOrder}, stages:`, nextStages.map(s => s.production_stages?.name || s.stage_name));
         availableStages.push(...nextStages);
       }
     });
     
-    return availableStages.map(stage => ({
-      stage_id: stage.unique_stage_key || stage.production_stage_id,
-      stage_name: stage.production_stages?.name || stage.stage_name,
-      stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
-      stage_status: stage.status,
-      stage_order: stage.stage_order,
-      unique_stage_key: stage.unique_stage_key,
-      production_stage_id: stage.production_stage_id
-    }));
+    // For "both": only include if no lower-order part-specific stages exist (merge point logic)
+    if (pendingPartGroups['both']?.length > 0) {
+      const coverTextStages = [...(pendingPartGroups['cover'] || []), ...(pendingPartGroups['text'] || [])];
+      const lowestPartOrder = coverTextStages.length > 0 
+        ? Math.min(...coverTextStages.map(s => s.stage_order))
+        : Infinity;
+      
+      const lowestBothOrder = Math.min(...pendingPartGroups['both'].map(s => s.stage_order));
+      
+      // Only include "both" stages if all part-specific work at lower orders is complete
+      if (lowestBothOrder < lowestPartOrder || !isFinite(lowestPartOrder)) {
+        const nextBothStages = pendingPartGroups['both'].filter(s => s.stage_order === lowestBothOrder);
+        console.log('[Workflow]', jobId, `Part "both": merge point at order ${lowestBothOrder}, stages:`, nextBothStages.map(s => s.production_stages?.name || s.stage_name));
+        availableStages.push(...nextBothStages);
+      } else {
+        console.log('[Workflow]', jobId, `Part "both": waiting for part-specific stages (lowestPartOrder: ${lowestPartOrder}, lowestBothOrder: ${lowestBothOrder})`);
+      }
+    }
+    
+    if (availableStages.length > 0) {
+      return availableStages.map(stage => ({
+        stage_id: stage.unique_stage_key || stage.production_stage_id,
+        stage_name: stage.production_stages?.name || stage.stage_name,
+        stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
+        stage_status: stage.status,
+        stage_order: stage.stage_order,
+        unique_stage_key: stage.unique_stage_key,
+        production_stage_id: stage.production_stage_id
+      }));
+    }
   }
   
   // Fallback: Return first pending stage if no logic applies
