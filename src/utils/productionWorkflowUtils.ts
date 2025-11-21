@@ -130,8 +130,17 @@ export const getJobWorkflowStages = (
   
   // PHASE 2: Parallel part-based stages (only when prerequisites complete)
   if (allPrerequisitesComplete && pendingPartBasedStages.length > 0) {
-    console.debug('[Workflow]', jobId, 'parallel phase:', partBasedStages.length, 'part-based stages available');
+    console.log('[Workflow Debug]', jobId, 'PARALLEL PHASE - part-based stages:', partBasedStages.length);
     const availableStages: any[] = [];
+    
+    // Group part-based stages by stage_order to find true parallel stages
+    const stageOrderGroups = partBasedStages.reduce((groups, stage) => {
+      if (!groups[stage.stage_order]) groups[stage.stage_order] = [];
+      groups[stage.stage_order].push(stage);
+      return groups;
+    }, {} as Record<number, any[]>);
+    
+    console.log('[Workflow Debug]', jobId, 'Stage order groups:', Object.keys(stageOrderGroups).map(Number).sort((a, b) => a - b));
     
     // Group part-based stages by part assignment
     const partGroups = partBasedStages.reduce((groups, stage) => {
@@ -141,20 +150,44 @@ export const getJobWorkflowStages = (
       return groups;
     }, {} as Record<string, any[]>);
     
+    console.log('[Workflow Debug]', jobId, 'Part groups:', Object.keys(partGroups));
+    
     // For each part, find the next available stage
     Object.entries(partGroups).forEach(([partKey, partStages]: [string, any[]]) => {
       const completedPartStages = partStages.filter(s => s.status === 'completed');
       const pendingPartStages = partStages.filter(s => s.status === 'active' || s.status === 'pending');
+      
+      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'completed:', completedPartStages.length, 'pending:', pendingPartStages.length);
       
       if (pendingPartStages.length === 0) return;
       
       // Find highest completed order for this specific part
       const partHighestCompleted = completedPartStages.length > 0 
         ? Math.max(...completedPartStages.map(s => s.stage_order))
-        : highestCompletedOrder; // Use global highest if no part-specific completed stages
+        : -1; // Start from beginning if nothing completed
       
-      // Find next pending stage for this part after its highest completed
-      const nextPartStages = pendingPartStages.filter(s => s.stage_order > partHighestCompleted);
+      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'highest completed order:', partHighestCompleted);
+      
+      // For parallel stages at the SAME order as completed ones, check if ALL parallel stages are complete
+      const minPendingOrder = Math.min(...pendingPartStages.map(s => s.stage_order));
+      
+      // Get all stages at the minimum pending order (potential parallel set)
+      const parallelStagesAtMinOrder = (Object.values(partGroups) as any[][])
+        .flat()
+        .filter((s: any) => s.stage_order === minPendingOrder);
+      
+      const allParallelComplete = parallelStagesAtMinOrder.every((s: any) => s.status === 'completed');
+      
+      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'min pending order:', minPendingOrder, 'parallel stages at that order:', parallelStagesAtMinOrder.length, 'all complete?', allParallelComplete);
+      
+      // Include pending stages at current order if not all parallel siblings are complete
+      // OR stages after the highest completed order
+      const nextPartStages = pendingPartStages.filter(s => 
+        (s.stage_order === minPendingOrder && !allParallelComplete) || 
+        (s.stage_order > partHighestCompleted && s.stage_order !== minPendingOrder)
+      );
+      
+      console.log('[Workflow Debug]', jobId, 'Part:', partKey, 'next actionable stages:', nextPartStages.map(s => `${s.stage_name || s.production_stages?.name}@order${s.stage_order}`));
       
       if (nextPartStages.length > 0) {
         const minOrder = Math.min(...nextPartStages.map(s => s.stage_order));
