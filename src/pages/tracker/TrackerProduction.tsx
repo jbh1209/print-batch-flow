@@ -43,7 +43,7 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
-  // Get real-time stage data (for modal/details only)
+  // Get real-time stage data - needed for parallel stages support
   const { jobStages, isLoading: stagesLoading } = useRealTimeJobStages(jobs);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -54,11 +54,33 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Simple filtering: show jobs in their current stage (Sept 24th working logic)
+  // Build map of jobs by ALL their pending/active stages (supports parallel processing)
+  const jobsByStage = useMemo(() => {
+    const map = new Map<string, AccessibleJob[]>();
+    
+    jobs.forEach(job => {
+      // Get all pending/active stage instances for this job
+      const jobStageInstances = jobStages.filter(
+        stage => stage.job_id === job.id && 
+        (stage.status === 'pending' || stage.status === 'active')
+      );
+      
+      // Add job to EACH of its pending/active stages (enables parallel stage visibility)
+      jobStageInstances.forEach(stageInstance => {
+        const stageJobs = map.get(stageInstance.production_stage_id) || [];
+        stageJobs.push(job);
+        map.set(stageInstance.production_stage_id, stageJobs);
+      });
+    });
+    
+    return map;
+  }, [jobs, jobStages]);
+
+  // Filter jobs based on selected stage
   const filteredJobs = useMemo(() => {
     if (!selectedStageId) return jobs;
-    return jobs.filter((job: any) => job.current_stage_id === selectedStageId);
-  }, [jobs, selectedStageId]);
+    return jobsByStage.get(selectedStageId) || [];
+  }, [jobs, selectedStageId, jobsByStage]);
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
@@ -83,31 +105,32 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Simple sidebar: build from job.current_stage_* fields (Sept 24th working logic)
+  // Build consolidated stages with accurate counts from jobsByStage map
   const consolidatedStages = useMemo(() => {
     const stageCounts = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
     
-    jobs.forEach((job: any) => {
-      if (job.current_stage_id && 
-          (job.current_stage_status === 'active' || job.current_stage_status === 'pending')) {
-        const existing = stageCounts.get(job.current_stage_id);
-        if (existing) {
-          existing.job_count += 1;
-        } else {
-          stageCounts.set(job.current_stage_id, {
-            stage_id: job.current_stage_id,
-            stage_name: job.current_stage_name || 'Unknown',
-            stage_color: job.current_stage_color || '#6B7280',
-            job_count: 1
-          });
-        }
+    // Use jobsByStage map to build accurate stage counts
+    jobsByStage.forEach((jobs, stageId) => {
+      // Get stage details from first job's stage instance
+      const firstJob = jobs[0];
+      const stageInstance = jobStages.find(
+        s => s.production_stage_id === stageId && s.job_id === firstJob.id
+      );
+      
+      if (stageInstance) {
+        stageCounts.set(stageId, {
+          stage_id: stageId,
+          stage_name: stageInstance.production_stage.name,
+          stage_color: stageInstance.production_stage.color || '#6B7280',
+          job_count: jobs.length
+        });
       }
     });
     
     return Array.from(stageCounts.values()).sort((a, b) => 
       a.stage_name.localeCompare(b.stage_name)
     );
-  }, [jobs]);
+  }, [jobsByStage, jobStages]);
   const handleSidebarStageSelect = (stageId: string | null) => {
     if (!stageId) {
       setSelectedStageId(null);
