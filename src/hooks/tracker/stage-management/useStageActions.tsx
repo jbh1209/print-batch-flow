@@ -15,7 +15,7 @@ export const useStageActions = () => {
   const startStage = useCallback(async (stageId: string, qrData?: any) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Starting stage manually...', { stageId, qrData });
+      // Starting stage
       
       // Get stage info to check permissions
       const { data: stageData, error: fetchError } = await supabase
@@ -54,7 +54,6 @@ export const useStageActions = () => {
       toast.success("Stage started successfully");
       return true;
     } catch (err) {
-      console.error('❌ Error starting stage:', err);
       toast.error("Failed to start stage");
       return false;
     } finally {
@@ -65,7 +64,7 @@ export const useStageActions = () => {
   const completeStage = useCallback(async (stageId: string, notes?: string) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Completing stage...', { stageId, notes });
+      // Completing stage
       
       // Get stage info before completing to check permissions AND if it's a proof stage
       const { data: stageInfo, error: stageInfoError } = await supabase
@@ -114,14 +113,10 @@ export const useStageActions = () => {
 
       if (error) throw error;
 
-      console.log('✅ Stage completed successfully');
-
       // If this was a proof stage completion, trigger queue-based due date calculation
       if (isProofStage && stageInfo?.job_id) {
-        console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
-        
         try {
-          const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+          const { error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
             body: {
               jobIds: [stageInfo.job_id],
               tableName: stageInfo.job_table_name || 'production_jobs',
@@ -131,14 +126,11 @@ export const useStageActions = () => {
           });
 
           if (calcError) {
-            console.error('❌ Error triggering queue-based calculation:', calcError);
             toast.error('Failed to update due date after proof approval');
           } else {
-            console.log('✅ Queue-based calculation triggered:', calcData);
             toast.success('Due date updated based on current production queue');
           }
         } catch (calcErr) {
-          console.error('❌ Error in queue calculation:', calcErr);
           toast.error('Failed to update due date');
         }
       }
@@ -146,7 +138,6 @@ export const useStageActions = () => {
       toast.success("Stage completed successfully");
       return true;
     } catch (err) {
-      console.error('❌ Error completing stage:', err);
       toast.error("Failed to complete stage");
       return false;
     } finally {
@@ -161,11 +152,7 @@ export const useStageActions = () => {
   ) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Completing stage and skipping conditional stages...', { 
-        jobId, 
-        currentStageInstanceId, 
-        notes 
-      });
+      // Completing stage and skipping conditional stages
 
       // First, get the current stage instance details including production stage name
       const { data: currentStageInstance, error: currentStageError } = await supabase
@@ -186,7 +173,7 @@ export const useStageActions = () => {
         throw new Error(`Could not find stage instance with ID ${currentStageInstanceId}: ${currentStageError?.message}`);
       }
 
-      console.log('🔍 Current stage instance info:', currentStageInstance);
+      // Current stage instance retrieved
 
       const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof');
 
@@ -209,14 +196,10 @@ export const useStageActions = () => {
         throw new Error(`Failed to complete current stage: ${completeError.message}`);
       }
 
-      console.log('✅ Current stage completed successfully');
-
       // If this was a proof stage completion, trigger queue-based due date calculation
       if (isProofStage && currentStageInstance?.job_id) {
-        console.log('🎯 Proof stage completed, triggering queue-based due date calculation...');
-        
         try {
-          const { data: calcData, error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
+          const { error: calcError } = await supabase.functions.invoke('calculate-due-dates', {
             body: {
               jobIds: [currentStageInstance.job_id],
               tableName: currentStageInstance.job_table_name || 'production_jobs',
@@ -226,14 +209,11 @@ export const useStageActions = () => {
           });
 
           if (calcError) {
-            console.error('❌ Error triggering queue-based calculation:', calcError);
             toast.error('Failed to update due date after proof approval');
           } else {
-            console.log('✅ Queue-based calculation triggered:', calcData);
             toast.success('Due date updated based on current production queue');
           }
         } catch (calcErr) {
-          console.error('❌ Error in queue calculation:', calcErr);
           toast.error('Failed to update due date');
         }
       }
@@ -256,16 +236,9 @@ export const useStageActions = () => {
       if (pendingStagesError) throw pendingStagesError;
 
       if (!pendingStages || pendingStages.length === 0) {
-        console.log('ℹ️ No pending stages found after current stage');
         toast.success("Stage completed - no more stages to activate");
         return true;
       }
-
-      console.log('🔍 Found pending stages:', pendingStages.map(s => ({ 
-        id: s.id, 
-        order: s.stage_order, 
-        name: s.production_stages?.name 
-      })));
 
       // Find the first non-conditional stage using simple pattern matching
       let nextStageToActivate = null;
@@ -276,8 +249,6 @@ export const useStageActions = () => {
         const isConditionalByPattern = stageName.toLowerCase().includes('batch') || 
                                      stageName.toLowerCase().includes('allocation');
         
-        console.log(`🔍 Checking stage ${stageName}: conditional by pattern=${isConditionalByPattern}`);
-        
         if (!isConditionalByPattern) {
           nextStageToActivate = stage;
           break;
@@ -286,7 +257,6 @@ export const useStageActions = () => {
 
       // If no non-conditional stage found, use the first pending stage as fallback
       if (!nextStageToActivate && pendingStages.length > 0) {
-        console.log('⚠️ No non-conditional stage found, using first pending stage as fallback');
         nextStageToActivate = pendingStages[0];
       }
 
@@ -304,30 +274,15 @@ export const useStageActions = () => {
 
         if (activateError) throw activateError;
 
-        console.log('✅ Non-proof stage completed and next stage activated:', {
-          completedStage: currentStageInstanceId,
-          activatedStage: nextStageToActivate.id,
-          activatedStageName: nextStageToActivate.production_stages?.name,
-          stageOrder: nextStageToActivate.stage_order
-        });
-
         toast.success(`Stage completed and advanced to: ${nextStageToActivate.production_stages?.name}`);
       } else if (nextStageToActivate && isProofStage) {
-        console.log('✅ Proof stage completed - next stage remains pending for manual factory floor activation:', {
-          completedProofStage: currentStageInstanceId,
-          nextStagePending: nextStageToActivate.id,
-          nextStageName: nextStageToActivate.production_stages?.name
-        });
-
         toast.success(`Proof stage completed - ${nextStageToActivate.production_stages?.name} awaits manual activation`);
       } else {
-        console.log('ℹ️ No more stages to activate - workflow may be complete');
         toast.success("Stage completed - workflow finished");
       }
 
       return true;
     } catch (err) {
-      console.error('❌ Error completing stage and advancing:', err);
       toast.error(`Failed to complete stage and advance workflow: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return false;
     } finally {
@@ -342,7 +297,7 @@ export const useStageActions = () => {
   ) => {
     setIsProcessing(true);
     try {
-      console.log('⏸️ Holding stage...', { stageId, completionPercentage, holdReason });
+      // Holding stage
       
       // Get stage info to check permissions
       const { data: stageData, error: fetchError } = await supabase
@@ -384,15 +339,9 @@ export const useStageActions = () => {
 
       if (error) throw error;
 
-      console.log('✅ Stage held successfully', { 
-        completionPercentage, 
-        remainingMinutes,
-        scheduledMinutes 
-      });
       toast.success(`Stage held at ${completionPercentage}% completion`);
       return true;
     } catch (err) {
-      console.error('❌ Error holding stage:', err);
       toast.error("Failed to hold stage");
       return false;
     } finally {
@@ -403,7 +352,7 @@ export const useStageActions = () => {
   const resumeStage = useCallback(async (stageId: string) => {
     setIsProcessing(true);
     try {
-      console.log('▶️ Resuming stage...', { stageId });
+      // Resuming stage
       
       const { error } = await supabase
         .from('job_stage_instances')
@@ -416,11 +365,9 @@ export const useStageActions = () => {
 
       if (error) throw error;
 
-      console.log('✅ Stage resumed successfully');
       toast.success("Stage resumed");
       return true;
     } catch (err) {
-      console.error('❌ Error resuming stage:', err);
       toast.error("Failed to resume stage");
       return false;
     } finally {

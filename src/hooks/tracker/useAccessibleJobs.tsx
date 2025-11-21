@@ -28,11 +28,7 @@ export const useAccessibleJobs = ({
         throw new Error('User not authenticated');
       }
 
-      console.log('🔄 Fetching accessible jobs with params:', {
-        userId: user.id,
-        permissionType,
-        statusFilter
-      });
+      // Fetching accessible jobs
 
       const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
         p_user_id: user.id,
@@ -41,10 +37,7 @@ export const useAccessibleJobs = ({
         p_stage_filter: null
       });
 
-      if (error) {
-        console.error('❌ Error fetching accessible jobs:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       return data || [];
     },
@@ -88,10 +81,7 @@ export const useAccessibleJobs = ({
         .eq('job_table_name', 'production_jobs')
         .in('status', ['pending', 'active', 'awaiting_approval', 'changes_requested']);
 
-      if (error) {
-        console.error('❌ Error fetching job stages:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       return data?.map(stage => ({
         job_id: stage.job_id,
