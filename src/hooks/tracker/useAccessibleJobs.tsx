@@ -3,7 +3,6 @@ import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { getJobWorkflowStages } from "@/utils/productionWorkflowUtils";
 import { useRealtimeSubscription } from "./useAccessibleJobs/useRealtimeSubscription";
 import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
 
@@ -47,66 +46,13 @@ export const useAccessibleJobs = ({
     refetchInterval: 60000
   });
 
-  // Fetch job stage instances for parallel stage support
-  const {
-    data: jobStages = [],
-    isLoading: stagesLoading,
-    error: stagesError,
-    refetch: refetchStages
-  } = useQuery({
-    queryKey: ['job-stage-instances', user?.id],
-    queryFn: async () => {
-      if (!user?.id || !rawJobs?.length) return [];
-
-      const jobIds = rawJobs.map(job => job.job_id);
-      
-      const { data, error } = await supabase
-        .from('job_stage_instances')
-        .select(`
-          job_id,
-          production_stage_id,
-          status,
-          stage_order,
-          unique_stage_key,
-          part_assignment,
-          dependency_group,
-          production_stages!inner (
-            id,
-            name,
-            color,
-            supports_parts
-          )
-        `)
-        .in('job_id', jobIds)
-        .eq('job_table_name', 'production_jobs')
-        .in('status', ['pending', 'active', 'awaiting_approval', 'changes_requested']);
-
-      if (error) throw error;
-
-      return data?.map(stage => ({
-        job_id: stage.job_id,
-        production_stage_id: stage.production_stage_id,
-        status: stage.status,
-        stage_order: stage.stage_order,
-        unique_stage_key: stage.unique_stage_key,
-        part_assignment: stage.part_assignment,
-        dependency_group: stage.dependency_group,
-        stage_name: stage.production_stages?.name,
-        stage_color: stage.production_stages?.color,
-        production_stages: stage.production_stages
-      })) || [];
-    },
-    enabled: !!user?.id && !!rawJobs?.length,
-    staleTime: 30000
-  });
-
-  const isLoading = jobsLoading || stagesLoading;
-  const error = jobsError || stagesError;
+  const isLoading = jobsLoading;
+  const error = jobsError;
 
   // Combined refresh function for real-time updates
   const refreshJobsAndStages = useCallback(async () => {
-    await Promise.all([refetchJobs(), refetchStages()]);
-  }, [refetchJobs, refetchStages]);
+    await refetchJobs();
+  }, [refetchJobs]);
 
   // Set up real-time subscriptions for both production_jobs and job_stage_instances
   useRealtimeSubscription(refreshJobsAndStages, {
@@ -131,12 +77,6 @@ export const useAccessibleJobs = ({
         displayStage = 'In Batch Processing';
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
-
-      // Get workflow stages for this job (current actionable stages)
-      const workflowStages = getJobWorkflowStages(jobStages, job.job_id);
-      const currentStageOrder = workflowStages.length > 0 
-        ? Math.min(...workflowStages.map(s => s.stage_order))
-        : undefined;
 
       const processedJob: AccessibleJob = {
         job_id: job.job_id,
@@ -173,9 +113,9 @@ export const useAccessibleJobs = ({
         is_in_batch_processing: job.status === 'In Batch Processing',
         has_custom_workflow: (job as any).has_custom_workflow || false,
         manual_due_date: (job as any).manual_due_date || null,
-        // Workflow stages support (current actionable stages)
-        parallel_stages: workflowStages,
-        current_stage_order: currentStageOrder
+        // Empty parallel_stages array for now
+        parallel_stages: [],
+        current_stage_order: undefined
       };
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")
@@ -213,7 +153,7 @@ export const useAccessibleJobs = ({
     });
 
     return processedJobs;
-  }, [rawJobs, jobStages]);
+  }, [rawJobs]);
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
@@ -300,8 +240,8 @@ export const useAccessibleJobs = ({
   }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
-    return Promise.all([refetchJobs(), refetchStages()]);
-  }, [refetchJobs, refetchStages]);
+    return refetchJobs();
+  }, [refetchJobs]);
 
   const invalidateCache = useCallback(() => {
     queryClient.invalidateQueries({
