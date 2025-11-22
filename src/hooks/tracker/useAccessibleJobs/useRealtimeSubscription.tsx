@@ -22,8 +22,6 @@ export const useRealtimeSubscription = (
   // Batched update handler to prevent UI thrashing
   const handleBatchedUpdate = useCallback(() => {
     if (pendingUpdatesRef.current.size > 0) {
-      console.log('📦 Processing batched updates for jobs:', Array.from(pendingUpdatesRef.current));
-      
       // Clear pending updates
       pendingUpdatesRef.current.clear();
       
@@ -82,8 +80,6 @@ export const useRealtimeSubscription = (
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log("🔄 Setting up enhanced real-time subscription for accessible jobs");
-
     // Cleanup any existing channel
     if (channelRef.current) {
       try {
@@ -104,11 +100,6 @@ export const useRealtimeSubscription = (
             table: 'production_jobs',
           },
           (payload) => {
-            console.log('📦 Production jobs changed:', {
-              event: payload.eventType,
-              jobId: getJobIdFromPayload(payload)
-            });
-            
             const jobId = getJobIdFromPayload(payload);
             if (jobId) {
               queueUpdate(jobId, 'status');
@@ -135,20 +126,12 @@ export const useRealtimeSubscription = (
               stageId = oldRecord.production_stage_id;
             }
             
-            console.log('🎯 Job stage instances changed:', {
-              event: payload.eventType,
-              jobId,
-              stageId
-            });
-            
             if (jobId) {
               queueUpdate(jobId, 'stage');
             }
           }
         )
-        .subscribe((status) => {
-          console.log("🔄 Enhanced real-time subscription status:", status);
-        });
+        .subscribe();
 
       channelRef.current = channel;
     } catch (error) {
@@ -156,8 +139,6 @@ export const useRealtimeSubscription = (
     }
 
     return () => {
-      console.log("🧹 Cleaning up enhanced real-time subscription");
-      
       // Clear any pending batch timeout
       if (batchTimeoutRef.current) {
         clearTimeout(batchTimeoutRef.current);

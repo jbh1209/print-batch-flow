@@ -105,7 +105,6 @@ export const useAccessibleJobs = ({
 
   // Combined refresh function for real-time updates
   const refreshJobsAndStages = useCallback(async () => {
-    console.log('🔄 Real-time update detected, refreshing data...');
     await Promise.all([refetchJobs(), refetchStages()]);
   }, [refetchJobs, refetchStages]);
 
@@ -218,8 +217,6 @@ export const useAccessibleJobs = ({
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
-      console.log('🔄 Starting job stage:', { jobId, stageId });
-
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
         stageId = job?.current_stage_id;
@@ -252,8 +249,6 @@ export const useAccessibleJobs = ({
 
   const completeJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
-      console.log('🔄 Completing job stage:', { jobId, stageId });
-
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
         stageId = job?.current_stage_id;
@@ -305,13 +300,11 @@ export const useAccessibleJobs = ({
   }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
-    console.log('🔄 Refreshing accessible jobs...');
     return Promise.all([refetchJobs(), refetchStages()]);
   }, [refetchJobs, refetchStages]);
 
   const invalidateCache = useCallback(() => {
-    console.log('🗑️ Invalidating accessible jobs cache...');
-    queryClient.invalidateQueries({ 
+    queryClient.invalidateQueries({
       queryKey: ['accessible-jobs', user?.id] 
     });
   }, [queryClient, user?.id]);
