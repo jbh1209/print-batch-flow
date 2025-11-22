@@ -3,6 +3,8 @@ import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useJobStageInstancesMap } from "@/hooks/tracker/useJobStageInstancesMap";
+import { getJobWorkflowStages, shouldJobAppearInWorkflowStage } from "@/utils/productionWorkflowUtils";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
@@ -51,27 +53,68 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Build map of jobs by their CURRENT stage only
+  // Get visible job IDs for stage instance fetching
+  const visibleJobIds = useMemo(() => {
+    if (!selectedStageId) return [];
+    return jobs
+      .filter(job => job.current_stage_id === selectedStageId)
+      .map(job => job.job_id);
+  }, [jobs, selectedStageId]);
+
+  // Fetch stage instances only for visible jobs in specific stage views
+  const { data: jobStageInstancesMap } = useJobStageInstancesMap(
+    visibleJobIds,
+    !!selectedStageId && visibleJobIds.length > 0
+  );
+
+  // Enhance jobs with parallel stage data when available
+  const enhancedJobs = useMemo(() => {
+    if (!jobStageInstancesMap || jobStageInstancesMap.size === 0) {
+      return jobs;
+    }
+
+    return jobs.map(job => {
+      const stageInstances = jobStageInstancesMap.get(job.job_id);
+      if (!stageInstances) return job;
+
+      const workflowStages = getJobWorkflowStages(stageInstances, job.job_id);
+      return {
+        ...job,
+        parallel_stages: workflowStages
+      };
+    });
+  }, [jobs, jobStageInstancesMap]);
+
+  // Build map of jobs by stage (including parallel stages)
   const jobsByStage = useMemo(() => {
     const map = new Map<string, AccessibleJob[]>();
     
-    jobs.forEach(job => {
-      // Only add job to its CURRENT stage
-      if (job.current_stage_id) {
-        const stageJobs = map.get(job.current_stage_id) || [];
-        stageJobs.push(job);
-        map.set(job.current_stage_id, stageJobs);
+    enhancedJobs.forEach(job => {
+      // If job has parallel stages computed, use them
+      if (job.parallel_stages && job.parallel_stages.length > 0) {
+        job.parallel_stages.forEach(parallelStage => {
+          const stageJobs = map.get(parallelStage.stage_id) || [];
+          stageJobs.push(job);
+          map.set(parallelStage.stage_id, stageJobs);
+        });
+      } else {
+        // Fallback: use current stage only
+        if (job.current_stage_id) {
+          const stageJobs = map.get(job.current_stage_id) || [];
+          stageJobs.push(job);
+          map.set(job.current_stage_id, stageJobs);
+        }
       }
     });
     
     return map;
-  }, [jobs]);
+  }, [enhancedJobs]);
 
   // Filter jobs based on selected stage
   const filteredJobs = useMemo(() => {
-    if (!selectedStageId) return jobs;
+    if (!selectedStageId) return enhancedJobs;
     return jobsByStage.get(selectedStageId) || [];
-  }, [jobs, selectedStageId, jobsByStage]);
+  }, [enhancedJobs, selectedStageId, jobsByStage]);
   // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
@@ -93,8 +136,8 @@ const TrackerProduction = () => {
   }, [filteredJobs, sortBy, sortOrder]);
 
   const jobsWithoutCategory = useMemo(() => {
-    return jobs.filter(job => !job.category_id);
-  }, [jobs]);
+    return enhancedJobs.filter(job => !job.category_id);
+  }, [enhancedJobs]);
 
   // Build consolidated stages with accurate counts from current stages only
   const consolidatedStages = useMemo(() => {
