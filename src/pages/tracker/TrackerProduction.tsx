@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
-import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -43,8 +42,6 @@ const TrackerProduction = () => {
     permissionType: 'manage'
   });
 
-  // Get full stage data for display purposes
-  const { jobStages } = useRealTimeJobStages(jobs);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -271,7 +268,6 @@ const TrackerProduction = () => {
               <TrackerErrorBoundary componentName="Production Stats">
                 <ProductionStats 
                   jobs={jobs}
-                  jobStages={jobStages}
                   jobsWithoutCategory={jobsWithoutCategory}
                 />
               </TrackerErrorBoundary>
