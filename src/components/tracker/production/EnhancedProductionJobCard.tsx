@@ -36,6 +36,7 @@ interface EnhancedProductionJobCardProps {
   onStageAction?: (jobId: string, stageId: string, action: 'start' | 'complete') => void;
   onAssignParts?: (job: AccessibleJob) => void;
   showDetails?: boolean;
+  disableSpecifications?: boolean;
 }
 
 export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps> = ({
@@ -44,7 +45,8 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
   onJobClick,
   onStageAction,
   onAssignParts,
-  showDetails = true
+  showDetails = true,
+  disableSpecifications = false
 }) => {
   const isOverdue = job.due_date && new Date(job.due_date) < new Date();
   const isDueSoon = job.due_date && !isOverdue && 
@@ -192,20 +194,22 @@ export const EnhancedProductionJobCard: React.FC<EnhancedProductionJobCardProps>
         />
 
         {/* Current Stage Sub-Specifications */}
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-gray-600">
-            {stageContext.stageName} Details:
+        {!disableSpecifications && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-gray-600">
+              {stageContext.stageName} Details:
+            </div>
+            <SubSpecificationBadge 
+              jobId={job.job_id}
+              stageId={stageContext.stageId}
+              stageName={stageContext.stageName}
+              compact={false}
+            />
           </div>
-          <SubSpecificationBadge 
-            jobId={job.job_id}
-            stageId={stageContext.stageId}
-            stageName={stageContext.stageName}
-            compact={false}
-          />
-        </div>
+        )}
 
         {/* Job Specifications */}
-        {showDetails && (
+        {showDetails && !disableSpecifications && (
           <JobSpecificationCard
             jobId={job.job_id}
             jobTableName="production_jobs"

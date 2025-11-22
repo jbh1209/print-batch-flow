@@ -17,6 +17,7 @@ interface ProductionJobsViewProps {
   onJobClick: (job: AccessibleJob) => void;
   onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
   onAssignParts?: (job: AccessibleJob) => void;
+  disableSpecifications?: boolean;
 }
 
 export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
@@ -25,7 +26,8 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   isLoading,
   onJobClick,
   onStageAction,
-  onAssignParts
+  onAssignParts,
+  disableSpecifications = false
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [specFilters, setSpecFilters] = useState<SpecificationFilters>({});
@@ -126,6 +128,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
               onStageAction={onStageAction}
               onAssignParts={onAssignParts}
               showDetails={true}
+              disableSpecifications={disableSpecifications}
             />
           ))}
         </div>
@@ -136,6 +139,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
           onJobClick={onJobClick}
           onStageAction={onStageAction}
           onAssignParts={onAssignParts}
+          disableSpecifications={disableSpecifications}
         />
       )}
     </div>

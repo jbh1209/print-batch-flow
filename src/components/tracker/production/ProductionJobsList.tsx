@@ -28,6 +28,7 @@ interface ProductionJobsListProps {
   onJobClick: (job: AccessibleJob) => void;
   onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
   onAssignParts?: (job: AccessibleJob) => void;
+  disableSpecifications?: boolean;
 }
 
 export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
@@ -35,7 +36,8 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
   contextStageName,
   onJobClick,
   onStageAction,
-  onAssignParts
+  onAssignParts,
+  disableSpecifications = false
 }) => {
   return (
     <div className="border rounded-lg overflow-hidden bg-white">
@@ -177,12 +179,14 @@ export const ProductionJobsList: React.FC<ProductionJobsListProps> = ({
 
               {/* Sub-Specifications */}
               <div className="col-span-3">
-                <SubSpecificationBadge 
-                  jobId={job.job_id}
-                  stageId={stageContext.stageId}
-                  stageName={stageContext.stageName}
-                  compact={true}
-                />
+                {!disableSpecifications && (
+                  <SubSpecificationBadge 
+                    jobId={job.job_id}
+                    stageId={stageContext.stageId}
+                    stageName={stageContext.stageName}
+                    compact={true}
+                  />
+                )}
               </div>
 
               {/* Actions */}
