@@ -54,13 +54,26 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Build map of jobs by their CURRENT stage only (matches DTP Dashboard behavior)
+  // Build map of jobs by their ACTIONABLE stages (supports parallel processing)
   const jobsByStage = useMemo(() => {
     const map = new Map<string, AccessibleJob[]>();
     
     jobs.forEach(job => {
-      // Only add job to its CURRENT stage
-      if (job.current_stage_id) {
+      // Use parallel_stages array computed by useAccessibleJobs
+      const actionableStages = job.parallel_stages || [];
+      
+      // Add job to EACH of its actionable stages
+      actionableStages.forEach(stageInfo => {
+        const stageId = stageInfo.stage_id;
+        if (stageId) {
+          const stageJobs = map.get(stageId) || [];
+          stageJobs.push(job);
+          map.set(stageId, stageJobs);
+        }
+      });
+      
+      // Fallback: If no parallel_stages, use current_stage_id
+      if (actionableStages.length === 0 && job.current_stage_id) {
         const stageJobs = map.get(job.current_stage_id) || [];
         stageJobs.push(job);
         map.set(job.current_stage_id, stageJobs);
@@ -99,29 +112,39 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Build consolidated stages with accurate counts from current stages only
+  // Build consolidated stages with accurate counts (supports parallel processing)
   const consolidatedStages = useMemo(() => {
     const stageCounts = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
     
     // Use jobsByStage map to build accurate stage counts
     jobsByStage.forEach((stageJobs, stageId) => {
-      // Get stage details from job's current stage
-      const firstJob = stageJobs[0];
+      // Find stage details from any job's parallel_stages array
+      let stageName = 'Unknown Stage';
+      let stageColor = '#6B7280';
       
-      if (firstJob.current_stage_name) {
-        stageCounts.set(stageId, {
-          stage_id: stageId,
-          stage_name: firstJob.current_stage_name,
-          stage_color: firstJob.current_stage_color || '#6B7280',
-          job_count: stageJobs.length
-        });
+      for (const job of stageJobs) {
+        const stageInfo = job.parallel_stages?.find(
+          s => s.stage_id === stageId
+        );
+        if (stageInfo) {
+          stageName = stageInfo.stage_name;
+          stageColor = stageInfo.stage_color || '#6B7280';
+          break;
+        }
       }
+      
+      stageCounts.set(stageId, {
+        stage_id: stageId,
+        stage_name: stageName,
+        stage_color: stageColor,
+        job_count: stageJobs.length
+      });
     });
     
     return Array.from(stageCounts.values()).sort((a, b) => 
       a.stage_name.localeCompare(b.stage_name)
     );
-  }, [jobsByStage]);
+  }, [jobsByStage, jobs]);
   const handleSidebarStageSelect = (stageId: string | null) => {
     if (!stageId) {
       setSelectedStageId(null);
