@@ -16,17 +16,26 @@ export const useRealtimeSubscription = (
   const channelRef = useRef<any>(null);
   const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
+  const isRefetchingRef = useRef<boolean>(false);
   
-  const { onJobUpdate, batchDelay = 500 } = options;
+  const { onJobUpdate, batchDelay = 1000 } = options;
 
-  // Batched update handler to prevent UI thrashing
+  // Batched update handler to prevent UI thrashing with circuit breaker
   const handleBatchedUpdate = useCallback(() => {
-    if (pendingUpdatesRef.current.size > 0) {
+    if (pendingUpdatesRef.current.size > 0 && !isRefetchingRef.current) {
+      isRefetchingRef.current = true;
+      
       // Clear pending updates
       pendingUpdatesRef.current.clear();
       
-      // Fetch fresh data
-      fetchJobs().catch(console.error);
+      // Fetch fresh data with error handling
+      fetchJobs()
+        .catch((error) => {
+          console.error("⚠️ Realtime refetch failed:", error);
+        })
+        .finally(() => {
+          isRefetchingRef.current = false;
+        });
     }
   }, [fetchJobs]);
 
@@ -160,7 +169,7 @@ export const useRealtimeSubscription = (
     };
   }, [user?.id, queueUpdate, getJobIdFromPayload, getJobIdFromStagePayload]);
 
-  // Force immediate update (bypass batching)
+  // Force immediate update (bypass batching) with circuit breaker
   const forceUpdate = useCallback(() => {
     // Clear any pending batch
     if (batchTimeoutRef.current) {
@@ -169,7 +178,16 @@ export const useRealtimeSubscription = (
     }
     
     pendingUpdatesRef.current.clear();
-    return fetchJobs();
+    
+    // Respect circuit breaker
+    if (isRefetchingRef.current) {
+      return Promise.resolve();
+    }
+    
+    isRefetchingRef.current = true;
+    return fetchJobs().finally(() => {
+      isRefetchingRef.current = false;
+    });
   }, [fetchJobs]);
 
   return {

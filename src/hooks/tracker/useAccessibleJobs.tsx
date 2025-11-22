@@ -41,9 +41,11 @@ export const useAccessibleJobs = ({
       return data || [];
     },
     enabled: !!user?.id,
-    staleTime: 30000,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60000
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    refetchOnReconnect: true
   });
 
   const isLoading = jobsLoading;
@@ -56,7 +58,7 @@ export const useAccessibleJobs = ({
 
   // Set up real-time subscriptions for both production_jobs and job_stage_instances
   useRealtimeSubscription(refreshJobsAndStages, {
-    batchDelay: 500 // 500ms delay for batching updates
+    batchDelay: 1000 // 1000ms delay for batching updates
   });
 
   // Enhanced job processing with parallel stages support
