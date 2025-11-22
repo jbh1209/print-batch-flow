@@ -46,22 +46,23 @@ export const getJobWorkflowStages = (
     return [];
   }
   
-  // Get ALL stages for this job (active and pending only)
+  // Get ALL stages for this job (completed, active, pending)
   const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
   if (allJobStages.length === 0) {
     return [];
   }
   
   // Separate stages by status
-  const activeStages = allJobStages.filter(stage => stage.status === 'active');
-  const pendingStages = allJobStages.filter(stage => stage.status === 'pending');
+  const completedStages = allJobStages.filter(stage => stage.status === 'completed');
+  const pendingStages = allJobStages.filter(stage => 
+    stage.status === 'active' || stage.status === 'pending'
+  );
   
-  if (activeStages.length === 0 && pendingStages.length === 0) return [];
+  if (pendingStages.length === 0) return [];
   
-  // Infer highest completed order from active stages
-  // If a stage is active at order X, all stages at order < X must be complete
-  const highestCompletedOrder = activeStages.length > 0
-    ? Math.min(...activeStages.map(s => s.stage_order)) - 1
+  // Find the highest completed stage order across ALL stages
+  const highestCompletedOrder = completedStages.length > 0 
+    ? Math.max(...completedStages.map(s => s.stage_order))
     : -1;
   
   // Group stages by type - normalize supports_parts check
@@ -82,7 +83,6 @@ export const getJobWorkflowStages = (
     return !supportsParts;
   });
   
-  
   // Determine current workflow phase
   const pendingPartBasedStages = partBasedStages.filter(s => 
     s.status === 'active' || s.status === 'pending'
@@ -102,11 +102,9 @@ export const getJobWorkflowStages = (
     s.stage_order < parallelWorkStartOrder
   );
   
-  
   // Check if all prerequisite sequential stages are completed
-  // They're complete if they're not in our pending/active list
   const allPrerequisitesComplete = prerequisiteSequentialStages.every(s => 
-    !pendingSequentialStages.includes(s)
+    s.status === 'completed'
   );
   
   // PHASE LOGIC: Only return stages from ONE phase at a time
@@ -135,8 +133,9 @@ export const getJobWorkflowStages = (
   }
   
   // PHASE 2: Parallel part-based stages (only when prerequisites complete)
-  // For each part (cover/text/both), return only the LOWEST order pending/active stage
+  // Trust the scheduler's output - it already calculated parallel processing correctly
   if (allPrerequisitesComplete && pendingPartBasedStages.length > 0) {
+    console.log('[Workflow]', jobId, 'Parallel phase - trusting scheduler output');
     const availableStages: any[] = [];
     
     // Group pending stages by part assignment
@@ -147,11 +146,14 @@ export const getJobWorkflowStages = (
       return groups;
     }, {} as Record<string, any[]>);
     
-    // For cover and text: return the LOWEST pending/active stage_order
+    console.log('[Workflow]', jobId, 'Pending part groups:', Object.keys(pendingPartGroups));
+    
+    // For cover and text: return the LOWEST pending stage_order (scheduler already determined independence)
     ['cover', 'text'].forEach(partKey => {
       if (pendingPartGroups[partKey]?.length > 0) {
         const minOrder = Math.min(...pendingPartGroups[partKey].map(s => s.stage_order));
         const nextStages = pendingPartGroups[partKey].filter(s => s.stage_order === minOrder);
+        console.log('[Workflow]', jobId, `Part ${partKey}: next stage order ${minOrder}, stages:`, nextStages.map(s => s.production_stages?.name || s.stage_name));
         availableStages.push(...nextStages);
       }
     });
@@ -168,7 +170,10 @@ export const getJobWorkflowStages = (
       // Only include "both" stages if all part-specific work at lower orders is complete
       if (lowestBothOrder < lowestPartOrder || !isFinite(lowestPartOrder)) {
         const nextBothStages = pendingPartGroups['both'].filter(s => s.stage_order === lowestBothOrder);
+        console.log('[Workflow]', jobId, `Part "both": merge point at order ${lowestBothOrder}, stages:`, nextBothStages.map(s => s.production_stages?.name || s.stage_name));
         availableStages.push(...nextBothStages);
+      } else {
+        console.log('[Workflow]', jobId, `Part "both": waiting for part-specific stages (lowestPartOrder: ${lowestPartOrder}, lowestBothOrder: ${lowestBothOrder})`);
       }
     }
     
@@ -185,12 +190,10 @@ export const getJobWorkflowStages = (
     }
   }
   
-  
-  // Fallback: Return first active/pending stage if no logic applies
-  const allPendingStages = [...activeStages, ...pendingStages];
-  if (allPendingStages.length > 0) {
-    const minOrder = Math.min(...allPendingStages.map(s => s.stage_order));
-    const firstStages = allPendingStages.filter(s => s.stage_order === minOrder);
+  // Fallback: Return first pending stage if no logic applies
+  if (pendingStages.length > 0) {
+    const minOrder = Math.min(...pendingStages.map(s => s.stage_order));
+    const firstStages = pendingStages.filter(s => s.stage_order === minOrder);
     
     return firstStages.map(stage => ({
       stage_id: stage.unique_stage_key || stage.production_stage_id,
