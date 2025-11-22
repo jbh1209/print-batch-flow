@@ -51,23 +51,17 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Build map of jobs by their parallel stages (supports jobs appearing in multiple stages)
+  // Build map of jobs by their CURRENT stage only
   const jobsByStage = useMemo(() => {
     const map = new Map<string, AccessibleJob[]>();
     
     jobs.forEach(job => {
-      // Use parallel_stages array that's already in the job from useAccessibleJobs
-      const actionableStages = job.parallel_stages || [];
-      
-      // Place job in ALL its actionable stages (parallel processing support)
-      actionableStages.forEach(stage => {
-        const stageId = stage.stage_id;
-        if (stageId) {
-          const stageJobs = map.get(stageId) || [];
-          stageJobs.push(job);
-          map.set(stageId, stageJobs);
-        }
-      });
+      // Only add job to its CURRENT stage
+      if (job.current_stage_id) {
+        const stageJobs = map.get(job.current_stage_id) || [];
+        stageJobs.push(job);
+        map.set(job.current_stage_id, stageJobs);
+      }
     });
     
     return map;
@@ -102,21 +96,20 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Build consolidated stages with counts (supports parallel processing)
+  // Build consolidated stages with accurate counts from current stages only
   const consolidatedStages = useMemo(() => {
     const stageCounts = new Map<string, { stage_id: string; stage_name: string; stage_color: string; job_count: number }>();
     
     // Use jobsByStage map to build accurate stage counts
     jobsByStage.forEach((stageJobs, stageId) => {
-      // Get stage details from first job's parallel_stages array
+      // Get stage details from job's current stage
       const firstJob = stageJobs[0];
-      const stageInfo = firstJob.parallel_stages?.find(s => s.stage_id === stageId);
       
-      if (stageInfo) {
+      if (firstJob.current_stage_name) {
         stageCounts.set(stageId, {
           stage_id: stageId,
-          stage_name: stageInfo.stage_name,
-          stage_color: stageInfo.stage_color || '#6B7280',
+          stage_name: firstJob.current_stage_name,
+          stage_color: firstJob.current_stage_color || '#6B7280',
           job_count: stageJobs.length
         });
       }
