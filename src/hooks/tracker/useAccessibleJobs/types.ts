@@ -6,6 +6,10 @@ export interface ParallelStageInfo {
   stage_color: string;
   stage_status: string;
   stage_order: number;
+  unique_stage_key?: string;
+  production_stage_id?: string;
+  is_critical_path?: boolean;
+  dependency_type?: 'sequential' | 'parallel' | 'merge';
 }
 
 export interface AccessibleJob {

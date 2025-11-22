@@ -64,7 +64,7 @@ const TrackerProduction = () => {
       
       // Add job to EACH of its actionable stages
       actionableStages.forEach(stageInfo => {
-        const stageId = stageInfo.stage_id;
+        const stageId = stageInfo.production_stage_id || stageInfo.stage_id;
         if (stageId) {
           const stageJobs = map.get(stageId) || [];
           stageJobs.push(job);
@@ -124,7 +124,7 @@ const TrackerProduction = () => {
       
       for (const job of stageJobs) {
         const stageInfo = job.parallel_stages?.find(
-          s => s.stage_id === stageId
+          s => (s.production_stage_id || s.stage_id) === stageId
         );
         if (stageInfo) {
           stageName = stageInfo.stage_name;
