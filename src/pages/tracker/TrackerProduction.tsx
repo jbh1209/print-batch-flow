@@ -312,6 +312,7 @@ const TrackerProduction = () => {
                       isLoading={isLoading}
                       onJobClick={handleJobClick}
                       onStageAction={handleStageAction}
+                      disableSpecifications={!selectedStageId}
                     />
                   </TrackerErrorBoundary>
                 </div>
