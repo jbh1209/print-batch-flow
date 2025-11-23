@@ -151,14 +151,37 @@ const TrackerProduction = () => {
     
     // Use jobsByStage map to build accurate stage counts
     jobsByStage.forEach((stageJobs, stageId) => {
-      // Get stage details from job's current stage
-      const firstJob = stageJobs[0];
+      if (stageJobs.length === 0) return;
       
-      if (firstJob.current_stage_name) {
+      // Try to get stage info from parallel_stages first, then fallback to current stage
+      let stageName = null;
+      let stageColor = null;
+      
+      for (const job of stageJobs) {
+        // Check parallel_stages first for matching stage
+        if (job.parallel_stages && job.parallel_stages.length > 0) {
+          const matchingParallelStage = job.parallel_stages.find(
+            ps => ps.stage_id === stageId
+          );
+          if (matchingParallelStage) {
+            stageName = matchingParallelStage.stage_name;
+            stageColor = matchingParallelStage.stage_color;
+            break;
+          }
+        }
+        // Fallback: if this is the job's current stage
+        if (job.current_stage_id === stageId && job.current_stage_name) {
+          stageName = job.current_stage_name;
+          stageColor = job.current_stage_color;
+          break;
+        }
+      }
+      
+      if (stageName) {
         stageCounts.set(stageId, {
           stage_id: stageId,
-          stage_name: firstJob.current_stage_name,
-          stage_color: firstJob.current_stage_color || '#6B7280',
+          stage_name: stageName,
+          stage_color: stageColor || '#6B7280',
           job_count: stageJobs.length
         });
       }
