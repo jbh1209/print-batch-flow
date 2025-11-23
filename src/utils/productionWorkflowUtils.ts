@@ -76,6 +76,38 @@ export const getJobWorkflowStages = (
   
   if (pendingStages.length === 0) return [];
   
+  // CHECK FOR PRE-PRODUCTION STAGES FIRST (DTP, PROOF)
+  // Jobs must complete DTP → PROOF before entering production queues
+  const preProductionStages = pendingStages.filter(stage => {
+    const stageName = stage.production_stages?.name || stage.production_stage?.name;
+    return stageName === 'DTP' || stageName === 'PROOF';
+  });
+  
+  // If any pre-production stages are pending, ONLY return those
+  if (preProductionStages.length > 0) {
+    const minOrder = Math.min(...preProductionStages.map(s => s.stage_order));
+    const currentPreProdStages = preProductionStages.filter(s => s.stage_order === minOrder);
+    
+    if (jobId === d428201JobId) {
+      console.log('[Workflow] D428201 is in pre-production, returning:', currentPreProdStages.map(s => ({
+        name: s.production_stage?.name || s.production_stages?.name,
+        order: s.stage_order
+      })));
+    }
+    
+    return currentPreProdStages.map(stage => ({
+      stage_id: stage.unique_stage_key || stage.production_stage_id,
+      stage_name: stage.production_stages?.name || stage.production_stage?.name || stage.stage_name,
+      stage_color: stage.production_stages?.color || stage.production_stage?.color || stage.stage_color || '#6B7280',
+      stage_status: stage.status,
+      stage_order: stage.stage_order,
+      unique_stage_key: stage.unique_stage_key,
+      production_stage_id: stage.production_stage_id,
+      part_assignment: stage.part_assignment
+    }));
+  }
+  
+  // PRE-PRODUCTION COMPLETE: Apply parallel processing logic for production stages
   // Group pending stages by part_assignment
   const partGroups = {
     cover: pendingStages.filter(s => s.part_assignment === 'cover'),
