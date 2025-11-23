@@ -11,7 +11,7 @@ export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = tru
     queryKey: ['job-stage-instances-map', jobIds],
     queryFn: async () => {
       // Circuit breaker: don't fetch if too many jobs
-      if (jobIds.length > 100 || jobIds.length === 0) {
+      if (jobIds.length > 1000 || jobIds.length === 0) {
         return new Map();
       }
 
@@ -66,7 +66,7 @@ export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = tru
 
       return map;
     },
-    enabled: enabled && jobIds.length > 0 && jobIds.length <= 100,
+    enabled: enabled && jobIds.length > 0 && jobIds.length <= 1000,
     staleTime: 30000, // 30 seconds
   });
 };
