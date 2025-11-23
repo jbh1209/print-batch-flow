@@ -55,9 +55,15 @@ const TrackerProduction = () => {
 
   // Get visible job IDs for stage instance fetching
   const visibleJobIds = useMemo(() => {
-    if (!selectedStageId) return [];
+    if (!selectedStageId) return []; // "All Jobs" view doesn't need stage instances
+    
+    // Fetch stage instances for all active jobs to compute parallel stages
     return jobs
-      .filter(job => job.current_stage_id === selectedStageId)
+      .filter(job => 
+        job.status !== 'completed' && 
+        job.status !== 'cancelled' &&
+        !job.is_in_batch_processing
+      )
       .map(job => job.job_id);
   }, [jobs, selectedStageId]);
 
