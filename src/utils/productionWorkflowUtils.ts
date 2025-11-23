@@ -68,171 +68,41 @@ export const getJobWorkflowStages = (
     return [];
   }
   
-  // Separate stages by status
-  const completedStages = allJobStages.filter(stage => stage.status === 'completed');
+  // LAYER-BASED LOGIC (matches scheduler's parallel processing)
+  // Find all pending/active stages (what hasn't been completed yet)
   const pendingStages = allJobStages.filter(stage => 
-    stage.status === 'active' || stage.status === 'pending'
+    stage.status === 'active' || stage.status === 'pending' || stage.status === 'scheduled'
   );
   
   if (pendingStages.length === 0) return [];
   
-  // Find the highest completed stage order across ALL stages
-  const highestCompletedOrder = completedStages.length > 0 
-    ? Math.max(...completedStages.map(s => s.stage_order))
-    : -1;
+  // Find the LOWEST stage_order among pending stages
+  // The scheduler already assigned the same stage_order to stages that can run in parallel
+  const lowestPendingOrder = Math.min(...pendingStages.map(s => s.stage_order));
   
-  // Group stages by type - normalize supports_parts check
-  const partBasedStages = allJobStages.filter(stage => {
-    const supportsParts = 
-      stage.production_stages?.supports_parts ?? 
-      stage.production_stage?.supports_parts ?? 
-      stage.supports_parts ?? 
-      false;
-    return supportsParts === true;
-  });
-  const sequentialStages = allJobStages.filter(stage => {
-    const supportsParts = 
-      stage.production_stages?.supports_parts ?? 
-      stage.production_stage?.supports_parts ?? 
-      stage.supports_parts ?? 
-      false;
-    return !supportsParts;
-  });
+  // Return ALL stages at that lowest order (they can ALL run in parallel!)
+  const currentLayerStages = pendingStages.filter(s => s.stage_order === lowestPendingOrder);
   
-  // Debug: Log part-based detection for D428201
+  // Debug: Log the current layer for D428201
   if (jobId === d428201JobId) {
-    console.log('[Workflow] D428201 part-based stages detected:', partBasedStages.map(s => ({
-      name: s.production_stage?.name,
-      order: s.stage_order,
+    console.log('[Workflow] D428201 current layer:', lowestPendingOrder);
+    console.log('[Workflow] D428201 available stages:', currentLayerStages.map(s => ({
+      name: s.production_stage?.name || s.production_stages?.name,
       part: s.part_assignment,
       status: s.status
     })));
   }
   
-  // Determine current workflow phase
-  const pendingPartBasedStages = partBasedStages.filter(s => 
-    s.status === 'active' || s.status === 'pending'
-  );
-  const pendingSequentialStages = sequentialStages.filter(s => 
-    s.status === 'active' || s.status === 'pending'
-  );
-  
-  // Determine if all prerequisite sequential stages are complete
-  // Find the minimum stage order among part-based stages (parallel work start point)
-  const parallelWorkStartOrder = partBasedStages.length > 0 
-    ? Math.min(...partBasedStages.map(s => s.stage_order))
-    : Infinity;
-  
-  // Find all sequential stages that come BEFORE parallel work
-  const prerequisiteSequentialStages = sequentialStages.filter(s => 
-    s.stage_order < parallelWorkStartOrder
-  );
-  
-  // Check if all prerequisite sequential stages are completed
-  const allPrerequisitesComplete = prerequisiteSequentialStages.every(s => 
-    s.status === 'completed'
-  );
-  
-  // PHASE LOGIC: Only return stages from ONE phase at a time
-  
-  // PHASE 1: Sequential stages BEFORE parallel work (must complete first)
-  if (!allPrerequisitesComplete && pendingSequentialStages.length > 0) {
-    // Find next sequential stage after highest completed
-    const nextSequentialStages = pendingSequentialStages.filter(s => 
-      s.stage_order > highestCompletedOrder
-    );
-    
-    if (nextSequentialStages.length > 0) {
-      const minNextOrder = Math.min(...nextSequentialStages.map(s => s.stage_order));
-      const nextStages = nextSequentialStages.filter(s => s.stage_order === minNextOrder);
-      
-      return nextStages.map(stage => ({
-        stage_id: stage.unique_stage_key || stage.production_stage_id,
-        stage_name: stage.production_stages?.name || stage.stage_name,
-        stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
-        stage_status: stage.status,
-        stage_order: stage.stage_order,
-        unique_stage_key: stage.unique_stage_key,
-        production_stage_id: stage.production_stage_id
-      }));
-    }
-  }
-  
-  // PHASE 2: Parallel part-based stages (only when prerequisites complete)
-  // Trust the scheduler's output - it already calculated parallel processing correctly
-  if (allPrerequisitesComplete && pendingPartBasedStages.length > 0) {
-    console.log('[Workflow]', jobId, 'Parallel phase - trusting scheduler output');
-    const availableStages: any[] = [];
-    
-    // Group pending stages by part assignment
-    const pendingPartGroups = pendingPartBasedStages.reduce((groups, stage) => {
-      const partKey = stage.part_assignment || 'both';
-      if (!groups[partKey]) groups[partKey] = [];
-      groups[partKey].push(stage);
-      return groups;
-    }, {} as Record<string, any[]>);
-    
-    console.log('[Workflow]', jobId, 'Pending part groups:', Object.keys(pendingPartGroups));
-    
-    // For cover and text: return the LOWEST pending stage_order (scheduler already determined independence)
-    ['cover', 'text'].forEach(partKey => {
-      if (pendingPartGroups[partKey]?.length > 0) {
-        const minOrder = Math.min(...pendingPartGroups[partKey].map(s => s.stage_order));
-        const nextStages = pendingPartGroups[partKey].filter(s => s.stage_order === minOrder);
-        console.log('[Workflow]', jobId, `Part ${partKey}: next stage order ${minOrder}, stages:`, nextStages.map(s => s.production_stages?.name || s.stage_name));
-        availableStages.push(...nextStages);
-      }
-    });
-    
-    // For "both": only include if no lower-order part-specific stages exist (merge point logic)
-    if (pendingPartGroups['both']?.length > 0) {
-      const coverTextStages = [...(pendingPartGroups['cover'] || []), ...(pendingPartGroups['text'] || [])];
-      const lowestPartOrder = coverTextStages.length > 0 
-        ? Math.min(...coverTextStages.map(s => s.stage_order))
-        : Infinity;
-      
-      const lowestBothOrder = Math.min(...pendingPartGroups['both'].map(s => s.stage_order));
-      
-      // Only include "both" stages if all part-specific work at lower orders is complete
-      if (lowestBothOrder < lowestPartOrder || !isFinite(lowestPartOrder)) {
-        const nextBothStages = pendingPartGroups['both'].filter(s => s.stage_order === lowestBothOrder);
-        console.log('[Workflow]', jobId, `Part "both": merge point at order ${lowestBothOrder}, stages:`, nextBothStages.map(s => s.production_stages?.name || s.stage_name));
-        availableStages.push(...nextBothStages);
-      } else {
-        console.log('[Workflow]', jobId, `Part "both": waiting for part-specific stages (lowestPartOrder: ${lowestPartOrder}, lowestBothOrder: ${lowestBothOrder})`);
-      }
-    }
-    
-    if (availableStages.length > 0) {
-      return availableStages.map(stage => ({
-        stage_id: stage.unique_stage_key || stage.production_stage_id,
-        stage_name: stage.production_stages?.name || stage.stage_name,
-        stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
-        stage_status: stage.status,
-        stage_order: stage.stage_order,
-        unique_stage_key: stage.unique_stage_key,
-        production_stage_id: stage.production_stage_id
-      }));
-    }
-  }
-  
-  // Fallback: Return first pending stage if no logic applies
-  if (pendingStages.length > 0) {
-    const minOrder = Math.min(...pendingStages.map(s => s.stage_order));
-    const firstStages = pendingStages.filter(s => s.stage_order === minOrder);
-    
-    return firstStages.map(stage => ({
-      stage_id: stage.unique_stage_key || stage.production_stage_id,
-      stage_name: stage.production_stages?.name || stage.stage_name,
-      stage_color: stage.production_stages?.color || stage.stage_color || '#6B7280',
-      stage_status: stage.status,
-      stage_order: stage.stage_order,
-      unique_stage_key: stage.unique_stage_key,
-      production_stage_id: stage.production_stage_id
-    }));
-  }
-  
-  return [];
+  return currentLayerStages.map(stage => ({
+    stage_id: stage.unique_stage_key || stage.production_stage_id,
+    stage_name: stage.production_stages?.name || stage.production_stage?.name || stage.stage_name,
+    stage_color: stage.production_stages?.color || stage.production_stage?.color || stage.stage_color || '#6B7280',
+    stage_status: stage.status,
+    stage_order: stage.stage_order,
+    unique_stage_key: stage.unique_stage_key,
+    production_stage_id: stage.production_stage_id,
+    part_assignment: stage.part_assignment
+  }));
 };
 
 /**
