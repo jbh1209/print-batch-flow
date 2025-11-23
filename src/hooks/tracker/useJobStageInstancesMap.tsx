@@ -50,6 +50,20 @@ export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = tru
         map.get(instance.job_id)!.push(instance);
       });
 
+      // Debug: Log D428201 data
+      const d428201Entry = Array.from(map.entries()).find(([_, stages]) => 
+        stages.some(s => s.production_job?.wo_no === 'D428201')
+      );
+      if (d428201Entry) {
+        console.log('[JobStageMap] D428201 stage instances:', d428201Entry[1].map(s => ({
+          name: s.production_stage?.name,
+          order: s.stage_order,
+          part: s.part_assignment,
+          supports_parts: s.production_stage?.supports_parts,
+          status: s.status
+        })));
+      }
+
       return map;
     },
     enabled: enabled && jobIds.length > 0 && jobIds.length <= 100,

@@ -84,6 +84,18 @@ const TrackerProduction = () => {
       if (!stageInstances) return job;
 
       const workflowStages = getJobWorkflowStages(stageInstances, job.job_id);
+      
+      // Debug: Log D428201 processing
+      if (job.wo_no === 'D428201') {
+        console.log('[TrackerProd] D428201 stage instances:', stageInstances.map(s => ({
+          name: s.production_stage?.name,
+          order: s.stage_order,
+          part: s.part_assignment,
+          status: s.status
+        })));
+        console.log('[TrackerProd] D428201 workflow stages:', workflowStages);
+      }
+      
       return {
         ...job,
         parallel_stages: workflowStages
