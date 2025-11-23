@@ -24,7 +24,8 @@ export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = tru
             name,
             color,
             order_index,
-            stage_group_id
+            stage_group_id,
+            supports_parts
           ),
           stage_specification:stage_specifications(
             id,
