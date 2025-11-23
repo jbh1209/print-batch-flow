@@ -68,7 +68,7 @@ export const getJobWorkflowStages = (
     return [];
   }
   
-  // LAYER-BASED LOGIC (matches scheduler's parallel processing)
+  // PART-BASED PARALLEL PROCESSING LOGIC
   // Find all pending/active stages (what hasn't been completed yet)
   const pendingStages = allJobStages.filter(stage => 
     stage.status === 'active' || stage.status === 'pending' || stage.status === 'scheduled'
@@ -76,24 +76,49 @@ export const getJobWorkflowStages = (
   
   if (pendingStages.length === 0) return [];
   
-  // Find the LOWEST stage_order among pending stages
-  // The scheduler already assigned the same stage_order to stages that can run in parallel
-  const lowestPendingOrder = Math.min(...pendingStages.map(s => s.stage_order));
+  // Group pending stages by part_assignment
+  const partGroups = {
+    cover: pendingStages.filter(s => s.part_assignment === 'cover'),
+    text: pendingStages.filter(s => s.part_assignment === 'text'),
+    both: pendingStages.filter(s => s.part_assignment === 'both' || !s.part_assignment)
+  };
   
-  // Return ALL stages at that lowest order (they can ALL run in parallel!)
-  const currentLayerStages = pendingStages.filter(s => s.stage_order === lowestPendingOrder);
+  const availableStages: any[] = [];
   
-  // Debug: Log the current layer for D428201
+  // For cover: find lowest pending order
+  if (partGroups.cover.length > 0) {
+    const minOrder = Math.min(...partGroups.cover.map(s => s.stage_order));
+    availableStages.push(...partGroups.cover.filter(s => s.stage_order === minOrder));
+  }
+  
+  // For text: find lowest pending order
+  if (partGroups.text.length > 0) {
+    const minOrder = Math.min(...partGroups.text.map(s => s.stage_order));
+    availableStages.push(...partGroups.text.filter(s => s.stage_order === minOrder));
+  }
+  
+  // For both: only if no part-specific stages are pending
+  if (partGroups.both.length > 0 && partGroups.cover.length === 0 && partGroups.text.length === 0) {
+    const minOrder = Math.min(...partGroups.both.map(s => s.stage_order));
+    availableStages.push(...partGroups.both.filter(s => s.stage_order === minOrder));
+  }
+  
+  // Debug: Log available stages for D428201
   if (jobId === d428201JobId) {
-    console.log('[Workflow] D428201 current layer:', lowestPendingOrder);
-    console.log('[Workflow] D428201 available stages:', currentLayerStages.map(s => ({
+    console.log('[Workflow] D428201 part groups:', {
+      cover: partGroups.cover.length,
+      text: partGroups.text.length,
+      both: partGroups.both.length
+    });
+    console.log('[Workflow] D428201 available stages:', availableStages.map(s => ({
       name: s.production_stage?.name || s.production_stages?.name,
       part: s.part_assignment,
+      order: s.stage_order,
       status: s.status
     })));
   }
   
-  return currentLayerStages.map(stage => ({
+  return availableStages.map(stage => ({
     stage_id: stage.unique_stage_key || stage.production_stage_id,
     stage_name: stage.production_stages?.name || stage.production_stage?.name || stage.stage_name,
     stage_color: stage.production_stages?.color || stage.production_stage?.color || stage.stage_color || '#6B7280',
