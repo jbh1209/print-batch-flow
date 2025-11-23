@@ -46,12 +46,15 @@ export const getJobWorkflowStages = (
     return [];
   }
   
+  // Debug constant for D428201 tracking
+  const d428201JobId = 'fa7a131c-0acf-4f81-a6e1-b438f002119f';
+  
   // Get ALL stages for this job (completed, active, pending)
   const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
   
-  // Debug: Log D428201 processing
-  const isD428201 = allJobStages.some(s => s.production_job?.wo_no === 'D428201');
-  if (isD428201) {
+  // Debug: Check if this is D428201 by job_id
+  if (jobId === d428201JobId) {
+    console.log('[Workflow] D428201 detected by job_id');
     console.log('[Workflow] D428201 all stages:', allJobStages.map(s => ({
       name: s.production_stage?.name,
       order: s.stage_order,
@@ -60,6 +63,7 @@ export const getJobWorkflowStages = (
       status: s.status
     })));
   }
+  
   if (allJobStages.length === 0) {
     return [];
   }
@@ -96,7 +100,7 @@ export const getJobWorkflowStages = (
   });
   
   // Debug: Log part-based detection for D428201
-  if (isD428201) {
+  if (jobId === d428201JobId) {
     console.log('[Workflow] D428201 part-based stages detected:', partBasedStages.map(s => ({
       name: s.production_stage?.name,
       order: s.stage_order,
