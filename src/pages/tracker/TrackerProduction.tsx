@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useJobStageInstancesMap } from "@/hooks/tracker/useJobStageInstancesMap";
+import { useJobIdsForStage } from "@/hooks/tracker/useJobIdsForStage";
 import { getJobWorkflowStages, shouldJobAppearInWorkflowStage } from "@/utils/productionWorkflowUtils";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -57,29 +58,29 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Get visible job IDs for stage instance fetching
-  const visibleJobIds = useMemo(() => {
-    const filtered = jobs
-      .filter(job => 
-        job.status !== 'completed' && 
-        job.status !== 'cancelled' &&
-        !job.is_in_batch_processing
-      )
-      .map(job => job.job_id);
-    
-    // Debug: Check if D428201 is in the list
-    const d428201 = jobs.find(j => j.wo_no === 'D428201');
-    console.log('[VisibleJobIds] D428201 found:', d428201?.job_id);
-    console.log('[VisibleJobIds] D428201 included:', filtered.includes(d428201?.job_id || ''));
-    console.log('[VisibleJobIds] Total jobs:', filtered.length);
-    
-    return filtered;
-  }, [jobs]);
+  // Smart pagination: Only fetch stage data for jobs in the selected stage
+  // This prevents URL length issues when trying to fetch 600+ jobs at once
+  const { data: jobIdsInStage } = useJobIdsForStage(
+    selectedStageId,
+    !!selectedStageId
+  );
 
-  // Fetch stage instances for all jobs to enable parallel stage computation
+  // For stage views: use jobs that actually have instances in that stage
+  // For "All Jobs" view: don't fetch detailed stage data (not needed for parallel processing)
+  const stageDataJobIds = useMemo(() => {
+    if (!selectedStageId) {
+      return []; // No detailed stage data needed for "All Jobs" view
+    }
+    return jobIdsInStage || [];
+  }, [selectedStageId, jobIdsInStage]);
+
+  console.log(`[TrackerProduction] Selected stage: ${selectedStageId || 'All Jobs'}`);
+  console.log(`[TrackerProduction] Jobs needing stage data: ${stageDataJobIds.length}`);
+
+  // Fetch stage instances only for jobs in the selected stage (20-50 jobs instead of 614)
   const { data: jobStageInstancesMap } = useJobStageInstancesMap(
-    visibleJobIds,
-    visibleJobIds.length > 0,
+    stageDataJobIds,
+    stageDataJobIds.length > 0,
     cacheKey
   );
 
@@ -94,17 +95,6 @@ const TrackerProduction = () => {
       if (!stageInstances) return job;
 
       const workflowStages = getJobWorkflowStages(stageInstances, job.job_id);
-      
-      // Debug: Log D428201 processing
-      if (job.wo_no === 'D428201') {
-        console.log('[TrackerProd] D428201 stage instances:', stageInstances.map(s => ({
-          name: s.production_stage?.name,
-          order: s.stage_order,
-          part: s.part_assignment,
-          status: s.status
-        })));
-        console.log('[TrackerProd] D428201 workflow stages:', workflowStages);
-      }
       
       return {
         ...job,
