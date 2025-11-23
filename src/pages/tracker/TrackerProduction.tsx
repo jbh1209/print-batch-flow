@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useJobStageInstancesMap } from "@/hooks/tracker/useJobStageInstancesMap";
-import { useJobIdsForStage } from "@/hooks/tracker/useJobIdsForStage";
 import { getJobWorkflowStages, shouldJobAppearInWorkflowStage } from "@/utils/productionWorkflowUtils";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -58,30 +57,13 @@ const TrackerProduction = () => {
   const [partAssignmentJob, setPartAssignmentJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Smart pagination: Only fetch stage data for jobs in the selected stage
-  // This prevents URL length issues when trying to fetch 600+ jobs at once
-  const { data: jobIdsInStage } = useJobIdsForStage(
-    selectedStageId,
-    !!selectedStageId
-  );
-
-  // For stage views: use jobs that actually have instances in that stage
-  // For "All Jobs" view: don't fetch detailed stage data (not needed for parallel processing)
-  const stageDataJobIds = useMemo(() => {
-    if (!selectedStageId) {
-      return []; // No detailed stage data needed for "All Jobs" view
-    }
-    return jobIdsInStage || [];
-  }, [selectedStageId, jobIdsInStage]);
-
-  console.log(`[TrackerProduction] Selected stage: ${selectedStageId || 'All Jobs'}`);
-  console.log(`[TrackerProduction] Jobs needing stage data: ${stageDataJobIds.length}`);
-
-  // Fetch stage instances only for jobs in the selected stage (20-50 jobs instead of 614)
+  // Optimized single-query approach: fetch all stages for jobs in the selected stage
+  // Eliminates query waterfall for instant parallel processing display
   const { data: jobStageInstancesMap } = useJobStageInstancesMap(
-    stageDataJobIds,
-    stageDataJobIds.length > 0,
-    cacheKey
+    [], // Empty array when using filterByStageId
+    !!selectedStageId, // Only fetch when a specific stage is selected
+    cacheKey,
+    selectedStageId // Filter by stage in the query itself
   );
 
   // Enhance jobs with parallel stage data when available
