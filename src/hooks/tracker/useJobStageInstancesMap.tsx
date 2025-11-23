@@ -30,7 +30,7 @@ export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = tru
           stage_specification:stage_specifications(
             id,
             name,
-            value
+            description
           )
         `)
         .in('job_id', jobIds)
