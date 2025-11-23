@@ -55,15 +55,21 @@ const TrackerProduction = () => {
 
   // Get visible job IDs for stage instance fetching
   const visibleJobIds = useMemo(() => {
-    // Fetch stage instances for all active jobs to compute parallel stages
-    // This is needed even in "All Jobs" view to show jobs in correct stages
-    return jobs
+    const filtered = jobs
       .filter(job => 
         job.status !== 'completed' && 
         job.status !== 'cancelled' &&
         !job.is_in_batch_processing
       )
       .map(job => job.job_id);
+    
+    // Debug: Check if D428201 is in the list
+    const d428201 = jobs.find(j => j.wo_no === 'D428201');
+    console.log('[VisibleJobIds] D428201 found:', d428201?.job_id);
+    console.log('[VisibleJobIds] D428201 included:', filtered.includes(d428201?.job_id || ''));
+    console.log('[VisibleJobIds] Total jobs:', filtered.length);
+    
+    return filtered;
   }, [jobs]);
 
   // Fetch stage instances for all jobs to enable parallel stage computation
