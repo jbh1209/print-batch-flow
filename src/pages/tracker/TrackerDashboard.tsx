@@ -82,19 +82,18 @@ const TrackerDashboard = () => {
       new Date(job.due_date) <= weekFromNow
     ).length;
 
-    // Status counts: jobs in production pipeline (not pending, not completed)
+    // In Progress = has proof approval AND not completed
     const inProgress = jobs.filter(job => 
-      job.status !== 'Completed' && 
-      job.workflow_progress > 0 &&
-      job.workflow_progress < 100
+      job.proof_approved_at && job.status !== 'Completed'
     ).length;
 
     const pending = jobs.filter(job => 
       job.current_stage_status === 'pending' || !job.current_stage_status
     ).length;
 
+    // Completed = status is 'Completed'
     const completed = jobs.filter(job => 
-      job.status === 'Completed' || job.workflow_progress === 100
+      job.status === 'Completed'
     ).length;
 
     // Build status counts from actual job statuses
