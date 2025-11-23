@@ -67,6 +67,6 @@ export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = tru
       return map;
     },
     enabled: enabled && jobIds.length > 0 && jobIds.length <= 1000,
-    staleTime: 30000, // 30 seconds
+    staleTime: 0, // Force refetch to get fresh data
   });
 };
