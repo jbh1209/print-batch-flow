@@ -55,9 +55,8 @@ const TrackerProduction = () => {
 
   // Get visible job IDs for stage instance fetching
   const visibleJobIds = useMemo(() => {
-    if (!selectedStageId) return []; // "All Jobs" view doesn't need stage instances
-    
     // Fetch stage instances for all active jobs to compute parallel stages
+    // This is needed even in "All Jobs" view to show jobs in correct stages
     return jobs
       .filter(job => 
         job.status !== 'completed' && 
@@ -65,12 +64,12 @@ const TrackerProduction = () => {
         !job.is_in_batch_processing
       )
       .map(job => job.job_id);
-  }, [jobs, selectedStageId]);
+  }, [jobs]);
 
-  // Fetch stage instances only for visible jobs in specific stage views
+  // Fetch stage instances for all jobs to enable parallel stage computation
   const { data: jobStageInstancesMap } = useJobStageInstancesMap(
     visibleJobIds,
-    !!selectedStageId && visibleJobIds.length > 0
+    visibleJobIds.length > 0
   );
 
   // Enhance jobs with parallel stage data when available
