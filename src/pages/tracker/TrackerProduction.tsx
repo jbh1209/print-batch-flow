@@ -32,12 +32,9 @@ interface TrackerProductionContext {
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const isMobile = useIsMobile();
-  const queryClient = useQueryClient();
-
-  // Force invalidate job stage instances cache to get fresh data
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['job-stage-instances-map'] });
-  }, [queryClient]);
+  
+  // Cache key to force fresh data fetching on mount
+  const [cacheKey] = useState(() => Date.now());
   
   const { 
     jobs, 
@@ -82,7 +79,8 @@ const TrackerProduction = () => {
   // Fetch stage instances for all jobs to enable parallel stage computation
   const { data: jobStageInstancesMap } = useJobStageInstancesMap(
     visibleJobIds,
-    visibleJobIds.length > 0
+    visibleJobIds.length > 0,
+    cacheKey
   );
 
   // Enhance jobs with parallel stage data when available

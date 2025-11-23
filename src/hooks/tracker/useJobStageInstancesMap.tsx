@@ -6,9 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
  * Only used for visible jobs in specific stage views (not "All Jobs")
  * Includes circuit breaker to prevent performance issues
  */
-export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = true) => {
+export const useJobStageInstancesMap = (jobIds: string[], enabled: boolean = true, cacheKey?: number) => {
   return useQuery({
-    queryKey: ['job-stage-instances-map', jobIds],
+    queryKey: ['job-stage-instances-map', jobIds, cacheKey],
     queryFn: async () => {
       // Circuit breaker: don't fetch if too many jobs
       if (jobIds.length > 1000 || jobIds.length === 0) {
