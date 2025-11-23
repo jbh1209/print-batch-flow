@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,6 +32,12 @@ interface TrackerProductionContext {
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  // Force invalidate job stage instances cache to get fresh data
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['job-stage-instances-map'] });
+  }, [queryClient]);
   
   const { 
     jobs, 
