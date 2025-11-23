@@ -48,6 +48,18 @@ export const getJobWorkflowStages = (
   
   // Get ALL stages for this job (completed, active, pending)
   const allJobStages = jobStages.filter(stage => stage.job_id === jobId);
+  
+  // Debug: Log D428201 processing
+  const isD428201 = allJobStages.some(s => s.production_job?.wo_no === 'D428201');
+  if (isD428201) {
+    console.log('[Workflow] D428201 all stages:', allJobStages.map(s => ({
+      name: s.production_stage?.name,
+      order: s.stage_order,
+      part: s.part_assignment,
+      supports_parts: s.production_stage?.supports_parts,
+      status: s.status
+    })));
+  }
   if (allJobStages.length === 0) {
     return [];
   }
@@ -82,6 +94,16 @@ export const getJobWorkflowStages = (
       false;
     return !supportsParts;
   });
+  
+  // Debug: Log part-based detection for D428201
+  if (isD428201) {
+    console.log('[Workflow] D428201 part-based stages detected:', partBasedStages.map(s => ({
+      name: s.production_stage?.name,
+      order: s.stage_order,
+      part: s.part_assignment,
+      status: s.status
+    })));
+  }
   
   // Determine current workflow phase
   const pendingPartBasedStages = partBasedStages.filter(s => 
