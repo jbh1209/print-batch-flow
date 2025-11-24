@@ -4086,37 +4086,30 @@ export type Database = {
           p_user_id?: string
         }
         Returns: {
-          batch_allocated_at: string
-          batch_category: string
-          batch_ready: boolean
-          category: string
+          category_color: string
+          category_id: string
+          category_name: string
+          completed_stages: number
           contact: string
-          created_at: string
-          current_stage: string
+          current_stage_color: string
           current_stage_id: string
-          current_stage_started_at: string
+          current_stage_name: string
           current_stage_status: string
           customer: string
-          date: string
+          display_stage_name: string
           due_date: string
-          expedite_reason: string
-          highlighted: boolean
-          id: string
-          is_batch_master: boolean
-          is_expedited: boolean
-          location: string
-          proof_approved_at: string
-          qr_code_data: string
-          qr_code_url: string
+          job_id: string
+          proof_emailed_at: string
           qty: number
           reference: string
-          size: string
-          specification: string
-          stages: Json
+          started_by: string
+          started_by_name: string
           status: string
-          tentative_due_date: string
-          updated_at: string
-          user_permission: string
+          total_stages: number
+          user_can_edit: boolean
+          user_can_manage: boolean
+          user_can_view: boolean
+          user_can_work: boolean
           wo_no: string
           workflow_progress: number
         }[]
