@@ -4079,7 +4079,12 @@ export type Database = {
         }[]
       }
       get_user_accessible_jobs: {
-        Args: { permission_type?: string; status_filter?: string }
+        Args: {
+          p_permission_type?: string
+          p_stage_filter?: string
+          p_status_filter?: string
+          p_user_id?: string
+        }
         Returns: {
           batch_category: string
           category: string
