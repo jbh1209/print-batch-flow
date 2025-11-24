@@ -4078,67 +4078,25 @@ export type Database = {
           sub_task_order: number
         }[]
       }
-      get_user_accessible_jobs:
-        | {
-            Args: {
-              p_permission_type?: string
-              p_stage_filter?: string
-              p_status_filter?: string
-              p_user_id?: string
-            }
-            Returns: {
-              category_color: string
-              category_id: string
-              category_name: string
-              completed_stages: number
-              contact: string
-              current_stage_color: string
-              current_stage_id: string
-              current_stage_name: string
-              current_stage_status: string
-              customer: string
-              display_stage_name: string
-              due_date: string
-              job_id: string
-              proof_emailed_at: string
-              qty: number
-              reference: string
-              started_by: string
-              started_by_name: string
-              status: string
-              total_stages: number
-              user_can_edit: boolean
-              user_can_manage: boolean
-              user_can_view: boolean
-              user_can_work: boolean
-              wo_no: string
-              workflow_progress: number
-            }[]
-          }
-        | {
-            Args: { permission_type?: string; status_filter?: string }
-            Returns: {
-              batch_category: string
-              category: string
-              category_id: string
-              created_at: string
-              current_stage_id: string
-              current_stage_name: string
-              current_stage_order: number
-              current_stage_status: string
-              customer: string
-              due_date: string
-              id: string
-              is_batch_master: boolean
-              proof_approved_at: string
-              qty: number
-              reference: string
-              status: string
-              updated_at: string
-              wo_no: string
-              workflow_progress: number
-            }[]
-          }
+      get_user_accessible_jobs: {
+        Args: { permission_type?: string; status_filter?: string }
+        Returns: {
+          batch_category: string
+          category: string
+          current_stage: string
+          customer: string
+          due_date: string
+          id: string
+          is_batch_master: boolean
+          proof_approved_at: string
+          reference: string
+          stages: Json
+          status: string
+          tentative_due_date: string
+          wo_no: string
+          workflow_progress: number
+        }[]
+      }
       get_user_accessible_jobs_with_batch_allocation:
         | {
             Args: {
