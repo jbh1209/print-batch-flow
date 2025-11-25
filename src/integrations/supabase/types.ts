@@ -4150,29 +4150,22 @@ export type Database = {
               p_user_id?: string
             }
             Returns: {
+              batch_allocated_at: string
               batch_category: string
-              batch_name: string
+              batch_ready: boolean
               category_color: string
               category_id: string
               category_name: string
               completed_stages: number
-              constituent_job_count: number
               contact: string
               current_stage_color: string
               current_stage_id: string
               current_stage_name: string
-              current_stage_order: number
               current_stage_status: string
               customer: string
               display_stage_name: string
               due_date: string
-              has_custom_workflow: boolean
-              id: string
-              is_batch_master: boolean
-              is_in_batch_processing: boolean
               job_id: string
-              manual_due_date: string
-              parallel_stages: Json
               proof_emailed_at: string
               qty: number
               reference: string
