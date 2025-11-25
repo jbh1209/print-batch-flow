@@ -4123,6 +4123,52 @@ export type Database = {
               p_user_id?: string
             }
             Returns: {
+              batch_category: string
+              batch_name: string
+              category_color: string
+              category_id: string
+              category_name: string
+              completed_stages: number
+              constituent_job_count: number
+              contact: string
+              current_stage_color: string
+              current_stage_id: string
+              current_stage_name: string
+              current_stage_order: number
+              current_stage_status: string
+              customer: string
+              display_stage_name: string
+              due_date: string
+              has_custom_workflow: boolean
+              id: string
+              is_batch_master: boolean
+              is_in_batch_processing: boolean
+              job_id: string
+              manual_due_date: string
+              parallel_stages: Json
+              proof_emailed_at: string
+              qty: number
+              reference: string
+              started_by: string
+              started_by_name: string
+              status: string
+              total_stages: number
+              user_can_edit: boolean
+              user_can_manage: boolean
+              user_can_view: boolean
+              user_can_work: boolean
+              wo_no: string
+              workflow_progress: number
+            }[]
+          }
+        | {
+            Args: {
+              p_permission_type?: string
+              p_stage_filter?: string
+              p_status_filter?: string
+              p_user_id?: string
+            }
+            Returns: {
               batch_size: number
               category_id: string
               category_name: string
@@ -4140,45 +4186,6 @@ export type Database = {
               stage_order: number
               updated_at: string
               wo_no: string
-            }[]
-          }
-        | {
-            Args: {
-              p_permission_type?: string
-              p_stage_filter?: string
-              p_status_filter?: string
-              p_user_id?: string
-            }
-            Returns: {
-              batch_allocated_at: string
-              batch_category: string
-              batch_ready: boolean
-              category_color: string
-              category_id: string
-              category_name: string
-              completed_stages: number
-              contact: string
-              current_stage_color: string
-              current_stage_id: string
-              current_stage_name: string
-              current_stage_status: string
-              customer: string
-              display_stage_name: string
-              due_date: string
-              job_id: string
-              proof_emailed_at: string
-              qty: number
-              reference: string
-              started_by: string
-              started_by_name: string
-              status: string
-              total_stages: number
-              user_can_edit: boolean
-              user_can_manage: boolean
-              user_can_view: boolean
-              user_can_work: boolean
-              wo_no: string
-              workflow_progress: number
             }[]
           }
       get_user_accessible_stages: {
