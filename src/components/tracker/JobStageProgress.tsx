@@ -191,7 +191,7 @@ export const JobStageProgress: React.FC<JobStageProgressProps> = ({
                 </div>
                 
                 <div>
-                  <div className="font-medium">{stage.production_stage.name}</div>
+                  <div className="font-medium">{stage.production_stage?.name || 'Unknown Stage'}</div>
                   {(stage.rework_count || 0) > 0 && (
                     <div className="text-xs text-orange-600">
                       Reworked {stage.rework_count} time{stage.rework_count !== 1 ? 's' : ''}
@@ -272,13 +272,13 @@ export const JobStageProgress: React.FC<JobStageProgressProps> = ({
           }}
           currentStage={{
             id: currentStage?.production_stage_id || '',
-            name: currentStage?.production_stage.name || '',
-            color: currentStage?.production_stage.color || '#6B7280'
+            name: currentStage?.production_stage?.name || 'Unknown Stage',
+            color: currentStage?.production_stage?.color || '#6B7280'
           }}
           targetStage={{
             id: selectedTargetStage.production_stage_id,
-            name: selectedTargetStage.production_stage.name,
-            color: selectedTargetStage.production_stage.color
+            name: selectedTargetStage.production_stage?.name || 'Unknown Stage',
+            color: selectedTargetStage.production_stage?.color || '#6B7280'
           }}
           jobNumber={job.wo_no}
           onConfirm={handleReworkConfirm}
