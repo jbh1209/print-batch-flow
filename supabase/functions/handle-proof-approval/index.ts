@@ -10,17 +10,10 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
-// Impress logo embedded as base64 for reliable email delivery across all email clients
-const LOGO_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAO4AAAAwCAYAAAAW2kZ9AAAACXBIWXMAAAsSAAALEgHS3X78AAAXtUlEQVR4nGL8//8/w0CCV5ITBRgYGAzQnHBB7Hn+hwF12CgYBYMVMDAwAAAAAP//omnGfSU5EZQhYRlTg4GBQYeBgUEEKiYOV8jN9JWBjZGZ4df/vwz/GP4zfP/Hg2TMXQYGhhcMDAxHGBgYdog9zz8wmqBGwYgGDAwMAAAAAP//olrGfSU50ZaBgSEfnDlZGKUY/vznpXrgsjD+Yfjzn4WBgeEmAwPDQgYGhuViz/MfUN2eUTAKBjNgYGAAAAAA//+iWsb90LzV69/LL3FMIlwSID6LssiLf59/cPx79UWA4e9/+b/X30r8vfKVg+H7PwaGX1Sq5ZkY/jH8Y3jKwMDQwcDAsGy0eT0KRgRgYGAAAAAA//+ieR/3xxs+BQYGBjBmZNLR/387yun3FQmVHwvfcP1/8psBnJEpBSyM/xj+/P/LwMAwjYGBoWE0A4+CYQ0YGBgAAAAA//+iSsZFypygvqwNpD/LLMfA8JeXgYH5HwT/YkHWw8ggxfD/ViHDl4msDP+OfWFg+EO1AuT3aAYeBcMaMDAwAAAAAP//ojjj/ngjfIOB4bc6ufrBGfh2JcPn8u8M/x/+ol4zmoHhJwMDQ7LY8/yl1DJwFIyCQQEYGBgAAAAA//+iSo2rtvqRgBf3Ixt3mY8Fn3+xSX//yyL66x+zsDzvDwYpznt/JbmvMnOznGJgYLiO25Bvzgw/FkQz/Jr7jJqZF2TQQQYGhsDR2ncUDBvAwMAAAAAA//8iK+OCMioDA0MmAwODN3SKh58YfRFCHxkilc4wKPL2MTAwPGdgYPiFoebv/nkMX/OeUjuMPzIwMDiIPc+/QG2DR8EooDtgYGAAAAAA//8iN+OC+rMbQAslQAPKUIwMJKAZWgU6X/sHNIQEk5dgYWKo03jEYCOazsDA8AzaLUUAxicNDB9DWBkYvlJh4AoBQJYUiD3Pn0ZNQ0fBKKA7YGBgAAAAAP//ovmoMrR2dmBgYMhjYGBwRJYDZeBlZhsYRNirMPTRJPNCpo9yRzPvKBjSgIGBAQAAAP//Iivj+vsHgWrcAOgoMohtj6YE1K98AK2RN2zcuA68SAKaiRugzWw2mOJaxTcMoQqgVvdXFEP+X5jC8Dn5AzX7vKOZdxQMfcDAwAAAAAD//yIp4/r7ByWAmpsMDAz6JPr+IgMDw4SNG9ctYEBk4PUMDAyg1VbMILFwkb8M1brRDAwMV1A0/lo9j+FHB1UHrGCZN1jsef4GSo3iC1zYgC72aX18AyE1+NSTay8aWPBpffwDJPUJ0EKWGPABWuiCwIVP6+NxDuzxBS4EmZlAqvuRulmEzCfF3bgASlhgcT8yxgZAy2w/fFofT/QYCV/gQthSX2xr8WEAvHz30/p40pbxMjAwAAAAAP//Iirj+vsHgWrXCQwMDPKkWoAGHoIy/saN68AZRm31I1BOnQerfb34/zB0GMWgZF7QdNGXvHKGv/s/UWg1BgD1ec0oHbDiC1yIEYCf1sczElKDBgI/rY8nuhDhC1wISgjnCShzRE4QfIELD2BpGRELHkLHNCagZwC+wIWgbtB+Ms2FAVALrQFbAqbQ3TCAEhZQc8lN0yC3ggoCcCWExb2g8AAVqqS6GVS5gcwFuQk/YGBgAAAAAP//YsKnwt8/SMDfP2gDtHakNNMyQM1YDzITZPatUDnQHKs5aDoYJLntIwvD6gdTGBgYuOAa/jM8Y+Ctv87AwInXqeQAVgYGhq3Q3UkDDQJItJ+cGo4SIA9dh34BWgNSG4AS+X6+wIVEJVpKAdQP5KZpkFvnY2vxQAsDUCFGTkEDasX28wUuxFogoAAGBgYAAAAA//+6BYPBBYMBDBBgAAAAD//wZi0MX0RbJOYA6ABCBwAoGBgAAAAAA==';
+// Logo hosted on production domain for reliable delivery across all email clients
+const LOGO_URL = 'https://printstream.impressweb.co.za/impress-logo-colour.png';
 
-// Inline attachment configuration
-const LOGO_ATTACHMENT = {
-  filename: 'impress-logo-colour.png',
-  content: LOGO_BASE64,
-  contentId: 'impress-logo'
-};
-
-console.log('📸 Logo attachment configured. Base64 length:', LOGO_BASE64.length, 'chars');
+console.log('📸 Logo configured from production domain:', LOGO_URL);
 
 // Branded email template for Impress Print
 const generateBrandedEmail = (params: {
@@ -51,7 +44,7 @@ const generateBrandedEmail = (params: {
               <!-- Header with brand color -->
               <tr>
                 <td style="background-color: #00B8D4; padding: 30px 40px; text-align: center;">
-                  <img src="cid:impress-logo" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 10px;" />
+                  <img src="${LOGO_URL}" alt="Impress Print Logo" style="height: 50px; width: auto; display: block; margin: 0 auto 10px;" />
                   <h1 style="color: #ffffff; font-size: 22px; font-weight: 500; margin: 0; padding: 0;">
                     Online Approval System
                   </h1>
@@ -281,8 +274,7 @@ serve(async (req) => {
               expiresAt,
               message: `Your proof for Work Order <strong>${jobDetails?.wo_no || 'N/A'}</strong> is now ready for your review and approval.`,
               includeNextSteps: true
-            }),
-            attachments: [LOGO_ATTACHMENT]
+            })
           });
           
           console.log('✅ Proof email sent successfully!', emailResult);
