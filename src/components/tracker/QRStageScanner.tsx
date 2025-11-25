@@ -120,7 +120,7 @@ export const QRStageScanner: React.FC<QRStageScannerProps> = ({
             QR Code Scanner
           </DialogTitle>
           <DialogDescription>
-            {mode === 'start' ? 'Start' : 'Complete'} stage: {stage.production_stage.name}
+            {mode === 'start' ? 'Start' : 'Complete'} stage: {stage.production_stage?.name || 'Unknown Stage'}
           </DialogDescription>
         </DialogHeader>
 
@@ -130,11 +130,11 @@ export const QRStageScanner: React.FC<QRStageScannerProps> = ({
             <div className="flex items-center gap-2">
               <div
                 className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: stage.production_stage.color }}
+                style={{ backgroundColor: stage.production_stage?.color || '#6B7280' }}
               />
               <div>
                 <p className="font-medium text-blue-800">
-                  Stage {stage.stage_order}: {stage.production_stage.name}
+                  Stage {stage.stage_order}: {stage.production_stage?.name || 'Unknown Stage'}
                 </p>
                 <p className="text-sm text-blue-600 flex items-center gap-1">
                   {mode === 'start' ? (
