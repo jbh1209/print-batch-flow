@@ -119,7 +119,7 @@ const TrackerDashboard = () => {
     const stages = Array.from(stageMap.values()).sort((a, b) => b.count - a.count);
 
     return {
-      total: jobs.length,
+      total: jobs.filter(job => job.status !== 'Completed').length,
       inProgress,
       completed,
       pending,
