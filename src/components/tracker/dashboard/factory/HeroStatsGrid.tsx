@@ -116,11 +116,11 @@ export const HeroStatsGrid: React.FC<HeroStatsGridProps> = ({ stats }) => {
 
       {/* Row 2: Production Metrics */}
       <HeroStatTile
-        title="TOTAL JOBS"
+        title="ACTIVE JOBS"
         value={stats.total}
         icon={Users}
         variant="info"
-        subtitle="in system"
+        subtitle="in production"
       />
 
       <HeroStatTile
