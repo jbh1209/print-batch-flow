@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   Package, 
   BarChart3, 
-  FileSpreadsheet, 
   Layers,
   Factory,
   Settings,
@@ -22,7 +21,6 @@ const TrackerSidebar = () => {
     { name: "Kanban", href: "/tracker/kanban", icon: Layers },
     { name: "Factory Floor", href: "/tracker/factory-floor", icon: Factory },
     { name: "Analytics", href: "/tracker/analytics", icon: BarChart3 },
-    { name: "Worksheets", href: "/tracker/worksheets", icon: FileSpreadsheet },
     { name: "Users", href: "/tracker/users", icon: Users },
     { name: "Admin", href: "/tracker/admin", icon: Settings },
   ];

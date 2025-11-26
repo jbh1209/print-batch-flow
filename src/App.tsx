@@ -23,7 +23,6 @@ import TrackerKanban from "@/pages/tracker/TrackerKanban";
 import TrackerAdmin from "@/pages/tracker/TrackerAdmin";
 import TrackerUsers from "@/pages/tracker/TrackerUsers";
 import TrackerAnalytics from "@/pages/tracker/TrackerAnalytics";
-import TrackerWorkSheets from "@/pages/tracker/TrackerWorkSheets";
 import TrackerLabels from "@/pages/tracker/TrackerLabels";
 import TrackerUpload from "@/pages/tracker/TrackerUpload";
 import TrackerDTPWorkflow from "@/pages/tracker/TrackerDTPWorkflow";
@@ -218,7 +217,6 @@ function App() {
                   <Route path="finishing" element={<TrackerFinishing />} />
                   <Route path="scoring" element={<TrackerScoring />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
-                  <Route path="worksheets" element={<TrackerWorkSheets />} />
                   <Route path="admin" element={
                     <AdminRoute>
                       <TrackerAdmin />
