@@ -36,7 +36,7 @@ export const useDashboardJobs = () => {
       setError(null);
 
       const { data, error: fetchError } = await supabase.rpc(
-        'get_dashboard_job_stats',
+        'get_dashboard_job_stats' as any,
         { p_user_id: user.id }
       );
 
@@ -45,7 +45,7 @@ export const useDashboardJobs = () => {
         throw fetchError;
       }
 
-      setJobs(data || []);
+      setJobs((data as any) || []);
       setLastFetchTime(new Date());
     } catch (err) {
       console.error('Failed to fetch dashboard jobs:', err);
