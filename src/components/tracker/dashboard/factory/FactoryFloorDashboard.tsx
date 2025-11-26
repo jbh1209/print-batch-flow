@@ -5,21 +5,21 @@ import { HeroStatsGrid } from "./HeroStatsGrid";
 import { LiveProductionFlow } from "./LiveProductionFlow";
 import { FactoryAlertBanner } from "./FactoryAlertBanner";
 import { FactoryStatusDisplay } from "./FactoryStatusDisplay";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 
 interface FactoryFloorDashboardProps {
   stats: any;
   onBack: () => void;
+  refreshJobs: () => void;
+  lastFetchTime: Date | null;
 }
 
 export const FactoryFloorDashboard: React.FC<FactoryFloorDashboardProps> = ({ 
   stats, 
-  onBack 
+  onBack,
+  refreshJobs,
+  lastFetchTime
 }) => {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const { refreshJobs, lastFetchTime } = useAccessibleJobs({
-    permissionType: 'manage'
-  });
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -59,7 +59,7 @@ export const FactoryFloorDashboard: React.FC<FactoryFloorDashboardProps> = ({
         </div>
         
         <div className="flex items-center gap-4">
-          <FactoryStatusDisplay lastFetchTime={lastFetchTime} />
+          <FactoryStatusDisplay lastFetchTime={lastFetchTime?.getTime()} />
           
           <Button
             variant="outline"

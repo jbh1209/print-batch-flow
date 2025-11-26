@@ -168,7 +168,14 @@ const TrackerDashboard = () => {
     );
   }
 
-  return <FactoryFloorDashboard stats={stats} onBack={() => {}} />;
+  return (
+    <FactoryFloorDashboard 
+      stats={stats} 
+      onBack={() => {}} 
+      refreshJobs={refreshJobs}
+      lastFetchTime={lastFetchTime}
+    />
+  );
 };
 
 export default TrackerDashboard;
