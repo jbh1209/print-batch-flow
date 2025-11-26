@@ -67,7 +67,7 @@ const AppSelector = () => {
                 <li>• Real-time production monitoring</li>
               </ul>
               <Button asChild size="lg" className="w-full bg-green-600 hover:bg-green-700">
-                <Link to="/tracker" className="flex items-center justify-center gap-2">
+                <Link to="/tracker/dashboard" className="flex items-center justify-center gap-2">
                   Open Tracker
                   <ArrowRight className="h-4 w-4" />
                 </Link>

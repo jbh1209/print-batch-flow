@@ -20,7 +20,7 @@ const TrackerLayout = () => {
   });
 
   const routeToTab = {
-    '/tracker': 'dashboard',
+    '/tracker/dashboard': 'dashboard',
     '/tracker/jobs': 'orders',
     '/tracker/production': 'production',
     '/tracker/kanban': 'kanban',
@@ -42,7 +42,7 @@ const TrackerLayout = () => {
     setActiveTab(tab);
     
     const tabRoutes = {
-      'dashboard': '/tracker',
+      'dashboard': '/tracker/dashboard',
       'orders': '/tracker/jobs',
       'production': '/tracker/production',
       'kanban': '/tracker/kanban',
@@ -51,7 +51,7 @@ const TrackerLayout = () => {
       'setup': '/tracker/admin'
     };
     
-    const route = tabRoutes[tab] || '/tracker';
+    const route = tabRoutes[tab] || '/tracker/dashboard';
     navigate(route);
   };
 
