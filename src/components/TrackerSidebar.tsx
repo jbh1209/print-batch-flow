@@ -17,7 +17,7 @@ const TrackerSidebar = () => {
   const location = useLocation();
   
   const navigation = [
-    { name: "Dashboard", href: "/tracker", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/tracker/dashboard", icon: LayoutDashboard },
     { name: "Production", href: "/tracker/production", icon: Package },
     { name: "Kanban", href: "/tracker/kanban", icon: Layers },
     { name: "Factory Floor", href: "/tracker/factory-floor", icon: Factory },
