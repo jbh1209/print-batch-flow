@@ -71,7 +71,7 @@ const Sidebar = () => {
           </Link>
         </Button>
         {!collapsed && <Button asChild variant="ghost" size="sm" className="w-full mt-2 text-white/70 hover:text-white hover:bg-white/10">
-            <Link to="/tracker" className="flex items-center gap-2">
+            <Link to="/tracker/dashboard" className="flex items-center gap-2">
               <Target size={16} />
               Tracker
             </Link>
