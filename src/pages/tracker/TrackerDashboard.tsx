@@ -1,7 +1,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { FactoryFloorDashboard } from "@/components/tracker/dashboard/factory/FactoryFloorDashboard";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useDashboardJobs } from "@/hooks/tracker/useDashboardJobs";
 
 const TrackerDashboard = () => {
   const {
@@ -10,9 +10,7 @@ const TrackerDashboard = () => {
     error,
     refreshJobs,
     lastFetchTime
-  } = useAccessibleJobs({
-    permissionType: 'manage'
-  });
+  } = useDashboardJobs();
 
   // Calculate comprehensive dashboard metrics
   const stats = React.useMemo(() => {
