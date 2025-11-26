@@ -40,9 +40,9 @@ export const FactoryFloorDashboard: React.FC<FactoryFloorDashboardProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Auto-refresh every 15 seconds in factory mode
+  // Auto-refresh every 5 minutes in factory mode
   React.useEffect(() => {
-    const interval = setInterval(refreshJobs, 15000);
+    const interval = setInterval(refreshJobs, 300000);
     return () => clearInterval(interval);
   }, [refreshJobs]);
 

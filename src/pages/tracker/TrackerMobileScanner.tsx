@@ -50,7 +50,7 @@ const TrackerMobileScanner = () => {
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Button variant="outline" size="sm" asChild>
-            <Link to="/tracker" className="flex items-center gap-2">
+            <Link to="/tracker/dashboard" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back
             </Link>
