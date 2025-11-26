@@ -5,7 +5,7 @@ import { ClipboardList, Package, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { ProofApprovalFixer } from "@/components/utils/ProofApprovalFixer";
+
 const AppSelector = () => {
   const {
     user,
@@ -102,37 +102,6 @@ const AppSelector = () => {
             </CardContent>
           </Card>
 
-          {/* Schedule Board App */}
-          <Card className="hover:shadow-xl transition-all duration-300 group cursor-pointer">
-            <CardHeader className="text-center pb-4">
-              <div className="mx-auto mb-4 p-4 bg-purple-100 rounded-full w-20 h-20 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                <ClipboardList className="h-10 w-10 text-purple-600" />
-              </div>
-              <CardTitle className="text-2xl text-gray-900">Schedule Board</CardTitle>
-              <CardDescription className="text-gray-600">
-                Weekly production scheduling and time slot management
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <ul className="text-sm text-gray-600 mb-6 space-y-2">
-                <li>• Plan weekly production schedules</li>
-                <li>• Assign jobs to specific time slots</li>
-                <li>• Monday to Friday shift management</li>
-                <li>• Visual schedule overview</li>
-              </ul>
-              <Button asChild size="lg" className="w-full bg-purple-600 hover:bg-purple-700">
-                <Link to="/schedule-board" className="flex items-center justify-center gap-2">
-                  Open Schedule Board
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Temporary fix utility - remove after fixing proof approvals */}
-        <div className="mt-8 flex justify-center">
-          <ProofApprovalFixer />
         </div>
       </div>
     </div>;
