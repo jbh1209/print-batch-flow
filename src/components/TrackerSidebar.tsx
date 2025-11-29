@@ -9,7 +9,8 @@ import {
   Layers,
   Factory,
   Settings,
-  Users
+  Users,
+  CheckCheck
 } from "lucide-react";
 
 const TrackerSidebar = () => {
@@ -21,6 +22,7 @@ const TrackerSidebar = () => {
     { name: "Kanban", href: "/tracker/kanban", icon: Layers },
     { name: "Factory Floor", href: "/tracker/factory-floor", icon: Factory },
     { name: "Analytics", href: "/tracker/analytics", icon: BarChart3 },
+    { name: "Bulk Approval", href: "/tracker/bulk-approval", icon: CheckCheck },
     { name: "Users", href: "/tracker/users", icon: Users },
     { name: "Admin", href: "/tracker/admin", icon: Settings },
   ];

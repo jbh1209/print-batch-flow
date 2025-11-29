@@ -24,6 +24,7 @@ import TrackerAdmin from "@/pages/tracker/TrackerAdmin";
 import TrackerUsers from "@/pages/tracker/TrackerUsers";
 import TrackerAnalytics from "@/pages/tracker/TrackerAnalytics";
 import TrackerLabels from "@/pages/tracker/TrackerLabels";
+import TrackerBulkApproval from "@/pages/tracker/TrackerBulkApproval";
 import TrackerUpload from "@/pages/tracker/TrackerUpload";
 import TrackerDTPWorkflow from "@/pages/tracker/TrackerDTPWorkflow";
 import TrackerPackagingShipping from "@/pages/tracker/TrackerPackagingShipping";
@@ -217,6 +218,7 @@ function App() {
                   <Route path="finishing" element={<TrackerFinishing />} />
                   <Route path="scoring" element={<TrackerScoring />} />
                   <Route path="analytics" element={<TrackerAnalytics />} />
+                  <Route path="bulk-approval" element={<TrackerBulkApproval />} />
                   <Route path="admin" element={
                     <AdminRoute>
                       <TrackerAdmin />
