@@ -16,21 +16,47 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { startOrderNum, endOrderNum } = await req.json()
+    const { startOrderNum, endOrderNum, orderNumbers } = await req.json()
     
-    console.log(`🚀 Starting bulk approval for orders ${startOrderNum} to ${endOrderNum}`)
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get all jobs in the range
-    const { data: jobs, error: jobsError } = await supabase
-      .from('production_jobs')
-      .select('id, wo_no, status')
-      .gte('wo_no', `D${startOrderNum}`)
-      .lte('wo_no', `D${endOrderNum}`)
-      .order('wo_no')
+    let jobs: any[] = []
+    let jobsError: any = null
+
+    // Handle either range mode or list mode
+    if (orderNumbers && Array.isArray(orderNumbers)) {
+      // List mode - fetch specific order numbers
+      console.log(`🚀 Starting bulk approval for ${orderNumbers.length} specific orders`)
+      
+      const { data, error } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, status')
+        .in('wo_no', orderNumbers)
+        .order('wo_no')
+      
+      jobs = data || []
+      jobsError = error
+    } else if (startOrderNum !== undefined && endOrderNum !== undefined) {
+      // Range mode - fetch jobs in range
+      console.log(`🚀 Starting bulk approval for orders ${startOrderNum} to ${endOrderNum}`)
+      
+      const { data, error } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, status')
+        .gte('wo_no', `D${startOrderNum}`)
+        .lte('wo_no', `D${endOrderNum}`)
+        .order('wo_no')
+      
+      jobs = data || []
+      jobsError = error
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'Must provide either startOrderNum/endOrderNum or orderNumbers' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (jobsError) {
       console.error('❌ Error fetching jobs:', jobsError)
@@ -41,11 +67,17 @@ Deno.serve(async (req) => {
     }
 
     if (!jobs || jobs.length === 0) {
+      const rangeMsg = orderNumbers 
+        ? `No jobs found for the provided order numbers`
+        : `No jobs found in range D${startOrderNum} to D${endOrderNum}`
+      
       return new Response(
         JSON.stringify({ 
           processed: 0, 
           failed: 0, 
-          message: `No jobs found in range D${startOrderNum} to D${endOrderNum}` 
+          total: 0,
+          results: [],
+          message: rangeMsg
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

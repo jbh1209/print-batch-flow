@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatWONumber } from "@/utils/woNumberFormatter";
 
 interface ApprovalResult {
   woNo: string;
@@ -22,46 +26,88 @@ interface BulkApprovalResponse {
 }
 
 const TrackerBulkApproval = () => {
+  const [mode, setMode] = useState<"range" | "list">("range");
   const [startNum, setStartNum] = useState("");
   const [endNum, setEndNum] = useState("");
+  const [orderList, setOrderList] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentJob, setCurrentJob] = useState("");
   const [results, setResults] = useState<BulkApprovalResponse | null>(null);
 
+  const parseOrderList = (input: string): string[] => {
+    // Split by newlines, commas, spaces, and filter out empty strings
+    const orders = input
+      .split(/[\n,\s]+/)
+      .map(order => order.trim())
+      .filter(order => order.length > 0)
+      .map(order => {
+        // Remove 'D' prefix if present and format
+        const formatted = formatWONumber(order);
+        return formatted;
+      })
+      .filter(order => order.length > 0);
+    
+    return [...new Set(orders)]; // Remove duplicates
+  };
+
   const handleBulkApproval = async () => {
-    const start = parseInt(startNum);
-    const end = parseInt(endNum);
+    let requestBody: any;
 
-    if (isNaN(start) || isNaN(end)) {
-      toast.error("Please enter valid order numbers");
-      return;
-    }
+    if (mode === "range") {
+      const start = parseInt(startNum);
+      const end = parseInt(endNum);
 
-    if (start > end) {
-      toast.error("Start number must be less than or equal to end number");
-      return;
-    }
+      if (isNaN(start) || isNaN(end)) {
+        toast.error("Please enter valid order numbers");
+        return;
+      }
 
-    const totalJobs = end - start + 1;
-    if (totalJobs > 200) {
-      toast.error("Maximum 200 jobs per batch. Please use a smaller range.");
-      return;
+      if (start > end) {
+        toast.error("Start number must be less than or equal to end number");
+        return;
+      }
+
+      const totalJobs = end - start + 1;
+      if (totalJobs > 200) {
+        toast.error("Maximum 200 jobs per batch. Please use a smaller range.");
+        return;
+      }
+
+      requestBody = { 
+        startOrderNum: start, 
+        endOrderNum: end 
+      };
+      setCurrentJob(`D${start}`);
+    } else {
+      // List mode
+      const orders = parseOrderList(orderList);
+      
+      if (orders.length === 0) {
+        toast.error("Please enter at least one order number");
+        return;
+      }
+
+      if (orders.length > 200) {
+        toast.error("Maximum 200 jobs per batch. Please reduce the list.");
+        return;
+      }
+
+      requestBody = { 
+        orderNumbers: orders 
+      };
+      setCurrentJob(orders[0]);
     }
 
     setIsProcessing(true);
     setProgress(0);
     setResults(null);
-    setCurrentJob(`D${start}`);
 
     try {
-      console.log("🚀 Starting bulk approval:", { start, end });
+      console.log("🚀 Starting bulk approval:", requestBody);
       
       const { data, error } = await supabase.functions.invoke('bulk-approve-jobs', {
-        body: { 
-          startOrderNum: start, 
-          endOrderNum: end 
-        }
+        body: requestBody
       });
 
       if (error) {
@@ -101,39 +147,74 @@ const TrackerBulkApproval = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Order Range</CardTitle>
+          <CardTitle>Order Selection</CardTitle>
           <CardDescription>
-            Enter the start and end order numbers (without the 'D' prefix)
+            Choose to process a range of orders or paste a specific list
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Start Order Number</label>
-              <Input
-                type="number"
-                placeholder="e.g., 428300"
-                value={startNum}
-                onChange={(e) => setStartNum(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">End Order Number</label>
-              <Input
-                type="number"
-                placeholder="e.g., 428400"
-                value={endNum}
-                onChange={(e) => setEndNum(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "range" | "list")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="range">Order Range</TabsTrigger>
+              <TabsTrigger value="list">Order List</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="range" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start-num">Start Order Number</Label>
+                  <Input
+                    id="start-num"
+                    type="number"
+                    placeholder="e.g., 428300"
+                    value={startNum}
+                    onChange={(e) => setStartNum(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-num">End Order Number</Label>
+                  <Input
+                    id="end-num"
+                    type="number"
+                    placeholder="e.g., 428400"
+                    value={endNum}
+                    onChange={(e) => setEndNum(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Enter numbers without the 'D' prefix. Maximum 200 orders per batch.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="list" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="order-list">Order Numbers</Label>
+                <Textarea
+                  id="order-list"
+                  placeholder="Paste order numbers here (one per line or comma-separated)&#10;Examples:&#10;428300&#10;D428301&#10;428302, 428303&#10;D428304"
+                  value={orderList}
+                  onChange={(e) => setOrderList(e.target.value)}
+                  disabled={isProcessing}
+                  className="min-h-[200px] font-mono"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                You can include or omit the 'D' prefix. Maximum 200 orders per batch.
+              </p>
+            </TabsContent>
+          </Tabs>
 
           <div className="flex items-center gap-4 pt-2">
             <Button
               onClick={handleBulkApproval}
-              disabled={isProcessing || !startNum || !endNum}
+              disabled={
+                isProcessing || 
+                (mode === "range" && (!startNum || !endNum)) ||
+                (mode === "list" && !orderList.trim())
+              }
               className="w-full"
               size="lg"
             >
