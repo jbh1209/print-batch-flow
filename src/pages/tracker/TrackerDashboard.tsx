@@ -134,11 +134,11 @@ const TrackerDashboard = () => {
     };
   }, [jobs]);
 
-  // Auto-refresh every 15 seconds for factory display
+  // Auto-refresh every 5 minutes for factory display
   React.useEffect(() => {
     const interval = setInterval(() => {
       refreshJobs();
-    }, 15000);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, [refreshJobs]);
