@@ -144,7 +144,8 @@ Deno.serve(async (req) => {
         // Step 5: Advance to next stage using the RPC function
         const { error: advanceError } = await supabase.rpc('advance_job_stage', {
           p_job_id: job.id,
-          p_current_stage_instance_id: proofStage.id
+          p_job_table_name: 'production_jobs',
+          p_current_stage_id: proofStage.id
         })
 
         if (advanceError) {
